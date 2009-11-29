@@ -1,0 +1,155 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html><head>
+
+
+
+
+
+
+
+  
+  <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Explorer</title>
+  
+
+  
+  
+  <style type="text/css">
+h1 {
+  color: #0070c0;
+  font-family: "Times New Roman",Times,serif;
+}
+body {
+  font-family: Arial,Helvetica,sans-serif;
+}
+
+  </style></head><body>
+<h1><a href="http://sourceforge.net/projects/classicshell/"><img style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge" src="ClassicExplorer_files/ClassicShell.png"></a>&nbsp; Classic Explorer</h1>
+
+
+<p><span style="font-weight: bold; color: rgb(79, 129, 189);">Classic
+Explorer</span> is a plugin for Windows Explorer that:</p>
+
+<ul>
+
+  <li>Replaces the copy UI in Vista and Windows 7 with the more
+user-friendly &#8220;classic&#8221; version from Windows XP</li>
+  <li>Handles Alt+Enter in the folder panel of Windows Explorer and
+shows the properties of the selected folder</li>
+  <li>Adds an Up button in the toolbar</li>
+</ul>
+
+<h1>New copy UI</h1>
+
+In Vista when you copy files and there is a conflict you are presented
+with this:<br>
+
+<br>
+
+<img style="width: 460px; height: 472px;" alt="Before" title="Before" src="ClassicExplorer_files/before.png"><br>
+
+<p>What&#8217;s wrong with it?</p>
+
+<p>Well, for
+starters it is half a screen full of text that you have to read. Also
+it is not immediately clear what parts of it are clickable. You have to
+move the mouse around to discover the UI like in a <a href="http://en.wikipedia.org/wiki/Day_of_the_Tentacle">Lucas Arts
+adventure game</a>. And finally the keyboard usability is awful. To
+tell it
+<span style="font-weight: bold; color: rgb(79, 129, 189);">&#8220;yes, I know what I&#8217;m doing, I want to overwrite all files&#8221;</span> you have to
+press <strong><span style="color: rgb(79, 129, 189);">Alt+D, up, up, up, Space</span></strong>! It is harder than performing the <a href="http://www.youtube.com/watch?v=AErqKebdqjU&amp;feature=fvw">Akuma
+Kara Demon move</a> in Street Fighter 3. There is a time and a place
+for
+that stuff and copying files is not it.</p>
+
+<p>The Classic Explorer plugin brings back the simpler dialog box from Windows XP:<br>
+</p>
+
+<p><img style="width: 438px; height: 251px;" alt="After" title="After" src="ClassicExplorer_files/after.png"><br>
+</p>
+
+<p>It
+is immediately clear what is clickable (clue &#8211; the buttons at the
+bottom), there is easy keyboard navigation (press <span style="font-weight: bold; color: rgb(79, 129, 189);">Y</span> for &#8220;Yes&#8221;, <span style="font-weight: bold; color: rgb(79, 129, 189);">A</span> to
+copy all files) and you can still see which file is newer and which is
+larger. And of course just like in Windows XP, holding down <strong style="color: rgb(79, 129, 189);">Shift</strong> while clicking on the No button means "No to All" (or just press <strong style="color: rgb(79, 129, 189);">Shift+N</strong>).<br>
+</p>
+
+<p>If you click
+on <span style="text-decoration: underline;">More&#8230;</span> you will get
+the original dialog from Windows. From there you
+will see all the details and you&#8217;ll get an extra option to &#8220;Copy, but
+keep both files&#8221;.</p>
+<p><span style="font-weight: bold;">Important Note:</span> Only the UI is replaced. The underlying system that does the actual copying is not affected.<br>
+</p>
+
+
+<h1>Alt+Enter in the folder panel</h1>
+
+Alt+Enter is
+universal shortcut across Windows to bring up the properties of the
+selection. But in Vista and Windows 7 it doesn&#8217;t work in the left
+panel that shows the folders. It works fine on the right where the
+files are. This is broken compared to Windows XP where Alt+Enter works
+in both places.
+<p>To solve the
+problem, the Classic Explorer plugin detects when you press Alt+Enter
+and shows the properties for the currently selected folder.<br>
+<br>
+</p>
+
+<h1>Up button in Windows Explorer</h1>
+
+Windows
+Explorer in Vista doesn&#8217;t have the button that goes up one folder. The
+breadcrumbs in the address bar kind of compensate for that but not
+fully. Sometimes you just want to go up 3 folders, and counting 3
+breadcrumbs can be a bother.
+<p>To solve the problem, the Classic Explorer plugin adds a new toolbar
+that has an Up button:<br>
+</p>
+
+&nbsp;<img style="width: 483px; height: 125px;" alt="Explorer Toolbar" title="Explorer Toolbar" src="ClassicExplorer_files/toolbar.png"><br>
+<br>
+Hold the <strong>Control key</strong> when clicking the Up button to open the parent folder in a new Explorer window.<br>
+
+<br>
+
+The new toolbar doesn&#8217;t show up in Explorer automatically after
+installation. You have to do 3-4 things before you can use it:<br>
+
+<ol style="font-family: Helvetica,Arial,sans-serif;">
+
+  <li>Open a new Windows Explorer window (Win key+E)</li>
+  <li>Turn on the menu in Explorer &#8211; Go to Tools (Alt+T), Folder
+Options, the View tab, and make sure &#8220;Always show menus&#8221; is checked.</li>
+  <li>Right click on the menu bar and select &#8220;Classic Explorer Bar&#8221; to
+show the toolbar.</li>
+  <li>If that option is not available (you only see &#8220;Lock the
+Toolbars&#8221;) you may have to enable the plugin from Internet Explorer.
+Run IE, right click on its toolbar and select &#8220;Classic Explorer Bar&#8221;.
+It will ask you if you want to enable this add-on. Select &#8220;Enable&#8221;,
+then repeat steps 1 through 3 again.<br>
+  </li>
+</ol>
+
+<h1>Settings</h1>
+
+The second
+button in the toolbar opens up the Settings dialog box for Classic
+Explorer. From there you can enable or disable the Copy UI and the
+Alt+Enter features.<br>
+<br>
+
+<h1>Localization</h1>
+
+The user
+interface (except the Settings dialog box) is localized in all 35
+languages available for Vista and Windows 7. New languages can be added
+by editing the file <span style="color: rgb(79, 129, 189); font-weight: bold;">ExplorerL10N.ini</span>
+in the installation folder &#8211;
+usually <span style="font-weight: bold; color: rgb(79, 129, 189);">C:\Program
+Files\ClassicShell</span>. <br>
+
+<br>
+
+</body></html>

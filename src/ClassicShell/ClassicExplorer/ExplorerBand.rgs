@@ -1,0 +1,51 @@
+HKCR
+{
+	ClassicExplorer.ExplorerBand.1 = s 'ExplorerBand Class'
+	{
+		CLSID = s '{553891B7-A0D5-4526-BE18-D3CE461D6310}'
+	}
+	ClassicExplorer.ExplorerBand = s 'ExplorerBand Class'
+	{
+		CLSID = s '{553891B7-A0D5-4526-BE18-D3CE461D6310}'
+		CurVer = s 'ClassicExplorer.ExplorerBand.1'
+	}
+	NoRemove CLSID
+	{
+		ForceRemove {553891B7-A0D5-4526-BE18-D3CE461D6310} = s 'Classic Explorer Bar'
+		{
+			ProgID = s 'ClassicExplorer.ExplorerBand.1'
+			VersionIndependentProgID = s 'ClassicExplorer.ExplorerBand'
+			ForceRemove 'Programmable'
+			InprocServer32 = s '%MODULE%'
+			{
+				val ThreadingModel = s 'Apartment'
+			}
+			'TypeLib' = s '{BF8D124A-A4E0-402F-8152-4EF377E62586}'
+		}
+	}
+}
+
+HKLM
+{
+	Software
+	{
+		Microsoft
+		{
+			'Internet Explorer'
+			{
+				Extensions
+				{
+					ForceRemove	{64964764-1101-4bbd-8891-B56B1A53B9B3} = s 'Classic Explorer'
+					{
+						val BandClsid = s '{553891B7-A0D5-4526-BE18-D3CE461D6310}'
+						val Clsid = s '{E0DD6CAB-2D10-11D2-8F1A-0000F87ABD16}'
+					}
+				}
+				Toolbar
+				{
+					ForceRemove	val {553891B7-A0D5-4526-BE18-D3CE461D6310} = b ''
+				}
+			}
+		}
+	}
+}

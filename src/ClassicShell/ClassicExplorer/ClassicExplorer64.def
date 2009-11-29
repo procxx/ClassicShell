@@ -1,0 +1,10 @@
+; ClassicExplorer.def : Declares the module parameters.
+
+LIBRARY      "ClassicExplorer64.DLL"
+
+EXPORTS
+	DllCanUnloadNow		PRIVATE
+	DllGetClassObject	PRIVATE
+	DllRegisterServer	PRIVATE
+	DllUnregisterServer	PRIVATE
+	DllInstall		PRIVATE

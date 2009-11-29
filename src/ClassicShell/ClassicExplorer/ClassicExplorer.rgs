@@ -1,0 +1,26 @@
+HKCR
+{
+	NoRemove AppID
+	{
+		'%APPID%' = s 'ClassicExplorer'
+		'ClassicExplorer.DLL'
+		{
+			val AppID = s '%APPID%'
+		}
+	}
+}
+
+HKCU
+{
+	NoRemove 'SOFTWARE'
+	{
+		NoRemove 'IvoSoft'
+		{
+			NoRemove 'ClassicExplorer'
+			{
+				val EnableCopyUI = d 1
+				val EnableAltEnter = d 1
+			}
+		}
+	}
+}

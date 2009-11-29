@@ -1,0 +1,284 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#ifndef APSTUDIO_INVOKED
+#include "targetver.h"
+#endif
+#include "winres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#ifndef APSTUDIO_INVOKED\r\n"
+    "#include ""targetver.h""\r\n"
+    "#endif\r\n"
+    "#include ""winres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "1 TYPELIB ""ClassicExplorer.tlb""\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 0,9,0,0
+ PRODUCTVERSION 0,9,0,0
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904e4"
+        BEGIN
+            VALUE "CompanyName", "IvoSoft"
+            VALUE "FileDescription", "Adds classic Windows Explorer features"
+            VALUE "FileVersion", "0, 9, 0, 0"
+            VALUE "InternalName", "ClassicExplorer.dll"
+            VALUE "OriginalFilename", "ClassicExplorer.dll"
+            VALUE "ProductName", "Classic Shell"
+            VALUE "ProductVersion", "0, 9, 0, 0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1252
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// REGISTRY
+//
+
+IDR_CLASSICEXPLORER     REGISTRY                "ClassicExplorer.rgs"
+IDR_EXPLORERBAND        REGISTRY                "ExplorerBand.rgs"
+IDR_EXPLORERBHO         REGISTRY                "ExplorerBHO.rgs"
+IDR_CLASSICCOPYEXT      REGISTRY                "ClassicCopyExt.rgs"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_DIALOG2 DIALOGEX 0, 0, 266, 136
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Confirm File Replace"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Yes",IDOK,149,115,53,14
+    PUSHBUTTON      "&No",IDNO,206,115,53,14
+    ICON            "",IDC_STATICICON,7,7,20,20
+    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,224,23
+    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,224,8
+    ICON            "",IDC_STATICDSTICON,43,46,20,20
+    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,190,8
+    LTEXT           "Static",IDC_STATICDSTTIME,69,57,190,8
+    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,224,8
+    ICON            "",IDC_STATICSRCICON,43,86,20,20
+    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,190,8
+    LTEXT           "Static",IDC_STATICSRCTIME,69,97,190,8
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,119,57,12
+END
+
+IDD_DIALOG1 DIALOGEX 0, 0, 285, 136
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Confirm File Replace"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Yes",IDOK,55,115,53,14
+    PUSHBUTTON      "Yes to &All",IDYES,112,115,53,14
+    PUSHBUTTON      "&No",IDNO,169,115,53,14
+    PUSHBUTTON      "Cancel",IDCANCEL,226,115,53,14
+    ICON            "",IDC_STATICICON,7,7,20,20
+    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,243,23
+    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,243,8
+    ICON            "",IDC_STATICDSTICON,43,46,20,20
+    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,209,8
+    LTEXT           "Static",IDC_STATICDSTTIME,69,57,209,8
+    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,243,8
+    ICON            "",IDC_STATICSRCICON,43,86,20,20
+    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,209,8
+    LTEXT           "Static",IDC_STATICSRCTIME,69,97,209,8
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,119,45,12
+END
+
+IDD_SETTINGS DIALOGEX 0, 0, 211, 105
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Classic Explorer Settings"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "Enable classic copy UI",IDC_CHECKCOPY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,7,197,10
+    CONTROL         "Enable Alt+Enter in the folder tree",IDC_CHECKBHO,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,23,197,10
+    DEFPUSHBUTTON   "OK",IDOK,98,84,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,154,84,50,14
+    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,8,89,40,10
+END
+
+IDD_DIALOG1R DIALOGEX 0, 0, 285, 136
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_LAYOUTRTL
+CAPTION "Confirm File Replace"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Yes",IDOK,55,115,53,14
+    PUSHBUTTON      "Yes to &All",IDYES,112,115,53,14
+    PUSHBUTTON      "&No",IDNO,169,115,53,14
+    PUSHBUTTON      "Cancel",IDCANCEL,226,115,53,14
+    ICON            "",IDC_STATICICON,7,7,21,20
+    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,243,23
+    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,243,8
+    ICON            "",IDC_STATICDSTICON,43,46,21,20
+    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,209,8
+    LTEXT           "Static",IDC_STATICDSTTIME,69,57,209,8
+    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,243,8
+    ICON            "",IDC_STATICSRCICON,43,86,21,20
+    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,209,8
+    LTEXT           "Static",IDC_STATICSRCTIME,69,97,209,8
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,119,45,12
+END
+
+IDD_DIALOG2R DIALOGEX 0, 0, 266, 136
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_LAYOUTRTL
+CAPTION "Confirm File Replace"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Yes",IDOK,149,115,53,14
+    PUSHBUTTON      "&No",IDNO,206,115,53,14
+    ICON            "",IDC_STATICICON,7,7,21,20
+    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,224,23
+    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,224,8
+    ICON            "",IDC_STATICDSTICON,43,46,21,20
+    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,190,8
+    LTEXT           "Static",IDC_STATICDSTTIME,69,57,190,8
+    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,224,8
+    ICON            "",IDC_STATICSRCICON,43,86,21,20
+    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,190,8
+    LTEXT           "Static",IDC_STATICSRCTIME,69,97,190,8
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,119,57,12
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_DIALOG2, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 259
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 129
+    END
+
+    IDD_DIALOG1, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 278
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 129
+    END
+
+    IDD_SETTINGS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 204
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 98
+    END
+
+    IDD_DIALOG1R, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 278
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 129
+    END
+
+    IDD_DIALOG2R, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 259
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 129
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE 
+BEGIN
+    IDS_PROJNAME            "ClassicExplorer"
+END
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+1 TYPELIB "ClassicExplorer.tlb"
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
