@@ -1,21 +1,18 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ClassicCopyExt.cpp : Implementation of CClassicCopyExt
 
 #include "stdafx.h"
 #include "ClassicCopyExt.h"
-#include "TranslationSettings.h"
+#include "..\LocalizationSettings\ParseSettings.h"
 
 
 // CClassicCopyExt - this is a dummy drag and drop handler. Its purpose is to get Explorer to load the DLL when
 // a file is being copied or moved.
 
-void InitClassicCopyThread( void );
-
 STDMETHODIMP CClassicCopyExt::Initialize( LPCITEMIDLIST pidlFolder, LPDATAOBJECT pDataObj, HKEY hProgID )
 {
-	InitClassicCopyThread();
 	return S_OK;
 }
 

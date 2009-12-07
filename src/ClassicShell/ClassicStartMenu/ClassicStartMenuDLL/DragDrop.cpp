@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // DragDrop.cpp - handles the drag and drop functionality of CMenuContainer
@@ -12,7 +12,6 @@
 class CIDropSource: public IDropSource
 {
 public:
-	CIDropSource( bool bRight ) { m_bRight=bRight; m_bClosed=false; m_Time=GetMessageTime(); }
 	// IUnknown
 	virtual STDMETHODIMP QueryInterface( REFIID riid, void **ppvObject )
 	{
@@ -31,46 +30,11 @@ public:
 	// IDropSource
 	virtual STDMETHODIMP QueryContinueDrag( BOOL fEscapePressed, DWORD grfKeyState )
 	{
-		if (!m_bClosed)
-		{
-			// if the mouse is outside of the menu for more than 4 seconds close the menu
-			DWORD pos=GetMessagePos();
-			POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
-			HWND hWnd=WindowFromPoint(pt);
-			if (hWnd) hWnd=GetAncestor(hWnd,GA_ROOT);
-			wchar_t name[256];
-			if (hWnd)
-				GetClassName(hWnd,name,_countof(name));
-			else
-				name[0]=0;
-			if (_wcsicmp(name,L"ClassicShell.CMenuContainer")==0)
-			{
-				m_Time=GetMessageTime();
-			}
-			else
-			{
-				int dt=GetMessageTime()-m_Time;
-				if (dt>4000)
-				{
-					m_bClosed=true;
-					CMenuContainer::HideStartMenu();
-				}
-			}
-		}
-		if (m_bRight)
-		{
-			if (fEscapePressed || (grfKeyState&MK_LBUTTON))
-				return DRAGDROP_S_CANCEL;
-			if (!(grfKeyState&MK_RBUTTON))
-				return DRAGDROP_S_DROP;
-		}
-		else
-		{
-			if (fEscapePressed || (grfKeyState&MK_RBUTTON))
-				return DRAGDROP_S_CANCEL;
-			if (!(grfKeyState&MK_LBUTTON))
-				return DRAGDROP_S_DROP;
-		}
+		if (fEscapePressed || (grfKeyState&MK_RBUTTON))
+			return DRAGDROP_S_CANCEL;
+		if (!(grfKeyState&MK_LBUTTON))
+			return DRAGDROP_S_DROP;
+
 		return S_OK;
 
 	}
@@ -79,27 +43,16 @@ public:
 	{
 		return DRAGDROP_S_USEDEFAULTCURSORS;
 	}
-
-	bool IsClosed( void ) { return m_bClosed; }
-
-private:
-	bool m_bRight;
-	bool m_bClosed;
-	long m_Time;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
 LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 {
-	if (!(m_Options&CONTAINER_DRAG) || s_bNoEditMenu) return 0;
+	if (!(m_Options&CONTAINER_DRAG)) return 0;
 	NMTOOLBAR *pInfo=(NMTOOLBAR*)pnmh;
 	const MenuItem &item=m_Items[pInfo->iItem-ID_OFFSET];
 	if (!item.pItem1 || item.id!=MENU_NO) return 0;
-
-	bool bLeft=(GetKeyState(VK_LBUTTON)<0);
-	bool bRight=(GetKeyState(VK_RBUTTON)<0);
-	if (!bLeft && !bRight) return 0;
 
 	// get IDataObject for the current item
 	CComPtr<IShellFolder> pFolder;
@@ -119,27 +72,29 @@ LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	// do drag drop
 	s_pDragSource=this;
 	m_DragIndex=pInfo->iItem-ID_OFFSET;
-	CIDropSource src(!bLeft);
+	CIDropSource src;
 	DWORD dwEffect=DROPEFFECT_COPY|DROPEFFECT_MOVE|DROPEFFECT_LINK;
 	HRESULT res=SHDoDragDrop(NULL,pDataObj,&src,dwEffect,&dwEffect);
 
-	s_pDragSource=NULL;
-
-	if (src.IsClosed())
-	{
-		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
-			if (!(*it)->m_bDestroyed)
-				(*it)->PostMessage(WM_CLOSE);
-		return 0;
-	}
-
 	if (res==DRAGDROP_S_DROP && !m_bDestroyed)
 	{
-		// check if the item still exists. refresh the menu if it doesn't
-		SFGAOF flags=SFGAO_VALIDATE;
-		if (FAILED(pFolder->GetAttributesOf(1,&pidl,&flags)))
+		// if the menu is still open, see if this was a move operation
+		bool bMove=false;
+		FORMATETC fmt={RegisterClipboardFormat(CFSTR_LOGICALPERFORMEDDROPEFFECT),NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
+		STGMEDIUM stgm;
+		if (SUCCEEDED(pDataObj->GetData(&fmt,&stgm)))
 		{
-			SetActiveWindow();
+			DWORD *pdw=(DWORD*)GlobalLock(stgm.hGlobal);
+			if (pdw)
+			{
+				bMove=(*pdw==DROPEFFECT_MOVE);
+				GlobalUnlock(stgm.hGlobal);
+			}
+			ReleaseStgMedium(&stgm);
+		}
+
+		if (bMove) // it was a move - the folder was probably modified
+		{
 			// close all submenus
 			for (int i=(int)s_Menus.size()-1;s_Menus[i]!=this;i--)
 				if (!s_Menus[i]->m_bDestroyed)
@@ -156,6 +111,7 @@ LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 			s_Menus[i]->SetActiveWindow();
 			break;
 		}
+	s_pDragSource=NULL;
 
 	return 0;
 }
@@ -176,7 +132,6 @@ LRESULT CMenuContainer::OnGetObject( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 
 HRESULT STDMETHODCALLTYPE CMenuContainer::DragEnter( IDataObject *pDataObj, DWORD grfKeyState, POINTL pt, DWORD *pdwEffect )
 {
-	s_bRightDrag=(grfKeyState&MK_RBUTTON)!=0;
 	if (m_pDropTargetHelper)
 	{
 		POINT p={pt.x,pt.y};
@@ -197,20 +152,17 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragEnter( IDataObject *pDataObj, DWOR
 
 HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt, DWORD *pdwEffect )
 {
-	s_bRightDrag=(grfKeyState&MK_RBUTTON)!=0;
 	grfKeyState&=MK_SHIFT|MK_CONTROL;
 	if (grfKeyState==MK_SHIFT)
 		*pdwEffect&=DROPEFFECT_MOVE;
 	else if (grfKeyState==MK_CONTROL)
 		*pdwEffect&=DROPEFFECT_COPY;
-	else if (grfKeyState==0 && s_pDragSource==this)
-		*pdwEffect&=DROPEFFECT_MOVE;
 	else
-		*pdwEffect&=((s_pDragSource && (s_pDragSource->m_Options&CONTAINER_PROGRAMS))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
+		*pdwEffect&=((s_pDragSource && ((s_pDragSource->m_Options&CONTAINER_PROGRAMS) || !s_pDragSource->m_pParent))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
 
 	// only accept CFSTR_SHELLIDLIST data
 	FORMATETC format={s_ShellFormat,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-	if (s_bNoEditMenu || !m_pDropFolder || !(m_Options&CONTAINER_DROP) || m_pDragObject->QueryGetData(&format)!=S_OK)
+	if (!m_pDropFolder || !(m_Options&CONTAINER_DROP) || m_pDragObject->QueryGetData(&format)!=S_OK)
 		*pdwEffect=DROPEFFECT_NONE;
 
 	POINT p={pt.x,pt.y};
@@ -269,7 +221,8 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 				if (m_Items[index].id!=MENU_NO && m_Items[index].id!=MENU_EMPTY && (index==m_Items.size()-1 || m_Items[index+1].id!=MENU_NO))
 					mark.iButton=-1;
 			}
-			if (mark.iButton==-1 && m_Items[index].bFolder && (m_Items[index].bPrograms || m_Items[index].id==MENU_NO))
+			m_DropToolbar.SendMessage(TB_SETINSERTMARK,0,(LPARAM)&mark);
+			if (mark.iButton==-1 && m_Items[index].bFolder && m_Items[index].bDragInto)
 			{
 				m_DropToolbar.SendMessage(TB_SETHOTITEM,btnIndex);
 			}
@@ -277,9 +230,6 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 			{
 				m_DropToolbar.SendMessage(TB_SETHOTITEM,-1);
 			}
-			if ((m_Options&CONTAINER_AUTOSORT) && s_pDragSource==this)
-				mark.iButton=-1;
-			m_DropToolbar.SendMessage(TB_SETINSERTMARK,0,(LPARAM)&mark);
 		}
 		else
 		{
@@ -291,11 +241,10 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 		// check if the hover delay is done and it's time to open the item
 		if (index>=0 && index==m_DragHoverItem)
 		{
-			if ((GetMessageTime()-m_DragHoverTime)>(int)s_HoverTime && m_Submenu!=m_DragHoverItem)
+			if ((GetMessageTime()-m_DragHoverTime)>(int)s_HoverTime && m_Submenu!=m_DragHoverItem && (!m_Items[index].bFolder || m_Items[index].bDragInto))
 			{
 				// expand m_DragHoverItem
-				if (!m_Items[index].bFolder || m_Items[index].pItem1)
-					ActivateItem(index,ACTIVATE_OPEN,NULL);
+				ActivateItem(index,ACTIVATE_OPEN,NULL);
 				if (!m_Items[index].bFolder)
 					m_DropToolbar.SendMessage(TB_SETHOTITEM,-1);
 			}
@@ -330,24 +279,12 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 	m_pDragObject.Release();
 
 	grfKeyState&=MK_SHIFT|MK_CONTROL;
-	if (!s_bRightDrag)
-	{
-		if (grfKeyState==MK_SHIFT)
-			*pdwEffect&=DROPEFFECT_MOVE;
-		else if (grfKeyState==MK_CONTROL)
-			*pdwEffect&=DROPEFFECT_COPY;
-		else if (grfKeyState==0 && s_pDragSource==this)
-			*pdwEffect&=DROPEFFECT_MOVE;
-		else
-			*pdwEffect&=((s_pDragSource && (s_pDragSource->m_Options&CONTAINER_PROGRAMS))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
-		grfKeyState=0;
-	}
-	else if (!grfKeyState && (*pdwEffect&DROPEFFECT_LINK))
-	{
-		// when a file is dragged to the start menu he usually wants to make a shortcut
-		// so when right-dragging, and linking is allowed, make it the default
-		grfKeyState=MK_SHIFT|MK_CONTROL;
-	}
+	if (grfKeyState==MK_SHIFT)
+		*pdwEffect&=DROPEFFECT_MOVE;
+	else if (grfKeyState==MK_CONTROL)
+		*pdwEffect&=DROPEFFECT_COPY;
+	else
+		*pdwEffect&=((s_pDragSource && ((s_pDragSource->m_Options&CONTAINER_PROGRAMS) || !s_pDragSource->m_pParent))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
 
 	if (m_pDropTargetHelper)
 	{
@@ -361,8 +298,6 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 	m_DropToolbar.SendMessage(TB_GETINSERTMARK,0,(LPARAM)&mark);
 	int before=mark.iButton;
 	if (before<0) return S_OK;
-	for (std::vector<CWindow>::iterator it=m_Toolbars.begin();it!=m_Toolbars.end() && it->m_hWnd!=m_DropToolbar.m_hWnd;++it)
-		before+=(int)it->SendMessage(TB_BUTTONCOUNT,0,0);
 	if (mark.dwFlags==TBIMHT_AFTER && (before!=0 || m_Items[0].id!=MENU_EMPTY))
 		before++;
 
@@ -371,74 +306,49 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 	m_DropToolbar.SendMessage(TB_SETINSERTMARK,0,(LPARAM)&mark);
 	m_DropToolbar=NULL;
 
-	if (s_pDragSource==this && (*pdwEffect&DROPEFFECT_MOVE))
+	if (s_pDragSource==this && *pdwEffect==DROPEFFECT_MOVE)
 	{
 		// dropped in the same menu, just rearrange the items
-		if (!(m_Options&CONTAINER_AUTOSORT))
-		{
-			std::vector<SortMenuItem> items;
-			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
-				if (it->id==MENU_NO)
-				{
-					SortMenuItem item={it->name,it->nameHash,it->bFolder};
-					items.push_back(item);
-				}
-			SortMenuItem drag=items[m_DragIndex];
-			items.erase(items.begin()+m_DragIndex);
-			if (before>m_DragIndex)
-				before--;
-			items.insert(items.begin()+before,drag);
-			SaveItemOrder(items);
-			PostRefreshMessage();
-		}
+		std::vector<SortMenuItem> items;
+		for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
+			if (it->id==MENU_NO)
+			{
+				SortMenuItem item={it->name,it->nameHash,it->bFolder};
+				items.push_back(item);
+			}
+		SortMenuItem drag=items[m_DragIndex];
+		items.erase(items.begin()+m_DragIndex);
+		if (before>m_DragIndex)
+			before--;
+		items.insert(items.begin()+before,drag);
+		SaveItemOrder(items);
+		PostRefreshMessage();
 	}
 	else if (m_pDropFolder)
 	{
 		// simulate dropping the object into the original folder
 		CComPtr<IDropTarget> pTarget;
-		if (FAILED(m_pDropFolder->CreateViewObject(m_hWnd,IID_IDropTarget,(void**)&pTarget)))
+		if (FAILED(m_pDropFolder->CreateViewObject(NULL,IID_IDropTarget,(void**)&pTarget)))
 			return S_OK;
-		DWORD dwEffect=*pdwEffect;
-		if (FAILED(pTarget->DragEnter(pDataObj,grfKeyState,pt,&dwEffect)))
+		if (FAILED(pTarget->DragEnter(pDataObj,0,pt,pdwEffect)))
 			return S_OK;
 
-		if (s_bRightDrag)
-		{
-			dwEffect=*pdwEffect;
-			pTarget->DragOver(MK_RBUTTON|MK_SHIFT|MK_CONTROL,pt,&dwEffect);
-		}
-		else
-			pTarget->DragOver(grfKeyState,pt,pdwEffect);
+		pTarget->DragOver(0,pt,pdwEffect);
 		CComQIPtr<IAsyncOperation> pAsync=pDataObj;
 		if (pAsync)
 			pAsync->SetAsyncMode(FALSE);
-		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
-			if (!(*it)->m_bDestroyed)
-				(*it)->EnableWindow(FALSE); // disable all menus
-		CMenuContainer *pOld=s_pDragSource;
-		if (!s_pDragSource) s_pDragSource=this; // HACK: ensure s_pDragSource is not NULL even if dragging from external source (prevents the menu from closing)
-		pTarget->Drop(pDataObj,grfKeyState,pt,pdwEffect);
-		s_pDragSource=pOld;
-		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
-			if (!(*it)->m_bDestroyed)
-				(*it)->EnableWindow(TRUE); // enable all menus
-		SetForegroundWindow(m_hWnd);
-		SetActiveWindow();
-		m_Toolbars[0].SetFocus();
+		pTarget->Drop(pDataObj,0,pt,pdwEffect);
 
-		if (!(m_Options&CONTAINER_AUTOSORT))
-		{
-			std::vector<SortMenuItem> items;
-			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
-				if (it->id==MENU_NO)
-				{
-					SortMenuItem item={it->name,it->nameHash,it->bFolder};
-					items.push_back(item);
-				}
-			SortMenuItem ins={L"",CalcFNVHash(L""),false};
-			items.insert(items.begin()+before,ins);
-			SaveItemOrder(items);
-		}
+		std::vector<SortMenuItem> items;
+		for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
+			if (it->id==MENU_NO)
+			{
+				SortMenuItem item={it->name,it->nameHash,it->bFolder};
+				items.push_back(item);
+			}
+		SortMenuItem ins={L"",CalcFNVHash(L""),false};
+		items.insert(items.begin()+before,ins);
+		SaveItemOrder(items);
 		PostRefreshMessage();
 	}
 	return S_OK;

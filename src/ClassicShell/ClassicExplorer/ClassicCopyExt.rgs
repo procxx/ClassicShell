@@ -24,34 +24,34 @@ HKCR
 		}
 	}
 
-	NoRemove Directory
+	Directory
 	{
-		NoRemove shellex
+		shellex
 		{
-			NoRemove DragDropHandlers
+			DragDropHandlers
 			{
-				ForceRemove ClassicCopyExt = s '{8C83ACB1-75C3-45D2-882C-EFA32333491C}'
+				ClassicCopyExt = s '{8C83ACB1-75C3-45D2-882C-EFA32333491C}'
 			}
 		}
 	}
-	NoRemove Drive
+	Drive
 	{
-		NoRemove shellex
+		shellex
 		{
-			NoRemove DragDropHandlers
+			DragDropHandlers
 			{
-				ForceRemove ClassicCopyExt = s '{8C83ACB1-75C3-45D2-882C-EFA32333491C}'
+				ClassicCopyExt = s '{8C83ACB1-75C3-45D2-882C-EFA32333491C}'
 			}
 		}
 	}
 
-	NoRemove Folder
+	Folder
 	{
-		NoRemove shellex
+		shellex
 		{
-			NoRemove DragDropHandlers
+			DragDropHandlers
 			{
-				ForceRemove ClassicCopyExt = s '{8C83ACB1-75C3-45D2-882C-EFA32333491C}'
+				ClassicCopyExt = s '{8C83ACB1-75C3-45D2-882C-EFA32333491C}'
 			}
 		}
 	}

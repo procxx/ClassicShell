@@ -1,11 +1,9 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
 
-#include "SkinManager.h"
 #include <vector>
-#include <map>
 
 enum TMenuID
 {
@@ -38,41 +36,15 @@ enum TMenuID
 	MENU_LOGOFF,
 	MENU_DISCONNECT,
 	MENU_UNDOCK,
-	MENU_SHUTDOWN_BOX,
-
-	// additional commands
-	MENU_CUSTOM, // used for any custom item
-	MENU_SLEEP,
-	MENU_HIBERNATE,
-	MENU_RESTART,
 	MENU_SHUTDOWN,
-	MENU_SWITCHUSER,
 };
-
-struct StdMenuItem
-{
-	TMenuID id;
-	const char *key; // localization key
-	const wchar_t *name; // default name
-	int icon; // index in shell32.dll
-	TMenuID submenuID; // MENU_NO if no submenu
-	const KNOWNFOLDERID *folder1; // NULL if not used
-	const KNOWNFOLDERID *folder2; // NULL if not used
-	const char *tipKey; // localization key for the tooltip
-	const wchar_t *tip; // default tooltip
-	const StdMenuItem *submenu;
-	const wchar_t *link;
-	const wchar_t *command;
-	const wchar_t *iconPath;
-};
-
-class CMenuAccessible;
 
 // CMenuContainer - implementation of a single menu box. Contains one or more vertical toolbars
+
 class CMenuContainer: public CWindowImpl<CMenuContainer>, public IDropTarget
 {
 public:
-	DECLARE_WND_CLASS_EX(L"ClassicShell.CMenuContainer",CS_DROPSHADOW,COLOR_MENU)
+	DECLARE_WND_CLASS_EX(L"ClassicExplorer.CMenuContainer",CS_DROPSHADOW,COLOR_MENU)
 
 	// message handlers
 	BEGIN_MSG_MAP( CMenuContainer )
@@ -95,12 +67,9 @@ public:
 		MESSAGE_HANDLER( MCM_REFRESH, OnRefresh )
 		MESSAGE_HANDLER( WM_ERASEBKGND, OnEraseBkgnd )
 		MESSAGE_HANDLER( WM_ACTIVATE, OnActivate )
-		MESSAGE_HANDLER( WM_MOUSEACTIVATE, OnMouseActivate )
 		MESSAGE_HANDLER( WM_CONTEXTMENU, OnContextMenu )
 		MESSAGE_HANDLER( WM_TIMER, OnTimer )
 		MESSAGE_HANDLER( WM_SYSCOMMAND, OnSysCommand )
-		MESSAGE_HANDLER( WM_GETOBJECT, OnGetAccObject )
-		MESSAGE_HANDLER( MCM_SETHOTITEM, OnSetHotItem )
 		NOTIFY_RANGE_CODE_HANDLER( ID_TOOLBAR_FIRST, ID_TOOLBAR_LAST, NM_CUSTOMDRAW, OnCustomDraw )
 		NOTIFY_RANGE_CODE_HANDLER( ID_TOOLBAR_FIRST, ID_TOOLBAR_LAST, NM_CLICK, OnClick )
 		NOTIFY_RANGE_CODE_HANDLER( ID_TOOLBAR_FIRST, ID_TOOLBAR_LAST, NM_KEYDOWN, OnKeyDown )
@@ -117,29 +86,28 @@ public:
 	enum
 	{
 		CONTAINER_LARGE        = 0x0001, // use large icons
-		CONTAINER_MULTICOLUMN  = 0x0002, // use multiple columns instead of a pager
+		CONTAINER_PAGER        = 0x0002, // use pager instead of multiple columns
 		CONTAINER_NOSUBFOLDERS = 0x0004, // don't go into subfolders (for control panel)
-		CONTAINER_PROGRAMS     = 0x0008, // this is a folder from the Start Menu hierarchy (drop operations prefer link over move)
-		CONTAINER_DOCUMENTS    = 0x0010, // sort by time, limit the count (for recent documents)
-		CONTAINER_LINK         = 0x0020, // this is an expanded link to a folder (always in a pager)
-		CONTAINER_ADDTOP       = 0x0040, // put standard items at the top
-		CONTAINER_DRAG         = 0x0080, // allow items to be dragged out
-		CONTAINER_DROP         = 0x0100, // allow dropping of items
-		CONTAINER_LEFT         = 0x0200, // the window is aligned on the left
-		CONTAINER_TOP          = 0x0400, // the window is aligned on the top
-		CONTAINER_AUTOSORT     = 0x0800, // the menu is always in alphabetical order
+		CONTAINER_NOPROGRAMS   = 0x0008, // don't show the Programs menu (for the top portion of the main menu)
+		CONTAINER_PROGRAMS     = 0x0010, // this is the Programs menu or its subfolder
+		CONTAINER_DOCUMENTS    = 0x0020, // sort by time, limit the count (for recent documents)
+		CONTAINER_LINK         = 0x0040, // this is an expanded link to a folder (always in a pager)
+		CONTAINER_ADDTOP       = 0x0080, // put standard items at the top
+		CONTAINER_DRAG         = 0x0100, // allow items to be dragged out
+		CONTAINER_DROP         = 0x0200, // allow dropping of items
+		CONTAINER_LEFT         = 0x0400, // the window is aligned on the left
+		CONTAINER_TOP          = 0x0800, // the window is aligned on the top
+		CONTAINER_THEME        = 0x1000, // use the menu theme
 	};
 
-	CMenuContainer( CMenuContainer *pParent, int index, int options, const StdMenuItem *pStdItem, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName );
+	CMenuContainer( CMenuContainer *pParent, int options, TMenuID menuID, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName );
 	~CMenuContainer( void );
 
 	void InitItems( void );
 	void InitToolbars( void );
 
 	static bool CloseStartMenu( void );
-	static void HideStartMenu( void );
 	static bool IsMenuOpened( void ) { return !s_Menus.empty(); }
-	static bool IgnoreTaskbarTimers( void ) { return !s_Menus.empty() && (s_TaskbarState&ABS_AUTOHIDE); }
 	static HWND ToggleStartMenu( HWND startButton, bool bKeyboard );
 
 	// IUnknown
@@ -149,7 +117,7 @@ public:
 		if (IID_IUnknown==riid || IID_IDropTarget==riid)
 		{
 			AddRef();
-			*ppvObject=static_cast<IDropTarget*>(this);
+			*ppvObject=(IDropTarget*)this;
 			return S_OK;
 		}
 		return E_NOINTERFACE;
@@ -179,12 +147,9 @@ protected:
 	LRESULT OnRefresh( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnEraseBkgnd( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
-	LRESULT OnMouseActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnSysCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
-	LRESULT OnGetAccObject( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
-	LRESULT OnSetHotItem( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnCustomDraw( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 	LRESULT OnClick( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 	LRESULT OnKeyDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
@@ -201,8 +166,7 @@ private:
 	// description of a menu item
 	struct MenuItem
 	{
-		TMenuID id; // if pStdItem!=NULL, this is pStdItem->id. otherwise it can only be MENU_NO, MENU_SEPARATOR or MENU_EMPTY
-		const StdMenuItem *pStdItem; // NULL if not a standard menu item
+		TMenuID id; // MENU_NO if not a standard menu item
 		CString name;
 		unsigned int nameHash;
 		int icon;
@@ -210,7 +174,7 @@ private:
 		int btnIndex; // button index in the toolbar
 		bool bFolder; // this is a folder - draw arrow
 		bool bLink; // this is a link (if a link to a folder is expanded it is always in a pager)
-		bool bPrograms; // this item is part of the Start Menu folder hierarchy
+		bool bDragInto; // this is a folder that can be dragged into (opens when the mouse hovers over it)
 
 		// pair of shell items. 2 items are used to combine a user folder with a common folder (I.E. user programs/common programs)
 		PIDLIST_ABSOLUTE pItem1;
@@ -267,11 +231,10 @@ private:
 	bool m_bRefreshPosted;
 	bool m_bDestroyed; // the menu is destroyed but not yet deleted
 	int m_Options;
-	const StdMenuItem *m_pStdItem; // the first item
+	TMenuID m_MenuID; // ID of the first item
 	CMenuContainer *m_pParent; // parent menu
-	int m_Submenu; // the item index of the opened submenu
-	int m_ParentIndex; // the index of this menu in the parent (usually matches m_pParent->m_Submenu)
 	CString m_RegName; // name of the registry key to store the item order
+	int m_Submenu; // the item index of the opened submenu
 	PIDLIST_ABSOLUTE m_Path1;
 	PIDLIST_ABSOLUTE m_Path2;
 	CComPtr<IShellFolder> m_pDropFolder; // the primary folder (used only as a drop target)
@@ -294,18 +257,18 @@ private:
 	DWORD m_HotPos; // last mouse position over a hot item (used to ignore TBN_HOTITEMCHANGE when the mouse didn't really move)
 	int m_HoverItem; // item under the mouse (used for opening a submenu when the mouse hovers over an item)
 	int m_ContextItem; // force this to be the hot item while a context menu is up
-	HBITMAP m_Bitmap; // the background bitmap
-	HRGN m_Region; // the outline region
-	RECT m_rContent;
-	CMenuAccessible *m_pAccessible;
+	HBITMAP m_Bitmap; // for the title in the main menu
+	int m_BmpWidth;
 
 	// additional commands for the context menu
 	enum
 	{
-		CMD_OPEN_ALL=1,
+		CMD_OPEN=1,
+		CMD_OPEN_ALL,
+		CMD_EXPLORE,
+		CMD_EXPLORE_ALL,
 		CMD_SORT,
-		CMD_AUTOSORT,
-		CMD_NEWFOLDER,
+		CMD_PROPERTIES,
 
 		CMD_LAST
 	};
@@ -334,7 +297,6 @@ private:
 		TIMER_HOVER=1,
 
 		MCM_REFRESH=WM_USER+10, // posted to force the container to refresh its contents
-		MCM_SETHOTITEM=WM_USER+11, // sets the hot item. wParam is the nameHash of the item
 	};
 
 	CWindow CreateToolbar( int id );
@@ -342,73 +304,36 @@ private:
 	void ActivateItem( int index, TActivateType type, const POINT *pPt );
 	void ShowKeyboardCues( void );
 	void SetActiveWindow( void );
-	void CreateBackground( int width, int height ); // width, height - the content area
+	void CreateBitmap( int height );
 	void PostRefreshMessage( void );
 	void SaveItemOrder( const std::vector<SortMenuItem> &items );
 	void LoadItemOrder( void );
-	void FadeOutItem( int index );
 
 	static int s_MaxRecentDocuments; // limit for the number of recent documents
 	static bool s_bScrollMenus; // global scroll menus setting
 	static bool s_bRTL; // RTL layout
 	static bool s_bKeyboardCues; // show keyboard cues
 	static bool s_bExpandRight; // prefer expanding submenus to the right
+	static int s_MenuBorder; // the width of the extra padding in pixels
+	static int s_MenuStyle; // the style for the menu windows
 	static bool s_bBehindTaskbar; // the main menu is behind the taskbar (when the taskbar is horizontal)
 	static bool s_bShowTopEmpty; // shows the empty item on the top menu so the user can drag items there
-	static bool s_bNoEditMenu; // disables drag/drop and the context menu
-	static bool s_bExpandLinks; // expand links to folders
-	static char s_bActiveDirectory; // the Active Directory services are available (-1 - uninitialized)
+	static HTHEME s_ThemeMenu; // theme to draw the menu arrow
+	static HTHEME s_ThemeList; // theme to draw the highlighted menu item
+	static COLORREF s_MenuColor;
+	static COLORREF s_MenuTextColor;
+	static COLORREF s_MenuTextHotColor;
+	static COLORREF s_MenuTextDColor;
+	static COLORREF s_MenuTextHotDColor;
 	static CMenuContainer *s_pDragSource; // the source of the current drag operation
-	static bool s_bRightDrag; // dragging with the right mouse button
 	static RECT s_MainRect; // area of the main monitor
-	static DWORD s_TaskbarState; // the state of the taskbar (ABS_AUTOHIDE and ABS_ALWAYSONTOP)
 	static DWORD s_HoverTime;
-	static DWORD s_SubmenuStyle;
 	static CLIPFORMAT s_ShellFormat; // CFSTR_SHELLIDLIST
 	static CComPtr<IShellFolder> s_pDesktop; // cached pointer of the desktop object
-	static HWND s_LastFGWindow; // stores the foreground window to restore later when the menu closes
 
 	static std::vector<CMenuContainer*> s_Menus; // all menus, in cascading order
-	static std::map<unsigned int,int> s_PagerScrolls; // scroll offset for each sub menu
-
-	static MenuSkin s_Skin;
 
 	static LRESULT CALLBACK ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
-	static LRESULT CALLBACK PagerSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 
-	friend class COwnerWindow;
-	friend class CMenuAccessible;
-};
-
-class CMenuFader: public CWindowImpl<CMenuFader>
-{
-public:
-	CMenuFader( HBITMAP bmp, HRGN region, int duration, RECT &rect );
-	~CMenuFader( void );
-	DECLARE_WND_CLASS_EX(L"ClassicShell.CMenuFader",0,COLOR_MENU)
-
-	// message handlers
-	BEGIN_MSG_MAP( CMenuFader )
-		MESSAGE_HANDLER( WM_ERASEBKGND, OnEraseBkgnd )
-		MESSAGE_HANDLER( WM_TIMER, OnTimer )
-	END_MSG_MAP()
-
-	void Create( void );
-
-	static void ClearAll( void );
-
-protected:
-	LRESULT OnEraseBkgnd( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
-	LRESULT OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
-	virtual void OnFinalMessage( HWND ) { PostQuitMessage(0); delete this; }
-
-private:
-	int m_Time0;
-	int m_Duration;
-	int m_LastTime;
-	HBITMAP m_Bitmap;
-	HRGN m_Region;
-	RECT m_Rect;
-
-	static std::vector<CMenuFader*> s_Faders;
+	friend class CStartMenuData;
 };

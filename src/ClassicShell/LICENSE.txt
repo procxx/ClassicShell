@@ -1,6 +1,6 @@
 License for the Classic Shell Source Code (MIT license)
 
-Copyright (c) 2009-2010, Ivo Beltchev
+Copyright (c) 2009 Ivo Beltchev
 http://classicshell.sourceforge.net/
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

@@ -46,7 +46,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				WholeProgramOptimization="false"
-				AdditionalIncludeDirectories="..\..\ParseSettings"
+				AdditionalIncludeDirectories="..\..\LocalizationSettings"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;CLASSICSTARTMENUDLL_EXPORTS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -66,7 +66,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -123,7 +123,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				WholeProgramOptimization="false"
-				AdditionalIncludeDirectories="..\..\ParseSettings"
+				AdditionalIncludeDirectories="..\..\LocalizationSettings"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;CLASSICSTARTMENUDLL_EXPORTS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -143,7 +143,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -200,7 +200,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				WholeProgramOptimization="false"
-				AdditionalIncludeDirectories="..\..\ParseSettings"
+				AdditionalIncludeDirectories="..\..\LocalizationSettings"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;CLASSICSTARTMENUDLL_EXPORTS"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -219,7 +219,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -279,7 +279,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				WholeProgramOptimization="false"
-				AdditionalIncludeDirectories="..\..\ParseSettings"
+				AdditionalIncludeDirectories="..\..\LocalizationSettings"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;CLASSICSTARTMENUDLL_EXPORTS"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -298,7 +298,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -357,7 +357,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				WholeProgramOptimization="false"
-				AdditionalIncludeDirectories="..\..\ParseSettings"
+				AdditionalIncludeDirectories="..\..\LocalizationSettings"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;CLASSICSTARTMENUDLL_EXPORTS;BUILD_SETUP"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -376,7 +376,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -436,7 +436,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				WholeProgramOptimization="false"
-				AdditionalIncludeDirectories="..\..\ParseSettings"
+				AdditionalIncludeDirectories="..\..\LocalizationSettings"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;CLASSICSTARTMENUDLL_EXPORTS;BUILD_SETUP"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -455,7 +455,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -496,15 +496,7 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\Accessibility.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\ClassicStartMenuDLL.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\CustomMenu.cpp"
 				>
 			</File>
 			<File
@@ -586,10 +578,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\SkinManager.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\stdafx.cpp"
 				>
 				<FileConfiguration
@@ -648,15 +636,7 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath=".\Accessibility.h"
-				>
-			</File>
-			<File
 				RelativePath=".\ClassicStartMenuDLL.h"
-				>
-			</File>
-			<File
-				RelativePath=".\CustomMenu.h"
 				>
 			</File>
 			<File
@@ -673,10 +653,6 @@
 			</File>
 			<File
 				RelativePath=".\Settings.h"
-				>
-			</File>
-			<File
-				RelativePath=".\SkinManager.h"
 				>
 			</File>
 			<File
@@ -703,10 +679,6 @@
 			</File>
 			<File
 				RelativePath=".\resource.h"
-				>
-			</File>
-			<File
-				RelativePath=".\SkinDescription.txt"
 				>
 			</File>
 		</Filter>

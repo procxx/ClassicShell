@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="ParseSettings"
-	ProjectGUID="{BA725EB1-0B0A-4D77-BBA7-C7EB519DB574}"
-	RootNamespace="ParseSettings"
+	Name="LocalizationSettings"
+	ProjectGUID="{8A520E15-34B5-4680-A993-BBCD6F060A84}"
+	RootNamespace="LocalizationSettings"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -48,7 +48,7 @@
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				UsePrecompiledHeader="0"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				DebugInformationFormat="4"
 			/>
@@ -110,7 +110,7 @@
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				UsePrecompiledHeader="0"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 			/>
@@ -173,7 +173,7 @@
 				PreprocessorDefinitions="WIN32;NDEBUG;_LIB"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="0"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 			/>
@@ -237,7 +237,7 @@
 				PreprocessorDefinitions="WIN32;NDEBUG;_LIB"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="0"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 			/>
@@ -274,27 +274,43 @@
 	</References>
 	<Files>
 		<File
-			RelativePath=".\GlobalSettings.cpp"
-			>
-		</File>
-		<File
-			RelativePath=".\GlobalSettings.h"
-			>
-		</File>
-		<File
 			RelativePath=".\ParseSettings.cpp"
 			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				>
+				<Tool
+					Name="VCCLCompilerTool"
+					UsePrecompiledHeader="0"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Debug|x64"
+				>
+				<Tool
+					Name="VCCLCompilerTool"
+					UsePrecompiledHeader="0"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				>
+				<Tool
+					Name="VCCLCompilerTool"
+					UsePrecompiledHeader="0"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|x64"
+				>
+				<Tool
+					Name="VCCLCompilerTool"
+					UsePrecompiledHeader="0"
+				/>
+			</FileConfiguration>
 		</File>
 		<File
 			RelativePath=".\ParseSettings.h"
-			>
-		</File>
-		<File
-			RelativePath=".\TranslationSettings.cpp"
-			>
-		</File>
-		<File
-			RelativePath=".\TranslationSettings.h"
 			>
 		</File>
 	</Files>

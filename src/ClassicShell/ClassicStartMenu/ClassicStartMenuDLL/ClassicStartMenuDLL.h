@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
@@ -12,8 +12,11 @@
 // Find the start button window for the given process
 STARTMENUAPI HWND FindStartButton( DWORD process );
 
-// WH_GETMESSAGE hook for the explorer's GUI thread. The start menu exe uses this hook to inject code into the explorer process
-STARTMENUAPI LRESULT CALLBACK HookInject( int code, WPARAM wParam, LPARAM lParam );
+// WH_GETMESSAGE hook for the Progman window
+STARTMENUAPI LRESULT CALLBACK HookProgMan( int code, WPARAM wParam, LPARAM lParam );
+
+// WH_GETMESSAGE hook for the start button window
+STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM lParam );
 
 // Toggle the start menu. bKeyboard - set to true to show the keyboard cues
 STARTMENUAPI HWND ToggleStartMenu( HWND startButton, bool bKeyboard );
@@ -24,9 +27,5 @@ void EnableStartTooltip( bool bEnable );
 // Restore the original drop target
 void UnhookDropTarget( void );
 
-// Set the hotkey for the start menu (0 - Win key, 1 - no hotkey)
-void SetHotkey( DWORD hotkey );
-
 extern HWND g_StartButton;
 extern HWND g_TaskBar;
-extern HWND g_OwnerWindow;

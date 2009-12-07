@@ -27,17 +27,17 @@ HKCR
 
 HKLM
 {
-	NoRemove SOFTWARE
+	SOFTWARE
 	{
-		NoRemove Microsoft
+		Microsoft
 		{
-			NoRemove Windows
+			Windows
 			{
-				NoRemove CurrentVersion
+				CurrentVersion
 				{
-					NoRemove Explorer
+					Explorer
 					{
-						NoRemove 'Browser Helper Objects'
+						'Browser Helper Objects'
 						{
 							ForceRemove {449D0D6E-2412-4E61-B68F-1CB625CD9E52}
 						}

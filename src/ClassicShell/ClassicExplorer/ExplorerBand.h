@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ExplorerBand.h : Declaration of the CExplorerBand
@@ -6,7 +6,7 @@
 #pragma once
 #include "resource.h"       // main symbols
 #include "ClassicExplorer_i.h"
-#include <vector>
+
 
 class CBandWindow: public CWindowImpl<CBandWindow>
 {
@@ -14,47 +14,28 @@ public:
 
 	enum
 	{
-		ID_SEPARATOR=0,
-
-		// standard toolbar commands
+		// toolbar command IDs
 		ID_SETTINGS=1,
 		ID_GOUP,
 		ID_CUT,
 		ID_COPY,
 		ID_PASTE,
 		ID_DELETE,
-		ID_PROPERTIES,
-		ID_EMAIL,
 
-		ID_LAST, // last standard command
-
-		// additional supported commands
-		ID_MOVETO,
-		ID_COPYTO,
-		ID_UNDO,
-		ID_REDO,
-		ID_SELECTALL,
-		ID_INVERT,
-		ID_GOBACK,
-		ID_GOFORWARD,
-		ID_REFRESH,
-
-		ID_CUSTOM=100,
+		ID_LAST
 	};
 
-	DECLARE_WND_CLASS(L"ClassicShell.CBandWindow")
+	DECLARE_WND_CLASS(L"ClassicExplorer.CBandWindow")
 
 	BEGIN_MSG_MAP( CBandWindow )
 		MESSAGE_HANDLER( WM_CREATE, OnCreate )
 		MESSAGE_HANDLER( WM_DESTROY, OnDestroy )
+		COMMAND_ID_HANDLER( ID_GOUP, OnGoUp )
+		COMMAND_ID_HANDLER( ID_CUT, OnFileOperation )
+		COMMAND_ID_HANDLER( ID_COPY, OnFileOperation )
+		COMMAND_ID_HANDLER( ID_PASTE, OnFileOperation )
+		COMMAND_ID_HANDLER( ID_DELETE, OnFileOperation )
 		COMMAND_ID_HANDLER( ID_SETTINGS, OnSettings )
-		COMMAND_ID_HANDLER( ID_GOUP, OnNavigate )
-		COMMAND_ID_HANDLER( ID_GOBACK, OnNavigate )
-		COMMAND_ID_HANDLER( ID_GOFORWARD, OnNavigate )
-		COMMAND_ID_HANDLER( ID_EMAIL, OnEmail )
-		COMMAND_RANGE_HANDLER( ID_CUT, ID_CUSTOM+100, OnToolbarCommand )
-		NOTIFY_CODE_HANDLER( NM_RCLICK, OnRClick )
-		NOTIFY_CODE_HANDLER( TBN_GETINFOTIP, OnGetInfoTip )
 	END_MSG_MAP()
 
 	CBandWindow( void ) { m_Enabled=NULL; }
@@ -70,37 +51,14 @@ protected:
 	//  LRESULT NotifyHandler(int idCtrl, LPNMHDR pnmh, BOOL& bHandled);
 	LRESULT OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
-	LRESULT OnNavigate( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
-	LRESULT OnToolbarCommand( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
-	LRESULT OnEmail( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
+	LRESULT OnGoUp( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
+	LRESULT OnFileOperation( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnSettings( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
-	LRESULT OnRClick( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
-	LRESULT OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 
 private:
 	CWindow m_Toolbar;
 	CComPtr<IShellBrowser> m_pBrowser;
 	HIMAGELIST m_Enabled;
-
-	struct StdToolbarItem
-	{
-		int id;
-		const char *tipKey; // localization key for the tooltip
-		const wchar_t *tip; // default tooltip
-		int icon; // index in shell32.dll
-
-		const wchar_t *name; // default name
-		const wchar_t *command;
-		const wchar_t *iconPath;
-	};
-
-	static const StdToolbarItem s_StdItems[];
-
-	std::vector<StdToolbarItem> m_Items;
-	void ParseToolbar( DWORD enabled );
-	void SendShellTabCommand( int command );
-
-	static bool ParseToolbarItem( const wchar_t *name, StdToolbarItem &item );
 };
 
 
