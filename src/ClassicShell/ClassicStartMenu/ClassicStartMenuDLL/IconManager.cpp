@@ -353,7 +353,7 @@ DWORD CALLBACK CIconManager::PreloadThread( void *param )
 		SHGetKnownFolderIDList(g_CacheFolders[i],0,NULL,&path);
 		CComPtr<IShellFolder> pFolder;
 		pDesktop->BindToObject(path,NULL,IID_IShellFolder,(void**)&pFolder);
-		LoadFolderIcons(pFolder,0);
+		LoadFolderIcons(pFolder,g_CacheFolders[i]==FOLDERID_ControlPanelFolder?MAX_FOLDER_LEVEL:0);
 		ILFree(path);
 		if (s_bStopLoading) break;
 	}

@@ -66,7 +66,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -143,7 +143,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -219,7 +219,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -298,7 +298,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -376,7 +376,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -455,7 +455,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"

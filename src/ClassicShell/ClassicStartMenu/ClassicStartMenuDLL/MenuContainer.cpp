@@ -13,6 +13,8 @@
 #include <vsstyle.h>
 #include <vssym32.h>
 #include <WtsApi32.h>
+#include <Lm.h>
+#include <Dsgetdc.h>
 #define SECURITY_WIN32
 #include <Security.h>
 #include <algorithm>
@@ -101,17 +103,26 @@ enum
 
 static StdMenuOption g_StdOptions[]=
 {
-	{MENU_FAVORITES,MENU_NONE}, // MENU_ENABLED|MENU_EXPANDED from settings
-	{MENU_DOCUMENTS,MENU_NONE}, // MENU_ENABLED|MENU_EXPANDED from settings
-	{MENU_LOGOFF,MENU_NONE}, // MENU_ENABLED from settings
-	{MENU_DISCONNECT,MENU_NONE}, // MENU_ENABLED if in a remote session
-	{MENU_SHUTDOWN,MENU_ENABLED}, // MENU_NONE if in a remote session
-	{MENU_UNDOCK,MENU_ENABLED}, // from settings
-	{MENU_CONTROLPANEL,MENU_ENABLED|MENU_EXPANDED|MENU_PAGER}, // MENU_EXPANDED from settings
-	{MENU_NETWORK,MENU_ENABLED|MENU_PAGER}, // MENU_EXPANDED from settings
-	{MENU_PRINTERS,MENU_ENABLED|MENU_PAGER}, // MENU_EXPANDED from settings
-	{MENU_FEATURES,MENU_ENABLED}, // no setting (prevents the Programs and Features from expanding)
+	{MENU_FAVORITES,MENU_NONE}, // MENU_ENABLED|MENU_EXPANDED from settings, check policy
+	{MENU_DOCUMENTS,MENU_NONE}, // MENU_ENABLED|MENU_EXPANDED from settings, check policy
+	{MENU_HELP,MENU_ENABLED}, // check policy
+	{MENU_RUN,MENU_ENABLED}, // check policy
+	{MENU_LOGOFF,MENU_NONE}, // MENU_ENABLED from settings, check policy
+	{MENU_DISCONNECT,MENU_NONE}, // MENU_ENABLED if in a remote session, check policy
+	{MENU_SHUTDOWN,MENU_ENABLED}, // MENU_NONE if in a remote session, check policy
+	{MENU_UNDOCK,MENU_ENABLED}, // from settings, check policy
+	{MENU_CONTROLPANEL,MENU_ENABLED|MENU_EXPANDED|MENU_PAGER}, // MENU_EXPANDED from settings, check policy
+	{MENU_NETWORK,MENU_ENABLED|MENU_PAGER}, // MENU_EXPANDED from settings, check policy
+	{MENU_PRINTERS,MENU_ENABLED|MENU_PAGER}, // MENU_EXPANDED from settings, check policy
+	{MENU_TASKBAR,MENU_ENABLED}, // check policy
+	{MENU_FEATURES,MENU_ENABLED}, // no setting (prevents the Programs and Features from expanding), check policy (for control panel)
+	{MENU_SEARCH,MENU_ENABLED}, // check policy
+	{MENU_SEARCH_PRINTER,MENU_NONE}, // MENU_ENABLED if Active Directory is available
+	{MENU_SEARCH_COMPUTERS,MENU_NONE}, // MENU_ENABLED if Active Directory is available, check policy
 	{MENU_SEARCH_PEOPLE,MENU_NONE}, // MENU_ENABLED if %ProgramFiles%\Windows Mail\wab.exe exists
+	{MENU_USERFILES,MENU_ENABLED}, // check policy
+	{MENU_USERDOCUMENTS,MENU_ENABLED}, // check policy
+	{MENU_USERPICTURES,MENU_ENABLED}, // check policy
 };
 
 static int FindStdMenuItem( TMenuID id )
@@ -144,6 +155,9 @@ int CMenuContainer::s_MenuBorder=0;
 int CMenuContainer::s_MenuStyle=0;
 bool CMenuContainer::s_bBehindTaskbar=true;
 bool CMenuContainer::s_bShowTopEmpty=false;
+bool CMenuContainer::s_bNoEditMenu=false;
+bool CMenuContainer::s_bExpandLinks=false;
+char CMenuContainer::s_bActiveDirectory=-1;
 HTHEME CMenuContainer::s_ThemeMenu;
 HTHEME CMenuContainer::s_ThemeList;
 COLORREF CMenuContainer::s_MenuColor;
@@ -349,9 +363,9 @@ void CMenuContainer::InitItems( void )
 				SFGAOF flags=SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK; // check if the item is a folder, archive or a link
 				if (FAILED(pFolder->GetAttributesOf(1,&pidl,&flags)))
 					flags=0;
-				item.bFolder=(!(m_Options&CONTAINER_NOSUBFOLDERS) && (flags&(SFGAO_FOLDER|SFGAO_STREAM))==SFGAO_FOLDER);
 				item.bLink=(flags&SFGAO_LINK)!=0;
-				item.bDragInto=item.bFolder && ((m_Options&CONTAINER_PROGRAMS) || item.id==MENU_PROGRAMS);
+				item.bFolder=(!(m_Options&CONTAINER_NOSUBFOLDERS) && (flags&SFGAO_FOLDER) && (!(flags&(SFGAO_STREAM|SFGAO_LINK)) || (s_bExpandLinks && item.bLink)));
+				item.bPrograms=((m_Options&CONTAINER_PROGRAMS) || (!m_pParent && item.id==MENU_NO));
 
 				m_Items.push_back(item);
 			}
@@ -360,7 +374,7 @@ void CMenuContainer::InitItems( void )
 	}
 
 	// add second folder
-	if (m_Path2)
+	if (m_Path2/* && !SHRestricted(REST_NOCOMMONGROUPS)*/)
 	{
 		CComPtr<IShellFolder> pFolder;
 		s_pDesktop->BindToObject(m_Path2,NULL,IID_IShellFolder,(void**)&pFolder);
@@ -411,9 +425,9 @@ void CMenuContainer::InitItems( void )
 					SFGAOF flags=SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK;
 					if (FAILED(pFolder->GetAttributesOf(1,&pidl,&flags)))
 						flags=0;
-					item.bFolder=(!(m_Options&CONTAINER_NOSUBFOLDERS) && (flags&(SFGAO_FOLDER|SFGAO_STREAM))==SFGAO_FOLDER);
 					item.bLink=(flags&SFGAO_LINK)!=0;
-					item.bDragInto=item.bFolder && ((m_Options&CONTAINER_PROGRAMS) || item.id==MENU_PROGRAMS);
+					item.bFolder=(!(m_Options&CONTAINER_NOSUBFOLDERS) && (flags&SFGAO_FOLDER) && (!(flags&(SFGAO_STREAM|SFGAO_LINK)) || (s_bExpandLinks && item.bLink)));
+					item.bPrograms=((m_Options&CONTAINER_PROGRAMS) || (!m_pParent && item.id==MENU_NO));
 
 					m_Items.push_back(item);
 					CoTaskMemFree(name);
@@ -524,7 +538,7 @@ void CMenuContainer::InitItems( void )
 				SHGetKnownFolderIDList(*g_StdMenu[idx].folder2,0,NULL,&item.pItem2);
 
 			item.bFolder=(!(m_Options&CONTAINER_NOSUBFOLDERS) && ((g_StdMenu[idx].folder1 && (stdOptions&MENU_EXPANDED)) || g_StdMenu[idx].submenu!=MENU_NO));
-			item.bDragInto=(item.id==MENU_PROGRAMS);
+			item.bPrograms=(item.id==MENU_PROGRAMS || item.id==MENU_FAVORITES);
 			m_Items.insert(m_Items.begin()+menuIdx,1,item);
 			menuIdx++;
 		}
@@ -902,10 +916,10 @@ static INT_PTR CALLBACK RenameDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, L
 	if (uMsg==WM_INITDIALOG)
 	{
 		// translate text
-		SetWindowText(hwndDlg,FindSetting("Rename.Title",L"Rename"));
-		SetDlgItemText(hwndDlg,IDC_LABEL,FindSetting("Rename.Prompt",L"&New name:"));
-		SetDlgItemText(hwndDlg,IDOK,FindSetting("Rename.OK",L"OK"));
-		SetDlgItemText(hwndDlg,IDCANCEL,FindSetting("Rename.Cancel",L"Cancel"));
+		SetWindowText(hwndDlg,FindSetting("Menu.RenameTitle",L"Rename"));
+		SetDlgItemText(hwndDlg,IDC_LABEL,FindSetting("Menu.RenamePrompt",L"&New name:"));
+		SetDlgItemText(hwndDlg,IDOK,FindSetting("Menu.RenameOK",L"OK"));
+		SetDlgItemText(hwndDlg,IDCANCEL,FindSetting("Menu.RenameCancel",L"Cancel"));
 		SetDlgItemText(hwndDlg,IDC_EDITNAME,g_RenameText);
 		if (g_RenamePos)
 		{
@@ -921,6 +935,32 @@ static INT_PTR CALLBACK RenameDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, L
 		GetDlgItemText(hwndDlg,IDC_EDITNAME,buf,_countof(buf));
 		g_RenameText=buf;
 
+		EndDialog(hwndDlg,1);
+		return TRUE;
+	}
+	if (uMsg==WM_COMMAND && wParam==IDCANCEL)
+	{
+		EndDialog(hwndDlg,0);
+		return TRUE;
+	}
+	return FALSE;
+}
+
+// Dialog proc for the Log Off dialog box
+static INT_PTR CALLBACK LogOffDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
+{
+	if (uMsg==WM_INITDIALOG)
+	{
+		// translate text
+		SendDlgItemMessage(hwndDlg,IDC_STATICICON,STM_SETICON,lParam,0);
+		SetWindowText(hwndDlg,FindSetting("Menu.LogoffTitle",L"Log Off Windows"));
+		SetDlgItemText(hwndDlg,IDC_PROMPT,FindSetting("Menu.LogoffPrompt",L"Are you sure you want to log off?"));
+		SetDlgItemText(hwndDlg,IDOK,FindSetting("Menu.LogoffYes",L"&Log Off"));
+		SetDlgItemText(hwndDlg,IDCANCEL,FindSetting("Menu.LogoffNo",L"&No"));
+		return TRUE;
+	}
+	if (uMsg==WM_COMMAND && wParam==IDOK)
+	{
 		EndDialog(hwndDlg,1);
 		return TRUE;
 	}
@@ -1006,10 +1046,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			options|=CONTAINER_NOSUBFOLDERS;
 		if (item.id==MENU_DOCUMENTS)
 			options|=CONTAINER_DOCUMENTS|CONTAINER_NOSUBFOLDERS|CONTAINER_ADDTOP;
-		if (item.id==MENU_PROGRAMS || (m_Options&CONTAINER_PROGRAMS))
-			options|=CONTAINER_PROGRAMS;
-		if (item.bDragInto)
-			options|=CONTAINER_DRAG|CONTAINER_DROP;
+		if (item.bPrograms)
+			options|=CONTAINER_PROGRAMS|CONTAINER_DRAG|CONTAINER_DROP;
 		if (item.id==MENU_CONTROLPANEL)
 			options|=CONTAINER_DRAG;
 		if (item.bLink || (m_Options&CONTAINER_LINK))
@@ -1175,9 +1213,12 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	{
 		if (item.id==MENU_EMPTY) return;
 		// when executing an item close the whole menu
-		for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
-			if (!(*it)->m_bDestroyed)
-				(*it)->PostMessage(WM_CLOSE);
+		if (GetKeyState(VK_SHIFT)>=0)
+		{
+			for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
+				if (!(*it)->m_bDestroyed)
+					(*it)->PostMessage(WM_CLOSE);
+		}
 	}
 
 	if (type==ACTIVATE_MENU)
@@ -1250,8 +1291,20 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				if (SUCCEEDED(CoCreateInstance(CLSID_Shell,NULL,CLSCTX_SERVER,IID_IShellDispatch2,(void**)&pShellDisp)))
 					pShellDisp->FileRun();
 				break;
-			case MENU_LOGOFF: // log off, don't ask
-				ExitWindowsEx(EWX_LOGOFF,0);
+			case MENU_LOGOFF: // log off
+				{
+					if (!(m_Options&CONTAINER_CONFIRM_LO))
+						ExitWindowsEx(EWX_LOGOFF,0);
+					else
+					{
+						HMODULE hShell32=GetModuleHandle(L"Shell32.dll");
+						HICON icon=LoadIcon(hShell32,MAKEINTRESOURCE(45));
+						INT_PTR res=DialogBoxParam(g_Instance,MAKEINTRESOURCE(s_bRTL?IDD_LOGOFFR:IDD_LOGOFF),NULL,LogOffDlgProc,(LPARAM)icon);
+						DestroyIcon(icon);
+						if (res)
+							ExitWindowsEx(EWX_LOGOFF,0);
+					}
+				}
 				break;
 			case MENU_DISCONNECT: // disconnect the current Terminal Services session (remote desktop)
 				WTSDisconnectSession(WTS_CURRENT_SERVER_HANDLE,WTS_CURRENT_SESSION,FALSE);
@@ -1322,7 +1375,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		// show the context menu
 		m_pMenu2=pMenu;
 		m_pMenu3=pMenu;
-		if (item.id==MENU_NO) // clicked on a moveable item
+		if (item.id==MENU_NO) // clicked on a movable item
 		{
 			int n=0;
 			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
@@ -1353,6 +1406,9 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (m_pMenu2) m_pMenu2.Release();
 		if (m_pMenu3) m_pMenu3.Release();
 	}
+
+	if (GetKeyState(VK_SHIFT)<0)
+		LockSetForegroundWindow(LSFW_LOCK);
 
 	// handle our standard commands
 	if (res==CMD_OPEN || res==CMD_OPEN_ALL || res==CMD_EXPLORE || res==CMD_EXPLORE_ALL || res==CMD_PROPERTIES)
@@ -1507,7 +1563,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			SetForegroundWindow(m_hWnd);
 			SetActiveWindow();
 			m_Toolbars[0].SetFocus();
-			PostRefreshMessage();
+			if (bDelete)
+				PostRefreshMessage();
 			s_pDragSource=NULL;
 		}
 		else if (bLink)
@@ -1794,6 +1851,7 @@ LRESULT CMenuContainer::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 // Handle right-click and the menu keyboard button
 LRESULT CMenuContainer::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
+	if (s_bNoEditMenu) return 0;
 	CWindow toolbar=(HWND)wParam;
 	if (toolbar.m_hWnd==m_Pager.m_hWnd)
 		toolbar=m_Toolbars[0];
@@ -1989,6 +2047,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	ReadSettings(settings);
 
 	s_bScrollMenus=(settings.ScrollMenus!=0);
+	s_bExpandLinks=(settings.ExpandLinks!=0);
 	s_MaxRecentDocuments=settings.RecentDocuments;
 	s_ShellFormat=RegisterClipboardFormat(CFSTR_SHELLIDLIST);
 
@@ -2000,67 +2059,106 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	if (bPeople) CloseHandle(hWab);
 	s_bRTL=IsLanguageRTL();
 
-/*
-some SHRestricted arguments that we should support:
-	REST_NORUN - hide run
-	REST_NOCLOSE - hide shutdown
-	REST_NOSETFOLDERS - hide control panel, printers, networks
-	REST_NOSETTASKBAR - hide taskbar
-	REST_NOFIND - hide find files
-	REST_NOSTARTMENUSUBFOLDERS - no subfolders in start menu and programs
-	REST_NOCOMMONGROUPS - no common programs, no common start menu
-	REST_STARTMENULOGOFF - 1 -  no logoff, 2 - force logoff
-	REST_NORECENTDOCSMENU -  no recent documents
-	REST_NOFAVORITESMENU - no favorites
-	REST_HASFINDCOMPUTERS - hide find computers
-	REST_NOCONTROLPANEL - hide control panel
-	REST_NONETWORKCONNECTIONS - hide networks
-	REST_FORCESTARTMENULOGOFF - force logoff
-	REST_NOSMMYDOCS - hide user docs
-	REST_NOSMMYPICS - hide user pics
-	REST_NODISCONNECT - hide disconnect
-	REST_NOSMEJECTPC - hide undock
-*/
+	if (s_bActiveDirectory==-1)
+	{
+		DOMAIN_CONTROLLER_INFO *info;
+		DWORD err=DsGetDcName(NULL,NULL,NULL,NULL,DS_RETURN_FLAT_NAME,&info);
+		if (err==ERROR_SUCCESS)
+		{
+			s_bActiveDirectory=1;
+			NetApiBufferFree(info);
+		}
+		else
+			s_bActiveDirectory=0;
+	}
+
+	bool bNoSetFolders=SHRestricted(REST_NOSETFOLDERS)!=0; // hide control panel, printers, network
+
 	for (int i=0;i<_countof(g_StdOptions);i++)
 	{
 		switch (g_StdOptions[i].id)
 		{
 			case MENU_FAVORITES:
-				g_StdOptions[i].options=settings.ShowFavorites?MENU_ENABLED|MENU_EXPANDED:0;
+				g_StdOptions[i].options=(settings.ShowFavorites && !SHRestricted(REST_NOFAVORITESMENU))?MENU_ENABLED|MENU_EXPANDED:0;
 				break;
 			case MENU_DOCUMENTS:
-				g_StdOptions[i].options=settings.ShowDocuments?MENU_ENABLED|MENU_EXPANDED:0;
+				g_StdOptions[i].options=(settings.ShowDocuments && !SHRestricted(REST_NORECENTDOCSMENU))?MENU_ENABLED|MENU_EXPANDED:0;
 				break;
 			case MENU_LOGOFF:
-				g_StdOptions[i].options=settings.ShowLogOff?MENU_ENABLED:0;
+				{
+					DWORD logoff1=SHRestricted(REST_STARTMENULOGOFF);
+					DWORD logoff2=SHRestricted(REST_FORCESTARTMENULOGOFF);
+					g_StdOptions[i].options=(logoff1!=1 && (logoff1==2 || logoff2 || settings.ShowLogOff))?MENU_ENABLED:0;
+				}
 				break;
 			case MENU_DISCONNECT:
-				g_StdOptions[i].options=bRemote?MENU_ENABLED:0;
+				g_StdOptions[i].options=(bRemote && !SHRestricted(REST_NODISCONNECT))?MENU_ENABLED:0;
 				break;
 			case MENU_SHUTDOWN:
-				g_StdOptions[i].options=bRemote?0:MENU_ENABLED;
+				g_StdOptions[i].options=(!bRemote && !SHRestricted(REST_NOCLOSE))?MENU_ENABLED:0;
 				break;
 			case MENU_UNDOCK:
 				{
 					HW_PROFILE_INFO info;
 					GetCurrentHwProfile(&info);
-					g_StdOptions[i].options=settings.ShowUndock && ((info.dwDockInfo&(DOCKINFO_DOCKED|DOCKINFO_UNDOCKED))==DOCKINFO_DOCKED);
+					g_StdOptions[i].options=settings.ShowUndock && ((info.dwDockInfo&(DOCKINFO_DOCKED|DOCKINFO_UNDOCKED))==DOCKINFO_DOCKED && !SHRestricted(REST_NOSMEJECTPC));
 				}
 				break;
 			case MENU_CONTROLPANEL:
-				g_StdOptions[i].options=(settings.ExpandControlPanel?MENU_EXPANDED:0)|(g_StdOptions[i].options&~MENU_EXPANDED);
+				if (bNoSetFolders || SHRestricted(REST_NOCONTROLPANEL))
+					g_StdOptions[i].options&=~MENU_ENABLED;
+				else
+					g_StdOptions[i].options=MENU_ENABLED|(settings.ExpandControlPanel?MENU_EXPANDED:0)|(g_StdOptions[i].options&~MENU_EXPANDED);
 				break;
 			case MENU_NETWORK:
-				g_StdOptions[i].options=(settings.ExpandNetwork?MENU_EXPANDED:0)|(g_StdOptions[i].options&~MENU_EXPANDED);
+				if (bNoSetFolders || SHRestricted(REST_NONETWORKCONNECTIONS))
+					g_StdOptions[i].options&=~MENU_ENABLED;
+				else
+					g_StdOptions[i].options=MENU_ENABLED|(settings.ExpandNetwork?MENU_EXPANDED:0)|(g_StdOptions[i].options&~MENU_EXPANDED);
 				break;
 			case MENU_PRINTERS:
-				g_StdOptions[i].options=(settings.ExpandPrinters?MENU_EXPANDED:0)|(g_StdOptions[i].options&~MENU_EXPANDED);
+				if (bNoSetFolders)
+					g_StdOptions[i].options&=~MENU_ENABLED;
+				else
+					g_StdOptions[i].options=MENU_ENABLED|(settings.ExpandPrinters?MENU_EXPANDED:0)|(g_StdOptions[i].options&~MENU_EXPANDED);
+				break;
+
+			case MENU_SEARCH_PRINTER:
+				g_StdOptions[i].options=s_bActiveDirectory==1?MENU_ENABLED:0;
+				break;
+			case MENU_SEARCH_COMPUTERS:
+				g_StdOptions[i].options=(s_bActiveDirectory==1 && !SHRestricted(REST_HASFINDCOMPUTERS))?MENU_ENABLED:0;
 				break;
 			case MENU_SEARCH_PEOPLE:
 				g_StdOptions[i].options=bPeople?MENU_ENABLED:0;
 				break;
+
+			case MENU_HELP:
+				g_StdOptions[i].options=!SHRestricted(REST_NOSMHELP)?MENU_ENABLED:0;
+				break;
+			case MENU_RUN:
+				g_StdOptions[i].options=!SHRestricted(REST_NORUN)?MENU_ENABLED:0;
+				break;
+			case MENU_TASKBAR:
+				g_StdOptions[i].options=!SHRestricted(REST_NOSETTASKBAR)?MENU_ENABLED:0;
+				break;
+			case MENU_FEATURES:
+				g_StdOptions[i].options=(!bNoSetFolders && !SHRestricted(REST_NOCONTROLPANEL))?MENU_ENABLED:0;
+				break;
+			case MENU_SEARCH:
+				g_StdOptions[i].options=!SHRestricted(REST_NOFIND)?MENU_ENABLED:0;
+				break;
+			case MENU_USERFILES:
+			case MENU_USERDOCUMENTS:
+				g_StdOptions[i].options=!SHRestricted(REST_NOSMMYDOCS)?MENU_ENABLED:0;
+				break;
+			case MENU_USERPICTURES:
+				g_StdOptions[i].options=!SHRestricted(REST_NOSMMYPICS)?MENU_ENABLED:0;
+				break;
 		}
 	}	
+
+	s_bNoEditMenu=SHRestricted(REST_NOCHANGESTARMENU)!=0;
 	s_bKeyboardCues=bKeyboard;
 
 	// make sure the menu stays on the same monitor as the start button
@@ -2083,6 +2181,8 @@ some SHRestricted arguments that we should support:
 	int options=CONTAINER_PAGER|CONTAINER_NOPROGRAMS|CONTAINER_DRAG|CONTAINER_DROP;
 	if (!settings.UseSmallIcons)
 		options|=CONTAINER_LARGE;
+	if (settings.ConfirmLogOff)
+		options|=CONTAINER_CONFIRM_LO;
 
 	DWORD fade;
 	SystemParametersInfo(SPI_GETMENUFADE,NULL,&fade,0);

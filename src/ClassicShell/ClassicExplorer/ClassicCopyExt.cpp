@@ -11,8 +11,11 @@
 // CClassicCopyExt - this is a dummy drag and drop handler. Its purpose is to get Explorer to load the DLL when
 // a file is being copied or moved.
 
+void InitClassicCopyThread( void );
+
 STDMETHODIMP CClassicCopyExt::Initialize( LPCITEMIDLIST pidlFolder, LPDATAOBJECT pDataObj, HKEY hProgID )
 {
+	InitClassicCopyThread();
 	return S_OK;
 }
 

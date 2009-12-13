@@ -11,7 +11,7 @@
 
 CClassicExplorerModule _AtlModule;
 
-void InitClassicCopy( void );
+void InitClassicCopyProcess( void );
 void InitClassicCopyThread( void );
 void FreeClassicCopyThread( void );
 
@@ -32,7 +32,7 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 		*PathFindFileName(fname)=0;
 		wcscat_s(fname,_countof(fname),L"ExplorerL10N.ini");
 		ParseSettings(fname);
-		InitClassicCopy();
+		InitClassicCopyProcess();
 	}
 
 	if (dwReason==DLL_THREAD_ATTACH)

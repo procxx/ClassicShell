@@ -59,8 +59,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,9,5,0
- PRODUCTVERSION 0,9,5,0
+ FILEVERSION 0,9,6,0
+ PRODUCTVERSION 0,9,6,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -77,11 +77,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic Windows Explorer features"
-            VALUE "FileVersion", "0, 9, 5, 0"
+            VALUE "FileVersion", "0, 9, 6, 0"
             VALUE "InternalName", "ClassicExplorer.dll"
             VALUE "OriginalFilename", "ClassicExplorer.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "0, 9, 5, 0"
+            VALUE "ProductVersion", "0, 9, 6, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -148,24 +148,29 @@ BEGIN
     CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,119,45,12
 END
 
-IDD_SETTINGS DIALOGEX 0, 0, 211, 125
+IDD_SETTINGS DIALOGEX 0, 0, 211, 178
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Classic Explorer Settings"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    CONTROL         "Enable classic copy UI",IDC_CHECKCOPY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,7,89,10
-    CONTROL         "Enable Alt+Enter in the folder tree",IDC_CHECKBHO,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,21,128,10
-    CONTROL         "Use big buttons",IDC_CHECKBIG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,35,69,10
-    GROUPBOX        "Toolbar buttons:",IDC_STATIC,7,53,197,45
-    CONTROL         "Up One Level",IDC_CHECK1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,67,59,10
-    CONTROL         "Cut",IDC_CHECK2,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,88,67,27,10
-    CONTROL         "Copy",IDC_CHECK3,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,67,33,10
-    CONTROL         "Paste",IDC_CHECK4,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,81,34,10
-    CONTROL         "Delete",IDC_CHECK5,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,88,81,37,10
-    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,109,40,10
-    DEFPUSHBUTTON   "OK",IDOK,98,104,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,154,104,50,14
+    GROUPBOX        "Folder tree tweaks:",IDC_STATIC,7,7,197,69
+    CONTROL         "Enable Alt+Enter to show properties",IDC_CHECKBHO,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,19,128,10
+    CONTROL         "Enable classic tree style",IDC_CHECKXPSTYLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,33,92,10
+    CONTROL         "Display simple folder view",IDC_CHECKSIMPLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,27,47,97,10
+    CONTROL         "Don't fade buttons",IDC_CHECKNOFADE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,61,76,10
+    GROUPBOX        "Toolbar buttons:",IDC_STATIC,7,81,197,58
+    CONTROL         "Use big buttons",IDC_CHECKBIG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,94,69,10
+    CONTROL         "Up One Level",IDC_CHECK1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,108,59,10
+    CONTROL         "Cut",IDC_CHECK2,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,88,108,27,10
+    CONTROL         "Copy",IDC_CHECK3,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,108,33,10
+    CONTROL         "Paste",IDC_CHECK4,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,122,34,10
+    CONTROL         "Delete",IDC_CHECK5,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,88,122,37,10
+    CONTROL         "Properties",IDC_CHECK6,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,122,49,10
+    CONTROL         "Enable classic copy UI",IDC_CHECKCOPY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,143,89,10
+    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,162,40,10
+    DEFPUSHBUTTON   "OK",IDOK,98,157,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,154,157,50,14
 END
 
 IDD_DIALOG1R DIALOGEX 0, 0, 285, 136
@@ -242,7 +247,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 204
         TOPMARGIN, 7
-        BOTTOMMARGIN, 118
+        BOTTOMMARGIN, 171
     END
 
     IDD_DIALOG1R, DIALOG

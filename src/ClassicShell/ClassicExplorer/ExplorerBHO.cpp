@@ -5,12 +5,11 @@
 
 #include "stdafx.h"
 #include "ExplorerBHO.h"
-
+#include <uxtheme.h>
 
 // CExplorerBHO - a browser helper object that implements Alt+Enter for the folder tree
 
 __declspec(thread) HHOOK CExplorerBHO::s_Hook; // one hook per thread
-__declspec(thread) HWND CExplorerBHO::s_hwndTree; // one tree control per thread
 
 static BOOL CALLBACK EnumChildProc( HWND hwnd, LPARAM lParam )
 {
@@ -30,64 +29,80 @@ static BOOL CALLBACK FindFolderTreeEnum( HWND hwnd, LPARAM lParam )
 	return FALSE;
 }
 
-LRESULT CALLBACK CExplorerBHO::HookExplorer( int code, WPARAM wParam, LPARAM lParam )
+static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
-	if (code==HC_ACTION)
+	if (uMsg==WM_SYSKEYDOWN && wParam==VK_RETURN)
 	{
-		MSG *msg=(MSG*)lParam;
-		if (msg->message==WM_SYSKEYDOWN && msg->wParam==VK_RETURN)
-		{
-			// Alt+Enter is pressed
-			if (!s_hwndTree)
-			{
-				// find the folder tree
-				s_hwndTree=(HWND)1;
-				EnumThreadWindows(GetCurrentThreadId(),FindFolderTreeEnum,(LPARAM)&s_hwndTree);
-			}
-			if (msg->hwnd==s_hwndTree)
-			{
-				// if this message was for the folder tree, show the properties of the selected item
-				DWORD EnableAltEnter=1;
-				CRegKey regSettings;
-				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
-					regSettings.QueryDWORDValue(L"EnableAltEnter",EnableAltEnter);
+		// Alt+Enter is pressed
+		// if this message was for the folder tree, show the properties of the selected item
+		DWORD FoldersSettings=CExplorerBHO::FOLDERS_DEFAULT;
+		CRegKey regSettings;
+		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
+			regSettings.QueryDWORDValue(L"FoldersSettings",FoldersSettings);
 
-				if (EnableAltEnter)
-				{
-					// find the PIDL of the selected item (combine all child PIDLs from the current item and its parents)
-					HTREEITEM hItem=TreeView_GetSelection(s_hwndTree);
-					LPITEMIDLIST pidl=NULL;
-					while (hItem)
-					{
-						TVITEMEX info={TVIF_PARAM,hItem};
-						TreeView_GetItem(s_hwndTree,&info);
-						LPITEMIDLIST **pidl1=(LPITEMIDLIST**)info.lParam;
-						if (!pidl1 || !*pidl1 || !**pidl1)
-						{
-							if (pidl) ILFree(pidl);
-							pidl=NULL;
-							break;
-						}
-						LPITEMIDLIST pidl2=pidl?ILCombine(**pidl1,pidl):ILClone(**pidl1);
-						if (pidl) ILFree(pidl);
-						pidl=pidl2;
-						hItem=TreeView_GetParent(s_hwndTree,hItem);
-					}
-					if (pidl)
-					{
-						// show properties
-						SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_IDLIST|SEE_MASK_INVOKEIDLIST,NULL,L"properties"};
-						execute.lpIDList=pidl;
-						execute.nShow=SW_SHOWNORMAL;
-						ShellExecuteEx(&execute);
-						ILFree(pidl);
-						msg->message=WM_NULL;
-					}
-				}
+		if ((FoldersSettings&CExplorerBHO::FOLDERS_ALTENTER) && ShowTreeProperties(hWnd))
+			return 0;
+	}
+	if (uMsg==TVM_SETEXTENDEDSTYLE && wParam==(TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000) && lParam==0)
+	{
+		wParam&=0x7FFFFFFF;
+
+		DWORD FoldersSettings=CExplorerBHO::FOLDERS_DEFAULT;
+		CRegKey regSettings;
+		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
+			regSettings.QueryDWORDValue(L"FoldersSettings",FoldersSettings);
+
+		if (!(FoldersSettings&CExplorerBHO::FOLDERS_NOFADE))
+			wParam&=~TVS_EX_FADEINOUTEXPANDOS;
+
+		if (FoldersSettings&CExplorerBHO::FOLDERS_CLASSIC)
+		{
+			SetWindowTheme(hWnd,NULL,NULL);
+			DWORD style=GetWindowLong(hWnd,GWL_STYLE);
+			style&=~TVS_NOHSCROLL;
+			if (FoldersSettings&CExplorerBHO::FOLDERS_SIMPLE)
+			{
+				style|=TVS_SINGLEEXPAND|TVS_TRACKSELECT;
+				style&=~TVS_HASLINES;
 			}
+			else
+			{
+				style|=TVS_HASLINES;
+				style&=~(TVS_SINGLEEXPAND|TVS_TRACKSELECT);
+				wParam|=TVS_EX_FADEINOUTEXPANDOS;
+				HIMAGELIST images=TreeView_GetImageList(hWnd,TVSIL_NORMAL);
+				int cx, cy;
+				ImageList_GetIconSize(images,&cx,&cy);
+				TreeView_SetIndent(hWnd,cx+3);
+			}
+			SetWindowLong(hWnd,GWL_STYLE,style);
+		}
+		else
+		{
+			wParam&=~TVS_EX_AUTOHSCROLL;
+		}
+
+		if (wParam==0) return 0;
+	}
+	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+}
+
+LRESULT CALLBACK CExplorerBHO::HookExplorer( int nCode, WPARAM wParam, LPARAM lParam )
+{
+	if (nCode==HCBT_CREATEWND)
+	{
+		HWND hWnd=(HWND)wParam;
+		CBT_CREATEWND *create=(CBT_CREATEWND*)lParam;
+		if (create->lpcs->lpszClass>(LPTSTR)0xFFFF && _wcsicmp(create->lpcs->lpszClass,WC_TREEVIEW)==0)
+		{
+			SetWindowSubclass(hWnd,SubclassTreeProc,((unsigned int)'Clas'<<16)+'Shel',0);
+			PostMessage(hWnd,TVM_SETEXTENDEDSTYLE,TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000,0);
+			UnhookWindowsHookEx(s_Hook);
+			s_Hook=NULL;
+			return 0;
 		}
 	}
-	return CallNextHookEx(NULL,code,wParam,lParam);
+	return CallNextHookEx(NULL,nCode,wParam,lParam);
 }
 
 HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
@@ -99,7 +114,7 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 		// hook
 		if (!s_Hook)
 		{
-			s_Hook=SetWindowsHookEx(WH_GETMESSAGE,HookExplorer,NULL,GetCurrentThreadId());
+			s_Hook=SetWindowsHookEx(WH_CBT,HookExplorer,NULL,GetCurrentThreadId());
 		}
 	}
 	else
@@ -110,4 +125,38 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 		s_Hook=NULL;
 	}
 	return S_OK;
+}
+
+bool ShowTreeProperties( HWND hwndTree )
+{
+	// find the PIDL of the selected item (combine all child PIDLs from the current item and its parents)
+	HTREEITEM hItem=TreeView_GetSelection(hwndTree);
+	LPITEMIDLIST pidl=NULL;
+	while (hItem)
+	{
+		TVITEMEX info={TVIF_PARAM,hItem};
+		TreeView_GetItem(hwndTree,&info);
+		LPITEMIDLIST **pidl1=(LPITEMIDLIST**)info.lParam;
+		if (!pidl1 || !*pidl1 || !**pidl1)
+		{
+			if (pidl) ILFree(pidl);
+			pidl=NULL;
+			break;
+		}
+		LPITEMIDLIST pidl2=pidl?ILCombine(**pidl1,pidl):ILClone(**pidl1);
+		if (pidl) ILFree(pidl);
+		pidl=pidl2;
+		hItem=TreeView_GetParent(hwndTree,hItem);
+	}
+	if (pidl)
+	{
+		// show properties
+		SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_IDLIST|SEE_MASK_INVOKEIDLIST,NULL,L"properties"};
+		execute.lpIDList=pidl;
+		execute.nShow=SW_SHOWNORMAL;
+		ShellExecuteEx(&execute);
+		ILFree(pidl);
+		return true;
+	}
+	return false;
 }

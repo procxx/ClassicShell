@@ -26,7 +26,6 @@ class ATL_NO_VTABLE CExplorerBHO :
 public:
 	CExplorerBHO()
 	{
-		s_hwndTree=0;
 	}
 
 DECLARE_REGISTRY_RESOURCEID(IDR_EXPLORERBHO)
@@ -51,15 +50,27 @@ END_COM_MAP()
 	{
 	}
 
+	// Options for the folders tree
+	enum
+	{
+		FOLDERS_ALTENTER=1, // enable Alt+Enter support
+		FOLDERS_CLASSIC=2, // use classic XP style
+		FOLDERS_SIMPLE=4, // use simple XP style
+		FOLDERS_NOFADE=8, // don't fade the buttons
+
+		FOLDERS_DEFAULT=FOLDERS_ALTENTER
+	};
+
 public:
 	// IObjectWithSite
 	STDMETHOD(SetSite)(IUnknown *pUnkSite);
 
 private:
 	static __declspec(thread) HHOOK s_Hook;
-	static __declspec(thread) HWND s_hwndTree;
 
 	static LRESULT CALLBACK HookExplorer( int code, WPARAM wParam, LPARAM lParam );
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(ExplorerBHO), CExplorerBHO)
+
+bool ShowTreeProperties( HWND hwndTree );

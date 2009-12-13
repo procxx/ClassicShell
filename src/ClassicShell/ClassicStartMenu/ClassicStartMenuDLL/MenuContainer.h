@@ -89,7 +89,7 @@ public:
 		CONTAINER_PAGER        = 0x0002, // use pager instead of multiple columns
 		CONTAINER_NOSUBFOLDERS = 0x0004, // don't go into subfolders (for control panel)
 		CONTAINER_NOPROGRAMS   = 0x0008, // don't show the Programs menu (for the top portion of the main menu)
-		CONTAINER_PROGRAMS     = 0x0010, // this is the Programs menu or its subfolder
+		CONTAINER_PROGRAMS     = 0x0010, // this is a folder from the Start Menu hierarchy
 		CONTAINER_DOCUMENTS    = 0x0020, // sort by time, limit the count (for recent documents)
 		CONTAINER_LINK         = 0x0040, // this is an expanded link to a folder (always in a pager)
 		CONTAINER_ADDTOP       = 0x0080, // put standard items at the top
@@ -98,6 +98,7 @@ public:
 		CONTAINER_LEFT         = 0x0400, // the window is aligned on the left
 		CONTAINER_TOP          = 0x0800, // the window is aligned on the top
 		CONTAINER_THEME        = 0x1000, // use the menu theme
+		CONTAINER_CONFIRM_LO   = 0x2000, // ask user before logging off
 	};
 
 	CMenuContainer( CMenuContainer *pParent, int options, TMenuID menuID, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName );
@@ -174,7 +175,7 @@ private:
 		int btnIndex; // button index in the toolbar
 		bool bFolder; // this is a folder - draw arrow
 		bool bLink; // this is a link (if a link to a folder is expanded it is always in a pager)
-		bool bDragInto; // this is a folder that can be dragged into (opens when the mouse hovers over it)
+		bool bPrograms; // this item is part of the Start Menu folder hierarchy
 
 		// pair of shell items. 2 items are used to combine a user folder with a common folder (I.E. user programs/common programs)
 		PIDLIST_ABSOLUTE pItem1;
@@ -318,6 +319,9 @@ private:
 	static int s_MenuStyle; // the style for the menu windows
 	static bool s_bBehindTaskbar; // the main menu is behind the taskbar (when the taskbar is horizontal)
 	static bool s_bShowTopEmpty; // shows the empty item on the top menu so the user can drag items there
+	static bool s_bNoEditMenu; // disables drag/drop and the context menu
+	static bool s_bExpandLinks; // expand links to folders
+	static char s_bActiveDirectory; // the Active Directory services are available (-1 - uninitialized)
 	static HTHEME s_ThemeMenu; // theme to draw the menu arrow
 	static HTHEME s_ThemeList; // theme to draw the highlighted menu item
 	static COLORREF s_MenuColor;

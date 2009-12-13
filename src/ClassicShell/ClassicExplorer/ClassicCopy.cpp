@@ -266,6 +266,8 @@ void CClassicCopy::GetFileInfo( IAccessible *pAcc, bool bSrc )
 		m_DstIcon=info.hIcon;
 }
 
+const int WM_BRINGFOREGROUND=WM_USER+11;
+
 INT_PTR CALLBACK CClassicCopy::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
 	if (uMsg==WM_INITDIALOG)
@@ -299,6 +301,13 @@ INT_PTR CALLBACK CClassicCopy::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM wPara
 			SetDlgItemText(hwndDlg,IDCANCEL,FindSetting("Copy.Cancel",L"Cancel"));
 		swprintf_s(text,L"<a>%s</a>",FindSetting("Copy.More",L"&More..."));
 		SetDlgItemText(hwndDlg,IDC_LINKMORE,text);
+		PostMessage(hwndDlg,WM_BRINGFOREGROUND,0,0);
+		return TRUE;
+	}
+	if (uMsg==WM_BRINGFOREGROUND)
+	{
+		// bring window to front (sometimes on Windows7 it shows up behind Explorer)
+		SetForegroundWindow(hwndDlg);
 		return TRUE;
 	}
 	if (uMsg==WM_COMMAND && (wParam==IDOK || wParam==IDYES || wParam==IDNO || wParam==IDCANCEL))
@@ -374,7 +383,7 @@ LRESULT CALLBACK ClassicCopyHook( int nCode, WPARAM wParam, LPARAM lParam )
 	return CallNextHookEx(g_Hook,nCode,wParam,lParam);
 }
 
-void InitClassicCopy( void )
+void InitClassicCopyProcess( void )
 {
 	// load UI text from shell32.dll
 	// the text is used to locate controls in the copy dialog by name
@@ -390,7 +399,8 @@ void InitClassicCopy( void )
 
 void InitClassicCopyThread( void )
 {
-	g_Hook=SetWindowsHookEx(WH_CBT,ClassicCopyHook,g_Instance,GetCurrentThreadId());
+	if (!g_Hook)
+		g_Hook=SetWindowsHookEx(WH_CBT,ClassicCopyHook,g_Instance,GetCurrentThreadId());
 }
 
 void FreeClassicCopyThread( void )

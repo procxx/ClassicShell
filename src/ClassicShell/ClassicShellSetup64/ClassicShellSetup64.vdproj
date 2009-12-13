@@ -45,6 +45,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_4CA9B16E47B84EAD84103EA9B8C2A280"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_54E4D2D11D41474E87E04BD28178CD54"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -278,6 +284,26 @@
             "PackageAs" = "3:1"
             "Register" = "3:1"
             "Exclude" = "11:TRUE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_4CA9B16E47B84EAD84103EA9B8C2A280"
+            {
+            "SourcePath" = "8:..\\Docs\\ClassicExplorer_files\\FolderView.gif"
+            "TargetName" = "8:FolderView.gif"
+            "Tag" = "8:"
+            "Folder" = "8:_72CC6D70B1724AC6A7E3B3DF4086200D"
+            "Condition" = "8:CHECK_EXPLORER"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
@@ -546,14 +572,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Classic Shell"
-        "ProductCode" = "8:{88F1F32F-1ABA-4D28-9F5F-6D9ABCC77180}"
-        "PackageCode" = "8:{F7B9B629-DCF3-4E96-B6CA-00EB1CF736E4}"
+        "ProductCode" = "8:{DBA3A3B7-4FC3-4BC4-8451-B226CB65D588}"
+        "PackageCode" = "8:{99FE66A2-8091-4FD0-BD00-214DC5DA6F0C}"
         "UpgradeCode" = "8:{779A74EF-23DE-4C71-AC12-2EE5A542ED34}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:0.9.5"
+        "ProductVersion" = "8:0.9.6"
         "Manufacturer" = "8:IvoSoft"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

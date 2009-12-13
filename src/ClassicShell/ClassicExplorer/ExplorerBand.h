@@ -21,6 +21,7 @@ public:
 		ID_COPY,
 		ID_PASTE,
 		ID_DELETE,
+		ID_PROPERTIES,
 
 		ID_LAST
 	};
@@ -35,6 +36,7 @@ public:
 		COMMAND_ID_HANDLER( ID_COPY, OnFileOperation )
 		COMMAND_ID_HANDLER( ID_PASTE, OnFileOperation )
 		COMMAND_ID_HANDLER( ID_DELETE, OnFileOperation )
+		COMMAND_ID_HANDLER( ID_PROPERTIES, OnFileOperation )
 		COMMAND_ID_HANDLER( ID_SETTINGS, OnSettings )
 	END_MSG_MAP()
 

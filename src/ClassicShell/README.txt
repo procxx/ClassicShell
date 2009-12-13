@@ -1,5 +1,5 @@
 CLASSIC SHELL
-version 0.9.5 beta
+version 0.9.6 beta
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.
@@ -33,14 +33,18 @@ sadly is missing from Windows 7. It has a variety of advanced features:
 
 Classic Explorer is a plugin for Windows Explorer that:
 
+*	Adds a toolbar to Explorer for some common operations (Go to the parent folder,
+  Cut, Copy, Paste, Delete, Properties)
+
 *	Replaces the copy UI in Vista and Windows 7 with the more user-friendly "classic"
   version similar to Windows XP
 
 *	Handles Alt+Enter in the folder panel of Windows Explorer and shows the properties
   of the selected folder
 
-*	Adds a toolbar to Explorer for some common operations (Go to the parent folder,
-  Cut, Copy, Paste, Delete)
+*	Has options for customizing the folder panel to look more like the Windows XP
+  version or to not fade the expand buttons
+
 
 
 ///////////////////////////////////////////////////////////////////////////////

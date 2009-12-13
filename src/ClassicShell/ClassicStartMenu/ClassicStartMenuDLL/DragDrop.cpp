@@ -49,7 +49,7 @@ public:
 
 LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 {
-	if (!(m_Options&CONTAINER_DRAG)) return 0;
+	if (!(m_Options&CONTAINER_DRAG) || s_bNoEditMenu) return 0;
 	NMTOOLBAR *pInfo=(NMTOOLBAR*)pnmh;
 	const MenuItem &item=m_Items[pInfo->iItem-ID_OFFSET];
 	if (!item.pItem1 || item.id!=MENU_NO) return 0;
@@ -78,22 +78,9 @@ LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 
 	if (res==DRAGDROP_S_DROP && !m_bDestroyed)
 	{
-		// if the menu is still open, see if this was a move operation
-		bool bMove=false;
-		FORMATETC fmt={RegisterClipboardFormat(CFSTR_LOGICALPERFORMEDDROPEFFECT),NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-		STGMEDIUM stgm;
-		if (SUCCEEDED(pDataObj->GetData(&fmt,&stgm)))
-		{
-			DWORD *pdw=(DWORD*)GlobalLock(stgm.hGlobal);
-			if (pdw)
-			{
-				bMove=(*pdw==DROPEFFECT_MOVE);
-				GlobalUnlock(stgm.hGlobal);
-			}
-			ReleaseStgMedium(&stgm);
-		}
-
-		if (bMove) // it was a move - the folder was probably modified
+		// check if the item still exists. refresh the menu if it doesn't
+		SFGAOF flags=SFGAO_VALIDATE;
+		if (FAILED(pFolder->GetAttributesOf(1,&pidl,&flags)))
 		{
 			// close all submenus
 			for (int i=(int)s_Menus.size()-1;s_Menus[i]!=this;i--)
@@ -162,7 +149,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 
 	// only accept CFSTR_SHELLIDLIST data
 	FORMATETC format={s_ShellFormat,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-	if (!m_pDropFolder || !(m_Options&CONTAINER_DROP) || m_pDragObject->QueryGetData(&format)!=S_OK)
+	if (s_bNoEditMenu || !m_pDropFolder || !(m_Options&CONTAINER_DROP) || m_pDragObject->QueryGetData(&format)!=S_OK)
 		*pdwEffect=DROPEFFECT_NONE;
 
 	POINT p={pt.x,pt.y};
@@ -222,7 +209,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 					mark.iButton=-1;
 			}
 			m_DropToolbar.SendMessage(TB_SETINSERTMARK,0,(LPARAM)&mark);
-			if (mark.iButton==-1 && m_Items[index].bFolder && m_Items[index].bDragInto)
+			if (mark.iButton==-1 && m_Items[index].bFolder && m_Items[index].bPrograms)
 			{
 				m_DropToolbar.SendMessage(TB_SETHOTITEM,btnIndex);
 			}
@@ -241,7 +228,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 		// check if the hover delay is done and it's time to open the item
 		if (index>=0 && index==m_DragHoverItem)
 		{
-			if ((GetMessageTime()-m_DragHoverTime)>(int)s_HoverTime && m_Submenu!=m_DragHoverItem && (!m_Items[index].bFolder || m_Items[index].bDragInto))
+			if ((GetMessageTime()-m_DragHoverTime)>(int)s_HoverTime && m_Submenu!=m_DragHoverItem && (!m_Items[index].bFolder || m_Items[index].bPrograms))
 			{
 				// expand m_DragHoverItem
 				ActivateItem(index,ACTIVATE_OPEN,NULL);
@@ -337,7 +324,19 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 		CComQIPtr<IAsyncOperation> pAsync=pDataObj;
 		if (pAsync)
 			pAsync->SetAsyncMode(FALSE);
+		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+			if (!(*it)->m_bDestroyed)
+				(*it)->EnableWindow(FALSE); // disable all menus
+		CMenuContainer *pOld=s_pDragSource;
+		if (!s_pDragSource) s_pDragSource=this; // HACK: ensure s_pDragSource is not NULL even if dragging from external source (prevents the menu from closing)
 		pTarget->Drop(pDataObj,0,pt,pdwEffect);
+		s_pDragSource=pOld;
+		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+			if (!(*it)->m_bDestroyed)
+				(*it)->EnableWindow(TRUE); // enable all menus
+		SetForegroundWindow(m_hWnd);
+		SetActiveWindow();
+		m_Toolbars[0].SetFocus();
 
 		std::vector<SortMenuItem> items;
 		for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)

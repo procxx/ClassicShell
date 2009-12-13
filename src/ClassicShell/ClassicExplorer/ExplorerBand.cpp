@@ -6,6 +6,7 @@
 #include "stdafx.h"
 #include "ExplorerBand.h"
 #include "resource.h"
+#include "ExplorerBHO.h"
 #include "..\LocalizationSettings\ParseSettings.h"
 
 // Dialog proc for the Settings dialog. Edits the settings and saves them to the registry
@@ -22,11 +23,11 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
 			regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
 
-		DWORD EnableCopyUI, EnableAltEnter, BigButtons, ToolbarButtons;
+		DWORD EnableCopyUI, FoldersSettings, BigButtons, ToolbarButtons;
 		if (regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI)!=ERROR_SUCCESS)
 			EnableCopyUI=1;
-		if (regSettings.QueryDWORDValue(L"EnableAltEnter",EnableAltEnter)!=ERROR_SUCCESS)
-			EnableAltEnter=1;
+		if (regSettings.QueryDWORDValue(L"FoldersSettings",FoldersSettings)!=ERROR_SUCCESS)
+			FoldersSettings=CExplorerBHO::FOLDERS_DEFAULT;
 		if (regSettings.QueryDWORDValue(L"BigButtons",BigButtons)!=ERROR_SUCCESS)
 			BigButtons=0;
 		if (regSettings.QueryDWORDValue(L"ToolbarButtons",ToolbarButtons)!=ERROR_SUCCESS)
@@ -41,13 +42,24 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		SendMessage(hwndDlg,DM_REPOSITION,0,0);
 
 		CheckDlgButton(hwndDlg,IDC_CHECKCOPY,EnableCopyUI?BST_CHECKED:BST_UNCHECKED);
-		CheckDlgButton(hwndDlg,IDC_CHECKBHO,EnableAltEnter?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKBHO,(FoldersSettings&CExplorerBHO::FOLDERS_ALTENTER)?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKXPSTYLE,(FoldersSettings&CExplorerBHO::FOLDERS_CLASSIC)?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKSIMPLE,(FoldersSettings&CExplorerBHO::FOLDERS_SIMPLE)?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKNOFADE,(FoldersSettings&CExplorerBHO::FOLDERS_NOFADE)?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKBIG,BigButtons?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECK1,(ToolbarButtons&(1<<CBandWindow::ID_GOUP))?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECK2,(ToolbarButtons&(1<<CBandWindow::ID_CUT))?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECK3,(ToolbarButtons&(1<<CBandWindow::ID_COPY))?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECK4,(ToolbarButtons&(1<<CBandWindow::ID_PASTE))?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECK5,(ToolbarButtons&(1<<CBandWindow::ID_DELETE))?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECK6,(ToolbarButtons&(1<<CBandWindow::ID_PROPERTIES))?BST_CHECKED:BST_UNCHECKED);
+	}
+	if (uMsg==WM_INITDIALOG || (uMsg==WM_COMMAND && (wParam==IDC_CHECKXPSTYLE || wParam==IDC_CHECKSIMPLE)))
+	{
+		BOOL bXPStyle=IsDlgButtonChecked(hwndDlg,IDC_CHECKXPSTYLE)==BST_CHECKED;
+		BOOL bSimple=IsDlgButtonChecked(hwndDlg,IDC_CHECKSIMPLE)==BST_CHECKED;
+		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKSIMPLE),bXPStyle);
+		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKNOFADE),!bXPStyle || bSimple);
 		return TRUE;
 	}
 	if (uMsg==WM_COMMAND && wParam==IDOK)
@@ -56,18 +68,29 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
 			regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
 
-		DWORD EnableCopyUI, EnableAltEnter, BigButtons, ToolbarButtons;
+		DWORD EnableCopyUI, FoldersSettings, BigButtons, ToolbarButtons;
 		if (regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI)!=ERROR_SUCCESS)
 			EnableCopyUI=1;
-		if (regSettings.QueryDWORDValue(L"EnableAltEnter",EnableAltEnter)!=ERROR_SUCCESS)
-			EnableAltEnter=1;
+		if (regSettings.QueryDWORDValue(L"FoldersSettings",FoldersSettings)!=ERROR_SUCCESS)
+			FoldersSettings=CExplorerBHO::FOLDERS_DEFAULT;
 		if (regSettings.QueryDWORDValue(L"BigButtons",BigButtons)!=ERROR_SUCCESS)
 			BigButtons=0;
 		if (regSettings.QueryDWORDValue(L"ToolbarButtons",ToolbarButtons)!=ERROR_SUCCESS)
 			ToolbarButtons=((1<<CBandWindow::ID_LAST)-1)&~3;
 
 		DWORD EnableCopyUI2=(IsDlgButtonChecked(hwndDlg,IDC_CHECKCOPY)==BST_CHECKED)?1:0;
-		DWORD EnableAltEnter2=(IsDlgButtonChecked(hwndDlg,IDC_CHECKBHO)==BST_CHECKED)?1:0;
+		DWORD FoldersSettings2=0;
+		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKBHO)==BST_CHECKED)
+			FoldersSettings2|=CExplorerBHO::FOLDERS_ALTENTER;
+		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKXPSTYLE)==BST_CHECKED)
+		{
+			FoldersSettings2|=CExplorerBHO::FOLDERS_CLASSIC;
+			if (IsDlgButtonChecked(hwndDlg,IDC_CHECKSIMPLE)==BST_CHECKED)
+				FoldersSettings2|=CExplorerBHO::FOLDERS_SIMPLE;
+		}
+		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKNOFADE)==BST_CHECKED)
+			FoldersSettings2|=CExplorerBHO::FOLDERS_NOFADE;
+
 		DWORD BigButtons2=(IsDlgButtonChecked(hwndDlg,IDC_CHECKBIG)==BST_CHECKED)?1:0;
 		DWORD ToolbarButtons2=0;
 		ToolbarButtons2|=(IsDlgButtonChecked(hwndDlg,IDC_CHECK1)==BST_CHECKED)?(1<<CBandWindow::ID_GOUP):0;
@@ -75,15 +98,18 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		ToolbarButtons2|=(IsDlgButtonChecked(hwndDlg,IDC_CHECK3)==BST_CHECKED)?(1<<CBandWindow::ID_COPY):0;
 		ToolbarButtons2|=(IsDlgButtonChecked(hwndDlg,IDC_CHECK4)==BST_CHECKED)?(1<<CBandWindow::ID_PASTE):0;
 		ToolbarButtons2|=(IsDlgButtonChecked(hwndDlg,IDC_CHECK5)==BST_CHECKED)?(1<<CBandWindow::ID_DELETE):0;
+		ToolbarButtons2|=(IsDlgButtonChecked(hwndDlg,IDC_CHECK6)==BST_CHECKED)?(1<<CBandWindow::ID_PROPERTIES):0;
 
 		int res=0;
 		if (EnableCopyUI!=EnableCopyUI2)
 		{
 			regSettings.SetDWORDValue(L"EnableCopyUI",EnableCopyUI2);
 		}
-		if (EnableAltEnter!=EnableAltEnter2)
+		if (FoldersSettings!=FoldersSettings2)
 		{
-			regSettings.SetDWORDValue(L"EnableAltEnter",EnableAltEnter2);
+			if ((FoldersSettings^FoldersSettings2)!=CExplorerBHO::FOLDERS_ALTENTER)
+				res=1;
+			regSettings.SetDWORDValue(L"FoldersSettings",FoldersSettings2);
 		}
 		if (BigButtons!=BigButtons2)
 		{
@@ -152,7 +178,7 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	else
 		iconSize=BigButtons?24:16;
 
-	m_Enabled=ImageList_Create(iconSize,iconSize,ILC_COLOR32|(IsLanguageRTL()?ILC_MIRROR:0),0,2);
+	m_Enabled=ImageList_Create(iconSize,iconSize,ILC_COLOR32|ILC_MASK|(IsLanguageRTL()?ILC_MIRROR:0),0,2);
 
 	// load icons from Shell32.dll
 	int icons[]={
@@ -161,6 +187,7 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 		243, // copy
 		16763, // paste
 		240, // delete
+		253, // properties
 		210, // settings
 	};
 	HMODULE hModule=GetModuleHandle(L"Shell32.dll");
@@ -183,7 +210,8 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 		{2,ID_COPY,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Copy",L"Copy")},
 		{3,ID_PASTE,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Paste",L"Paste")},
 		{4,ID_DELETE,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Delete",L"Delete")},
-		{5,ID_SETTINGS,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Settings",L"Classic Explorer Settings")},
+		{5,ID_PROPERTIES,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Properties",L"Properties")},
+		{6,ID_SETTINGS,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Settings",L"Classic Explorer Settings")},
 	};
 	for (int i=0;i<_countof(buttons);i++)
 		if (!(ToolbarButtons&(1<<buttons[i].idCommand)))
@@ -211,40 +239,44 @@ LRESULT CBandWindow::OnGoUp( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHa
 LRESULT CBandWindow::OnFileOperation( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
 {
 	// check if the focus is on the tree side or on the list side
-	CWindow target=GetFocus();
+	CWindow focus=GetFocus();
 	wchar_t name[256];
-	GetClassName(target,name,_countof(name));
-	target=target.GetParent();
+	GetClassName(focus,name,_countof(name));
+	CWindow parent=focus.GetParent();
 	if (_wcsicmp(name,WC_TREEVIEW)==0)
 	{
 		// send these commands to the parent of the tree view
 		if (wID==ID_CUT)
-			target.SendMessage(WM_COMMAND,41025);
+			parent.SendMessage(WM_COMMAND,41025);
 		if (wID==ID_COPY)
-			target.SendMessage(WM_COMMAND,41026);
+			parent.SendMessage(WM_COMMAND,41026);
 		if (wID==ID_PASTE)
-			target.SendMessage(WM_COMMAND,41027);
+			parent.SendMessage(WM_COMMAND,41027);
 		if (wID==ID_DELETE)
-			target.SendMessage(WM_COMMAND,40995);
+			parent.SendMessage(WM_COMMAND,40995);
+		if (wID==ID_PROPERTIES)
+			ShowTreeProperties(focus.m_hWnd);
 
 		return TRUE;
 	}
 
-	GetClassName(target,name,_countof(name));
+	GetClassName(parent,name,_countof(name));
 	if (_wcsicmp(name,L"SHELLDLL_DefView")==0)
 	{
 		// send these commands to the SHELLDLL_DefView window
 		if (wID==ID_CUT)
 		{
-			target.SendMessage(WM_COMMAND,28696);
-			target.RedrawWindow(NULL,NULL,RDW_INVALIDATE|RDW_ALLCHILDREN);
+			parent.SendMessage(WM_COMMAND,28696);
+			focus.InvalidateRect(NULL);
 		}
 		if (wID==ID_COPY)
-			target.SendMessage(WM_COMMAND,28697);
+			parent.SendMessage(WM_COMMAND,28697);
 		if (wID==ID_PASTE)
-			target.SendMessage(WM_COMMAND,28698);
+			parent.SendMessage(WM_COMMAND,28698);
 		if (wID==ID_DELETE)
-			target.SendMessage(WM_COMMAND,28689);
+			parent.SendMessage(WM_COMMAND,28689);
+		if (wID==ID_PROPERTIES)
+			parent.SendMessage(WM_COMMAND,28691);
 	}
 
 	return TRUE;

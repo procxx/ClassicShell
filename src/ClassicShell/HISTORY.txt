@@ -1,4 +1,31 @@
 ===============================================================================
+== Version 0.9.6 beta (Dec, 2009) - more improvements:
+
+- Added Properties button to the toolbar
+
+- Added settings for the look of the folder tree in Explorer - XP classic,
+  XP simple, don't fade buttons
+
+- Added option to expand links to folders
+
+- Added option to show a confirmation dialog during Log Off from the start menu
+
+- Added option for a hotkey to replace the Win key for the start menu
+
+- The start menu hides the commands to search for printers or computers if
+  Active Directory is not available
+
+- The start menu accepts click in all of the start button area even if it is not
+  exactly on the orb
+
+- The start menu doesn't close if you hold down Shift while launching a program.
+  Allows the user to start multiple programs more easily
+
+- The start menu follows the group policies for showing Run, Shutdown, Help, etc
+
+- Fixed a bug with sorting Favorites and other top-level folders
+
+===============================================================================
 == Version 0.9.5 beta (Dec, 2009) - few improvements:
 
 - Added option to remove the Documents menu and option to use an alternative

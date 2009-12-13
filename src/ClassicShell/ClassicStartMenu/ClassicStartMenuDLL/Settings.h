@@ -13,10 +13,13 @@ struct StartMenuSettings
 	DWORD ExpandControlPanel;
 	DWORD ExpandNetwork;
 	DWORD ExpandPrinters;
+	DWORD ExpandLinks;
 	DWORD UseSmallIcons;
 	DWORD UseTheme;
 	DWORD ScrollMenus;
+	DWORD ConfirmLogOff;
 	DWORD RecentDocuments;
+	DWORD Hotkey; // 0 - Win key, 1 - no key
 };
 
 // Read the settings from the registry
@@ -27,3 +30,6 @@ void EditSettings( void );
 
 // Close the settings box
 void CloseSettings( void );
+
+// Process the dialog messages for the settings box
+bool IsSettingsMessage( MSG *msg );

@@ -19,6 +19,8 @@ HWND g_TaskBar;
 static UINT g_StartMenuMsg;
 static HWND g_Tooltip;
 static TOOLINFO g_StarButtonTool;
+static int g_HotkeyID;
+static DWORD g_Hotkey;
 
 static BOOL CALLBACK FindTooltipEnum( HWND hwnd, LPARAM lParam )
 {
@@ -149,6 +151,10 @@ static void FindStartButton( void )
 			CStartMenuTarget *pNewTarget=new CStartMenuTarget();
 			RegisterDragDrop(g_StartButton,pNewTarget);
 			pNewTarget->Release();
+			g_HotkeyID=GlobalAddAtom(L"ClassicStartMenu.Hotkey");
+			StartMenuSettings settings;
+			ReadSettings(settings);
+			SetHotkey(settings.Hotkey);
 		}
 #endif
 		if (!g_StartButton) g_StartButton=(HWND)1;
@@ -180,8 +186,25 @@ void UnhookDropTarget( void )
 		RevokeDragDrop(g_StartButton);
 		RegisterDragDrop(g_StartButton,g_pOriginalTarget);
 		g_pOriginalTarget=NULL;
+		SetHotkey(0);
 	}
 #endif
+}
+
+// Set the hotkey for the start menu (0 - Win key, 1 - no hotkey)
+void SetHotkey( DWORD hotkey )
+{
+	if (g_Hotkey>1)
+		UnregisterHotKey(g_StartButton,g_HotkeyID);
+	g_Hotkey=hotkey;
+	if (hotkey>1)
+	{
+		int mod=0;
+		if (hotkey&(HOTKEYF_SHIFT<<8)) mod|=MOD_SHIFT;
+		if (hotkey&(HOTKEYF_CONTROL<<8)) mod|=MOD_CONTROL;
+		if (hotkey&(HOTKEYF_ALT<<8)) mod|=MOD_ALT;
+		RegisterHotKey(g_StartButton,g_HotkeyID,mod,hotkey&255);
+	}
 }
 
 // Toggle the start menu. bKeyboard - set to true to show the keyboard cues
@@ -201,12 +224,15 @@ STARTMENUAPI LRESULT CALLBACK HookProgMan( int code, WPARAM wParam, LPARAM lPara
 		if (msg->message==WM_SYSCOMMAND && (msg->wParam&0xFFF0)==SC_TASKLIST)
 		{
 			FindStartButton();
-			if (g_StartButton)
+			if (g_Hotkey==0)
 			{
-				SetForegroundWindow(g_StartButton);
-				PostMessage(g_StartButton,g_StartMenuMsg,0,0);
+				if (g_StartButton)
+				{
+					SetForegroundWindow(g_StartButton);
+					PostMessage(g_StartButton,g_StartMenuMsg,0,0);
+				}
+				msg->message=WM_NULL;
 			}
-			msg->message=WM_NULL;
 		}
 	}
 	return CallNextHookEx(NULL,code,wParam,lParam);
@@ -222,6 +248,11 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 	{
 		MSG *msg=(MSG*)lParam;
 		FindStartButton();
+		if (IsSettingsMessage(msg))
+		{
+			msg->message=WM_NULL;
+			return 0;
+		}
 		if (msg->message==g_StartMenuMsg && msg->hwnd==g_StartButton)
 		{
 			// wParam=0 - toggle
@@ -230,8 +261,14 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			if (msg->wParam==0 || !CMenuContainer::IsMenuOpened())
 				ToggleStartMenu(g_StartButton,true);
 		}
+		if (msg->message==WM_HOTKEY && msg->hwnd==g_StartButton && msg->wParam==g_HotkeyID)
+		{
+			msg->message=WM_NULL;
+			SetForegroundWindow(g_StartButton);
+			ToggleStartMenu(g_StartButton,true);
+		}
 
-		if ((msg->message==WM_LBUTTONDOWN || msg->message==WM_LBUTTONDBLCLK) && msg->hwnd==g_StartButton && GetKeyState(VK_SHIFT)>=0)
+		if ((msg->message==WM_LBUTTONDOWN || msg->message==WM_LBUTTONDBLCLK) && msg->hwnd==g_StartButton && !(msg->wParam&MK_SHIFT))
 		{
 			DWORD pos=GetMessagePos();
 			POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
@@ -249,7 +286,24 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			msg->message=WM_NULL;
 		}
 
-		if (msg->message==WM_RBUTTONUP && msg->hwnd==g_StartButton && GetKeyState(VK_SHIFT)>=0)
+		if ((msg->message==WM_NCLBUTTONDOWN || msg->message==WM_NCLBUTTONDBLCLK) && msg->hwnd==g_TaskBar && GetKeyState(VK_SHIFT)>=0)
+		{
+			DWORD pos=GetMessagePos();
+			POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
+			ScreenToClient(g_TaskBar,&pt);
+			if (ChildWindowFromPoint(g_TaskBar,pt)!=g_TaskBar)
+			{
+				// ignore the click if it is on a child window (like the rebar or the tray area)
+				return CallNextHookEx(NULL,code,wParam,lParam);
+			}
+			// click on the taskbar around the start menu - toggle the menu
+			DWORD keyboard;
+			SystemParametersInfo(SPI_GETKEYBOARDCUES,NULL,&keyboard,0);
+			ToggleStartMenu(g_StartButton,keyboard!=0);
+			msg->message=WM_NULL;
+		}
+
+		if (msg->message==WM_RBUTTONUP && msg->hwnd==g_StartButton && !(msg->wParam&MK_SHIFT))
 		{
 			// right-click on the start button - open the context menu (Settings, Help, Exit)
 			msg->message=WM_NULL;
@@ -263,6 +317,10 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			AppendMenu(menu,MF_STRING,1,FindSetting("Menu.MenuSettings",L"Settings"));
 			AppendMenu(menu,MF_STRING,2,FindSetting("Menu.MenuHelp",L"Help"));
 			AppendMenu(menu,MF_STRING,3,FindSetting("Menu.MenuExit",L"Exit"));
+			MENUITEMINFO mii={sizeof(mii)};
+			mii.fMask=MIIM_BITMAP;
+			mii.hbmpItem=HBMMENU_POPUP_CLOSE;
+			SetMenuItemInfo(menu,3,FALSE,&mii);
 			g_bInMenu=true;
 			int res=TrackPopupMenu(menu,TPM_LEFTBUTTON|TPM_RETURNCMD|(IsLanguageRTL()?TPM_LAYOUTRTL:0),p.x,p.y,0,msg->hwnd,NULL);
 			DestroyMenu(menu);
@@ -288,9 +346,10 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				UnhookDropTarget();
 				// send WM_CLOSE to the window in ClassicStartMenu.exe. it will unhook everything and unload the DLL
 				HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
-				if (hwnd) SendMessage(hwnd,WM_CLOSE,0,0);
+				if (hwnd) PostMessage(hwnd,WM_CLOSE,0,0);
 			}
 		}
+
 	}
 	return CallNextHookEx(NULL,code,wParam,lParam);
 }
