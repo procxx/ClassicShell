@@ -26,6 +26,7 @@ class ATL_NO_VTABLE CExplorerBHO :
 public:
 	CExplorerBHO()
 	{
+		m_bResetStatus=true;
 	}
 
 DECLARE_REGISTRY_RESOURCEID(IDR_EXPLORERBHO)
@@ -61,14 +62,25 @@ END_COM_MAP()
 		FOLDERS_DEFAULT=FOLDERS_ALTENTER
 	};
 
+	enum
+	{
+		SPACE_SHOW=1, // show free space and selection size
+		SPACE_TOTAL=2, // show total size when nothing is selected
+		SPACE_WIN7=4, // running on Win7 (fix the status bar parts and show the disk free space)
+	};
+
 public:
 	// IObjectWithSite
 	STDMETHOD(SetSite)(IUnknown *pUnkSite);
 
 private:
+	CComPtr<IShellBrowser> m_pBrowser;
+	bool m_bResetStatus;
+
 	static __declspec(thread) HHOOK s_Hook;
 
 	static LRESULT CALLBACK HookExplorer( int code, WPARAM wParam, LPARAM lParam );
+	static LRESULT CALLBACK SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(ExplorerBHO), CExplorerBHO)

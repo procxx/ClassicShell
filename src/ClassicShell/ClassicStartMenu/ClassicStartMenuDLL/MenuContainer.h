@@ -86,7 +86,7 @@ public:
 	enum
 	{
 		CONTAINER_LARGE        = 0x0001, // use large icons
-		CONTAINER_PAGER        = 0x0002, // use pager instead of multiple columns
+		CONTAINER_MULTICOLUMN  = 0x0002, // use multiple columns instead of a pager
 		CONTAINER_NOSUBFOLDERS = 0x0004, // don't go into subfolders (for control panel)
 		CONTAINER_NOPROGRAMS   = 0x0008, // don't show the Programs menu (for the top portion of the main menu)
 		CONTAINER_PROGRAMS     = 0x0010, // this is a folder from the Start Menu hierarchy
@@ -101,7 +101,7 @@ public:
 		CONTAINER_CONFIRM_LO   = 0x2000, // ask user before logging off
 	};
 
-	CMenuContainer( CMenuContainer *pParent, int options, TMenuID menuID, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName );
+	CMenuContainer( CMenuContainer *pParent, int index, int options, TMenuID menuID, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName );
 	~CMenuContainer( void );
 
 	void InitItems( void );
@@ -234,8 +234,9 @@ private:
 	int m_Options;
 	TMenuID m_MenuID; // ID of the first item
 	CMenuContainer *m_pParent; // parent menu
-	CString m_RegName; // name of the registry key to store the item order
 	int m_Submenu; // the item index of the opened submenu
+	int m_ParentIndex; // the index of this menu in the parent (usually matches m_pParent->m_Submenu)
+	CString m_RegName; // name of the registry key to store the item order
 	PIDLIST_ABSOLUTE m_Path1;
 	PIDLIST_ABSOLUTE m_Path2;
 	CComPtr<IShellFolder> m_pDropFolder; // the primary folder (used only as a drop target)
@@ -266,8 +267,6 @@ private:
 	{
 		CMD_OPEN=1,
 		CMD_OPEN_ALL,
-		CMD_EXPLORE,
-		CMD_EXPLORE_ALL,
 		CMD_SORT,
 		CMD_PROPERTIES,
 
@@ -330,6 +329,7 @@ private:
 	static COLORREF s_MenuTextDColor;
 	static COLORREF s_MenuTextHotDColor;
 	static CMenuContainer *s_pDragSource; // the source of the current drag operation
+	static bool s_bRightDrag; // dragging with the right mouse button
 	static RECT s_MainRect; // area of the main monitor
 	static DWORD s_HoverTime;
 	static CLIPFORMAT s_ShellFormat; // CFSTR_SHELLIDLIST

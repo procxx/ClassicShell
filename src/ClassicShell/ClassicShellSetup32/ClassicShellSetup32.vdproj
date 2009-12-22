@@ -87,6 +87,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_B41427F7204F4E21A9505D2938FDB9B8"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_BC34D68826064CFEB96246C8D14D3EE7"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -100,6 +106,12 @@
         "Entry"
         {
         "MsmKey" = "8:_E0B6128A18AB47D3BACEE5EF55BFC5B2"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_E0F416134761401F853D8BCFF6A69089"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -381,6 +393,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_B41427F7204F4E21A9505D2938FDB9B8"
+            {
+            "SourcePath" = "8:..\\Docs\\ClassicExplorer_files\\statusbar.png"
+            "TargetName" = "8:statusbar.png"
+            "Tag" = "8:"
+            "Folder" = "8:_7A18E60935ED48D5BF45773EE706E3A8"
+            "Condition" = "8:CHECK_EXPLORER"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_BC34D68826064CFEB96246C8D14D3EE7"
             {
             "SourcePath" = "8:..\\Docs\\ClassicShellReadme.rtf"
@@ -418,6 +450,26 @@
             "PackageAs" = "3:1"
             "Register" = "3:1"
             "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E0F416134761401F853D8BCFF6A69089"
+            {
+            "SourcePath" = "8:..\\ClassicShellSetup\\ClassicShellBanner.jpg"
+            "TargetName" = "8:ClassicShellBanner.jpg"
+            "Tag" = "8:"
+            "Folder" = "8:_D30139B817584B0FB9780699379B96F5"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:TRUE"
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
@@ -573,14 +625,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Classic Shell"
-        "ProductCode" = "8:{C146D30E-B741-49C8-948D-4F7A5E429D21}"
-        "PackageCode" = "8:{09ECBBD9-82AD-4B9D-9388-F7BCA51C3D5D}"
+        "ProductCode" = "8:{4FB649CF-3B19-44C2-AE13-3978BA10E3C0}"
+        "PackageCode" = "8:{D69D1FC3-A07F-4B32-A7E5-1BFE2FA8BBBB}"
         "UpgradeCode" = "8:{EB7DA1D9-44EA-43BF-8A08-0B103007D4F2}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:0.9.6"
+        "ProductVersion" = "8:0.9.7"
         "Manufacturer" = "8:IvoSoft"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -754,7 +806,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "ShowProgress"
@@ -798,7 +851,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "ReadmeText"
@@ -845,7 +899,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "UpdateText"
@@ -889,7 +944,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "ShowProgress"
@@ -933,7 +989,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "CopyrightWarning"
@@ -981,7 +1038,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "BannerText"
@@ -1237,7 +1295,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "InstallAllUsersVisible"
@@ -1272,7 +1331,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "EulaText"
@@ -1319,7 +1379,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                         }
@@ -1350,7 +1411,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                         }
@@ -1381,7 +1443,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                         }
@@ -1403,7 +1466,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                         }
@@ -1425,7 +1489,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_E0F416134761401F853D8BCFF6A69089"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "CopyrightWarning"

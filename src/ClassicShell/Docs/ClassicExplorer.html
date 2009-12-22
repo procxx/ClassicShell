@@ -14,6 +14,11 @@
 
 
 
+
+
+
+
+
   
   <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Explorer</title>
   
@@ -30,7 +35,7 @@ body {
 }
 
   </style></head><body>
-<h1><a href="http://classicshell.sourceforge.net/"><img src="ClassicExplorer_files/ClassicShell.png" style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge"></a>&nbsp; Classic Explorer</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 0.9.6 (beta)</span><br>
+<h1><a href="http://classicshell.sourceforge.net/"><img src="ClassicExplorer_files/ClassicShell.png" style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge"></a>&nbsp; Classic Explorer</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 0.9.7 (beta)</span><br>
 <br>
 
 
@@ -43,8 +48,10 @@ Explorer</span> is a plugin for Windows Explorer that:</p>
   <li>Adds a toolbar to Explorer for some common operations (Go to the parent folder, Cut, Copy, Paste, Delete, Properties)</li>
   <li>Replaces the copy UI in Vista and Windows 7 with the more user-friendly &#8220;classic&#8221; version similar to Windows XP</li>
   <li>Handles Alt+Enter in the folder panel of Windows Explorer and shows the properties of the selected folder</li>
-  <li>Has options for customizing the folder panel to look more like the Windows XP version or to not fade the expand buttons<br>
+  <li>Has options for customizing the folder panel to look more like the Windows XP version or to not fade the expand buttons</li>
+  <li>Can show the free disk space and the total file size in the status bar<br>
   </li>
+
 
 </ul>
 
@@ -90,6 +97,7 @@ the original dialog from Windows. From there you
 will see all the details and you&#8217;ll get an extra option to &#8220;Copy, but
 keep both files&#8221;.</p>
 <p><span style="font-weight: bold;">Important Note:</span> Only the UI is replaced. The underlying system that does the actual copying is not affected.<br>
+<br>
 </p>
 
 
@@ -142,22 +150,36 @@ show the toolbar.</li>
 Toolbars&#8221;) you may have to enable the plugin from Internet Explorer.
 Run IE, right click on its toolbar and select &#8220;Classic Explorer Bar&#8221;.
 It will ask you if you want to enable this add-on. Select &#8220;Enable&#8221;,
-then repeat steps 1 through 3 again.<br>
-  </li>
-</ol>
+then repeat steps 1 through 3 again.</li>
+</ol><br>
+<h1>Status bar</h1>
+In Windows 7 the status bar in Explorer doesn't show the free disk
+space and the size of the selected files. Classic Explorer fixes that:<br>
+<br>
+<img style="width: 507px; height: 26px;" alt="File size in status bar" title="File size in status bar" src="ClassicExplorer_files/statusbar.png"><br>
+<br>
+When no files are selected the total size of all files in the folder is shown.<br>
+<br>
+By default the status bar feature is disabled for Windows Vista. It can
+still be turned on from the settings. The only benefit you will get
+from it is seeing the total size when no files are selected (Vista
+doesn't show that).<br>
+<br>
+<strong>Note:</strong> There is a bug in the Windows 7 Explorer that sometimes doesn't show any text in the status bar. Press <strong style="color: rgb(0, 112, 192);">F5</strong> to refresh the view and get the status text.<br>
+<br>
+
 
 <h1>Settings</h1>The last
 button in the toolbar opens up the Settings dialog box for Classic
-Explorer. From there you can enable or disable the Copy UI and the
-Alt+Enter features, as well as customize which buttons to show in the
+Explorer. From there you can enable or disable the Copy UI,&nbsp; the
+Alt+Enter and the status bar features, as well as customize which buttons to show in the
 toolbar. You can also change the look and feel of the folder tree in
 Explorer:<br>
 <img style="width: 200px; height: 200px;" alt="Different folder views" title="Different folder views" src="ClassicExplorer_files/FolderView.gif"><br>
 For <strong style="color: rgb(0, 112, 192);">XP Simple</strong> and <strong><span style="color: rgb(0, 112, 192);">Vista</span></strong>
 setups you can disable fading of the buttons when the folder tree
 doesn't have the focus. This is useful if you want to see if a folder
-has sub-folders without mousing over it.<br>
-<br>
+has sub-folders without mousing over it.<br><br>
 
 <h1>Localization</h1>
 

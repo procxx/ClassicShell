@@ -14,6 +14,23 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 {
 	if (uMsg==WM_INITDIALOG)
 	{
+		void *pRes=NULL;
+		HRSRC hResInfo=FindResource(g_Instance,MAKEINTRESOURCE(VS_VERSION_INFO),RT_VERSION);
+		if (hResInfo)
+		{
+			HGLOBAL hRes=LoadResource(g_Instance,hResInfo);
+			pRes=LockResource(hRes);
+		}
+		wchar_t title[100];
+		if (pRes)
+		{
+			VS_FIXEDFILEINFO *pVer=(VS_FIXEDFILEINFO*)((char*)pRes+40);
+			swprintf_s(title,L"Settings for Classic Explorer %d.%d.%d",HIWORD(pVer->dwProductVersionMS),LOWORD(pVer->dwProductVersionMS),HIWORD(pVer->dwProductVersionLS));
+		}
+		else
+			swprintf_s(title,L"Settings for Classic Explorer");
+		SetWindowText(hwndDlg,title);
+
 		HICON icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,GetSystemMetrics(SM_CXICON),GetSystemMetrics(SM_CYICON),LR_DEFAULTCOLOR);
 		SendMessage(hwndDlg,WM_SETICON,ICON_BIG,(LPARAM)icon);
 		icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,GetSystemMetrics(SM_CXSMICON),GetSystemMetrics(SM_CYSMICON),LR_DEFAULTCOLOR);
@@ -23,9 +40,11 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
 			regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
 
-		DWORD EnableCopyUI, FoldersSettings, BigButtons, ToolbarButtons;
+		DWORD EnableCopyUI, FreeSpace, FoldersSettings, BigButtons, ToolbarButtons;
 		if (regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI)!=ERROR_SUCCESS)
 			EnableCopyUI=1;
+		if (regSettings.QueryDWORDValue(L"FreeSpace",FreeSpace)!=ERROR_SUCCESS)
+			FreeSpace=(LOWORD(GetVersion())==0x0106)?CExplorerBHO::SPACE_SHOW:0;
 		if (regSettings.QueryDWORDValue(L"FoldersSettings",FoldersSettings)!=ERROR_SUCCESS)
 			FoldersSettings=CExplorerBHO::FOLDERS_DEFAULT;
 		if (regSettings.QueryDWORDValue(L"BigButtons",BigButtons)!=ERROR_SUCCESS)
@@ -42,6 +61,7 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		SendMessage(hwndDlg,DM_REPOSITION,0,0);
 
 		CheckDlgButton(hwndDlg,IDC_CHECKCOPY,EnableCopyUI?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKSIZE,FreeSpace?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKBHO,(FoldersSettings&CExplorerBHO::FOLDERS_ALTENTER)?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKXPSTYLE,(FoldersSettings&CExplorerBHO::FOLDERS_CLASSIC)?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKSIMPLE,(FoldersSettings&CExplorerBHO::FOLDERS_SIMPLE)?BST_CHECKED:BST_UNCHECKED);
@@ -60,17 +80,22 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		BOOL bSimple=IsDlgButtonChecked(hwndDlg,IDC_CHECKSIMPLE)==BST_CHECKED;
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKSIMPLE),bXPStyle);
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKNOFADE),!bXPStyle || bSimple);
-		return TRUE;
+		if (uMsg==WM_COMMAND)
+			return TRUE;
 	}
+	if (uMsg==WM_INITDIALOG)
+		return TRUE;
 	if (uMsg==WM_COMMAND && wParam==IDOK)
 	{
 		CRegKey regSettings;
 		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
 			regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
 
-		DWORD EnableCopyUI, FoldersSettings, BigButtons, ToolbarButtons;
+		DWORD EnableCopyUI, FreeSpace, FoldersSettings, BigButtons, ToolbarButtons;
 		if (regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI)!=ERROR_SUCCESS)
 			EnableCopyUI=1;
+		if (regSettings.QueryDWORDValue(L"FreeSpace",FreeSpace)!=ERROR_SUCCESS)
+			FreeSpace=(LOWORD(GetVersion())==0x0106)?CExplorerBHO::SPACE_SHOW:0;
 		if (regSettings.QueryDWORDValue(L"FoldersSettings",FoldersSettings)!=ERROR_SUCCESS)
 			FoldersSettings=CExplorerBHO::FOLDERS_DEFAULT;
 		if (regSettings.QueryDWORDValue(L"BigButtons",BigButtons)!=ERROR_SUCCESS)
@@ -79,6 +104,7 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 			ToolbarButtons=((1<<CBandWindow::ID_LAST)-1)&~3;
 
 		DWORD EnableCopyUI2=(IsDlgButtonChecked(hwndDlg,IDC_CHECKCOPY)==BST_CHECKED)?1:0;
+		DWORD FreeSpace2=(IsDlgButtonChecked(hwndDlg,IDC_CHECKSIZE)==BST_CHECKED)?CExplorerBHO::SPACE_SHOW:0;
 		DWORD FoldersSettings2=0;
 		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKBHO)==BST_CHECKED)
 			FoldersSettings2|=CExplorerBHO::FOLDERS_ALTENTER;
@@ -104,6 +130,11 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (EnableCopyUI!=EnableCopyUI2)
 		{
 			regSettings.SetDWORDValue(L"EnableCopyUI",EnableCopyUI2);
+		}
+		if (FreeSpace!=FreeSpace2)
+		{
+			regSettings.SetDWORDValue(L"FreeSpace",FreeSpace2);
+			res=1;
 		}
 		if (FoldersSettings!=FoldersSettings2)
 		{

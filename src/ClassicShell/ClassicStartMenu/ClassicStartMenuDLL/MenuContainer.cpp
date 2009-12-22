@@ -98,7 +98,6 @@ enum
 	MENU_NONE     = 0,
 	MENU_ENABLED  = 1, // the item shows in the menu
 	MENU_EXPANDED = 2, // the item is expanded
-	MENU_PAGER    = 4, // the menu is always in a pager
 };
 
 static StdMenuOption g_StdOptions[]=
@@ -111,9 +110,9 @@ static StdMenuOption g_StdOptions[]=
 	{MENU_DISCONNECT,MENU_NONE}, // MENU_ENABLED if in a remote session, check policy
 	{MENU_SHUTDOWN,MENU_ENABLED}, // MENU_NONE if in a remote session, check policy
 	{MENU_UNDOCK,MENU_ENABLED}, // from settings, check policy
-	{MENU_CONTROLPANEL,MENU_ENABLED|MENU_EXPANDED|MENU_PAGER}, // MENU_EXPANDED from settings, check policy
-	{MENU_NETWORK,MENU_ENABLED|MENU_PAGER}, // MENU_EXPANDED from settings, check policy
-	{MENU_PRINTERS,MENU_ENABLED|MENU_PAGER}, // MENU_EXPANDED from settings, check policy
+	{MENU_CONTROLPANEL,MENU_ENABLED|MENU_EXPANDED}, // MENU_EXPANDED from settings, check policy
+	{MENU_NETWORK,MENU_ENABLED}, // MENU_EXPANDED from settings, check policy
+	{MENU_PRINTERS,MENU_ENABLED}, // MENU_EXPANDED from settings, check policy
 	{MENU_TASKBAR,MENU_ENABLED}, // check policy
 	{MENU_FEATURES,MENU_ENABLED}, // no setting (prevents the Programs and Features from expanding), check policy (for control panel)
 	{MENU_SEARCH,MENU_ENABLED}, // check policy
@@ -166,6 +165,7 @@ COLORREF CMenuContainer::s_MenuTextHotColor;
 COLORREF CMenuContainer::s_MenuTextDColor;
 COLORREF CMenuContainer::s_MenuTextHotDColor;
 CMenuContainer *CMenuContainer::s_pDragSource=NULL;
+bool CMenuContainer::s_bRightDrag;
 std::vector<CMenuContainer*> CMenuContainer::s_Menus;
 CComPtr<IShellFolder> CMenuContainer::s_pDesktop;
 RECT CMenuContainer::s_MainRect;
@@ -195,10 +195,11 @@ LRESULT CALLBACK CMenuContainer::ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPAR
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
-CMenuContainer::CMenuContainer( CMenuContainer *pParent, int options, TMenuID menuID, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName )
+CMenuContainer::CMenuContainer( CMenuContainer *pParent, int index, int options, TMenuID menuID, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName )
 {
 	m_RefCount=1;
 	m_pParent=pParent;
+	m_ParentIndex=index;
 	m_Options=options;
 	m_MenuID=menuID;
 	m_RegName=regName;
@@ -227,7 +228,10 @@ CMenuContainer::~CMenuContainer( void )
 	if (m_Path1) ILFree(m_Path1);
 	if (m_Path2) ILFree(m_Path2);
 	if (std::find(s_Menus.begin(),s_Menus.end(),m_pParent)!=s_Menus.end()) // check if the parent is still alive
-		m_pParent->m_Submenu=-1;
+	{
+		if (m_pParent->m_Submenu==m_ParentIndex)
+			m_pParent->m_Submenu=-1;
+	}
 	if (m_Bitmap) DeleteObject(m_Bitmap);
 
 	// must be here and not in OnDestroy because during drag/drop a menu can close while still processing messages
@@ -718,7 +722,7 @@ void CMenuContainer::InitToolbars( void )
 		m_Items[i].btnIndex=n;
 		toolbar.SendMessage(TB_INSERTBUTTON,n,(LPARAM)&button);
 
-		if (!(m_Options&CONTAINER_PAGER))
+		if (m_Options&CONTAINER_MULTICOLUMN)
 		{
 			RECT rc;
 			toolbar.SendMessage(TB_GETITEMRECT,n,(LPARAM)&rc);
@@ -778,7 +782,7 @@ void CMenuContainer::InitToolbars( void )
 	}
 
 	// create pager
-	if ((m_Options&CONTAINER_PAGER) && maxh>maxHeight)
+	if (!(m_Options&CONTAINER_MULTICOLUMN) && maxh>maxHeight)
 	{
 		if (!m_Pager)
 			m_Pager=CreateWindow(WC_PAGESCROLLER,L"",WS_CHILD|WS_VISIBLE|PGS_DRAGNDROP|PGS_AUTOSCROLL|PGS_VERT|CCS_NODIVIDER|CCS_NOPARENTALIGN|CCS_NORESIZE,offs0,s_MenuBorder,maxw,maxHeight,m_hWnd,(HMENU)ID_PAGER,g_Instance,NULL);
@@ -1053,21 +1057,9 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (item.bLink || (m_Options&CONTAINER_LINK))
 			options|=CONTAINER_LINK;
 
-		if (s_bScrollMenus || (options&CONTAINER_LINK))
-			options|=CONTAINER_PAGER; // scroll all menus
-		else
-		{
-			// scroll only selected menus
-			for (int i=0;i<_countof(g_StdOptions);i++)
-				if (g_StdOptions[i].id==item.id)
-				{
-					if (g_StdOptions[i].options&MENU_PAGER)
-						options|=CONTAINER_PAGER;
-					break;
-				}
-		}
-
-		CMenuContainer *pMenu=new CMenuContainer(this,options,subMenuID,item.pItem1,item.pItem2,m_RegName+L"\\"+item.name);
+		if (!s_bScrollMenus && !(options&CONTAINER_LINK) && ((m_Options&CONTAINER_MULTICOLUMN) || item.id==MENU_PROGRAMS))
+			options|=CONTAINER_MULTICOLUMN;
+		CMenuContainer *pMenu=new CMenuContainer(this,index,options,subMenuID,item.pItem1,item.pItem2,m_RegName+L"\\"+item.name);
 		pMenu->InitItems();
 
 		BOOL animate;
@@ -1333,10 +1325,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	{
 		// context menu for a double folder - show Open, Open All Users, etc.
 		AppendMenu(menu,MF_STRING,CMD_OPEN,FindSetting("Menu.Open",L"&Open"));
-		AppendMenu(menu,MF_STRING,CMD_EXPLORE,FindSetting("Menu.Explore",L"&Explore"));
-		AppendMenu(menu,MF_SEPARATOR,0,0);
 		AppendMenu(menu,MF_STRING,CMD_OPEN_ALL,FindSetting("Menu.OpenAll",L"O&pen All Users"));
-		AppendMenu(menu,MF_STRING,CMD_EXPLORE_ALL,FindSetting("Menu.ExploreAll",L"E&xplore All Users"));
 		AppendMenu(menu,MF_SEPARATOR,0,0);
 		AppendMenu(menu,MF_STRING,CMD_PROPERTIES,FindSetting("Menu.Properties",L"P&roperties"));
 		SetMenuDefaultItem(menu,CMD_OPEN,FALSE);
@@ -1411,22 +1400,11 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		LockSetForegroundWindow(LSFW_LOCK);
 
 	// handle our standard commands
-	if (res==CMD_OPEN || res==CMD_OPEN_ALL || res==CMD_EXPLORE || res==CMD_EXPLORE_ALL || res==CMD_PROPERTIES)
+	if (res==CMD_OPEN || res==CMD_OPEN_ALL || res==CMD_PROPERTIES)
 	{
-		PIDLIST_ABSOLUTE pidl;
-		if (res!=CMD_OPEN_ALL && res!=CMD_EXPLORE_ALL)
-			pidl=item.pItem1;
-		else
-			pidl=item.pItem2;
-
 		SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_IDLIST|SEE_MASK_INVOKEIDLIST};
-		if (res==CMD_OPEN || res==CMD_OPEN_ALL)
-			execute.lpVerb=L"open";
-		else if (res==CMD_EXPLORE || res==CMD_EXPLORE_ALL)
-			execute.lpVerb=L"explore";
-		else
-			execute.lpVerb=L"properties";
-		execute.lpIDList=pidl;
+		execute.lpVerb=res==CMD_PROPERTIES?L"properties":L"open";
+		execute.lpIDList=(res==CMD_OPEN_ALL)?item.pItem2:item.pItem1;
 		execute.nShow=SW_SHOWNORMAL;
 		ShellExecuteEx(&execute);
 	}
@@ -1452,8 +1430,6 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		char command[256];
 		if (FAILED(pMenu->GetCommandString(res-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
 			command[0]=0;
-		bool bDelete=false;
-		bool bLink=false;
 		if (_stricmp(command,"rename")==0)
 		{
 			// show the Rename dialog box
@@ -1482,20 +1458,11 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 			bool bRenamed=DialogBox(g_Instance,MAKEINTRESOURCE(s_bRTL?IDD_RENAMER:IDD_RENAME),temp?temp:m_hWnd,RenameDlgProc)!=0;
 
-			for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
-				(*it)->EnableWindow(TRUE); // enable all menus
-			if (temp)
-				::DestroyWindow(temp);
-			SetForegroundWindow(m_hWnd);
-			SetActiveWindow();
-			m_Toolbars[0].SetFocus();
-			s_pDragSource=NULL;
-
 			if (bRenamed)
 			{
 				// perform the rename operation
 				PITEMID_CHILD newPidl;
-				if (SUCCEEDED(pFolder->SetNameOf(m_hWnd,pidl,g_RenameText,SHGDN_FOREDITING,&newPidl)))
+				if (SUCCEEDED(pFolder->SetNameOf(m_hWnd,pidl,g_RenameText,SHGDN_INFOLDER|SHGDN_FOREDITING,&newPidl)))
 				{
 					STRRET str;
 					if (SUCCEEDED(pFolder->GetDisplayNameOf(newPidl,SHGDN_INFOLDER|SHGDN_FORPARSING,&str)))
@@ -1520,13 +1487,21 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				}
 				PostRefreshMessage();
 			}
+			for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+				(*it)->EnableWindow(TRUE); // enable all menus
+			if (temp)
+				::DestroyWindow(temp);
+			SetForegroundWindow(m_hWnd);
+			SetActiveWindow();
+			m_Toolbars[0].SetFocus();
+			s_pDragSource=NULL;
+			DestroyMenu(menu);
+			return;
 		}
-		else if (_stricmp(command,"delete")==0)
-			bDelete=true;
-		else if (_stricmp(command,"link")==0)
-			bLink=true;
+
+		bool bRefresh=(_stricmp(command,"delete")==0 || _stricmp(command,"link")==0);
+
 		CMINVOKECOMMANDINFOEX info={sizeof(info),CMIC_MASK_UNICODE};
-		info.hwnd=m_hWnd;
 		info.lpVerb=MAKEINTRESOURCEA(res-CMD_LAST);
 		info.lpVerbW=MAKEINTRESOURCEW(res-CMD_LAST);
 		info.nShow=SW_SHOWNORMAL;
@@ -1541,34 +1516,35 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			if (GetKeyState(VK_SHIFT)<0) info.fMask|=CMIC_MASK_SHIFT_DOWN;
 		}
 
+		if (bRefresh)
+			info.fMask|=CMIC_MASK_NOASYNC; // wait for delete/link commands to finish so we can refresh the menu
+
+		s_pDragSource=this; // prevent the menu from closing. the command may need a HWND to show its UI
+		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+			(*it)->EnableWindow(FALSE);
 		HWND temp=NULL;
-		if (bDelete)
-		{
-			// the "delete" verb shows confirmation dialog. we need to prevent the menu from closing
-			s_pDragSource=this;
-			info.fMask|=CMIC_MASK_NOASYNC;
-			for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
-				(*it)->EnableWindow(FALSE);
-			if (!m_pParent)
-				temp=CreateWindow(L"button",NULL,WS_POPUP,0,0,0,0,NULL,NULL,g_Instance,0);
-			info.hwnd=temp?temp:m_hWnd;
-		}
+		if (!m_pParent)
+			temp=CreateWindow(L"button",NULL,WS_POPUP,0,0,0,0,NULL,NULL,g_Instance,0);
+		info.hwnd=temp?temp:m_hWnd;
+
 		pMenu->InvokeCommand((LPCMINVOKECOMMANDINFO)&info);
-		if (bDelete)
-		{
-			for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+
+		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+			if (!(*it)->m_bDestroyed)
 				(*it)->EnableWindow(TRUE);
-			if (temp)
-				::DestroyWindow(temp);
+		if (temp)
+			::DestroyWindow(temp);
+		if (!m_bDestroyed)
+		{
 			SetForegroundWindow(m_hWnd);
 			SetActiveWindow();
 			m_Toolbars[0].SetFocus();
-			if (bDelete)
-				PostRefreshMessage();
-			s_pDragSource=NULL;
+
 		}
-		else if (bLink)
-			PostRefreshMessage(); // just refresh the menu after we create a shortcut
+		s_pDragSource=NULL;
+
+		if (bRefresh)
+			PostRefreshMessage(); // refresh the menu after an item was deleted or created
 	}
 	DestroyMenu(menu);
 }
@@ -2178,7 +2154,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	SHGetKnownFolderIDList(FOLDERID_StartMenu,0,NULL,&path1);
 	SHGetKnownFolderIDList(FOLDERID_CommonStartMenu,0,NULL,&path2);
 
-	int options=CONTAINER_PAGER|CONTAINER_NOPROGRAMS|CONTAINER_DRAG|CONTAINER_DROP;
+	int options=CONTAINER_NOPROGRAMS|CONTAINER_DRAG|CONTAINER_DROP;
 	if (!settings.UseSmallIcons)
 		options|=CONTAINER_LARGE;
 	if (settings.ConfirmLogOff)
@@ -2247,7 +2223,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 		s_bExpandRight=false;
 	}
 
-	CMenuContainer *pStartMenu=new CMenuContainer(NULL,options,g_StdMenu[0].id,path1,path2,L"Software\\IvoSoft\\ClassicStartMenu\\Order");
+	CMenuContainer *pStartMenu=new CMenuContainer(NULL,-1,options,g_StdMenu[0].id,path1,path2,L"Software\\IvoSoft\\ClassicStartMenu\\Order");
 	pStartMenu->InitItems();
 	ILFree(path1);
 	ILFree(path2);

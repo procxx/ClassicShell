@@ -31,8 +31,9 @@
 #define IDI_ICON1                       217
 #define IDI_APPICON                     217
 #define IDC_CHECKSIMPLE                 217
-#define IDC_CHECK9                      218
 #define IDC_CHECKNOFADE                 218
+#define IDC_CHECKSIZE                   219
+#define IDC_CHECKSIZEEMPTY              220
 #define IDC_STATICFNAME                 1003
 #define IDC_STATICSRCSIZE               1004
 #define IDC_STATICSRCTIME               1005
@@ -48,7 +49,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        218
 #define _APS_NEXT_COMMAND_VALUE         32769
-#define _APS_NEXT_CONTROL_VALUE         219
+#define _APS_NEXT_CONTROL_VALUE         221
 #define _APS_NEXT_SYMED_VALUE           105
 #endif
 #endif

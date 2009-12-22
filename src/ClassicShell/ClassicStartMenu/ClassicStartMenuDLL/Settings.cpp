@@ -67,6 +67,27 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 	static DWORD s_Hotkey;
 	if (uMsg==WM_INITDIALOG)
 	{
+		// get the DLL version. this is a bit hacky. the standard way is to use GetFileVersionInfo and such API.
+		// but it takes a file name instead of module handle so it will probably load the DLL a second time.
+		// the header of the version resource is a fixed size so we can count on VS_FIXEDFILEINFO to always
+		// be at offset 40
+		void *pRes=NULL;
+		HRSRC hResInfo=FindResource(g_Instance,MAKEINTRESOURCE(VS_VERSION_INFO),RT_VERSION);
+		if (hResInfo)
+		{
+			HGLOBAL hRes=LoadResource(g_Instance,hResInfo);
+			pRes=LockResource(hRes);
+		}
+		wchar_t title[100];
+		if (pRes)
+		{
+			VS_FIXEDFILEINFO *pVer=(VS_FIXEDFILEINFO*)((char*)pRes+40);
+			swprintf_s(title,L"Settings for Classic Start Menu %d.%d.%d",HIWORD(pVer->dwProductVersionMS),LOWORD(pVer->dwProductVersionMS),HIWORD(pVer->dwProductVersionLS));
+		}
+		else
+			swprintf_s(title,L"Settings for Classic Start Menu");
+		SetWindowText(hwndDlg,title);
+
 		HICON icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,GetSystemMetrics(SM_CXICON),GetSystemMetrics(SM_CYICON),LR_DEFAULTCOLOR);
 		SendMessage(hwndDlg,WM_SETICON,ICON_BIG,(LPARAM)icon);
 		icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,GetSystemMetrics(SM_CXSMICON),GetSystemMetrics(SM_CYSMICON),LR_DEFAULTCOLOR);

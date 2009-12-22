@@ -305,6 +305,17 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 
 		if (msg->message==WM_RBUTTONUP && msg->hwnd==g_StartButton && !(msg->wParam&MK_SHIFT))
 		{
+			// additional commands for the context menu
+			enum
+			{
+				CMD_SETTINGS=1,
+				CMD_HELP,
+				CMD_EXIT,
+				CMD_OPEN,
+				CMD_OPEN_ALL,
+			};
+
+
 			// right-click on the start button - open the context menu (Settings, Help, Exit)
 			msg->message=WM_NULL;
 			POINT p={(short)LOWORD(msg->lParam),(short)HIWORD(msg->lParam)};
@@ -314,9 +325,12 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			EnableMenuItem(menu,0,MF_BYPOSITION|MF_DISABLED);
 			SetMenuDefaultItem(menu,0,TRUE);
 			AppendMenu(menu,MF_SEPARATOR,0,0);
-			AppendMenu(menu,MF_STRING,1,FindSetting("Menu.MenuSettings",L"Settings"));
-			AppendMenu(menu,MF_STRING,2,FindSetting("Menu.MenuHelp",L"Help"));
-			AppendMenu(menu,MF_STRING,3,FindSetting("Menu.MenuExit",L"Exit"));
+			AppendMenu(menu,MF_STRING,CMD_OPEN,FindSetting("Menu.Open",L"&Open"));
+			AppendMenu(menu,MF_STRING,CMD_OPEN_ALL,FindSetting("Menu.OpenAll",L"O&pen All Users"));
+			AppendMenu(menu,MF_SEPARATOR,0,0);
+			AppendMenu(menu,MF_STRING,CMD_SETTINGS,FindSetting("Menu.MenuSettings",L"Settings"));
+			AppendMenu(menu,MF_STRING,CMD_HELP,FindSetting("Menu.MenuHelp",L"Help"));
+			AppendMenu(menu,MF_STRING,CMD_EXIT,FindSetting("Menu.MenuExit",L"Exit"));
 			MENUITEMINFO mii={sizeof(mii)};
 			mii.fMask=MIIM_BITMAP;
 			mii.hbmpItem=HBMMENU_POPUP_CLOSE;
@@ -325,11 +339,11 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			int res=TrackPopupMenu(menu,TPM_LEFTBUTTON|TPM_RETURNCMD|(IsLanguageRTL()?TPM_LAYOUTRTL:0),p.x,p.y,0,msg->hwnd,NULL);
 			DestroyMenu(menu);
 			g_bInMenu=false;
-			if (res==1) // settings
+			if (res==CMD_SETTINGS)
 			{
 				EditSettings();
 			}
-			if (res==2) // help
+			if (res==CMD_HELP)
 			{
 				wchar_t path[_MAX_PATH];
 				GetModuleFileName(g_Instance,path,_countof(path));
@@ -337,7 +351,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				wcscat_s(path,L"ClassicStartMenu.html");
 				ShellExecute(NULL,NULL,path,NULL,NULL,SW_SHOWNORMAL);
 			}
-			if (res==3) // exit
+			if (res==CMD_EXIT)
 			{
 				// cleanup
 				CloseSettings();
@@ -347,6 +361,15 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				// send WM_CLOSE to the window in ClassicStartMenu.exe. it will unhook everything and unload the DLL
 				HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
 				if (hwnd) PostMessage(hwnd,WM_CLOSE,0,0);
+			}
+			if (res==CMD_OPEN || res==CMD_OPEN_ALL)
+			{
+				wchar_t *path;
+				if (SUCCEEDED(SHGetKnownFolderPath((res==CMD_OPEN)?FOLDERID_StartMenu:FOLDERID_CommonStartMenu,0,NULL,&path)))
+				{
+					ShellExecute(NULL,L"open",path,NULL,NULL,SW_SHOWNORMAL);
+					CoTaskMemFree(path);
+				}
 			}
 		}
 

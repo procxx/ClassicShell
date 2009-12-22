@@ -1,5 +1,5 @@
 CLASSIC SHELL
-version 0.9.6 beta
+version 0.9.7 beta
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.
@@ -25,6 +25,8 @@ sadly is missing from Windows 7. It has a variety of advanced features:
 *	Right-click on an item in the menu to delete, rename, sort, or perform other tasks
 
 *	Available for 32 and 64-bit operating systems
+
+*	Can show the free disk space and the total file size in the status bar
 
 
 ///////////////////////////////////////////////////////////////////////////////
