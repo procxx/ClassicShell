@@ -1,0 +1,6 @@
+; Empty skin - all properties are defaults, except:
+
+About=This is the default skin when no other skin is selected or if the selected skin fails to load.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2010, Ivo Beltchev
+AboutIcon=103
+Main_padding=2,2,2,2
+Submenu_padding=2,2,2,2

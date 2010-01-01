@@ -1,10 +1,13 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
 #include "resource.h"
 #include "Settings.h"
 #include "ClassicStartMenuDLL.h"
+#include "SkinManager.h"
+#include <uxtheme.h>
+#include <dwmapi.h>
 
 // Default settings
 const DWORD DEFAULT_SHOW_FAVORITES=0;
@@ -24,9 +27,42 @@ const DWORD DEFAULT_HOTKEY=0;
 
 static HWND g_SettingsDlg;
 
+static void ReadSettings( HWND hwndDlg, StartMenuSettings &settings )
+{
+	settings.ShowFavorites=(IsDlgButtonChecked(hwndDlg,IDC_CHECKFAVORITES)==BST_CHECKED)?1:0;
+	settings.ShowDocuments=(IsDlgButtonChecked(hwndDlg,IDC_CHECKDOCUMENTS)==BST_CHECKED)?1:0;
+	settings.ShowLogOff=(IsDlgButtonChecked(hwndDlg,IDC_CHECKLOGOFF)==BST_CHECKED)?1:0;
+	settings.ShowUndock=(IsDlgButtonChecked(hwndDlg,IDC_CHECKUNDOCK)==BST_CHECKED)?1:0;
+	settings.ExpandControlPanel=(IsDlgButtonChecked(hwndDlg,IDC_CHECKCONTROLPANEL)==BST_CHECKED)?1:0;
+	settings.ExpandNetwork=(IsDlgButtonChecked(hwndDlg,IDC_CHECKNETWORK)==BST_CHECKED)?1:0;
+	settings.ExpandPrinters=(IsDlgButtonChecked(hwndDlg,IDC_CHECKPRINTERS)==BST_CHECKED)?1:0;
+	settings.ExpandLinks=(IsDlgButtonChecked(hwndDlg,IDC_CHECKLINKS)==BST_CHECKED)?1:0;
+	settings.ScrollMenus=(IsDlgButtonChecked(hwndDlg,IDC_CHECKSCROLL)==BST_CHECKED)?1:0;
+	settings.ConfirmLogOff=(IsDlgButtonChecked(hwndDlg,IDC_CHECKCONFIRM)==BST_CHECKED)?1:0;
+	settings.RecentDocuments=GetDlgItemInt(hwndDlg,IDC_EDITRECENT,NULL,TRUE);
+	settings.Hotkey=(DWORD)SendDlgItemMessage(hwndDlg,IDC_HOTKEY,HKM_GETHOTKEY,0,0);
+	if (IsDlgButtonChecked(hwndDlg,IDC_CHECKHOTKEY)!=BST_CHECKED)
+		settings.Hotkey=0;
+	else if (settings.Hotkey==0)
+		settings.Hotkey=1;
+
+	wchar_t skinName[256];
+	int idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETCURSEL,0,0);
+	SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETLBTEXT,idx,(LPARAM)skinName);
+	if (wcscmp(skinName,L"<Default>")==0)
+		settings.SkinName.Empty();
+	else
+		settings.SkinName=skinName;
+}
+
 // Read the settings from the registry
 void ReadSettings( StartMenuSettings &settings )
 {
+	if (g_SettingsDlg)
+	{
+		ReadSettings(g_SettingsDlg,settings);
+		return;
+	}
 	CRegKey regSettings;
 	if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu")!=ERROR_SUCCESS)
 		regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu");
@@ -47,10 +83,6 @@ void ReadSettings( StartMenuSettings &settings )
 		settings.ExpandPrinters=DEFAULT_EXPAND_PRINTERS;
 	if (regSettings.QueryDWORDValue(L"ExpandLinks",settings.ExpandLinks)!=ERROR_SUCCESS)
 		settings.ExpandLinks=DEFAULT_EXPAND_SHORTCUTS;
-	if (regSettings.QueryDWORDValue(L"UseSmallIcons",settings.UseSmallIcons)!=ERROR_SUCCESS)
-		settings.UseSmallIcons=DEFAULT_SMALL_ICONS;
-	if (regSettings.QueryDWORDValue(L"UseTheme",settings.UseTheme)!=ERROR_SUCCESS)
-		settings.UseTheme=DEFAULT_THEME;
 	if (regSettings.QueryDWORDValue(L"ScrollMenus",settings.ScrollMenus)!=ERROR_SUCCESS)
 		settings.ScrollMenus=DEFAULT_SCROLL_MENUS;
 	if (regSettings.QueryDWORDValue(L"ConfirmLogOff",settings.ConfirmLogOff)!=ERROR_SUCCESS)
@@ -59,7 +91,33 @@ void ReadSettings( StartMenuSettings &settings )
 		settings.RecentDocuments=DEFAULT_RECENT_DOCUMENTS;
 	if (regSettings.QueryDWORDValue(L"Hotkey",settings.Hotkey)!=ERROR_SUCCESS)
 		settings.Hotkey=DEFAULT_HOTKEY;
+	wchar_t skinName[256];
+	ULONG size=_countof(skinName);
+	if (regSettings.QueryStringValue(L"SkinName",skinName,&size)==ERROR_SUCCESS)
+		settings.SkinName=skinName;
+	else
+	{
+		BOOL comp;
+		if (!IsAppThemed())
+			settings.SkinName=L"Large Icons";
+		else if (LOWORD(GetVersion())==0x0006)
+			settings.SkinName=L"Windows Vista Aero";
+		else if (SUCCEEDED(DwmIsCompositionEnabled(&comp)) && comp)
+			settings.SkinName=L"Windows 7 Aero";
+		else
+			settings.SkinName=L"Windows 7 Basic";
+	}
 }
+
+static HRESULT CALLBACK TaskDialogCallbackProc( HWND hwnd, UINT uNotification, WPARAM wParam, LPARAM lParam, LONG_PTR dwRefData )
+{
+	if (uNotification==TDN_HYPERLINK_CLICKED)
+	{
+		ShellExecute(hwnd,L"open",(const wchar_t*)lParam,NULL,NULL,SW_SHOWNORMAL);
+	}
+	return S_OK;
+}
+
 
 // Dialog proc for the settings dialog box. Edits and saves the settings.
 static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
@@ -93,12 +151,12 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,GetSystemMetrics(SM_CXSMICON),GetSystemMetrics(SM_CYSMICON),LR_DEFAULTCOLOR);
 		SendMessage(hwndDlg,WM_SETICON,ICON_SMALL,(LPARAM)icon);
 
-		g_SettingsDlg=hwndDlg;
-
 		StartMenuSettings settings;
 		ReadSettings(settings);
 		s_Hotkey=settings.Hotkey;
 		SetHotkey(s_Hotkey==0?0:1);
+
+		g_SettingsDlg=hwndDlg; // must be after calling ReadSettings
 
 		CheckDlgButton(hwndDlg,IDC_CHECKFAVORITES,settings.ShowFavorites?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKDOCUMENTS,settings.ShowDocuments?BST_CHECKED:BST_UNCHECKED);
@@ -108,8 +166,6 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		CheckDlgButton(hwndDlg,IDC_CHECKNETWORK,settings.ExpandNetwork?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKPRINTERS,settings.ExpandPrinters?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKLINKS,settings.ExpandLinks?BST_CHECKED:BST_UNCHECKED);
-		CheckDlgButton(hwndDlg,IDC_CHECKSMALL,settings.UseSmallIcons?BST_CHECKED:BST_UNCHECKED);
-		CheckDlgButton(hwndDlg,IDC_CHECKTHEME,settings.UseTheme?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKSCROLL,settings.ScrollMenus?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKCONFIRM,settings.ConfirmLogOff?BST_CHECKED:BST_UNCHECKED);
 		SetDlgItemInt(hwndDlg,IDC_EDITRECENT,settings.RecentDocuments,TRUE);
@@ -139,6 +195,34 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKNETWORK),!bNoSetFolders && !SHRestricted(REST_NONETWORKCONNECTIONS));
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKPRINTERS),!bNoSetFolders);
 
+		int idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_ADDSTRING,0,(LPARAM)L"<Default>");
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_SETCURSEL,idx,0);
+		wchar_t find[_MAX_PATH];
+		GetSkinsPath(find);
+		wcscat_s(find,L"1.txt");
+		if (GetFileAttributes(find)!=INVALID_FILE_ATTRIBUTES)
+		{
+			idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_ADDSTRING,0,(LPARAM)L"Custom");
+			if (_wcsicmp(settings.SkinName,L"Custom")==0)
+				SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_SETCURSEL,idx,0);
+		}
+
+		*PathFindFileName(find)=0;
+		wcscat_s(find,L"*.skin");
+		WIN32_FIND_DATA data;
+		HANDLE h=FindFirstFile(find,&data);
+		while (h!=INVALID_HANDLE_VALUE)
+		{
+			if (!(data.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY))
+			{
+				*PathFindExtension(data.cFileName)=0;
+				idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_ADDSTRING,0,(LPARAM)data.cFileName);
+				if (_wcsicmp(settings.SkinName,data.cFileName)==0)
+					SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_SETCURSEL,idx,0);
+			}
+			if (!FindNextFile(h,&data)) break;
+		}
+
 		return TRUE;
 	}
 	if (uMsg==WM_COMMAND && wParam==IDC_CHECKDOCUMENTS)
@@ -157,46 +241,49 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		return TRUE;
 	}
 
+	if (uMsg==WM_COMMAND && wParam==IDC_ABOUT)
+	{
+		wchar_t name[256];
+		int idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETCURSEL,0,0);
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETLBTEXT,idx,(LPARAM)name);
+		MenuSkin skin;
+		wchar_t caption[256];
+		swprintf_s(caption,L"About skin %s",name);
+		if (!LoadMenuSkin(name,skin))
+		{
+			MessageBox(hwndDlg,L"Failed to load skin.",caption,MB_OK|MB_ICONERROR);
+			return TRUE;
+		}
+		TASKDIALOGCONFIG task={sizeof(task),hwndDlg,NULL,TDF_ENABLE_HYPERLINKS|TDF_ALLOW_DIALOG_CANCELLATION|TDF_USE_HICON_MAIN,TDCBF_OK_BUTTON};
+		task.pszWindowTitle=caption;
+		task.pszContent=skin.About;
+		task.hMainIcon=skin.AboutIcon?skin.AboutIcon:LoadIcon(NULL,IDI_INFORMATION);
+		task.pfCallback=TaskDialogCallbackProc;
+		TaskDialogIndirect(&task,NULL,NULL,NULL);
+		return TRUE;
+	}
 	if (uMsg==WM_COMMAND && wParam==IDOK)
 	{
+		StartMenuSettings settings;
+		ReadSettings(hwndDlg,settings);
 		CRegKey regSettings;
 		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu")!=ERROR_SUCCESS)
 			regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu");
 
-		DWORD ShowFavorites=(IsDlgButtonChecked(hwndDlg,IDC_CHECKFAVORITES)==BST_CHECKED)?1:0;
-		DWORD ShowDocuments=(IsDlgButtonChecked(hwndDlg,IDC_CHECKDOCUMENTS)==BST_CHECKED)?1:0;
-		DWORD ShowLogOff=(IsDlgButtonChecked(hwndDlg,IDC_CHECKLOGOFF)==BST_CHECKED)?1:0;
-		DWORD ShowUndock=(IsDlgButtonChecked(hwndDlg,IDC_CHECKUNDOCK)==BST_CHECKED)?1:0;
-		DWORD ExpandControlPanel=(IsDlgButtonChecked(hwndDlg,IDC_CHECKCONTROLPANEL)==BST_CHECKED)?1:0;
-		DWORD ExpandNetwork=(IsDlgButtonChecked(hwndDlg,IDC_CHECKNETWORK)==BST_CHECKED)?1:0;
-		DWORD ExpandPrinters=(IsDlgButtonChecked(hwndDlg,IDC_CHECKPRINTERS)==BST_CHECKED)?1:0;
-		DWORD ExpandLinks=(IsDlgButtonChecked(hwndDlg,IDC_CHECKLINKS)==BST_CHECKED)?1:0;
-		DWORD UseSmallIcons=(IsDlgButtonChecked(hwndDlg,IDC_CHECKSMALL)==BST_CHECKED)?1:0;
-		DWORD UseTheme=(IsDlgButtonChecked(hwndDlg,IDC_CHECKTHEME)==BST_CHECKED)?1:0;
-		DWORD ScrollMenus=(IsDlgButtonChecked(hwndDlg,IDC_CHECKSCROLL)==BST_CHECKED)?1:0;
-		DWORD ConfirmLogOff=(IsDlgButtonChecked(hwndDlg,IDC_CHECKCONFIRM)==BST_CHECKED)?1:0;
-		DWORD RecentDocuments=GetDlgItemInt(hwndDlg,IDC_EDITRECENT,NULL,TRUE);
-		DWORD Hotkey=(DWORD)SendDlgItemMessage(hwndDlg,IDC_HOTKEY,HKM_GETHOTKEY,0,0);
-		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKHOTKEY)!=BST_CHECKED)
-			Hotkey=0;
-		else if (Hotkey==0)
-			Hotkey=1;
-
-		regSettings.SetDWORDValue(L"ShowFavorites",ShowFavorites);
-		regSettings.SetDWORDValue(L"ShowDocuments",ShowDocuments);
-		regSettings.SetDWORDValue(L"ShowLogOff",ShowLogOff);
-		regSettings.SetDWORDValue(L"ShowUndock",ShowUndock);
-		regSettings.SetDWORDValue(L"ExpandControlPanel",ExpandControlPanel);
-		regSettings.SetDWORDValue(L"ExpandNetwork",ExpandNetwork);
-		regSettings.SetDWORDValue(L"ExpandPrinters",ExpandPrinters);
-		regSettings.SetDWORDValue(L"ExpandLinks",ExpandLinks);
-		regSettings.SetDWORDValue(L"UseSmallIcons",UseSmallIcons);
-		regSettings.SetDWORDValue(L"UseTheme",UseTheme);
-		regSettings.SetDWORDValue(L"ScrollMenus",ScrollMenus);
-		regSettings.SetDWORDValue(L"ConfirmLogOff",ConfirmLogOff);
-		regSettings.SetDWORDValue(L"RecentDocuments",RecentDocuments);
-		regSettings.SetDWORDValue(L"Hotkey",Hotkey);
-		s_Hotkey=Hotkey;
+		regSettings.SetDWORDValue(L"ShowFavorites",settings.ShowFavorites);
+		regSettings.SetDWORDValue(L"ShowDocuments",settings.ShowDocuments);
+		regSettings.SetDWORDValue(L"ShowLogOff",settings.ShowLogOff);
+		regSettings.SetDWORDValue(L"ShowUndock",settings.ShowUndock);
+		regSettings.SetDWORDValue(L"ExpandControlPanel",settings.ExpandControlPanel);
+		regSettings.SetDWORDValue(L"ExpandNetwork",settings.ExpandNetwork);
+		regSettings.SetDWORDValue(L"ExpandPrinters",settings.ExpandPrinters);
+		regSettings.SetDWORDValue(L"ExpandLinks",settings.ExpandLinks);
+		regSettings.SetDWORDValue(L"ScrollMenus",settings.ScrollMenus);
+		regSettings.SetDWORDValue(L"ConfirmLogOff",settings.ConfirmLogOff);
+		regSettings.SetDWORDValue(L"RecentDocuments",settings.RecentDocuments);
+		regSettings.SetDWORDValue(L"Hotkey",settings.Hotkey);
+		s_Hotkey=settings.Hotkey;
+		regSettings.SetStringValue(L"SkinName",settings.SkinName);
 
 		DestroyWindow(hwndDlg);
 		return TRUE;
@@ -228,7 +315,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 }
 
 // Shows the UI for editing settings
-void EditSettings( void )
+void EditSettings( bool bModal )
 {
 	if (g_SettingsDlg)
 		SetActiveWindow(g_SettingsDlg);
@@ -236,6 +323,16 @@ void EditSettings( void )
 	{
 		HWND dlg=CreateDialog(g_Instance,MAKEINTRESOURCE(IDD_SETTINGS),NULL,SettingsDlgProc);
 		ShowWindow(dlg,SW_SHOWNORMAL);
+		if (bModal)
+		{
+			MSG msg;
+			while (g_SettingsDlg && GetMessage(&msg,0,0,0))
+			{
+				if (IsSettingsMessage(&msg)) continue;
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
+		}
 	}
 }
 

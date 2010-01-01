@@ -1,5 +1,27 @@
 ===============================================================================
-== Version 0.9.7 beta (Dec, 2009) - more improvements:
+== Version 0.9.8 beta (Jan, 2010) - now with skins!
+
+- Added support for skins in the classic start menu
+
+- Fixed compatibility problems with Unicode-unaware shell extensions (Microangelo
+  On Display, I'm looking at you)
+
+- The start menu supports auto-hide taskbar and (on Vista only) a taskbar that is
+  not "always on top"
+
+- Replaced the folder conflict dialog box with a simpler version (similar to the
+  file conflict dialog box)
+
+- Fixed a crash when right-clicking on the caption area of the start menu
+
+- The start menu remembers the scroll position of scrollable menus
+
+- Added "-open" and "-toggle" command line parameters to ClassicStartMenu.exe to
+  programmatically open the start menu
+
+
+===============================================================================
+== Version 0.9.7 beta (Dec, 2009) - status bar and more:
 
 - Added free disk space and file size to the status bar in Windows 7 Explorer
 
@@ -18,7 +40,7 @@
 - Added settings for the look of the folder tree in Explorer - XP classic,
   XP simple, don't fade buttons
 
-- Added option to expand links to folders
+- Added option to expand links to folders in the start menu
 
 - Added option to show a confirmation dialog during Log Off from the start menu
 

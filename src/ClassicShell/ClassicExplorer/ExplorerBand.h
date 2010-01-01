@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ExplorerBand.h : Declaration of the CExplorerBand
@@ -26,7 +26,7 @@ public:
 		ID_LAST
 	};
 
-	DECLARE_WND_CLASS(L"ClassicExplorer.CBandWindow")
+	DECLARE_WND_CLASS(L"ClassicShell.CBandWindow")
 
 	BEGIN_MSG_MAP( CBandWindow )
 		MESSAGE_HANDLER( WM_CREATE, OnCreate )

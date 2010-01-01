@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // DragDrop.cpp - handles the drag and drop functionality of CMenuContainer
@@ -299,7 +299,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 	else if (!grfKeyState && (*pdwEffect&DROPEFFECT_LINK))
 	{
 		// when a file is dragged to the start menu he usually wants to make a shortcut
-		// so when right-dragging, and linking is alowed, make it the default
+		// so when right-dragging, and linking is allowed, make it the default
 		grfKeyState=MK_SHIFT|MK_CONTROL;
 	}
 

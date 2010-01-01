@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
@@ -28,6 +28,8 @@ public:
 	// Must be called when the start menu is about to be unloaded
 	void StopPreloading( bool bWait );
 
+	static int GetDPI( void ) { return s_DPI; }
+
 private:
 	std::map<unsigned int,int> m_LargeCache;
 	std::map<unsigned int,int> m_SmallCache;
@@ -36,6 +38,7 @@ private:
 
 	void ProcessPreloadedIcons( void );
 
+	static int s_DPI;
 	static bool s_bStopLoading;
 	static std::map<unsigned int,HICON> s_PreloadedIcons; // queue of preloaded icons ready to be added to the image list
 	static CRITICAL_SECTION s_PreloadSection; // protects all access to m_SmallCache and s_PreloadedIcons

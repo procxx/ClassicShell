@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "ParseSettings.h"
@@ -154,6 +154,9 @@ const wchar_t *FindSetting( const char *name, const wchar_t *def )
 // Checks for right-to-left languages
 bool IsLanguageRTL( void )
 {
+#ifdef _DEBUG
+//	return true; // uncomment this to simulate RTL environment
+#endif
 	LOCALESIGNATURE localesig;
 	LANGID language=GetUserDefaultUILanguage();
 	if (GetLocaleInfoW(language,LOCALE_FONTSIGNATURE,(LPWSTR)&localesig,(sizeof(localesig)/sizeof(wchar_t))) && (localesig.lsUsb[3]&0x08000000))

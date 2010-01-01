@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include <windows.h>
@@ -19,6 +19,7 @@
 #endif
 
 static HHOOK g_ProgHook, g_StartHook;
+static HWND g_StartButton;
 
 static void UnhookStartMenu( void )
 {
@@ -40,18 +41,18 @@ static HWND HookStartMenu( void )
 	DWORD process;
 	DWORD thread=GetWindowThreadProcessId(progWin,&process);
 
-	HWND startButton=FindStartButton(process);
+	g_StartButton=FindStartButton(process);
 
 #ifdef HOOK_EXPLORER
 	// install hooks in the explorer process
 	g_ProgHook=SetWindowsHookEx(WH_GETMESSAGE,HookProgMan,hHookModule,thread);
 
-	thread=GetWindowThreadProcessId(startButton,NULL);
+	thread=GetWindowThreadProcessId(g_StartButton,NULL);
 	g_StartHook=SetWindowsHookEx(WH_GETMESSAGE,HookStartButton,hHookModule,thread);
 
 	return NULL;
 #else
-	return ToggleStartMenu(startButton,false);
+	return ToggleStartMenu(g_StartButton,false);
 #endif
 }
 
@@ -60,6 +61,8 @@ static UINT g_TaskbarCreatedMsg; // the "TaskbarCreated" message
 // CStartHookWindow is a hidden window that waits for the "TaskbarCreated" message and rehooks the explorer process
 // Also when the start menu wants to shut down it sends WM_CLOSE to this window, which unhooks explorer and exits
 
+const int WM_OPEN=WM_USER+10;
+
 class CStartHookWindow: public CWindowImpl<CStartHookWindow>
 {
 public:
@@ -67,6 +70,7 @@ public:
 	DECLARE_WND_CLASS(L"ClassicStartMenu.CStartHookWindow")
 
 	BEGIN_MSG_MAP( CStartHookWindow )
+		MESSAGE_HANDLER( WM_OPEN, OnOpen )
 		MESSAGE_HANDLER( WM_CLOSE, OnClose )
 		MESSAGE_HANDLER( g_TaskbarCreatedMsg, OnTaskbarCreated )
 	END_MSG_MAP()
@@ -76,9 +80,16 @@ protected:
 	//  LRESULT MessageHandler(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 	//  LRESULT CommandHandler(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
 	//  LRESULT NotifyHandler(int idCtrl, LPNMHDR pnmh, BOOL& bHandled);
+	LRESULT OnOpen( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnClose( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnTaskbarCreated( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 };
+
+LRESULT CStartHookWindow::OnOpen( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	if (g_StartButton) ::PostMessage(g_StartButton,RegisterWindowMessage(L"ClassicStartMenu.StartMenuMsg"),wParam,lParam);
+	return 0;
+}
 
 LRESULT CStartHookWindow::OnClose( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
@@ -96,6 +107,9 @@ LRESULT CStartHookWindow::OnTaskbarCreated( UINT uMsg, WPARAM wParam, LPARAM lPa
 
 int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrCmdLine, int nCmdShow )
 {
+	int open=-1;
+	if (wcsstr(lpstrCmdLine,L"-toggle")!=NULL) open=0;
+	if (wcsstr(lpstrCmdLine,L"-open")!=NULL) open=1;
 	// prevent multiple instances from hooking the same explorer process
 	HWND progWin=FindWindowEx(NULL,NULL,L"Progman",NULL);
 	DWORD process;
@@ -104,7 +118,14 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	swprintf_s(mutexName,L"ClassicStartMenu.Mutex.%08x",process);
 	HANDLE hMutex=CreateMutex(NULL,FALSE,mutexName);
 	if (GetLastError()==ERROR_ALREADY_EXISTS || GetLastError()==ERROR_ACCESS_DENIED)
+	{
+		if (open>=0)
+		{
+			HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
+			if (hwnd) PostMessage(hwnd,WM_OPEN,open,0);
+		}
 		return 0;
+	}
 
 	OleInitialize(NULL);
 	g_TaskbarCreatedMsg=RegisterWindowMessage(L"TaskbarCreated");
@@ -114,7 +135,8 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 
 	MSG msg;
 #ifdef HOOK_EXPLORER
-	window.PostMessage(g_TaskbarCreatedMsg);
+	window.PostMessage(g_TaskbarCreatedMsg,0,0);
+	if (open>=0) window.PostMessage(WM_OPEN,open,0);
 	while (GetMessage(&msg,0,0,0))
 #else
 	HWND menu=HookStartMenu();

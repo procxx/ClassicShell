@@ -59,8 +59,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,9,7,0
- PRODUCTVERSION 0,9,7,0
+ FILEVERSION 0,9,8,0
+ PRODUCTVERSION 0,9,8,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -77,11 +77,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic Windows Explorer features"
-            VALUE "FileVersion", "0, 9, 7, 0"
+            VALUE "FileVersion", "0, 9, 8, 0"
             VALUE "InternalName", "ClassicExplorer.dll"
             VALUE "OriginalFilename", "ClassicExplorer.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "0, 9, 7, 0"
+            VALUE "ProductVersion", "0, 9, 8, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -106,7 +106,7 @@ IDR_CLASSICCOPYEXT      REGISTRY                "ClassicCopyExt.rgs"
 // Dialog
 //
 
-IDD_DIALOG2 DIALOGEX 0, 0, 266, 136
+IDD_FILE DIALOGEX 0, 0, 266, 136
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Confirm File Replace"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -114,19 +114,19 @@ BEGIN
     DEFPUSHBUTTON   "&Yes",IDOK,149,115,53,14
     PUSHBUTTON      "&No",IDNO,206,115,53,14
     ICON            "",IDC_STATICICON,7,7,20,20
-    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,224,23
-    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,224,8
+    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,224,23,SS_NOPREFIX
+    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,224,8,SS_NOPREFIX
     ICON            "",IDC_STATICDSTICON,43,46,20,20
-    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,190,8
-    LTEXT           "Static",IDC_STATICDSTTIME,69,57,190,8
-    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,224,8
+    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,190,8,SS_NOPREFIX
+    LTEXT           "Static",IDC_STATICDSTTIME,69,57,190,8,SS_NOPREFIX
+    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,224,8,SS_NOPREFIX
     ICON            "",IDC_STATICSRCICON,43,86,20,20
-    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,190,8
-    LTEXT           "Static",IDC_STATICSRCTIME,69,97,190,8
-    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,119,57,12
+    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,190,8,SS_NOPREFIX
+    LTEXT           "Static",IDC_STATICSRCTIME,69,97,190,8,SS_NOPREFIX
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,120,57,10
 END
 
-IDD_DIALOG1 DIALOGEX 0, 0, 285, 136
+IDD_FILEMULTI DIALOGEX 0, 0, 285, 136
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Confirm File Replace"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -136,16 +136,16 @@ BEGIN
     PUSHBUTTON      "&No",IDNO,169,115,53,14
     PUSHBUTTON      "Cancel",IDCANCEL,226,115,53,14
     ICON            "",IDC_STATICICON,7,7,20,20
-    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,243,23
-    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,243,8
+    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,243,23,SS_NOPREFIX
+    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,243,8,SS_NOPREFIX
     ICON            "",IDC_STATICDSTICON,43,46,20,20
-    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,209,8
-    LTEXT           "Static",IDC_STATICDSTTIME,69,57,209,8
-    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,243,8
+    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,209,8,SS_NOPREFIX
+    LTEXT           "Static",IDC_STATICDSTTIME,69,57,209,8,SS_NOPREFIX
+    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,243,8,SS_NOPREFIX
     ICON            "",IDC_STATICSRCICON,43,86,20,20
-    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,209,8
-    LTEXT           "Static",IDC_STATICSRCTIME,69,97,209,8
-    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,119,45,12
+    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,209,8,SS_NOPREFIX
+    LTEXT           "Static",IDC_STATICSRCTIME,69,97,209,8,SS_NOPREFIX
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,120,45,10
 END
 
 IDD_SETTINGS DIALOGEX 0, 0, 211, 187
@@ -168,6 +168,7 @@ BEGIN
     CONTROL         "Delete",IDC_CHECK5,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,88,116,37,10
     CONTROL         "Properties",IDC_CHECK6,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,116,49,10
     CONTROL         "Enable classic copy UI",IDC_CHECKCOPY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,135,89,10
+    CONTROL         "For folders too",IDC_CHECKCOPYFOLDER,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,110,135,63,10
     CONTROL         "Show free space and file size in status bar",IDC_CHECKSIZE,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,148,151,10
     CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,171,40,10
@@ -175,7 +176,7 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,154,166,50,14
 END
 
-IDD_DIALOG1R DIALOGEX 0, 0, 285, 136
+IDD_FILEMULTIR DIALOGEX 0, 0, 285, 136
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_LAYOUTRTL
 CAPTION "Confirm File Replace"
@@ -185,20 +186,20 @@ BEGIN
     PUSHBUTTON      "Yes to &All",IDYES,112,115,53,14
     PUSHBUTTON      "&No",IDNO,169,115,53,14
     PUSHBUTTON      "Cancel",IDCANCEL,226,115,53,14
-    ICON            "",IDC_STATICICON,7,7,21,20
-    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,243,23
-    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,243,8
-    ICON            "",IDC_STATICDSTICON,43,46,21,20
-    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,209,8
-    LTEXT           "Static",IDC_STATICDSTTIME,69,57,209,8
-    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,243,8
-    ICON            "",IDC_STATICSRCICON,43,86,21,20
-    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,209,8
-    LTEXT           "Static",IDC_STATICSRCTIME,69,97,209,8
-    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,119,45,12
+    ICON            "",IDC_STATICICON,7,7,20,20
+    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,243,23,SS_NOPREFIX
+    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,243,8,SS_NOPREFIX
+    ICON            "",IDC_STATICDSTICON,43,46,20,20
+    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,209,8,SS_NOPREFIX
+    LTEXT           "Static",IDC_STATICDSTTIME,69,57,209,8,SS_NOPREFIX
+    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,243,8,SS_NOPREFIX
+    ICON            "",IDC_STATICSRCICON,43,86,20,20
+    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,209,8,SS_NOPREFIX
+    LTEXT           "Static",IDC_STATICSRCTIME,69,97,209,8,SS_NOPREFIX
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,120,45,10
 END
 
-IDD_DIALOG2R DIALOGEX 0, 0, 266, 136
+IDD_FILER DIALOGEX 0, 0, 266, 136
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_LAYOUTRTL
 CAPTION "Confirm File Replace"
@@ -206,17 +207,71 @@ FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "&Yes",IDOK,149,115,53,14
     PUSHBUTTON      "&No",IDNO,206,115,53,14
-    ICON            "",IDC_STATICICON,7,7,21,20
-    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,224,23
-    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,224,8
-    ICON            "",IDC_STATICDSTICON,43,46,21,20
-    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,190,8
-    LTEXT           "Static",IDC_STATICDSTTIME,69,57,190,8
-    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,224,8
-    ICON            "",IDC_STATICSRCICON,43,86,21,20
-    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,190,8
-    LTEXT           "Static",IDC_STATICSRCTIME,69,97,190,8
-    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,119,57,12
+    ICON            "",IDC_STATICICON,7,7,20,20
+    LTEXT           "This folder already contains a file called 'blah.txt'.",IDC_STATICFNAME,35,7,224,23,SS_NOPREFIX
+    LTEXT           "Do you want to replace the existing file:",IDC_STATICPROMPT1,35,34,224,8,SS_NOPREFIX
+    ICON            "",IDC_STATICDSTICON,43,46,20,20
+    LTEXT           "Static",IDC_STATICDSTSIZE,69,47,190,8,SS_NOPREFIX
+    LTEXT           "Static",IDC_STATICDSTTIME,69,57,190,8,SS_NOPREFIX
+    LTEXT           "with this one?",IDC_STATICPROMPT2,35,74,224,8,SS_NOPREFIX
+    ICON            "",IDC_STATICSRCICON,43,86,20,20
+    LTEXT           "Static",IDC_STATICSRCSIZE,69,87,190,8,SS_NOPREFIX
+    LTEXT           "Static",IDC_STATICSRCTIME,69,97,190,8,SS_NOPREFIX
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,120,57,10
+END
+
+IDD_FOLDERMULTI DIALOGEX 0, 0, 285, 100
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Confirm Folder Replace"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Yes",IDOK,55,79,53,14
+    PUSHBUTTON      "Yes to &All",IDYES,112,79,53,14
+    PUSHBUTTON      "&No",IDNO,169,79,53,14
+    PUSHBUTTON      "Cancel",IDCANCEL,226,79,53,14
+    ICON            "",IDC_STATICICON,7,7,20,20
+    LTEXT           "This folder already contains a folder called 'blah'.",IDC_STATICFNAME,35,7,243,65,SS_NOPREFIX
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,84,45,10
+END
+
+IDD_FOLDER DIALOGEX 0, 0, 266, 100
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Confirm Folder Replace"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Yes",IDOK,149,79,53,14
+    PUSHBUTTON      "&No",IDNO,206,79,53,14
+    ICON            "",IDC_STATICICON,7,7,20,20
+    LTEXT           "This folder already contains a folder called 'blah'.",IDC_STATICFNAME,35,7,224,65,SS_NOPREFIX
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,84,57,10
+END
+
+IDD_FOLDERR DIALOGEX 0, 0, 266, 99
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_LAYOUTRTL
+CAPTION "Confirm Folder Replace"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Yes",IDOK,149,78,53,14
+    PUSHBUTTON      "&No",IDNO,206,78,53,14
+    ICON            "",IDC_STATICICON,7,7,20,20
+    LTEXT           "This folder already contains a folder called 'blah'.",IDC_STATICFNAME,35,7,224,65,SS_NOPREFIX
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,83,57,10
+END
+
+IDD_FOLDERMULTIR DIALOGEX 0, 0, 285, 100
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_LAYOUTRTL
+CAPTION "Confirm Folder Replace"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Yes",IDOK,55,79,53,14
+    PUSHBUTTON      "Yes to &All",IDYES,112,79,53,14
+    PUSHBUTTON      "&No",IDNO,169,79,53,14
+    PUSHBUTTON      "Cancel",IDCANCEL,226,79,53,14
+    ICON            "",IDC_STATICICON,7,7,20,20
+    LTEXT           "This folder already contains a folder called 'blah'.",IDC_STATICFNAME,35,7,243,65,SS_NOPREFIX
+    CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,84,45,10
 END
 
 
@@ -228,7 +283,7 @@ END
 #ifdef APSTUDIO_INVOKED
 GUIDELINES DESIGNINFO 
 BEGIN
-    IDD_DIALOG2, DIALOG
+    IDD_FILE, DIALOG
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 259
@@ -236,7 +291,7 @@ BEGIN
         BOTTOMMARGIN, 129
     END
 
-    IDD_DIALOG1, DIALOG
+    IDD_FILEMULTI, DIALOG
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 278
@@ -252,7 +307,7 @@ BEGIN
         BOTTOMMARGIN, 180
     END
 
-    IDD_DIALOG1R, DIALOG
+    IDD_FILEMULTIR, DIALOG
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 278
@@ -260,12 +315,44 @@ BEGIN
         BOTTOMMARGIN, 129
     END
 
-    IDD_DIALOG2R, DIALOG
+    IDD_FILER, DIALOG
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 259
         TOPMARGIN, 7
         BOTTOMMARGIN, 129
+    END
+
+    IDD_FOLDERMULTI, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 278
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 93
+    END
+
+    IDD_FOLDER, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 259
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 93
+    END
+
+    IDD_FOLDERR, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 259
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 92
+    END
+
+    IDD_FOLDERMULTIR, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 278
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 93
     END
 END
 #endif    // APSTUDIO_INVOKED

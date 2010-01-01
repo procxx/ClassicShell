@@ -1,9 +1,11 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
 
+#include "SkinManager.h"
 #include <vector>
+#include <map>
 
 enum TMenuID
 {
@@ -44,7 +46,7 @@ enum TMenuID
 class CMenuContainer: public CWindowImpl<CMenuContainer>, public IDropTarget
 {
 public:
-	DECLARE_WND_CLASS_EX(L"ClassicExplorer.CMenuContainer",CS_DROPSHADOW,COLOR_MENU)
+	DECLARE_WND_CLASS_EX(L"ClassicShell.CMenuContainer",CS_DROPSHADOW,COLOR_MENU)
 
 	// message handlers
 	BEGIN_MSG_MAP( CMenuContainer )
@@ -67,6 +69,7 @@ public:
 		MESSAGE_HANDLER( MCM_REFRESH, OnRefresh )
 		MESSAGE_HANDLER( WM_ERASEBKGND, OnEraseBkgnd )
 		MESSAGE_HANDLER( WM_ACTIVATE, OnActivate )
+		MESSAGE_HANDLER( WM_MOUSEACTIVATE, OnMouseActivate )
 		MESSAGE_HANDLER( WM_CONTEXTMENU, OnContextMenu )
 		MESSAGE_HANDLER( WM_TIMER, OnTimer )
 		MESSAGE_HANDLER( WM_SYSCOMMAND, OnSysCommand )
@@ -97,8 +100,7 @@ public:
 		CONTAINER_DROP         = 0x0200, // allow dropping of items
 		CONTAINER_LEFT         = 0x0400, // the window is aligned on the left
 		CONTAINER_TOP          = 0x0800, // the window is aligned on the top
-		CONTAINER_THEME        = 0x1000, // use the menu theme
-		CONTAINER_CONFIRM_LO   = 0x2000, // ask user before logging off
+		CONTAINER_CONFIRM_LO   = 0x1000, // ask user before logging off
 	};
 
 	CMenuContainer( CMenuContainer *pParent, int index, int options, TMenuID menuID, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName );
@@ -109,6 +111,7 @@ public:
 
 	static bool CloseStartMenu( void );
 	static bool IsMenuOpened( void ) { return !s_Menus.empty(); }
+	static bool IgnoreTaskbarTimers( void ) { return !s_Menus.empty() && (s_TaskbarState&ABS_AUTOHIDE); }
 	static HWND ToggleStartMenu( HWND startButton, bool bKeyboard );
 
 	// IUnknown
@@ -148,6 +151,7 @@ protected:
 	LRESULT OnRefresh( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnEraseBkgnd( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnMouseActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnSysCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
@@ -259,8 +263,9 @@ private:
 	DWORD m_HotPos; // last mouse position over a hot item (used to ignore TBN_HOTITEMCHANGE when the mouse didn't really move)
 	int m_HoverItem; // item under the mouse (used for opening a submenu when the mouse hovers over an item)
 	int m_ContextItem; // force this to be the hot item while a context menu is up
-	HBITMAP m_Bitmap; // for the title in the main menu
-	int m_BmpWidth;
+	HBITMAP m_Bitmap; // the background bitmap
+	HRGN m_Region; // the outline region
+	RECT m_rContent;
 
 	// additional commands for the context menu
 	enum
@@ -304,7 +309,7 @@ private:
 	void ActivateItem( int index, TActivateType type, const POINT *pPt );
 	void ShowKeyboardCues( void );
 	void SetActiveWindow( void );
-	void CreateBitmap( int height );
+	void CreateBackground( int width, int height ); // width, height - the content area
 	void PostRefreshMessage( void );
 	void SaveItemOrder( const std::vector<SortMenuItem> &items );
 	void LoadItemOrder( void );
@@ -314,30 +319,27 @@ private:
 	static bool s_bRTL; // RTL layout
 	static bool s_bKeyboardCues; // show keyboard cues
 	static bool s_bExpandRight; // prefer expanding submenus to the right
-	static int s_MenuBorder; // the width of the extra padding in pixels
-	static int s_MenuStyle; // the style for the menu windows
 	static bool s_bBehindTaskbar; // the main menu is behind the taskbar (when the taskbar is horizontal)
 	static bool s_bShowTopEmpty; // shows the empty item on the top menu so the user can drag items there
 	static bool s_bNoEditMenu; // disables drag/drop and the context menu
 	static bool s_bExpandLinks; // expand links to folders
 	static char s_bActiveDirectory; // the Active Directory services are available (-1 - uninitialized)
-	static HTHEME s_ThemeMenu; // theme to draw the menu arrow
-	static HTHEME s_ThemeList; // theme to draw the highlighted menu item
-	static COLORREF s_MenuColor;
-	static COLORREF s_MenuTextColor;
-	static COLORREF s_MenuTextHotColor;
-	static COLORREF s_MenuTextDColor;
-	static COLORREF s_MenuTextHotDColor;
 	static CMenuContainer *s_pDragSource; // the source of the current drag operation
 	static bool s_bRightDrag; // dragging with the right mouse button
 	static RECT s_MainRect; // area of the main monitor
+	static DWORD s_TaskbarState; // the state of the taskbar (ABS_AUTOHIDE and ABS_ALWAYSONTOP)
 	static DWORD s_HoverTime;
+	static DWORD s_SubmenuStyle;
 	static CLIPFORMAT s_ShellFormat; // CFSTR_SHELLIDLIST
 	static CComPtr<IShellFolder> s_pDesktop; // cached pointer of the desktop object
 
 	static std::vector<CMenuContainer*> s_Menus; // all menus, in cascading order
+	static std::map<unsigned int,int> s_PagerScrolls; // scroll offset for each sub menu
+
+	static MenuSkin s_Skin;
 
 	static LRESULT CALLBACK ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+	static LRESULT CALLBACK PagerSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 
 	friend class CStartMenuData;
 };

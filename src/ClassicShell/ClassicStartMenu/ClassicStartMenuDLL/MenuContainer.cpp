@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -15,6 +15,7 @@
 #include <WtsApi32.h>
 #include <Lm.h>
 #include <Dsgetdc.h>
+#include <dwmapi.h>
 #define SECURITY_WIN32
 #include <Security.h>
 #include <algorithm>
@@ -150,27 +151,22 @@ bool CMenuContainer::s_bScrollMenus=false;
 bool CMenuContainer::s_bRTL=false;
 bool CMenuContainer::s_bKeyboardCues=false;
 bool CMenuContainer::s_bExpandRight=true;
-int CMenuContainer::s_MenuBorder=0;
-int CMenuContainer::s_MenuStyle=0;
 bool CMenuContainer::s_bBehindTaskbar=true;
 bool CMenuContainer::s_bShowTopEmpty=false;
 bool CMenuContainer::s_bNoEditMenu=false;
 bool CMenuContainer::s_bExpandLinks=false;
 char CMenuContainer::s_bActiveDirectory=-1;
-HTHEME CMenuContainer::s_ThemeMenu;
-HTHEME CMenuContainer::s_ThemeList;
-COLORREF CMenuContainer::s_MenuColor;
-COLORREF CMenuContainer::s_MenuTextColor;
-COLORREF CMenuContainer::s_MenuTextHotColor;
-COLORREF CMenuContainer::s_MenuTextDColor;
-COLORREF CMenuContainer::s_MenuTextHotDColor;
 CMenuContainer *CMenuContainer::s_pDragSource=NULL;
 bool CMenuContainer::s_bRightDrag;
 std::vector<CMenuContainer*> CMenuContainer::s_Menus;
+std::map<unsigned int,int> CMenuContainer::s_PagerScrolls;
 CComPtr<IShellFolder> CMenuContainer::s_pDesktop;
 RECT CMenuContainer::s_MainRect;
+DWORD CMenuContainer::s_TaskbarState;
 DWORD CMenuContainer::s_HoverTime;
+DWORD CMenuContainer::s_SubmenuStyle;
 CLIPFORMAT CMenuContainer::s_ShellFormat;
+MenuSkin CMenuContainer::s_Skin;
 
 // Subclass proc for the toolbars
 LRESULT CALLBACK CMenuContainer::ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
@@ -192,6 +188,28 @@ LRESULT CALLBACK CMenuContainer::ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPAR
 		int idx=(int)::SendMessage(hWnd,TB_HITTEST,0,(LPARAM)&pt);
 		if (idx<0 && GetCapture()!=hWnd) return 0;
 	}
+	if (uMsg==WM_PAINT && !((CMenuContainer*)uIdSubclass)->m_pParent && s_Skin.Main_opacity>=MenuSkin::OPACITY_ALPHA)
+	{
+		PAINTSTRUCT ps;
+		HDC hdc=::BeginPaint(hWnd,&ps);
+		if(hdc)
+		{
+			BP_PAINTPARAMS paintParams = {0};
+			paintParams.cbSize = sizeof(paintParams);
+			paintParams.dwFlags=BPPF_ERASE;
+
+			HDC hdcPaint=NULL;
+			HPAINTBUFFER hBufferedPaint=BeginBufferedPaint(hdc,&ps.rcPaint,BPBF_TOPDOWNDIB,&paintParams,&hdcPaint);
+			if (hdcPaint)
+			{
+				DefSubclassProc(hWnd,WM_PRINTCLIENT,(WPARAM)hdcPaint,PRF_CLIENT);
+				BufferedPaintSetAlpha(hBufferedPaint,&ps.rcPaint,255);
+				EndBufferedPaint(hBufferedPaint,TRUE);
+			}
+		}
+		::EndPaint(hWnd,&ps);
+		return 0;
+	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
@@ -204,7 +222,7 @@ CMenuContainer::CMenuContainer( CMenuContainer *pParent, int index, int options,
 	m_MenuID=menuID;
 	m_RegName=regName;
 	m_Bitmap=NULL;
-	m_BmpWidth=0;
+	m_Region=NULL;
 	m_Path1=ILCloneFull(path1);
 	m_Path2=ILCloneFull(path2);
 
@@ -233,6 +251,7 @@ CMenuContainer::~CMenuContainer( void )
 			m_pParent->m_Submenu=-1;
 	}
 	if (m_Bitmap) DeleteObject(m_Bitmap);
+	if (m_Region) DeleteObject(m_Region);
 
 	// must be here and not in OnDestroy because during drag/drop a menu can close while still processing messages
 	s_Menus.erase(std::find(s_Menus.begin(),s_Menus.end(),this));
@@ -576,8 +595,77 @@ void CMenuContainer::InitItems( void )
 	}
 }
 
+static void MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins )
+{
+	int x0a=rDst.left;
+	int x1a=rDst.left+rMargins.left;
+	int x2a=rDst.right-rMargins.right;
+	int x3a=rDst.right;
+	int x0b=rSrc.left;
+	int x1b=rSrc.left+rMargins.left;
+	int x2b=rSrc.right-rMargins.right;
+	int x3b=rSrc.right;
+
+	int y0a=rDst.top;
+	int y1a=rDst.top+rMargins.top;
+	int y2a=rDst.bottom-rMargins.bottom;
+	int y3a=rDst.bottom;
+	int y0b=rSrc.top;
+	int y1b=rSrc.top+rMargins.top;
+	int y2b=rSrc.bottom-rMargins.bottom;
+	int y3b=rSrc.bottom;
+
+	SetStretchBltMode(hDst,COLORONCOLOR);
+	if (x0a<x1a && y0a<y1a && x0b<x1b && y0b<y1b) StretchBlt(hDst,x0a,y0a,x1a-x0a,y1a-y0a,hSrc,x0b,y0b,x1b-x0b,y1b-y0b,SRCCOPY);
+	if (x1a<x2a && y0a<y1a && x1b<x2b && y0b<y1b) StretchBlt(hDst,x1a,y0a,x2a-x1a,y1a-y0a,hSrc,x1b,y0b,x2b-x1b,y1b-y0b,SRCCOPY);
+	if (x2a<x3a && y0a<y1a && x2b<x3b && y0b<y1b) StretchBlt(hDst,x2a,y0a,x3a-x2a,y1a-y0a,hSrc,x2b,y0b,x3b-x2b,y1b-y0b,SRCCOPY);
+	
+	if (x0a<x1a && y1a<y2a && x0b<x1b && y1b<y2b) StretchBlt(hDst,x0a,y1a,x1a-x0a,y2a-y1a,hSrc,x0b,y1b,x1b-x0b,y2b-y1b,SRCCOPY);
+	if (x1a<x2a && y1a<y2a && x1b<x2b && y1b<y2b) StretchBlt(hDst,x1a,y1a,x2a-x1a,y2a-y1a,hSrc,x1b,y1b,x2b-x1b,y2b-y1b,SRCCOPY);
+	if (x2a<x3a && y1a<y2a && x2b<x3b && y1b<y2b) StretchBlt(hDst,x2a,y1a,x3a-x2a,y2a-y1a,hSrc,x2b,y1b,x3b-x2b,y2b-y1b,SRCCOPY);
+	
+	if (x0a<x1a && y2a<y3a && x0b<x1b && y2b<y3b) StretchBlt(hDst,x0a,y2a,x1a-x0a,y3a-y2a,hSrc,x0b,y2b,x1b-x0b,y3b-y2b,SRCCOPY);
+	if (x1a<x2a && y2a<y3a && x1b<x2b && y2b<y3b) StretchBlt(hDst,x1a,y2a,x2a-x1a,y3a-y2a,hSrc,x1b,y2b,x2b-x1b,y3b-y2b,SRCCOPY);
+	if (x2a<x3a && y2a<y3a && x2b<x3b && y2b<y3b) StretchBlt(hDst,x2a,y2a,x3a-x2a,y3a-y2a,hSrc,x2b,y2b,x3b-x2b,y3b-y2b,SRCCOPY);
+}
+
+static void MarginsBlitAlpha( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins )
+{
+	int x0a=rDst.left;
+	int x1a=rDst.left+rMargins.left;
+	int x2a=rDst.right-rMargins.right;
+	int x3a=rDst.right;
+	int x0b=rSrc.left;
+	int x1b=rSrc.left+rMargins.left;
+	int x2b=rSrc.right-rMargins.right;
+	int x3b=rSrc.right;
+
+	int y0a=rDst.top;
+	int y1a=rDst.top+rMargins.top;
+	int y2a=rDst.bottom-rMargins.bottom;
+	int y3a=rDst.bottom;
+	int y0b=rSrc.top;
+	int y1b=rSrc.top+rMargins.top;
+	int y2b=rSrc.bottom-rMargins.bottom;
+	int y3b=rSrc.bottom;
+
+	SetStretchBltMode(hDst,COLORONCOLOR);
+	BLENDFUNCTION func={AC_SRC_OVER,0,255,AC_SRC_ALPHA};
+	if (x0a<x1a && y0a<y1a && x0b<x1b && y0b<y1b) AlphaBlend(hDst,x0a,y0a,x1a-x0a,y1a-y0a,hSrc,x0b,y0b,x1b-x0b,y1b-y0b,func);
+	if (x1a<x2a && y0a<y1a && x1b<x2b && y0b<y1b) AlphaBlend(hDst,x1a,y0a,x2a-x1a,y1a-y0a,hSrc,x1b,y0b,x2b-x1b,y1b-y0b,func);
+	if (x2a<x3a && y0a<y1a && x2b<x3b && y0b<y1b) AlphaBlend(hDst,x2a,y0a,x3a-x2a,y1a-y0a,hSrc,x2b,y0b,x3b-x2b,y1b-y0b,func);
+
+	if (x0a<x1a && y1a<y2a && x0b<x1b && y1b<y2b) AlphaBlend(hDst,x0a,y1a,x1a-x0a,y2a-y1a,hSrc,x0b,y1b,x1b-x0b,y2b-y1b,func);
+	if (x1a<x2a && y1a<y2a && x1b<x2b && y1b<y2b) AlphaBlend(hDst,x1a,y1a,x2a-x1a,y2a-y1a,hSrc,x1b,y1b,x2b-x1b,y2b-y1b,func);
+	if (x2a<x3a && y1a<y2a && x2b<x3b && y1b<y2b) AlphaBlend(hDst,x2a,y1a,x3a-x2a,y2a-y1a,hSrc,x2b,y1b,x3b-x2b,y2b-y1b,func);
+
+	if (x0a<x1a && y2a<y3a && x0b<x1b && y2b<y3b) AlphaBlend(hDst,x0a,y2a,x1a-x0a,y3a-y2a,hSrc,x0b,y2b,x1b-x0b,y3b-y2b,func);
+	if (x1a<x2a && y2a<y3a && x1b<x2b && y2b<y3b) AlphaBlend(hDst,x1a,y2a,x2a-x1a,y3a-y2a,hSrc,x1b,y2b,x2b-x1b,y3b-y2b,func);
+	if (x2a<x3a && y2a<y3a && x2b<x3b && y2b<y3b) AlphaBlend(hDst,x2a,y2a,x3a-x2a,y3a-y2a,hSrc,x2b,y2b,x3b-x2b,y3b-y2b,func);
+}
+
 // Creates the bitmap to show on the main menu in "large icons" mode
-void CMenuContainer::CreateBitmap( int height )
+void CMenuContainer::CreateBackground( int width, int height )
 {
 	// get the text from the ini file or from the registry
 	CRegKey regTitle;
@@ -592,74 +680,279 @@ void CMenuContainer::CreateBitmap( int height )
 			regTitle.QueryStringValue(L"ProductName",title,&size);
 	}
 
-	HDC hdc=CreateCompatibleDC(NULL);
-	int fontSize=CIconManager::SMALL_ICON_SIZE+8; // font size depending on the DPI
+	HBITMAP bmpSkin=s_Skin.Main_bitmap;
+	bool b32=s_Skin.Main_bitmap32;
+	const int *slicesX=s_Skin.Main_bitmap_slices_X;
+	const int *slicesY=s_Skin.Main_bitmap_slices_Y;
+	bool bCaption=(slicesX[1]>0);
 
-	HFONT font=CreateFont(fontSize,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");
+	HDC hdcTemp=CreateCompatibleDC(NULL);
 
-	HFONT font0=(HFONT)SelectObject(hdc,font);
+	HFONT font0=NULL;
+	if (bCaption)
+		font0=(HFONT)SelectObject(hdcTemp,s_Skin.Caption_font);
 
 	RECT rc={0,0,0,0};
-	DrawText(hdc,title,-1,&rc,DT_NOPREFIX|DT_SINGLELINE|DT_CALCRECT);
-	int width=rc.right;
-	rc.right=height;
-	rc.bottom+=s_MenuBorder+1; // 1 extra pixel between the title and the menu items
+	DTTOPTS opts={sizeof(opts),DTT_COMPOSITED|DTT_CALCRECT};
+	HTHEME theme=NULL;
+	if (bCaption)
+	{
+		theme=OpenThemeData(m_hWnd,L"window"); // create a dummy theme to be used by DrawThemeTextEx
+		if (theme)
+			DrawThemeTextEx(theme,hdcTemp,0,0,title,-1,DT_NOPREFIX|DT_SINGLELINE|DT_CALCRECT,&rc,&opts);
+		else
+			DrawText(hdcTemp,title,-1,&rc,DT_NOPREFIX|DT_SINGLELINE|DT_CALCRECT);
+	}
+	int textWidth=rc.right+s_Skin.Caption_padding.top+s_Skin.Caption_padding.bottom;
+	int textHeight=rc.bottom+s_Skin.Caption_padding.left+s_Skin.Caption_padding.right;
+	int total=slicesX[0]+slicesX[2];
+	if (textHeight<total) textHeight=total;
+
+	int totalWidth=textHeight+width+s_Skin.Main_padding.left+s_Skin.Main_padding.right;
+	total+=textHeight+slicesX[3]+slicesX[5];
+	if (totalWidth<total) totalWidth=total;
+
+	int totalHeight=height+s_Skin.Main_padding.top+s_Skin.Main_padding.bottom;
+	total=slicesY[0]+slicesY[2];
+	if (totalHeight<total) totalHeight=total;
+	if (textWidth>totalHeight) textWidth=totalHeight;
 
 	BITMAPINFO dib={sizeof(dib)};
-	dib.bmiHeader.biWidth=rc.right;
-	dib.bmiHeader.biHeight=-rc.bottom; // negative height to make it top-down
+	dib.bmiHeader.biWidth=totalWidth;
+	dib.bmiHeader.biHeight=-totalHeight;
 	dib.bmiHeader.biPlanes=1;
 	dib.bmiHeader.biBitCount=32;
 	dib.bmiHeader.biCompression=BI_RGB;
 
+	HDC hdc=CreateCompatibleDC(NULL);
 	unsigned int *bits;
-	HBITMAP bmp=CreateDIBSection(hdc,&dib,DIB_RGB_COLORS,(void**)&bits,NULL,0);
+	m_Bitmap=CreateDIBSection(hdc,&dib,DIB_RGB_COLORS,(void**)&bits,NULL,0);
+	HBITMAP bmp0=(HBITMAP)SelectObject(hdc,m_Bitmap);
 
-	HBITMAP bmp0=(HBITMAP)SelectObject(hdc,bmp);
-	FillRect(hdc,&rc,(HBRUSH)(COLOR_MENU+1));
-	int border=s_bRTL?s_MenuBorder:0;
-
-	// create the gradient background
-	COLORREF color=GetSysColor(COLOR_MENUHILIGHT);
-	int r=color&255, g=(color>>8)&255, b=(color>>16)&255;
-	TRIVERTEX verts[]=
+	if (s_Skin.Main_opacity==MenuSkin::OPACITY_SOLID)
 	{
-		{s_MenuBorder,s_MenuBorder-border,r*64,g*64,b*128,255*256},
-		{(width+rc.bottom>s_MenuBorder)?width+rc.bottom:s_MenuBorder,rc.bottom-1-border,r*256,g*256,b*256,255*256},
-		{rc.right-s_MenuBorder,s_MenuBorder-border,r*256,g*256,b*256,255*256},
-	};
-	GRADIENT_RECT rect[2]={{0,1},{1,2}};
-	GradientFill(hdc,verts,3,rect,2,GRADIENT_FILL_RECT_H);
+		RECT rc={0,0,totalWidth,totalHeight};
+		SetDCBrushColor(hdc,s_Skin.Main_background);
+		FillRect(hdc,&rc,(HBRUSH)GetStockObject(DC_BRUSH));
+	}
 
-	// draw text
-	SetTextColor(hdc,0xFFFFFF);
-	SetBkMode(hdc,TRANSPARENT);
-	rc.left=rc.bottom/2;
-	rc.bottom-=border+1;
-	rc.top+=s_MenuBorder-border;
-	DrawText(hdc,title,-1,&rc,DT_NOPREFIX|DT_VCENTER|DT_SINGLELINE);
-	rc.bottom+=border+1;
-	rc.top-=s_MenuBorder-border;
+	if (bmpSkin)
+	{
+		// draw the skinned background
+		HBITMAP bmp02=(HBITMAP)SelectObject(hdcTemp,bmpSkin);
 
-	SelectObject(hdc,font0);
+		RECT rSrc={0,0,slicesX[0]+slicesX[1]+slicesX[2],slicesY[0]+slicesY[1]+slicesY[2]};
+		RECT rDst={0,0,textHeight,totalHeight};
+		RECT rMargins={slicesX[0],slicesY[0],slicesX[2],slicesY[2]};
+		if (s_Skin.Main_opacity==MenuSkin::OPACITY_SOLID && b32)
+			MarginsBlitAlpha(hdcTemp,hdc,rSrc,rDst,rMargins);
+		else
+			MarginsBlit(hdcTemp,hdc,rSrc,rDst,rMargins);
+
+		rSrc.left=rSrc.right;
+		rSrc.right+=slicesX[3]+slicesX[4]+slicesX[5];
+		rDst.left=rDst.right;
+		rDst.right=totalWidth;
+		rMargins.left=slicesX[3];
+		rMargins.right=slicesX[5];
+		if (s_Skin.Main_opacity==MenuSkin::OPACITY_SOLID && b32)
+			MarginsBlitAlpha(hdcTemp,hdc,rSrc,rDst,rMargins);
+		else
+			MarginsBlit(hdcTemp,hdc,rSrc,rDst,rMargins);
+
+		SelectObject(hdcTemp,bmp02);
+		SelectObject(hdc,bmp0); // deselect m_Bitmap so all the GDI operations get flushed
+
+		if (s_bRTL)
+		{
+			// mirror the background image for RTL windows
+			for (int y=0;y<totalHeight;y++)
+			{
+				int yw=y*totalWidth;
+				std::reverse(bits+yw,bits+yw+totalWidth);
+			}
+		}
+
+		// calculate the window region
+		m_Region=NULL;
+		if (s_Skin.Main_opacity==MenuSkin::OPACITY_REGION || s_Skin.Main_opacity==MenuSkin::OPACITY_GLASS)
+		{
+			for (int y=0;y<totalHeight;y++)
+			{
+				int minx=-1, maxx=-1;
+				int yw=y*totalWidth;
+				for (int x=0;x<totalWidth;x++)
+				{
+					if (bits[yw+x]&0xFF000000)
+					{
+						if (minx==-1) minx=x; // first non-transparent pixel
+						if (maxx<x) maxx=x; // last non-transparent pixel
+					}
+				}
+				if (minx>=0)
+				{
+					maxx++;
+					if (s_bRTL && s_Skin.Main_opacity==MenuSkin::OPACITY_REGION)
+						minx=totalWidth-minx, maxx=totalWidth-maxx; // in "region" mode mirror the region (again)
+					HRGN r=CreateRectRgn(minx,y,maxx,y+1);
+					if (!m_Region)
+						m_Region=r;
+					else
+					{
+						CombineRgn(m_Region,m_Region,r,RGN_OR);
+						DeleteObject(r);
+					}
+				}
+			}
+		}
+
+		SelectObject(hdc,m_Bitmap);
+	}
+	else
+	{
+		RECT rc={0,0,totalWidth,totalHeight};
+		SetDCBrushColor(hdc,s_Skin.Main_background);
+		FillRect(hdc,&rc,(HBRUSH)GetStockObject(DC_BRUSH));
+	}
+
+	if (bCaption)
+	{
+		// draw the title
+		BITMAPINFO dib={sizeof(dib)};
+		dib.bmiHeader.biWidth=textWidth;
+		dib.bmiHeader.biHeight=-textHeight;
+		dib.bmiHeader.biPlanes=1;
+		dib.bmiHeader.biBitCount=32;
+		dib.bmiHeader.biCompression=BI_RGB;
+
+		HDC hdc=CreateCompatibleDC(NULL);
+		unsigned int *bits2;
+		HBITMAP bmpText=CreateDIBSection(hdcTemp,&dib,DIB_RGB_COLORS,(void**)&bits2,NULL,0);
+		HBITMAP bmp02=(HBITMAP)SelectObject(hdcTemp,bmpText);
+		{
+			RECT rc={0,0,textWidth,textHeight};
+			FillRect(hdcTemp,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
+		}
+
+		RECT rc={s_Skin.Caption_padding.bottom,s_bRTL?s_Skin.Caption_padding.right:s_Skin.Caption_padding.left,textWidth-s_Skin.Caption_padding.top,textHeight-(s_bRTL?s_Skin.Caption_padding.left:s_Skin.Caption_padding.right)};
+		if (theme && s_Skin.Caption_glow_size>0)
+		{
+			// draw the glow
+			opts.dwFlags=DTT_COMPOSITED|DTT_TEXTCOLOR|DTT_GLOWSIZE;
+			opts.crText=0xFFFFFF;
+			opts.iGlowSize=s_Skin.Caption_glow_size;
+			DrawThemeTextEx(theme,hdcTemp,0,0,title,-1,DT_VCENTER|DT_NOPREFIX|DT_SINGLELINE,&rc,&opts);
+			SelectObject(hdcTemp,bmp02); // deselect bmpText so all the GDI operations get flushed
+
+			// change the glow color
+			int gr=(s_Skin.Caption_glow_color>>16)&255;
+			int gg=(s_Skin.Caption_glow_color>>8)&255;
+			int gb=(s_Skin.Caption_glow_color)&255;
+			for (int y=0;y<textHeight;y++)
+				for (int x=0;x<textWidth;x++)
+				{
+					unsigned int &pixel=bits2[y*textWidth+x];
+					int a1=(pixel>>24);
+					int r1=(pixel>>16)&255;
+					int g1=(pixel>>8)&255;
+					int b1=(pixel)&255;
+					r1=(r1*gr)/255;
+					g1=(g1*gg)/255;
+					b1=(b1*gb)/255;
+					pixel=(a1<<24)|(r1<<16)|(g1<<8)|b1;
+				}
+
+			SelectObject(hdcTemp,bmpText);
+		}
+
+		// draw the text
+		int offset=0;
+		if (s_bRTL)
+			offset=totalWidth-textHeight;
+
+		if (theme)
+		{
+			opts.dwFlags=DTT_COMPOSITED|DTT_TEXTCOLOR;
+			opts.crText=s_Skin.Caption_text_color;
+			DrawThemeTextEx(theme,hdcTemp,0,0,title,-1,DT_VCENTER|DT_NOPREFIX|DT_SINGLELINE,&rc,&opts);
+			SelectObject(hdcTemp,bmp02);
+
+			// rotate and copy the text onto the final bitmap. Combine the alpha channels
+			for (int y=0;y<textHeight;y++)
+				for (int x=0;x<textWidth;x++)
+				{
+					unsigned int src=bits2[y*textWidth+x];
+					int a1=(src>>24);
+					int r1=(src>>16)&255;
+					int g1=(src>>8)&255;
+					int b1=(src)&255;
+
+					unsigned int &dst=bits[(totalHeight-1-x)*totalWidth+y+offset];
+
+					int a2=(dst>>24);
+					int r2=(dst>>16)&255;
+					int g2=(dst>>8)&255;
+					int b2=(dst)&255;
+
+					r2=(r2*(255-a1))/255+r1;
+					g2=(g2*(255-a1))/255+g1;
+					b2=(b2*(255-a1))/255+b1;
+					a2=a1+a2-(a1*a2)/255;
+
+					dst=(a2<<24)|(r2<<16)|(g2<<8)|b2;
+				}
+		}
+		else
+		{
+			// draw white text on black background
+			FillRect(hdcTemp,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
+			SetTextColor(hdcTemp,0xFFFFFF);
+			SetBkMode(hdcTemp,TRANSPARENT);
+			DrawText(hdcTemp,title,-1,&rc,DT_VCENTER|DT_NOPREFIX|DT_SINGLELINE);
+			SelectObject(hdcTemp,bmp02);
+
+			// rotate and copy the text onto the final bitmap
+			// change the text color
+			int tr=(s_Skin.Caption_text_color>>16)&255;
+			int tg=(s_Skin.Caption_text_color>>8)&255;
+			int tb=(s_Skin.Caption_text_color)&255;
+			for (int y=0;y<textHeight;y++)
+				for (int x=0;x<textWidth;x++)
+				{
+					unsigned int src=bits2[y*textWidth+x];
+					int a1=(src)&255;
+
+					unsigned int &dst=bits[(totalHeight-1-x)*totalWidth+y+offset];
+
+					int a2=(dst>>24);
+					int r2=(dst>>16)&255;
+					int g2=(dst>>8)&255;
+					int b2=(dst)&255;
+
+					r2=(r2*(255-a1)+tr*a1)/255;
+					g2=(g2*(255-a1)+tg*a1)/255;
+					b2=(b2*(255-a1)+tb*a1)/255;
+					a2=a1+a2-(a1*a2)/255;
+
+					dst=(a2<<24)|(r2<<16)|(g2<<8)|b2;
+				}
+		}
+
+		DeleteObject(bmpText);
+	}
+
+	SelectObject(hdcTemp,font0);
+	DeleteDC(hdcTemp);
+
 	SelectObject(hdc,bmp0);
 	DeleteDC(hdc);
-	DeleteObject(font);
 
-	// rotate the bitmap 90 degrees. it is possible to draw the text vertically using a rotated font,
-	// but unfortunately the text ends up aliased. this way we get better quality. weird, I know.
-	unsigned int *bits2;
-	dib.bmiHeader.biWidth=rc.bottom;
-	dib.bmiHeader.biHeight=-rc.right;
-	m_Bitmap=CreateDIBSection(hdc,&dib,DIB_RGB_COLORS,(void**)&bits2,NULL,0);
+	if (theme) CloseThemeData(theme);
 
-	for (int y=0;y<rc.right;y++)
-		for (int x=0;x<rc.bottom;x++)
-			bits2[y*rc.bottom+x]=bits[x*rc.right+rc.right-y-1];
-
-	DeleteObject(bmp);
-
-	m_BmpWidth=rc.bottom;
+	m_rContent.left=s_Skin.Main_padding.left+textHeight;
+	m_rContent.right=totalWidth-s_Skin.Main_padding.right;
+	m_rContent.top=s_Skin.Main_padding.top;
+	m_rContent.bottom=totalHeight-s_Skin.Main_padding.bottom;
 }
 
 CWindow CMenuContainer::CreateToolbar( int id )
@@ -671,6 +964,17 @@ CWindow CMenuContainer::CreateToolbar( int id )
 	HIMAGELIST images=(m_Options&CONTAINER_LARGE)?g_IconManager.m_LargeIcons:g_IconManager.m_SmallIcons;
 	toolbar.SendMessage(TB_SETIMAGELIST,0,(LPARAM)images);
 
+	toolbar.SendMessage(TB_SETINSERTMARKCOLOR,0,m_pParent?s_Skin.Submenu_text_color[0]:s_Skin.Main_text_color[0]);
+	HFONT font=m_pParent?s_Skin.Submenu_font:s_Skin.Main_font;
+	if (font) toolbar.SetFont(font);
+
+/*
+	see the comment in OnGetInfoTip
+	CWindow tooltip=(HWND)toolbar.SendMessage(TB_GETTOOLTIPS);
+	if (tooltip.m_hWnd)
+		tooltip.SetWindowLong(GWL_STYLE,tooltip.GetWindowLong(GWL_STYLE)|TTS_ALWAYSTIP);
+*/
+
 	SetWindowSubclass(toolbar.m_hWnd,ToolbarSubclassProc,(UINT_PTR)this,0);
 
 	return toolbar;
@@ -679,12 +983,48 @@ CWindow CMenuContainer::CreateToolbar( int id )
 // Create one or more toolbars and the pager. Reuses the existing controls if possible
 void CMenuContainer::InitToolbars( void )
 {
+	// calculate maximum height
+	int maxHeight;
+	{
+		maxHeight=(s_MainRect.bottom-s_MainRect.top);
+		// adjust for padding
+		RECT rc={0,0,0,0};
+		AdjustWindowRect(&rc,GetWindowLong(GWL_STYLE),FALSE);
+		if (m_pParent)
+		{
+			maxHeight-=rc.bottom-rc.top;
+			maxHeight-=s_Skin.Submenu_padding.top+s_Skin.Submenu_padding.bottom;
+		}
+		else
+		{
+			RECT rc2;
+			GetWindowRect(&rc2);
+			if (m_Options&CONTAINER_TOP)
+				maxHeight=s_MainRect.bottom-rc2.top;
+			else
+				maxHeight=rc2.bottom-s_MainRect.top;
+			maxHeight-=rc.bottom-rc.top;
+			maxHeight-=s_Skin.Main_padding.top+s_Skin.Main_padding.bottom;
+		}
+	}
+#ifdef _DEBUG
+//	maxHeight/=4; // uncomment to test for smaller screen
+#endif
+
 	// add buttons
-	int maxHeight=(s_MainRect.bottom-s_MainRect.top);
 	CWindow toolbar;
 	std::vector<CWindow> oldToolbars;
 	oldToolbars.swap(m_Toolbars);
 	int column=0;
+	int sepHeight=0;
+	if (m_pParent)
+	{
+		if (s_Skin.Submenu_separator) sepHeight=s_Skin.Submenu_separatorHeight;
+	}
+	else
+	{
+		if (s_Skin.Main_separator) sepHeight=s_Skin.Main_separatorHeight;
+	}
 	for (size_t i=0;i<m_Items.size();i++)
 	{
 		if (!toolbar)
@@ -712,7 +1052,10 @@ void CMenuContainer::InitToolbars( void )
 		// add the new button
 		TBBUTTON button={m_Items[i].icon,(int)i+ID_OFFSET,TBSTATE_ENABLED|TBSTATE_WRAP,BTNS_BUTTON,{0},i+ID_OFFSET,(INT_PTR)(const wchar_t*)m_Items[i].name};
 		if (m_Items[i].id==MENU_SEPARATOR)
+		{
 			button.fsStyle=BTNS_SEP;
+			button.iBitmap=sepHeight;
+		}
 		else if (m_Items[i].id==MENU_NO)
 			button.fsStyle|=BTNS_NOPREFIX;
 		if (!s_bShowTopEmpty && !m_pParent && (m_Items[i].id==MENU_EMPTY || (i==1 && m_Items[0].id==MENU_EMPTY)))
@@ -762,30 +1105,48 @@ void CMenuContainer::InitToolbars( void )
 		DeleteObject(m_Bitmap);
 		m_Bitmap=NULL;
 	}
+	if (m_Region)
+	{
+		DeleteObject(m_Region);
+		m_Region=NULL;
+	}
 
-	m_BmpWidth=0;
-	if ((m_Options&CONTAINER_LARGE) && !m_pParent)
-		CreateBitmap((maxh<maxHeight?maxh:maxHeight)+2*s_MenuBorder);
-
-	int offs=0, step=maxw;
-	if (m_BmpWidth)
-		offs=m_BmpWidth;
+	int totalWidth, totalHeight;
+	if (!m_pParent)
+	{
+		CreateBackground((int)m_Toolbars.size()*maxw,maxh<maxHeight?maxh:maxHeight);
+		BITMAP info;
+		GetObject(m_Bitmap,sizeof(info),&info);
+		totalWidth=info.bmWidth;
+		totalHeight=info.bmHeight;
+	}
 	else
-		offs=s_MenuBorder;
+	{
+		int w=(int)m_Toolbars.size()*maxw;
+		int h=(maxh<maxHeight?maxh:maxHeight);
+		m_rContent.left=s_Skin.Submenu_padding.left;
+		m_rContent.top=s_Skin.Submenu_padding.top;
+		m_rContent.right=s_Skin.Submenu_padding.left+w;
+		m_rContent.bottom=s_Skin.Submenu_padding.top+h;
+		totalWidth=s_Skin.Submenu_padding.left+s_Skin.Submenu_padding.right+w;
+		totalHeight=s_Skin.Submenu_padding.top+s_Skin.Submenu_padding.bottom+h;
+	}
 
-	int offs0=offs;
+	int offs=m_rContent.left, step=maxw;
 
 	for (std::vector<CWindow>::iterator it=m_Toolbars.begin();it!=m_Toolbars.end();++it, offs+=step)
 	{
 		it->SendMessage(TB_SETBUTTONSIZE,0,MAKELONG(maxw,maxbh));
-		it->SetWindowPos(NULL,offs,s_MenuBorder,maxw,maxh,SWP_NOZORDER|SWP_NOACTIVATE);
+		it->SetWindowPos(NULL,offs,m_rContent.top,maxw,maxh,SWP_NOZORDER|SWP_NOACTIVATE);
 	}
 
 	// create pager
 	if (!(m_Options&CONTAINER_MULTICOLUMN) && maxh>maxHeight)
 	{
 		if (!m_Pager)
-			m_Pager=CreateWindow(WC_PAGESCROLLER,L"",WS_CHILD|WS_VISIBLE|PGS_DRAGNDROP|PGS_AUTOSCROLL|PGS_VERT|CCS_NODIVIDER|CCS_NOPARENTALIGN|CCS_NORESIZE,offs0,s_MenuBorder,maxw,maxHeight,m_hWnd,(HMENU)ID_PAGER,g_Instance,NULL);
+			m_Pager=CreateWindow(WC_PAGESCROLLER,L"",WS_CHILD|WS_VISIBLE|PGS_DRAGNDROP|PGS_AUTOSCROLL|PGS_VERT|CCS_NODIVIDER|CCS_NOPARENTALIGN|CCS_NORESIZE,m_rContent.left,m_rContent.top,maxw,maxHeight,m_hWnd,(HMENU)ID_PAGER,g_Instance,NULL);
+		else
+			m_Pager.SetWindowPos(NULL,m_rContent.left,m_rContent.top,maxw,maxHeight,SWP_NOZORDER);
 		m_Pager.SendMessage(PGM_SETBUTTONSIZE,0,maxbh/2);
 		m_Toolbars[0].SetParent(m_Pager);
 		m_Toolbars[0].SetWindowPos(NULL,0,0,0,0,SWP_NOZORDER|SWP_NOSIZE);
@@ -798,40 +1159,51 @@ void CMenuContainer::InitToolbars( void )
 		m_Pager=NULL;
 	}
 
-	RECT rc={0,0,maxw*(int)m_Toolbars.size()+offs0+s_MenuBorder,maxh+s_MenuBorder*2};
-	AdjustWindowRectEx(&rc,s_MenuStyle,FALSE,WS_EX_TOOLWINDOW|WS_EX_TOPMOST);
+	RECT rc={0,0,totalWidth,totalHeight};
+	AdjustWindowRect(&rc,GetWindowLong(GWL_STYLE),FALSE);
 	RECT rc0;
 	GetWindowRect(&rc0);
 	OffsetRect(&rc,(m_Options&CONTAINER_LEFT)?(rc0.left-rc.left):(rc0.right-rc.right),(m_Options&CONTAINER_TOP)?(rc0.top-rc.top):(rc0.bottom-rc.bottom));
-	SetWindowPos(NULL,&rc,SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOCOPYBITS);
+	SetWindowPos(NULL,&rc,SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOCOPYBITS|SWP_DEFERERASE);
+
+	// for some reason the region must be set after the call to SetWindowPos. otherwise it doesn't work for RTL windows
+	if (m_Region && s_Skin.Main_opacity==MenuSkin::OPACITY_REGION)
+	{
+		if (SetWindowRgn(m_Region))
+			m_Region=NULL; // the OS takes ownership of the region, no need to free
+	}
+
+	if (m_Pager.m_hWnd)
+	{
+		int scroll;
+		std::map<unsigned int,int>::iterator it=s_PagerScrolls.find(CalcFNVHash(m_RegName));
+		if (it!=s_PagerScrolls.end())
+			scroll=it->second; // restore the pager position if the same menu has been opened before
+		else if (m_pParent)
+			scroll=0; // submenus default to top
+		else
+		{
+			// main menu defaults to bottom
+			RECT rc;
+			m_Pager.GetClientRect(&rc);
+			scroll=rc.bottom;
+			m_Toolbars[0].GetWindowRect(&rc);
+			scroll=rc.bottom-rc.top-scroll;
+		}
+		m_Pager.SendMessage(PGM_SETPOS,0,scroll);
+	}
 }
 
 LRESULT CMenuContainer::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
 	if (!m_pParent)
 	{
-		s_MenuColor=GetSysColor(COLOR_MENU);
-		s_MenuTextColor=GetSysColor(COLOR_MENUTEXT);
-		s_MenuTextHotColor=GetSysColor(COLOR_HIGHLIGHTTEXT);
-		s_MenuTextDColor=GetSysColor(COLOR_GRAYTEXT);
-		s_MenuTextHotDColor=GetSysColor(COLOR_HIGHLIGHTTEXT);
-		if (m_Options&CONTAINER_THEME)
+		if (s_Skin.Main_opacity==MenuSkin::OPACITY_ALPHA)
 		{
-			SetWindowTheme(m_hWnd,L"explorer",NULL); // get the nice "explorer" theme for the listview selection
-
-			HTHEME s_ThemeMenu=OpenThemeData(m_hWnd,L"menu");
-			if (s_ThemeMenu)
-			{
-				s_MenuColor=GetThemeSysColor(s_ThemeMenu,COLOR_MENU);
-				s_MenuTextColor=GetThemeSysColor(s_ThemeMenu,COLOR_MENUTEXT);
-				s_MenuTextHotColor=s_MenuTextColor;
-				s_MenuTextDColor=GetThemeSysColor(s_ThemeMenu,COLOR_GRAYTEXT);
-				s_MenuTextHotDColor=s_MenuTextDColor;
-				CloseThemeData(s_ThemeMenu);
-			}
-
-			s_ThemeList=OpenThemeData(m_hWnd,L"listview");
+			MARGINS margins={-1};
+			DwmExtendFrameIntoClientArea(m_hWnd,&margins);
 		}
+		BufferedPaintInit();
 	}
 	InitToolbars();
 	m_ClickTime=GetMessageTime()-10000;
@@ -849,6 +1221,69 @@ LRESULT CMenuContainer::OnCustomDraw( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	{
 		res=CDRF_NOTIFYITEMDRAW;
 		bHandled=TRUE;
+
+		// there is no custom-draw for separators. so here we draw all separators on CDDS_PREPAINT and exclude them from the clip rectangle
+		HBITMAP bmpSeparator=NULL;
+		bool b32=false;
+		int bmpHeight=0;
+		const int *slicesX=NULL;
+		if (m_pParent)
+		{
+			bmpSeparator=s_Skin.Submenu_separator;
+			b32=s_Skin.Submenu_separator32;
+			bmpHeight=s_Skin.Submenu_separatorHeight;
+			slicesX=s_Skin.Submenu_separator_slices_X;
+		}
+		else
+		{
+			bmpSeparator=s_Skin.Main_separator;
+			b32=s_Skin.Main_separator32;
+			bmpHeight=s_Skin.Main_separatorHeight;
+			slicesX=s_Skin.Main_separator_slices_X;
+		}
+		if (bmpSeparator)
+		{
+			// check if there are separators in this toolbar
+			int column=0;
+			for (int i=0;i<(int)m_Toolbars.size();i++)
+			{
+				if (m_Toolbars[i].m_hWnd==pDraw->nmcd.hdr.hwndFrom)
+				{
+					column=i;
+					break;
+				}
+			}
+			bool bSep=false;
+			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
+				if (it->id==MENU_SEPARATOR && it->column==column)
+				{
+					bSep=true;
+					break;
+				}
+
+			if (bSep)
+			{
+				// draw the separators for this toolbar and exclude them from the clip rectangle
+				HDC hdc=CreateCompatibleDC(pDraw->nmcd.hdc);
+				HBITMAP bmp0=(HBITMAP)SelectObject(hdc,bmpSeparator);
+				RECT rSrc={0,0,slicesX[0]+slicesX[1]+slicesX[2],bmpHeight};
+				RECT rMargins={slicesX[0],bmpHeight,slicesX[2],0};
+				CWindow toolbar=pDraw->nmcd.hdr.hwndFrom;
+				for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
+				{
+					if (it->id!=MENU_SEPARATOR || it->column!=column) continue;
+					RECT rc;
+					toolbar.SendMessage(TB_GETITEMRECT,it->btnIndex,(LPARAM)&rc);
+					if (b32)
+						MarginsBlitAlpha(hdc,pDraw->nmcd.hdc,rSrc,rc,rMargins);
+					else
+						MarginsBlit(hdc,pDraw->nmcd.hdc,rSrc,rc,rMargins);
+					ExcludeClipRect(pDraw->nmcd.hdc,rc.left,rc.top,rc.right,rc.bottom);
+				}
+				SelectObject(hdc,bmp0);
+				DeleteDC(hdc);
+			}
+		}
 	}
 	else if (pDraw->nmcd.dwDrawStage==CDDS_ITEMPREPAINT)
 	{
@@ -856,23 +1291,72 @@ LRESULT CMenuContainer::OnCustomDraw( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 		bool bDisabled=(pDraw->nmcd.uItemState&CDIS_DISABLED) || (pDraw->nmcd.lItemlParam>=ID_OFFSET && m_Items[pDraw->nmcd.lItemlParam-ID_OFFSET].id==MENU_EMPTY);
 		if (pDraw->nmcd.uItemState&CDIS_HOT)
 		{
-			pDraw->clrText=bDisabled?s_MenuTextHotDColor:s_MenuTextHotColor;
-			if (s_ThemeList)
+			int *slicesX, *slicesY;
+			HBITMAP bmp=NULL;
+			bool b32=false;
+			if (m_pParent)
 			{
-				// draw the background for the hot item
-				DrawThemeBackground(s_ThemeList,pDraw->nmcd.hdc,LVP_LISTITEM,LISS_HOTSELECTED,&pDraw->nmcd.rc,NULL);
+				// sub-menu
+				pDraw->clrText=s_Skin.Submenu_text_color[bDisabled?3:1];
+				if (s_Skin.Submenu_selectionColor)
+				{
+					// set the color for the hot item
+					pDraw->clrHighlightHotTrack=s_Skin.Submenu_selection.color;
+					res|=TBCDRF_HILITEHOTTRACK;
+				}
+				else
+				{
+					bmp=s_Skin.Submenu_selection.bmp;
+					b32=s_Skin.Submenu_selection32;
+					slicesX=s_Skin.Submenu_selection_slices_X;
+					slicesY=s_Skin.Submenu_selection_slices_Y;
+				}
 			}
 			else
 			{
-				// set the color for the hot item
-				pDraw->clrHighlightHotTrack=GetSysColor(COLOR_HIGHLIGHT);
-				res|=TBCDRF_HILITEHOTTRACK;
+				// main menu
+				pDraw->clrText=s_Skin.Main_text_color[bDisabled?3:1];
+				if (s_Skin.Main_selectionColor)
+				{
+					// set the color for the hot item
+					pDraw->clrHighlightHotTrack=s_Skin.Main_selection.color;
+					res|=TBCDRF_HILITEHOTTRACK;
+				}
+				else
+				{
+					bmp=s_Skin.Main_selection.bmp;
+					b32=s_Skin.Main_selection32;
+					slicesX=s_Skin.Main_selection_slices_X;
+					slicesY=s_Skin.Main_selection_slices_Y;
+				}
+			}
+			if (bmp)
+			{
+				HDC hdc=CreateCompatibleDC(pDraw->nmcd.hdc);
+				HBITMAP bmp0=(HBITMAP)SelectObject(hdc,bmp);
+				RECT rSrc={0,0,slicesX[0]+slicesX[1]+slicesX[2],slicesY[0]+slicesY[1]+slicesY[2]};
+				RECT rMargins={slicesX[0],slicesY[0],slicesX[2],slicesY[2]};
+				int w=pDraw->nmcd.rc.right-pDraw->nmcd.rc.left;
+				int h=pDraw->nmcd.rc.bottom-pDraw->nmcd.rc.top;
+				if (rMargins.left>w) rMargins.left=w;
+				if (rMargins.right>w) rMargins.right=w;
+				if (rMargins.top>h) rMargins.top=h;
+				if (rMargins.bottom>h) rMargins.bottom=h;
+				if (b32)
+					MarginsBlitAlpha(hdc,pDraw->nmcd.hdc,rSrc,pDraw->nmcd.rc,rMargins);
+				else
+					MarginsBlit(hdc,pDraw->nmcd.hdc,rSrc,pDraw->nmcd.rc,rMargins);
+				SelectObject(hdc,bmp0);
+				DeleteDC(hdc);
 			}
 		}
 		else
 		{
 			// set the color for the (Empty) items
-			pDraw->clrText=bDisabled?s_MenuTextDColor:s_MenuTextColor;
+			if (m_pParent)
+				pDraw->clrText=s_Skin.Submenu_text_color[bDisabled?2:0];
+			else
+				pDraw->clrText=s_Skin.Main_text_color[bDisabled?2:0];
 		}
 		res|=CDRF_NOTIFYPOSTPAINT|TBCDRF_NOMARK|TBCDRF_NOOFFSET|TBCDRF_NOEDGES;
 		bHandled=TRUE;
@@ -881,31 +1365,28 @@ LRESULT CMenuContainer::OnCustomDraw( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	{
 		// draw a small triangle for the submenus
 		bool bDisabled=(pDraw->nmcd.uItemState&CDIS_DISABLED) || (pDraw->nmcd.lItemlParam>=ID_OFFSET && m_Items[pDraw->nmcd.lItemlParam-ID_OFFSET].id==MENU_EMPTY);
-		if (s_ThemeMenu)
-		{
-			RECT rc=pDraw->nmcd.rc;
-			rc.left=rc.right-16;
-			DrawThemeBackground(s_ThemeMenu,pDraw->nmcd.hdc,MENU_POPUPSUBMENU,MSM_NORMAL,&rc,NULL);
-		}
+		int idx;
+		if (pDraw->nmcd.uItemState&CDIS_HOT)
+			idx=bDisabled?3:1;
 		else
-		{
-			if (pDraw->nmcd.uItemState&CDIS_HOT)
-				SetDCBrushColor(pDraw->nmcd.hdc,bDisabled?s_MenuTextHotDColor:s_MenuTextHotColor);
-			else
-				SetDCBrushColor(pDraw->nmcd.hdc,bDisabled?s_MenuTextDColor:s_MenuTextColor);
-			SelectObject(pDraw->nmcd.hdc,GetStockObject(DC_BRUSH));
-			SelectObject(pDraw->nmcd.hdc,GetStockObject(NULL_PEN));
-			int x=pDraw->nmcd.rc.right-8;
-			int y=(pDraw->nmcd.rc.top+pDraw->nmcd.rc.bottom)/2;
-			POINT points[3];
-			points[0].x=x;
-			points[0].y=y-4;
-			points[1].x=x;
-			points[1].y=y+4;
-			points[2].x=x+4;
-			points[2].y=y;
-			Polygon(pDraw->nmcd.hdc,points,3);
-		}
+			idx=bDisabled?2:0;
+
+		if (m_pParent)
+			SetDCBrushColor(pDraw->nmcd.hdc,s_Skin.Submenu_text_color[idx]);
+		else
+			SetDCBrushColor(pDraw->nmcd.hdc,s_Skin.Main_text_color[idx]);
+		SelectObject(pDraw->nmcd.hdc,GetStockObject(DC_BRUSH));
+		SelectObject(pDraw->nmcd.hdc,GetStockObject(NULL_PEN));
+		int x=pDraw->nmcd.rc.right-8;
+		int y=(pDraw->nmcd.rc.top+pDraw->nmcd.rc.bottom)/2;
+		POINT points[3];
+		points[0].x=x;
+		points[0].y=y-4;
+		points[1].x=x;
+		points[1].y=y+4;
+		points[2].x=x+4;
+		points[2].y=y;
+		Polygon(pDraw->nmcd.hdc,points,3);
 		bHandled=TRUE;
 	}
 	return res;
@@ -1077,12 +1558,12 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		// open submenu
 		CWindow toolbar=m_Toolbars[item.column];
 
-		pMenu->Create(NULL,NULL,NULL,s_MenuStyle,WS_EX_TOOLWINDOW|WS_EX_TOPMOST|(s_bRTL?WS_EX_LAYOUTRTL:0));
+		pMenu->Create(NULL,NULL,NULL,s_SubmenuStyle,WS_EX_TOOLWINDOW|WS_EX_TOPMOST|(s_bRTL?WS_EX_LAYOUTRTL:0));
 		RECT rc2;
 		pMenu->GetWindowRect(&rc2);
 
-		RECT border={-s_MenuBorder,-s_MenuBorder,s_MenuBorder,s_MenuBorder};
-		AdjustWindowRectEx(&border,s_MenuStyle,FALSE,WS_EX_TOOLWINDOW|WS_EX_TOPMOST);
+		RECT border={-s_Skin.Submenu_padding.left,-s_Skin.Submenu_padding.top,s_Skin.Submenu_padding.right,s_Skin.Submenu_padding.bottom};
+		AdjustWindowRect(&border,s_SubmenuStyle,FALSE);
 
 		// position new menu
 		int w=rc2.right-rc2.left;
@@ -1238,7 +1719,11 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 					pShellDisp->TrayProperties();
 				break;
 			case MENU_CLASSIC_SETTINGS: // show our settings
-				EditSettings();
+#ifdef ALLOW_DEACTIVATE
+				EditSettings(false);
+#else
+				EditSettings(true);
+#endif
 				break;
 			case MENU_SEARCH_FILES: // show the search UI
 				{
@@ -1364,7 +1849,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		// show the context menu
 		m_pMenu2=pMenu;
 		m_pMenu3=pMenu;
-		if (item.id==MENU_NO) // clicked on a movable item
+		if (item.id==MENU_NO && (m_Options&CONTAINER_DROP)) // clicked on a movable item
 		{
 			int n=0;
 			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
@@ -1627,6 +2112,11 @@ LRESULT CMenuContainer::OnKeyDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 		s_Menus[s_Menus.size()-1]->PostMessage(WM_CLOSE);
 		if (s_Menus.size()>=2)
 			s_Menus[s_Menus.size()-2]->SetActiveWindow();
+		if (s_Menus.size()==1)
+		{
+			// HACK: stops the call to SetActiveWindow(NULL). The correct behavior is to not close the taskbar when Esc is pressed
+			s_TaskbarState&=~ABS_AUTOHIDE;
+		}
 	}
 	if (pKey->nVKey==VK_RETURN || (pKey->nVKey==VK_RIGHT && !s_bRTL) || (pKey->nVKey==VK_LEFT && s_bRTL))
 	{
@@ -1733,7 +2223,30 @@ LRESULT CMenuContainer::OnHotItemChange( int idCtrl, LPNMHDR pnmh, BOOL& bHandle
 
 LRESULT CMenuContainer::OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 {
-	if (m_Submenu>=0) return 0; // don't show tips if a submenu is opened
+	if (m_Submenu>=0)
+	{
+		// don't show infotip if there is a submenu
+		return 0;
+
+/*
+		an attempt to show the infotip for a folder item even after the submenu is opened. this doesn't work for 2 reasons.
+		1) the tooltip and the submenu fight who to be on top. it is not pretty
+		2) the toolbar can't decide where to show the infotip when it there is a submenu. sometimes it is next to the mouse, sometimes it is to the right of the toolbar item
+		when enabling this code also uncomment the TTS_ALWAYSTIP code in CreateToolbar to get the tip to show even for inactive windows
+
+		int n=(int)s_Menus.size()-1;
+		if (s_Menus[n]!=this) // if this is not the top menu
+		{
+			if (s_Menus[n-1]!=this)
+				return 0; // there are at least 2 more menus on top
+		}
+		// check if the top menu has a hot item
+		for (std::vector<CWindow>::iterator it=s_Menus[n]->m_Toolbars.begin();it!=s_Menus[n]->m_Toolbars.end();++it)
+		{
+			int hot=(int)it->SendMessage(TB_GETHOTITEM);
+			if (hot>=0) return 0;
+		}*/
+	}
 
 	NMTBGETINFOTIP *pTip=(NMTBGETINFOTIP*)pnmh;
 	const MenuItem &item=m_Items[pTip->lParam-ID_OFFSET];
@@ -1831,6 +2344,17 @@ LRESULT CMenuContainer::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 	CWindow toolbar=(HWND)wParam;
 	if (toolbar.m_hWnd==m_Pager.m_hWnd)
 		toolbar=m_Toolbars[0];
+	else
+	{
+		bool bFound=false;
+		for (std::vector<CWindow>::const_iterator it=m_Toolbars.begin();it!=m_Toolbars.end();++it)
+			if (it->m_hWnd==toolbar.m_hWnd)
+			{
+				bFound=true;
+				break;
+			}
+		if (!bFound) return 0;
+	};
 	POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
 	int index;
 	if (pt.x!=-1 || pt.y!=-1)
@@ -1872,15 +2396,22 @@ LRESULT CMenuContainer::OnPagerScroll( int idCtrl, LPNMHDR pnmh, BOOL& bHandled 
 
 LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
+	// remember the scroll position
+	unsigned int key=CalcFNVHash(m_RegName);
+	if (m_Pager.m_hWnd)
+		s_PagerScrolls[key]=(int)m_Pager.SendMessage(PGM_GETPOS);
+	else
+		s_PagerScrolls.erase(key);
+
 	m_bDestroyed=true;
 	if (!m_pParent)
 	{
 		// cleanup when the last menu is closed
 		EnableStartTooltip(true);
-		if (s_ThemeList) CloseThemeData(s_ThemeList);
-		s_ThemeList=NULL;
-		if (s_ThemeMenu) CloseThemeData(s_ThemeMenu);
-		s_ThemeMenu=NULL;
+		BufferedPaintUnInit();
+		FreeMenuSkin(s_Skin);
+		if (s_TaskbarState&ABS_AUTOHIDE)
+			::SetActiveWindow(NULL); // close the taskbar if it is auto-hide
 	}
 	return 0;
 }
@@ -1889,6 +2420,11 @@ LRESULT CMenuContainer::OnRefresh( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 {
 	// updates the menu after drag/drop, delete, or rename operation
 	m_bRefreshPosted=false;
+	unsigned int key=CalcFNVHash(m_RegName);
+	if (m_Pager.m_hWnd)
+		s_PagerScrolls[key]=(int)m_Pager.SendMessage(PGM_GETPOS);
+	else
+		s_PagerScrolls.erase(key);
 	InitItems();
 	InitToolbars();
 	return 0;
@@ -1896,22 +2432,30 @@ LRESULT CMenuContainer::OnRefresh( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 
 LRESULT CMenuContainer::OnEraseBkgnd( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	// fill the background with COLOR_MENU
+	// draw the background (bitmap or solid color)
 	RECT rc;
 	GetClientRect(&rc);
 	HDC hdc=(HDC)wParam;
-	rc.left=m_BmpWidth;
-	SetDCBrushColor(hdc,s_MenuColor);
-	FillRect(hdc,&rc,(HBRUSH)GetStockObject(DC_BRUSH));
 
 	if (m_Bitmap)
 	{
-		// draw the caption
+		if (s_Skin.Main_opacity==MenuSkin::OPACITY_GLASS)
+		{
+			DWM_BLURBEHIND blur={DWM_BB_ENABLE|DWM_BB_BLURREGION,TRUE,m_Region,FALSE};
+			DwmEnableBlurBehindWindow(m_hWnd,&blur);
+		}
+
+		// draw the background
 		HDC hdc2=CreateCompatibleDC(hdc);
 		HGDIOBJ bmp0=SelectObject(hdc2,m_Bitmap);
-		BitBlt(hdc,0,0,m_BmpWidth,rc.bottom,hdc2,0,0,SRCCOPY);
+		BitBlt(hdc,0,0,rc.right,rc.bottom,hdc2,0,0,SRCCOPY);
 		SelectObject(hdc2,bmp0);
 		DeleteDC(hdc2);
+	}
+	else
+	{
+		SetDCBrushColor(hdc,m_pParent?s_Skin.Submenu_background:s_Skin.Main_background);
+		FillRect(hdc,&rc,(HBRUSH)GetStockObject(DC_BRUSH));
 	}
 	return 1;
 }
@@ -1943,56 +2487,75 @@ LRESULT CMenuContainer::OnActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 	return 0;
 }
 
+LRESULT CMenuContainer::OnMouseActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	if (m_Submenu>=0)
+		return MA_NOACTIVATE;
+	bHandled=FALSE;
+	return 0;
+}
+
 void CMenuContainer::SaveItemOrder( const std::vector<SortMenuItem> &items )
 {
-	// save item names in the registry
-	CRegKey regOrder;
-	if (regOrder.Open(HKEY_CURRENT_USER,m_RegName)!=ERROR_SUCCESS)
-		regOrder.Create(HKEY_CURRENT_USER,m_RegName);
-	std::vector<unsigned int> hashes;
-	hashes.reserve(items.size());
-	for (std::vector<SortMenuItem>::const_iterator it=items.begin();it!=items.end();++it)
-		hashes.push_back(it->nameHash);
-	if (hashes.empty())
-		regOrder.SetBinaryValue(L"Order",NULL,0);
-	else
-		regOrder.SetBinaryValue(L"Order",&hashes[0],(int)hashes.size()*4);
+	if (m_Options&CONTAINER_DROP)
+	{
+		// save item names in the registry
+		CRegKey regOrder;
+		if (regOrder.Open(HKEY_CURRENT_USER,m_RegName)!=ERROR_SUCCESS)
+			regOrder.Create(HKEY_CURRENT_USER,m_RegName);
+		std::vector<unsigned int> hashes;
+		hashes.reserve(items.size());
+		for (std::vector<SortMenuItem>::const_iterator it=items.begin();it!=items.end();++it)
+			hashes.push_back(it->nameHash);
+		if (hashes.empty())
+			regOrder.SetBinaryValue(L"Order",NULL,0);
+		else
+			regOrder.SetBinaryValue(L"Order",&hashes[0],(int)hashes.size()*4);
+	}
 }
 
 void CMenuContainer::LoadItemOrder( void )
 {
-	// load item names from the registry
-	std::vector<unsigned int> hashes;
-	CRegKey regOrder;
-	if (regOrder.Open(HKEY_CURRENT_USER,m_RegName)==ERROR_SUCCESS)
+	if (m_Options&CONTAINER_DROP)
 	{
-		ULONG size=0;
-		regOrder.QueryBinaryValue(L"Order",NULL,&size);
-		if (size>0)
+		// load item names from the registry
+		std::vector<unsigned int> hashes;
+		CRegKey regOrder;
+		if (regOrder.Open(HKEY_CURRENT_USER,m_RegName)==ERROR_SUCCESS)
 		{
-			hashes.resize(size/4);
-			regOrder.QueryBinaryValue(L"Order",&hashes[0],&size);
+			ULONG size=0;
+			regOrder.QueryBinaryValue(L"Order",NULL,&size);
+			if (size>0)
+			{
+				hashes.resize(size/4);
+				regOrder.QueryBinaryValue(L"Order",&hashes[0],&size);
+			}
+		}
+
+		unsigned int hash0=CalcFNVHash(L"");
+
+		// assign each m_Item an index based on its position in items. store in btnIndex
+		// unknown items get the index of the blank item, or at the end
+		for (std::vector<MenuItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
+		{
+			unsigned int hash=it->nameHash;
+			it->btnIndex=(int)hashes.size();
+			for (size_t i=0;i<hashes.size();i++)
+			{
+				if (hashes[i]==hash)
+				{
+					it->btnIndex=(int)i;
+					break;
+				}
+				else if (hashes[i]==hash0)
+					it->btnIndex=(int)i;
+			}
 		}
 	}
-
-	unsigned int hash0=CalcFNVHash(L"");
-
-	// assign each m_Item an index based on its position in items. store in btnIndex
-	// unknown items get the index of the blank item, or at the end
-	for (std::vector<MenuItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
+	else
 	{
-		unsigned int hash=it->nameHash;
-		it->btnIndex=(int)hashes.size();
-		for (size_t i=0;i<hashes.size();i++)
-		{
-			if (hashes[i]==hash)
-			{
-				it->btnIndex=(int)i;
-				break;
-			}
-			else if (hashes[i]==hash0)
-				it->btnIndex=(int)i;
-		}
+		for (std::vector<MenuItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
+			it->btnIndex=0;
 	}
 
 	// sort by btnIndex, then by bFolder, then by name
@@ -2022,6 +2585,9 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	StartMenuSettings settings;
 	ReadSettings(settings);
 
+	if (!LoadMenuSkin(settings.SkinName,s_Skin))
+		LoadDefaultMenuSkin(s_Skin);
+
 	s_bScrollMenus=(settings.ScrollMenus!=0);
 	s_bExpandLinks=(settings.ExpandLinks!=0);
 	s_MaxRecentDocuments=settings.RecentDocuments;
@@ -2033,7 +2599,25 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	HANDLE hWab=CreateFile(wabPath,0,FILE_SHARE_WRITE,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
 	bool bPeople=(hWab!=INVALID_HANDLE_VALUE);
 	if (bPeople) CloseHandle(hWab);
-	s_bRTL=IsLanguageRTL();
+	s_bRTL=s_Skin.ForceRTL || IsLanguageRTL();
+
+	APPBARDATA appbar={sizeof(appbar)};
+	s_TaskbarState=(DWORD)SHAppBarMessage(ABM_GETSTATE,&appbar);
+	DWORD version=LOWORD(GetVersion());
+	// the taskbar on Windows 7 (and most likely later versions) is always on top even though it doesn't have the ABS_ALWAYSONTOP flag.
+	// to check the version we have to swap the low and high bytes returned by GetVersion(). Would have been so much easier if GetVersion
+	// returns the bytes in the correct order rather than being retarded like this.
+	if (MAKEWORD(HIBYTE(version),LOBYTE(version))>=0x601)
+		s_TaskbarState|=ABS_ALWAYSONTOP;
+
+	appbar.hWnd=g_TaskBar;
+	// get the taskbar orientation - top/bottom/left/right. the documentation says only the bounding rectangle (rc) is returned, but seems
+	// that also uEdge is returned. hopefully this won't break in the future. it is tricky to calculate the position of the taskbar only
+	// based on the bounding rectangle. there may be other appbars docked on each side, the taskbar can be set to auto-hide, etc. tricky.
+	SHAppBarMessage(ABM_GETTASKBARPOS,&appbar);
+
+	if (s_TaskbarState&ABS_AUTOHIDE)
+		::SetActiveWindow(g_TaskBar);
 
 	if (s_bActiveDirectory==-1)
 	{
@@ -2155,7 +2739,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	SHGetKnownFolderIDList(FOLDERID_CommonStartMenu,0,NULL,&path2);
 
 	int options=CONTAINER_NOPROGRAMS|CONTAINER_DRAG|CONTAINER_DROP;
-	if (!settings.UseSmallIcons)
+	if (s_Skin.Main_large_icons)
 		options|=CONTAINER_LARGE;
 	if (settings.ConfirmLogOff)
 		options|=CONTAINER_CONFIRM_LO;
@@ -2166,22 +2750,58 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 
 	s_bBehindTaskbar=true;
 	s_bShowTopEmpty=false;
-	RECT margin={0,0,0,0};
-	BOOL theme=IsAppThemed();
-	if (theme)
+	DWORD dwStyle=WS_POPUP;
+	s_SubmenuStyle=WS_POPUP;
+	bool bTheme=IsAppThemed()!=FALSE;
+	if (bTheme)
 	{
-		s_MenuBorder=1;
-		s_MenuStyle=WS_POPUP|WS_BORDER;
-		AdjustWindowRectEx(&margin,s_MenuStyle,FALSE,WS_EX_TOOLWINDOW);
-		if (settings.UseTheme) options|=CONTAINER_THEME;
+		BOOL comp;
+		if (s_Skin.Main_opacity==MenuSkin::OPACITY_SOLID)
+			dwStyle|=WS_BORDER;
+		else if (FAILED(DwmIsCompositionEnabled(&comp)) || !comp)
+			s_Skin.Main_opacity=MenuSkin::OPACITY_REGION;
+		s_SubmenuStyle|=WS_BORDER;
 	}
 	else
 	{
-		s_MenuBorder=0;
-		s_MenuStyle=WS_POPUP|WS_DLGFRAME;
+		if (s_Skin.Main_opacity==MenuSkin::OPACITY_SOLID)
+			dwStyle|=s_Skin.Main_thin_frame?WS_BORDER:WS_DLGFRAME;
+		else
+			s_Skin.Main_opacity=MenuSkin::OPACITY_REGION;
+		s_SubmenuStyle|=s_Skin.Submenu_thin_frame?WS_BORDER:WS_DLGFRAME;
 	}
+
+	RECT margin={0,0,0,0};
+	AdjustWindowRect(&margin,s_SubmenuStyle,FALSE);
+	s_Skin.Submenu_padding.left+=margin.left; if (s_Skin.Submenu_padding.left<0) s_Skin.Submenu_padding.left=0;
+	s_Skin.Submenu_padding.right-=margin.right; if (s_Skin.Submenu_padding.right<0) s_Skin.Submenu_padding.right=0;
+	s_Skin.Submenu_padding.top+=margin.top; if (s_Skin.Submenu_padding.top<0) s_Skin.Submenu_padding.top=0;
+	s_Skin.Submenu_padding.bottom-=margin.bottom; if (s_Skin.Submenu_padding.bottom<0) s_Skin.Submenu_padding.bottom=0;
+
+	memset(&margin,0,sizeof(margin));
+	AdjustWindowRect(&margin,dwStyle,FALSE);
+	if (!s_Skin.Main_bitmap)
+	{
+		if (s_Skin.Main_bitmap_slices_X[1]>0)
+		{
+			s_Skin.Caption_padding.left+=margin.left; if (s_Skin.Caption_padding.left<0) s_Skin.Caption_padding.left=0;
+			s_Skin.Caption_padding.top+=margin.top; if (s_Skin.Caption_padding.top<0) s_Skin.Caption_padding.top=0;
+			s_Skin.Caption_padding.bottom-=margin.bottom; if (s_Skin.Caption_padding.bottom<0) s_Skin.Caption_padding.bottom=0;
+		}
+		else
+		{
+			// no caption
+			s_Skin.Main_padding.left+=margin.left; if (s_Skin.Main_padding.left<0) s_Skin.Main_padding.left=0;
+		}
+		s_Skin.Main_padding.right-=margin.right; if (s_Skin.Main_padding.right<0) s_Skin.Main_padding.right=0;
+		s_Skin.Main_padding.top+=margin.top; if (s_Skin.Main_padding.top<0) s_Skin.Main_padding.top=0;
+		s_Skin.Main_padding.bottom-=margin.bottom; if (s_Skin.Main_padding.bottom<0) s_Skin.Main_padding.bottom=0;
+	}
+
+	if (!bTheme)
+		memset(&margin,0,sizeof(margin)); // in Classic mode don't offset the main menu by the border size
 	RECT rc;
-	if (taskbarRect.top>(s_MainRect.top+s_MainRect.bottom)/2)
+	if (appbar.uEdge==ABE_BOTTOM)
 	{
 		// taskbar is at the bottom
 		rc.top=rc.bottom=taskbarRect.top+margin.bottom;
@@ -2189,7 +2809,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 		// animate up
 		animFlags|=AW_VER_NEGATIVE;
 	}
-	else if (taskbarRect.bottom<(s_MainRect.top+s_MainRect.bottom)/2)
+	else if (appbar.uEdge==ABE_TOP)
 	{
 		// taskbar is at the top
 		rc.top=rc.bottom=taskbarRect.bottom+margin.top;
@@ -2228,17 +2848,26 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	ILFree(path1);
 	ILFree(path2);
 
-	pStartMenu->Create(NULL,&rc,NULL,s_MenuStyle,WS_EX_TOOLWINDOW|WS_EX_TOPMOST|(s_bRTL?WS_EX_LAYOUTRTL:0));
+	bool bTopMost=(s_TaskbarState&ABS_ALWAYSONTOP)!=0;
+
+	if (!pStartMenu->Create(NULL,&rc,NULL,dwStyle,WS_EX_TOOLWINDOW|(bTopMost?WS_EX_TOPMOST:0)|(s_bRTL?WS_EX_LAYOUTRTL:0)))
+	{
+		FreeMenuSkin(s_Skin);
+		return NULL;
+	}
 	pStartMenu->m_Toolbars[0].SendMessage(TB_SETHOTITEM,-1);
 
 	BOOL animate;
-	if (s_bRTL)
-		animate=FALSE; // toolbars don't handle WM_PRINT correctly with RTL, so AnimateWindow doesn't work. disable animations with RTL
+	// toolbars don't handle WM_PRINT correctly with RTL, so AnimateWindow doesn't work. disable animations with RTL
+	// AnimateWindow also doesn't work correctly for region, alpha or glass windows
+	// so only LTR and solid windows can animate. bummer.
+	if (s_bRTL || s_Skin.Main_opacity!=MenuSkin::OPACITY_SOLID)
+		animate=FALSE;
 	else
 		SystemParametersInfo(SPI_GETMENUANIMATION,NULL,&animate,0);
 
 	if (s_bBehindTaskbar)
-		::SetWindowPos(startButton,HWND_TOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE); // bring the start button on top
+		::SetWindowPos(startButton,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE); // bring the start button on top
 	if (animate)
 		AnimateWindow(pStartMenu->m_hWnd,MENU_ANIM_SPEED,animFlags);
 	else
@@ -2247,7 +2876,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	pStartMenu->m_Toolbars[0].SendMessage(TB_SETHOTITEM,-1);
 	// position the start button on top
 	if (s_bBehindTaskbar)
-		::SetWindowPos(startButton,HWND_TOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+		::SetWindowPos(startButton,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
 
 	return pStartMenu->m_hWnd;
 }

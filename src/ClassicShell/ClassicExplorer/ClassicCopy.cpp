@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -10,24 +10,25 @@
 
 static wchar_t g_TitleMove[256];
 static wchar_t g_TitleCopy[256];
+static wchar_t g_TitleFolder[256];
 static wchar_t g_ButtonMove[256];
 static wchar_t g_ButtonDontMove[256];
 static wchar_t g_ButtonCopy[256];
 static wchar_t g_ButtonDontCopy[256];
 static wchar_t g_ButtonCancel[256];
 
-// g_bCopyMulti is true if the first dialog in this thread is multi-file (IDD_DIALOG2)
+// g_bCopyMultiFile is true if the first dialog in this thread is multi-file (IDD_FILEMULTI)
 // if so, all the rest are multi-file. this makes the UI consistent (like the position of the Yes button doesn't change)
-static __declspec(thread) bool g_bCopyMulti=false;
+static __declspec(thread) bool g_bCopyMultiFile=false;
 static __declspec(thread) HHOOK g_Hook; // one hook per thread
 
-// CClassicCopy - this is the implementation of the Copy UI dialog box
+// CClassicCopyFile - this is the implementation of the Copy UI dialog box for files
 
-class CClassicCopy
+class CClassicCopyFile
 {
 public:
-	CClassicCopy( void ) { m_Icon=m_SrcIcon=m_DstIcon=NULL; m_bCopyMultiLast=false; }
-	~CClassicCopy( void );
+	CClassicCopyFile( void ) { m_Icon=m_SrcIcon=m_DstIcon=NULL; m_bCopyMultiLast=false; }
+	~CClassicCopyFile( void );
 
 	bool Run( HWND hWnd, IAccessible *pAcc );
 
@@ -59,7 +60,7 @@ private:
 	static void PumpMessages( void );
 };
 
-CClassicCopy::~CClassicCopy( void )
+CClassicCopyFile::~CClassicCopyFile( void )
 {
 	if (m_Icon) DestroyIcon(m_Icon);
 	if (m_SrcIcon) DestroyIcon(m_SrcIcon);
@@ -67,7 +68,7 @@ CClassicCopy::~CClassicCopy( void )
 }
 
 // Show the dialog box. Returns true to suppress the original task dialog box
-bool CClassicCopy::Run( HWND hWnd, IAccessible *pAcc )
+bool CClassicCopyFile::Run( HWND hWnd, IAccessible *pAcc )
 {
 	// find all interesting controls
 	EnumAccChildren(pAcc);
@@ -80,16 +81,16 @@ bool CClassicCopy::Run( HWND hWnd, IAccessible *pAcc )
 	GetFileInfo(m_NoButton.first,false);
 
 	if (m_CheckBox.first)
-		g_bCopyMulti=true;
-	else if (g_bCopyMulti)
+		g_bCopyMultiFile=true;
+	else if (g_bCopyMultiFile)
 		m_bCopyMultiLast=true;
 
 	// pick the correct dialog template (for single and multiple files, for LTR and RTL)
-	int dlg=g_bCopyMulti?(IsLanguageRTL()?IDD_DIALOG1R:IDD_DIALOG1):(IsLanguageRTL()?IDD_DIALOG2R:IDD_DIALOG2);
+	int dlg=g_bCopyMultiFile?(IsLanguageRTL()?IDD_FILEMULTIR:IDD_FILEMULTI):(IsLanguageRTL()?IDD_FILER:IDD_FILE);
 
-	hWnd=GetWindow(GetAncestor(hWnd,GA_ROOT),GW_OWNER);
+	HWND parent=GetWindow(GetAncestor(hWnd,GA_ROOT),GW_OWNER);
 
-	int res=(int)DialogBoxParam(g_Instance,MAKEINTRESOURCE(dlg),hWnd,DialogProc,(LPARAM)this);
+	int res=(int)DialogBoxParam(g_Instance,MAKEINTRESOURCE(dlg),parent,DialogProc,(LPARAM)this);
 
 	if (res==IDOK || (res==IDYES && m_bCopyMultiLast))
 	{
@@ -126,7 +127,7 @@ bool CClassicCopy::Run( HWND hWnd, IAccessible *pAcc )
 	return true;
 }
 
-void CClassicCopy::PumpMessages( void )
+void CClassicCopyFile::PumpMessages( void )
 {
 	MSG msg;
 	while (PeekMessage(&msg,NULL,0,0,PM_REMOVE))
@@ -136,7 +137,7 @@ void CClassicCopy::PumpMessages( void )
 	}
 }
 
-void CClassicCopy::AddAccChild( IAccessible *pAcc, const VARIANT &id )
+void CClassicCopyFile::AddAccChild( IAccessible *pAcc, const VARIANT &id )
 {
 	CComVariant state;
 	pAcc->get_accState(id,&state);
@@ -171,7 +172,7 @@ void CClassicCopy::AddAccChild( IAccessible *pAcc, const VARIANT &id )
 	}
 }
 
-void CClassicCopy::EnumAccChildren( IAccessible *pAcc )
+void CClassicCopyFile::EnumAccChildren( IAccessible *pAcc )
 {
 	AddAccChild(pAcc,CComVariant(CHILDID_SELF));
 	long count;
@@ -191,7 +192,7 @@ void CClassicCopy::EnumAccChildren( IAccessible *pAcc )
 	}
 }
 
-void CClassicCopy::GetFileInfo( IAccessible *pAcc, bool bSrc )
+void CClassicCopyFile::GetFileInfo( IAccessible *pAcc, bool bSrc )
 {
 	long count;
 	pAcc->get_accChildCount(&count);
@@ -219,10 +220,10 @@ void CClassicCopy::GetFileInfo( IAccessible *pAcc, bool bSrc )
 		}
 		switch (i)
 		{
-			case 2: if (wcslen(name)<_countof(fname)) wcscpy_s(fname,name); break;
-			case 3: if (wcslen(name)<_countof(dir)) wcscpy_s(dir,name); break;
-			case 4: size=name; break;
-			case 5: date=name; break;
+		case 2: if (wcslen(name)<_countof(fname)) wcscpy_s(fname,name); break;
+		case 3: if (wcslen(name)<_countof(dir)) wcscpy_s(dir,name); break;
+		case 4: size=name; break;
+		case 5: date=name; break;
 		}
 	}
 
@@ -268,12 +269,12 @@ void CClassicCopy::GetFileInfo( IAccessible *pAcc, bool bSrc )
 
 const int WM_BRINGFOREGROUND=WM_USER+11;
 
-INT_PTR CALLBACK CClassicCopy::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
+INT_PTR CALLBACK CClassicCopyFile::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
 	if (uMsg==WM_INITDIALOG)
 	{
 		SetWindowText(hwndDlg,FindSetting("Copy.Title",L"Confirm File Replace"));
-		CClassicCopy *pThis=(CClassicCopy*)lParam;
+		CClassicCopyFile *pThis=(CClassicCopyFile*)lParam;
 		wchar_t text[_MAX_PATH*2];
 		swprintf_s(text,FindSetting("Copy.Subtitle",L"This folder already contains a file called '%s'."),pThis->m_FileName);
 		SetDlgItemText(hwndDlg,IDC_STATICFNAME,text);
@@ -327,6 +328,145 @@ INT_PTR CALLBACK CClassicCopy::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM wPara
 	return FALSE;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
+// CClassicCopyFolder - this is the implementation of the Copy UI dialog box for folders
+
+class CClassicCopyFolder
+{
+public:
+	CClassicCopyFolder( void ) { m_Icon=NULL; }
+	~CClassicCopyFolder( void );
+
+	bool Run( HWND hWnd );
+
+private:
+	HICON m_Icon;
+	HWND m_Original;
+
+	static INT_PTR CALLBACK DialogProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam );
+};
+
+CClassicCopyFolder::~CClassicCopyFolder( void )
+{
+	if (m_Icon) DestroyIcon(m_Icon);
+}
+
+// Show the dialog box. Returns true to suppress the original task dialog box
+bool CClassicCopyFolder::Run( HWND hWnd )
+{
+	m_Original=hWnd;
+	const int ID_ALLCHECK=16663;
+	HWND check=GetDlgItem(hWnd,ID_ALLCHECK);
+	bool bMulti=(check && (GetWindowLong(check,GWL_STYLE)&WS_VISIBLE));
+	// pick the correct dialog template (for single and multiple files, for LTR and RTL)
+	int dlg=bMulti?(IsLanguageRTL()?IDD_FOLDERMULTIR:IDD_FOLDERMULTI):(IsLanguageRTL()?IDD_FOLDERR:IDD_FOLDER);
+
+	HWND parent=GetWindow(GetAncestor(hWnd,GA_ROOT),GW_OWNER);
+
+	int res=(int)DialogBoxParam(g_Instance,MAKEINTRESOURCE(dlg),parent,DialogProc,(LPARAM)this);
+
+	if (res==IDOK) // Yes button for single folder
+	{
+		// Yes was pressed, proceed with the operation
+		PostMessage(hWnd,WM_COMMAND,IDYES,(LPARAM)GetDlgItem(hWnd,IDYES));
+	}
+	else if (res==IDNO)
+	{
+		// No
+		if (bMulti)
+		{
+			if (GetKeyState(VK_SHIFT)<0)
+			{
+				CheckDlgButton(hWnd,ID_ALLCHECK,BST_CHECKED);
+				SendMessage(hWnd,WM_COMMAND,ID_ALLCHECK,(LPARAM)check);
+			}
+			PostMessage(hWnd,WM_COMMAND,IDNO,(LPARAM)GetDlgItem(hWnd,IDNO)); // Skip
+		}
+		else
+			PostMessage(hWnd,WM_COMMAND,IDCANCEL,(LPARAM)GetDlgItem(hWnd,IDCANCEL)); // No
+	}
+	else if (res==IDYES)
+	{
+		// Yes to All
+		CheckDlgButton(hWnd,ID_ALLCHECK,BST_CHECKED);
+		SendMessage(hWnd,WM_COMMAND,ID_ALLCHECK,(LPARAM)check);
+		PostMessage(hWnd,WM_COMMAND,IDYES,(LPARAM)GetDlgItem(hWnd,IDYES));
+	}
+	if (res==IDCANCEL)
+	{
+		// Cancel
+		if (GetKeyState(VK_SHIFT)<0 || GetKeyState(VK_CONTROL)<0)
+			return false; // // Shift+Cancel or Ctrl+Cancel was clicked - show the original dialog box
+		PostMessage(hWnd,WM_COMMAND,IDCANCEL,(LPARAM)GetDlgItem(hWnd,IDCANCEL)); // No
+	}
+	if (res==IDC_LINKMORE)
+	{
+		// More... was clicked - show the original dialog box
+		return false;
+	}
+	return true;
+}
+
+INT_PTR CALLBACK CClassicCopyFolder::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
+{
+	if (uMsg==WM_INITDIALOG)
+	{
+		CClassicCopyFolder *pThis=(CClassicCopyFolder*)lParam;
+		wchar_t text[2048];
+		// find the link control and get its text
+		HWND link=FindWindowEx(pThis->m_Original,NULL,WC_LINK,NULL);
+		if (link)
+			GetWindowText(link,text,_countof(text));
+		else
+			text[0]=0;
+		wcscat_s(text,_countof(text),L"\r\n\r\n");
+		wcscat_s(text,_countof(text),FindSetting("Folder.Prompt",L"Do you still want to move or copy the folder?"));
+		SetDlgItemText(hwndDlg,IDC_STATICFNAME,text);
+
+		// load icon for file conflict (146) from Shell32.dll
+		HMODULE hShell32=GetModuleHandle(L"Shell32.dll");
+		pThis->m_Icon=LoadIcon(hShell32,MAKEINTRESOURCE(146));
+		if (pThis->m_Icon)
+			SendDlgItemMessage(hwndDlg,IDC_STATICICON,STM_SETICON,(LPARAM)pThis->m_Icon,0);
+
+		// set the localized text
+		SetDlgItemText(hwndDlg,IDOK,FindSetting("Copy.Yes",L"&Yes"));
+		SetDlgItemText(hwndDlg,IDNO,FindSetting("Copy.No",L"&No"));
+		if (GetDlgItem(hwndDlg,IDYES))
+			SetDlgItemText(hwndDlg,IDYES,FindSetting("Copy.YesAll",L"Yes to &All"));
+		if (GetDlgItem(hwndDlg,IDCANCEL))
+			SetDlgItemText(hwndDlg,IDCANCEL,FindSetting("Copy.Cancel",L"Cancel"));
+		swprintf_s(text,L"<a>%s</a>",FindSetting("Copy.More",L"&More..."));
+		SetDlgItemText(hwndDlg,IDC_LINKMORE,text);
+		PostMessage(hwndDlg,WM_BRINGFOREGROUND,0,0);
+		return TRUE;
+	}
+	if (uMsg==WM_BRINGFOREGROUND)
+	{
+		// bring window to front (sometimes on Windows7 it shows up behind Explorer)
+		SetForegroundWindow(hwndDlg);
+		return TRUE;
+	}
+	if (uMsg==WM_COMMAND && (wParam==IDOK || wParam==IDYES || wParam==IDNO || wParam==IDCANCEL))
+	{
+		EndDialog(hwndDlg,wParam);
+		return TRUE;
+	}
+	if (uMsg==WM_NOTIFY)
+	{
+		NMHDR *pHdr=(NMHDR*)lParam;
+		if (pHdr->idFrom==IDC_LINKMORE && (pHdr->code==NM_CLICK || pHdr->code==NM_RETURN))
+		{
+			EndDialog(hwndDlg,IDC_LINKMORE);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 static LRESULT CALLBACK WindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	if (uMsg==WM_WINDOWPOSCHANGING)
@@ -344,18 +484,35 @@ static LRESULT CALLBACK WindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
 					regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI);
 
-				if (EnableCopyUI)
+				if (EnableCopyUI==1 || EnableCopyUI==2)
 				{
 					CComPtr<IAccessible> pAcc;
 					HRESULT h=AccessibleObjectFromWindow(hWnd,OBJID_WINDOW,IID_IAccessible,(void**)&pAcc);
 					if (SUCCEEDED(h) && pAcc)
 					{
-						CClassicCopy copy;
+						CClassicCopyFile copy;
 						if (copy.Run(hWnd,pAcc))
 						{
 							pos->x=pos->y=-20000;
 							pos->flags&=~(SWP_SHOWWINDOW|SWP_NOMOVE);
 						}
+					}
+				}
+			}
+			if (_wcsicmp(title,g_TitleFolder)==0)
+			{
+				DWORD EnableCopyUI=1;
+				CRegKey regSettings;
+				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
+					regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI);
+
+				if (EnableCopyUI==1)
+				{
+					CClassicCopyFolder copy;
+					if (copy.Run(hWnd))
+					{
+						pos->x=pos->y=-20000;
+						pos->flags&=~(SWP_SHOWWINDOW|SWP_NOMOVE);
 					}
 				}
 			}
@@ -373,7 +530,7 @@ LRESULT CALLBACK ClassicCopyHook( int nCode, WPARAM wParam, LPARAM lParam )
 	{
 		HWND hWnd=(HWND)wParam;
 		CBT_CREATEWND *create=(CBT_CREATEWND*)lParam;
-		if (create->lpcs->lpszName && (int)create->lpcs->lpszClass==32770)
+		if (create->lpcs->lpszName && (int)create->lpcs->lpszClass==32770 && (HINSTANCE)GetWindowLongPtr(hWnd,GWLP_HINSTANCE)!=g_Instance)
 		{
 			static LONG id;
 			int i=InterlockedIncrement(&id);
@@ -390,6 +547,7 @@ void InitClassicCopyProcess( void )
 	HMODULE hShell32=GetModuleHandle(L"shell32.dll");
 	LoadString(hShell32,16875,g_TitleMove,256);
 	LoadString(hShell32,16876,g_TitleCopy,256);
+	LoadString(hShell32,16705,g_TitleFolder,256);
 	LoadString(hShell32,13610,g_ButtonMove,256);
 	LoadString(hShell32,13623,g_ButtonDontMove,256);
 	LoadString(hShell32,13604,g_ButtonCopy,256);

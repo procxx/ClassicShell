@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #define _WIN32_WINNT 0x0600
@@ -50,7 +50,7 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 		MessageBox(NULL,L"Internal Setup Error",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
 		return 1;
 	}
-	wchar_t path[_MAX_PATH];
+	wchar_t path[_MAX_PATH*2];
 	GetTempPath(_countof(path),path);
 	wchar_t msiName[_MAX_PATH];
 	GetTempFileName(path,L"CSH",0,msiName);
@@ -100,6 +100,7 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 				memset(&startupInfo,0,sizeof(startupInfo));
 				startupInfo.cb=sizeof(startupInfo);
 				memset(&processInfo,0,sizeof(processInfo));
+				wcscat_s(path,L" -open");
 				CreateProcess(NULL,path,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo);
 			}
 			RegCloseKey(hKey);

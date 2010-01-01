@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ExplorerBHO.cpp : Implementation of CExplorerBHO
@@ -213,7 +213,7 @@ LRESULT CALLBACK CExplorerBHO::HookExplorer( int nCode, WPARAM wParam, LPARAM lP
 		CBT_CREATEWND *create=(CBT_CREATEWND*)lParam;
 		if (create->lpcs->lpszClass>(LPTSTR)0xFFFF && _wcsicmp(create->lpcs->lpszClass,WC_TREEVIEW)==0)
 		{
-			SetWindowSubclass(hWnd,SubclassTreeProc,((unsigned int)'Clas'<<16)+'Shel',0);
+			SetWindowSubclass(hWnd,SubclassTreeProc,'CLSH',0);
 			PostMessage(hWnd,TVM_SETEXTENDEDSTYLE,TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000,0);
 			UnhookWindowsHookEx(s_Hook);
 			s_Hook=NULL;

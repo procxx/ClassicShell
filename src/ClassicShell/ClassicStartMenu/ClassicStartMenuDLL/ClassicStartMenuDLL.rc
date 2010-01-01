@@ -52,7 +52,7 @@ END
 // Dialog
 //
 
-IDD_SETTINGS DIALOGEX 0, 0, 239, 162
+IDD_SETTINGS DIALOGEX 0, 0, 239, 167
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Settings for Classic Start Menu"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -73,12 +73,13 @@ BEGIN
     CONTROL         "Expand Network",IDC_CHECKNETWORK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,121,49,69,10
     CONTROL         "Expand Printers",IDC_CHECKPRINTERS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,121,62,67,10
     CONTROL         "Expand Links to Folders",IDC_CHECKLINKS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,121,75,91,10
-    CONTROL         "Use Small Icons",IDC_CHECKSMALL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,121,98,65,10
-    CONTROL         "Use Current Theme",IDC_CHECKTHEME,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,121,111,78,10
-    CONTROL         "Scroll Programs",IDC_CHECKSCROLL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,121,124,65,10
-    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,146,40,10
-    DEFPUSHBUTTON   "OK",IDOK,126,141,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,182,141,50,14
+    CONTROL         "Scroll Programs",IDC_CHECKSCROLL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,121,96,65,10
+    LTEXT           "Skin:",IDC_STATIC,7,124,19,12,SS_CENTERIMAGE
+    COMBOBOX        IDC_COMBOSKIN,30,124,135,96,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "About This Skin",IDC_ABOUT,172,123,60,14
+    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,151,40,10
+    DEFPUSHBUTTON   "OK",IDOK,126,146,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,182,146,50,14
 END
 
 IDD_RENAME DIALOGEX 0, 0, 227, 54
@@ -142,7 +143,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 232
         TOPMARGIN, 7
-        BOTTOMMARGIN, 155
+        BOTTOMMARGIN, 160
     END
 
     IDD_RENAME, DIALOG
@@ -186,8 +187,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,9,7,0
- PRODUCTVERSION 0,9,7,0
+ FILEVERSION 0,9,8,0
+ PRODUCTVERSION 0,9,8,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -204,12 +205,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic start menu to Windows"
-            VALUE "FileVersion", "0, 9, 7, 0"
+            VALUE "FileVersion", "0, 9, 8, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "0, 9, 7, 0"
+            VALUE "ProductVersion", "0, 9, 8, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -227,6 +228,13 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDI_APPICON             ICON                    "..\\..\\ClassicShellSetup\\ClassicShell.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// SKIN
+//
+
+1                       SKIN                    "SkinDescription.txt"
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

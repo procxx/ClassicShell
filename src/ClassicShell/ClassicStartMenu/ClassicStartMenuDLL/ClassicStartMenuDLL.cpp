@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -286,12 +286,13 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			msg->message=WM_NULL;
 		}
 
-		if ((msg->message==WM_NCLBUTTONDOWN || msg->message==WM_NCLBUTTONDBLCLK) && msg->hwnd==g_TaskBar && GetKeyState(VK_SHIFT)>=0)
+		if ((msg->message==WM_NCLBUTTONDOWN || msg->message==WM_NCLBUTTONDBLCLK) && msg->wParam==HTCAPTION && msg->hwnd==g_TaskBar && GetKeyState(VK_SHIFT)>=0)
 		{
 			DWORD pos=GetMessagePos();
 			POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
 			ScreenToClient(g_TaskBar,&pt);
-			if (ChildWindowFromPoint(g_TaskBar,pt)!=g_TaskBar)
+			HWND child=ChildWindowFromPoint(g_TaskBar,pt);
+			if (child!=NULL && child!=g_TaskBar)
 			{
 				// ignore the click if it is on a child window (like the rebar or the tray area)
 				return CallNextHookEx(NULL,code,wParam,lParam);
@@ -300,6 +301,12 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			DWORD keyboard;
 			SystemParametersInfo(SPI_GETKEYBOARDCUES,NULL,&keyboard,0);
 			ToggleStartMenu(g_StartButton,keyboard!=0);
+			msg->message=WM_NULL;
+		}
+
+		if (msg->message==WM_TIMER && msg->hwnd==g_TaskBar && CMenuContainer::IgnoreTaskbarTimers())
+		{
+			// stop the taskbar timer messages. prevents the auto-hide taskbar from closing
 			msg->message=WM_NULL;
 		}
 
@@ -314,7 +321,6 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				CMD_OPEN,
 				CMD_OPEN_ALL,
 			};
-
 
 			// right-click on the start button - open the context menu (Settings, Help, Exit)
 			msg->message=WM_NULL;
@@ -341,7 +347,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			g_bInMenu=false;
 			if (res==CMD_SETTINGS)
 			{
-				EditSettings();
+				EditSettings(false);
 			}
 			if (res==CMD_HELP)
 			{

@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -8,6 +8,7 @@
 
 const int MAX_FOLDER_LEVEL=10; // don't go more than 10 levels deep
 
+int CIconManager::s_DPI;
 int CIconManager::LARGE_ICON_SIZE;
 int CIconManager::SMALL_ICON_SIZE;
 bool CIconManager::s_bStopLoading;
@@ -26,12 +27,12 @@ CIconManager::CIconManager( void )
 	if (_wcsicmp(PathFindFileName(path),L"ClassicStartMenu.exe")==0)
 		SetProcessDPIAware();
 	HDC hdc=::GetDC(NULL);
-	int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
+	s_DPI=GetDeviceCaps(hdc,LOGPIXELSY);
 	::ReleaseDC(NULL,hdc);
 	int iconSize;
-	if (dpi>120)
+	if (s_DPI>120)
 		iconSize=24;
-	else if (dpi>96)
+	else if (s_DPI>96)
 		iconSize=20;
 	else
 		iconSize=16;
@@ -94,46 +95,89 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PITEMID_CHILD item, bool bLarg
 	// get the IExtractIcon object
 	CComPtr<IExtractIcon> pExtract;
 	HRESULT hr=pFolder->GetUIObjectOf(NULL,1,&item,IID_IExtractIcon,NULL,(void**)&pExtract);
-	if (FAILED(hr))
-		return 0;
-
-	// get the icon location
-	wchar_t location[_MAX_PATH];
-	int index=0;
-	UINT flags=0;
-	hr=pExtract->GetIconLocation(0,location,_countof(location),&index,&flags);
-	if (hr!=S_OK)
-		return 0;
-
-	// check if this location+index is in the cache
-	unsigned int key=CalcFNVHash(location,CalcFNVHash(&index,4));
-	if (bLarge)
+	HICON hIcon;
+	unsigned int key;
+	if (SUCCEEDED(hr))
 	{
-		if (m_LargeCache.find(key)!=m_LargeCache.end())
-			return m_LargeCache[key];
+		// get the icon location
+		wchar_t location[_MAX_PATH];
+		int index=0;
+		UINT flags=0;
+		hr=pExtract->GetIconLocation(0,location,_countof(location),&index,&flags);
+		if (hr!=S_OK)
+			return 0;
+
+		// check if this location+index is in the cache
+		key=CalcFNVHash(location,CalcFNVHash(&index,4));
+		if (bLarge)
+		{
+			if (m_LargeCache.find(key)!=m_LargeCache.end())
+				return m_LargeCache[key];
+		}
+		else
+		{
+			EnterCriticalSection(&s_PreloadSection);
+			int res=-1;
+			if (m_SmallCache.find(key)!=m_SmallCache.end())
+				res=m_SmallCache[key];
+			LeaveCriticalSection(&s_PreloadSection);
+			if (res>=0) return res;
+		}
+
+		// extract the icon
+		hr=pExtract->Extract(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+		if (hr==S_FALSE)
+		{
+			// the IExtractIcon object didn't do anything - use ExtractIconEx instead
+			if (ExtractIconEx(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)==1)
+				hr=S_OK;
+		}
 	}
 	else
 	{
-		EnterCriticalSection(&s_PreloadSection);
-		int res=-1;
-		if (m_SmallCache.find(key)!=m_SmallCache.end())
-			res=m_SmallCache[key];
-		LeaveCriticalSection(&s_PreloadSection);
-		if (res>=0) return res;
-	}
+		// try again using the ANSI version
+		CComPtr<IExtractIconA> pExtractA;
+		hr=pFolder->GetUIObjectOf(NULL,1,&item,IID_IExtractIconA,NULL,(void**)&pExtractA);
+		if (FAILED(hr))
+			return 0;
 
-	// extract the icon
-	HICON hIcon;
-	hr=pExtract->Extract(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
-	if (hr==S_FALSE)
-	{
-		// the IExtractIcon object didn't do anything - use ExtractIconEx instead
-		if (ExtractIconEx(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)==1)
-			hr=S_OK;
+		// get the icon location
+		char location[_MAX_PATH];
+		int index=0;
+		UINT flags=0;
+		hr=pExtractA->GetIconLocation(0,location,_countof(location),&index,&flags);
+		if (hr!=S_OK)
+			return 0;
+
+		// check if this location+index is in the cache
+		key=CalcFNVHash(location,CalcFNVHash(&index,4));
+		if (bLarge)
+		{
+			if (m_LargeCache.find(key)!=m_LargeCache.end())
+				return m_LargeCache[key];
+		}
+		else
+		{
+			EnterCriticalSection(&s_PreloadSection);
+			int res=-1;
+			if (m_SmallCache.find(key)!=m_SmallCache.end())
+				res=m_SmallCache[key];
+			LeaveCriticalSection(&s_PreloadSection);
+			if (res>=0) return res;
+		}
+
+		// extract the icon
+		hr=pExtractA->Extract(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+		if (hr==S_FALSE)
+		{
+			// the IExtractIcon object didn't do anything - use ExtractIconEx instead
+			if (ExtractIconExA(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)==1)
+				hr=S_OK;
+		}
 	}
 
 	// add to the image list
-	index=0;
+	int index=0;
 	if (hr==S_OK)
 	{
 		index=ImageList_AddIcon(bLarge?m_LargeIcons:m_SmallIcons,hIcon);
@@ -301,6 +345,45 @@ void CIconManager::LoadFolderIcons( IShellFolder *pFolder, int level )
 						EnterCriticalSection(&s_PreloadSection);
 						s_PreloadedIcons[key]=hIcon;
 						LeaveCriticalSection(&s_PreloadSection);
+					}
+				}
+			}
+		}
+		else
+		{
+			// try the ANSI version
+			CComPtr<IExtractIconA> pExtractA;
+			if (SUCCEEDED(pFolder->GetUIObjectOf(NULL,1,&pidl,IID_IExtractIconA,NULL,(void**)&pExtractA)))
+			{
+				// get the icon location
+				char location[_MAX_PATH];
+				int index=0;
+				UINT flags=0;
+				if (SUCCEEDED(pExtractA->GetIconLocation(0,location,_countof(location),&index,&flags)))
+				{
+					// check if this location+index is in the cache
+					unsigned int key=CalcFNVHash(location,CalcFNVHash(&index,4));
+					EnterCriticalSection(&s_PreloadSection);
+					bool bLoaded=g_IconManager.m_SmallCache.find(key)!=g_IconManager.m_SmallCache.end() || s_PreloadedIcons.find(key)!=s_PreloadedIcons.end();
+					LeaveCriticalSection(&s_PreloadSection);
+					if (!bLoaded)
+					{
+						// extract the icon
+						HICON hIcon;
+						HRESULT hr=pExtractA->Extract(location,index,NULL,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+						if (hr==S_FALSE)
+						{
+							// the IExtractIcon object didn't do anything - use ExtractIconEx instead
+							if (ExtractIconExA(location,index,NULL,&hIcon,1)==1)
+								hr=S_OK;
+						}
+						Sleep(10); // pause for a bit to reduce the stress on the system
+						if (hr==S_OK)
+						{
+							EnterCriticalSection(&s_PreloadSection);
+							s_PreloadedIcons[key]=hIcon;
+							LeaveCriticalSection(&s_PreloadSection);
+						}
 					}
 				}
 			}

@@ -1,5 +1,5 @@
 CLASSIC SHELL
-version 0.9.7 beta
+version 0.9.8 beta
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.
@@ -26,7 +26,7 @@ sadly is missing from Windows 7. It has a variety of advanced features:
 
 *	Available for 32 and 64-bit operating systems
 
-*	Can show the free disk space and the total file size in the status bar
+*	Has support for skins, including additional 3rd party skins. Make your own!
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -47,6 +47,7 @@ Classic Explorer is a plugin for Windows Explorer that:
 *	Has options for customizing the folder panel to look more like the Windows XP
   version or to not fade the expand buttons
 
+*	Can show the free disk space and the total file size in the status bar
 
 
 ///////////////////////////////////////////////////////////////////////////////

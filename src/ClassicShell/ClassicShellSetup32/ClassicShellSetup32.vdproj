@@ -27,6 +27,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_13ADC0C09869446E9EAFF083D9792B8C"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_1A06DF740BA54CF48FC37EAF0CC99BF0"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -39,7 +45,19 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_3F662FBCA80A4FE381BF12FE5F78302D"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_47DAC6B3443442A0909180EFFD2ECA72"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_56C9513EC15F45D8B2298D946F8A4509"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -52,6 +70,12 @@
         "Entry"
         {
         "MsmKey" = "8:_63B2B07D6635487E939C0D705419CE87"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_772FF0882E504E2796A275DEDA2EF3CE"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -88,6 +112,12 @@
         "Entry"
         {
         "MsmKey" = "8:_B41427F7204F4E21A9505D2938FDB9B8"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_B9AA1185508640EA93E35EB197308047"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -237,6 +267,26 @@
             {
             "SourcePath" = "8:..\\Docs\\ClassicStartMenu_files\\screenshot.png"
             "TargetName" = "8:screenshot.png"
+            "Tag" = "8:"
+            "Folder" = "8:_07241073B82F4B8689A4DC52A91A9CF8"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_56C9513EC15F45D8B2298D946F8A4509"
+            {
+            "SourcePath" = "8:..\\Docs\\ClassicStartMenu_files\\skins.gif"
+            "TargetName" = "8:skins.gif"
             "Tag" = "8:"
             "Folder" = "8:_07241073B82F4B8689A4DC52A91A9CF8"
             "Condition" = "8:CHECK_STARTMENU"
@@ -593,6 +643,17 @@
                         {
                         }
                     }
+                    "{9EF0B969-E518-4E46-987F-47570745A589}:_9DE73E0DE7A748B496E77ABAE9A95CE2"
+                    {
+                    "Name" = "8:Skins"
+                    "AlwaysCreate" = "11:FALSE"
+                    "Condition" = "8:CHECK_STARTMENU"
+                    "Transitive" = "11:FALSE"
+                    "Property" = "8:_40D009CC72954EB18ED27AFDFDFCB8C0"
+                        "Folders"
+                        {
+                        }
+                    }
                 }
             }
         }
@@ -625,14 +686,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Classic Shell"
-        "ProductCode" = "8:{4FB649CF-3B19-44C2-AE13-3978BA10E3C0}"
-        "PackageCode" = "8:{D69D1FC3-A07F-4B32-A7E5-1BFE2FA8BBBB}"
+        "ProductCode" = "8:{131E8BB5-6E2F-437B-9923-3BAC5402995D}"
+        "PackageCode" = "8:{D80D5C5E-C3D2-44EF-B907-08D5083B2B32}"
         "UpgradeCode" = "8:{EB7DA1D9-44EA-43BF-8A08-0B103007D4F2}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:0.9.7"
+        "ProductVersion" = "8:0.9.8"
         "Manufacturer" = "8:IvoSoft"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -1557,6 +1618,62 @@
                 {
                 }
             }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_13ADC0C09869446E9EAFF083D9792B8C"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Windows 7 Basic.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_9DE73E0DE7A748B496E77ABAE9A95CE2"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{404821C5-4EE4-4908-A759-5EF6DAC14AB6}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_3F662FBCA80A4FE381BF12FE5F78302D"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Windows Vista Aero.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_9DE73E0DE7A748B496E77ABAE9A95CE2"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{EDE9E4F2-53E5-42A0-93B4-00AD0B2FC097}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_47DAC6B3443442A0909180EFFD2ECA72"
             {
             "SourcePath" = "8:..\\ClassicExplorer\\Setup\\ClassicExplorer32.dll"
@@ -1580,6 +1697,62 @@
             "OutputConfiguration" = "8:Setup|Win32"
             "OutputGroupCanonicalName" = "8:Built"
             "OutputProjectGuid" = "8:{9AF324B7-F786-4D85-B2E1-6E51720F874E}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_772FF0882E504E2796A275DEDA2EF3CE"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Windows 7 Aero.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_9DE73E0DE7A748B496E77ABAE9A95CE2"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{EA65FDDD-CB77-417F-8BB4-2F3ECB5B3E75}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_B9AA1185508640EA93E35EB197308047"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Large Icons.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_9DE73E0DE7A748B496E77ABAE9A95CE2"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{9B1B89CD-31CA-4C15-8F57-80299FBF25C1}"
             "ShowKeyOutput" = "11:TRUE"
                 "ExcludeFilters"
                 {
