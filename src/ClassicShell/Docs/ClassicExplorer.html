@@ -1,5 +1,14 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html><head>
+
+
+
+
+
+
+
+
+
   <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Explorer</title>
   <style type="text/css">
 h1 {
@@ -11,7 +20,7 @@ body {
 }
 
   </style></head><body>
-<h1><a href="http://classicshell.sourceforge.net/"><img src="ClassicExplorer_files/ClassicShell.png" style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge"></a>&nbsp; Classic Explorer</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 0.9.8 (beta)</span><br>
+<h1><a href="http://classicshell.sourceforge.net/"><img src="ClassicExplorer_files/ClassicShell.png" style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge"></a>&nbsp; Classic Explorer</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 0.9.9 (release candidate)</span><br>
 <br>
 
 
@@ -21,15 +30,17 @@ Explorer</span> is a plugin for Windows Explorer that:</p>
 
 <ul>
 
-  <li>Adds a toolbar to Explorer for some common operations (Go to the parent folder, Cut, Copy, Paste, Delete, Properties)</li>
+  <li>Adds a toolbar to Explorer for some common operations (Go to the parent folder, Cut, Copy, Paste, Delete, Properties, Email)</li>
   <li>Replaces the copy UI in Vista and Windows 7 with the more user-friendly &#8220;classic&#8221; version similar to Windows XP</li>
+  
   <li>Handles Alt+Enter in the folder panel of Windows Explorer and shows the properties of the selected folder</li>
+
   <li>Has options for customizing the folder panel to look more like the Windows XP version or to not fade the expand buttons</li>
-  <li>Can show the free disk space and the total file size in the status bar<br>
-  </li>
+  <li>Can show the free disk space and the total file size in the status bar</li>
 
 
-</ul>
+</ul><br>
+
 
 <h1>New copy UI</h1>
 
@@ -102,9 +113,9 @@ finding the right command can take a while.<br>
 <p>To solve the problem, the Classic Explorer plugin adds a new toolbar:<br>
 </p>
 
-&nbsp;<img src="ClassicExplorer_files/toolbar.png" style="width: 610px; height: 160px;" alt="Explorer Toolbar" title="Explorer Toolbar"><br>
+&nbsp;<img src="ClassicExplorer_files/toolbar.png" style="width: 630px; height: 150px;" alt="Explorer Toolbar" title="Explorer Toolbar"><br>
 <br>
-The available button are: Go Up, Cut, Copy, Paste, Delete, Properties, Settings<br>
+The available button are: Go Up, Cut, Copy, Paste, Delete, Properties, Email, Settings<br>
 <br>
 <span style="font-weight: bold; color: rgb(0, 112, 192);">Hints:</span><br>
 &nbsp;&nbsp;&nbsp; - Hold the <strong>Control key</strong> when clicking the Up button to open the parent folder in a new Explorer window.<br>
@@ -113,7 +124,7 @@ The available button are: Go Up, Cut, Copy, Paste, Delete, Properties, Settings<
 <br>
 
 The new toolbar doesn&#8217;t show up in Explorer automatically after
-installation. You have to do 3-4 things before you can use it:<br>
+installation. You have to do a few things before you can use it:<br>
 
 <ol style="font-family: Helvetica,Arial,sans-serif;">
 
@@ -127,6 +138,12 @@ Toolbars&#8221;) you may have to enable the plugin from Internet Explorer.
 Run IE, right click on its toolbar and select &#8220;Classic Explorer Bar&#8221;.
 It will ask you if you want to enable this add-on. Select &#8220;Enable&#8221;,
 then repeat steps 1 through 3 again.</li>
+  <li>If even then you don't see the toolbar, maybe the browser
+extensions are disabled on your system. This is usually the default for
+servers. Open the "Internet Options", go to the "Advanced" tab, and check
+the option "Enable third-party browser extensions".<br>
+  </li>
+
 </ol><br>
 <h1>Status bar</h1>
 In Windows 7 the status bar in Explorer doesn't show the free disk
@@ -149,17 +166,57 @@ doesn't show that).<br>
 
 <h1>Settings</h1>The last
 button in the toolbar opens up the Settings dialog box for Classic
-Explorer. From there you can enable or disable the Copy UI,&nbsp; the
-Alt+Enter and the status bar features, as well as customize which buttons to show in the
-toolbar. You can also change the look and feel of the folder tree in
-Explorer:<br>
-<img style="width: 200px; height: 200px;" alt="Different folder views" title="Different folder views" src="ClassicExplorer_files/FolderView.gif"><br>
-For <strong style="color: rgb(0, 112, 192);">XP Simple</strong> and <strong><span style="color: rgb(0, 112, 192);">Vista</span></strong>
-setups you can disable fading of the buttons when the folder tree
+Explorer. If you've hidden the Settings button you can right-click on
+any button to get the context menu and pick the Settings option.<br>
+<br>
+The settings are:<br>
+<ul>
+  <li><span style="font-weight: bold;">Enable Alt+Enter</span> - turns on the Alt+Enter feature in the navigation pane</li>
+  <li><span style="font-weight: bold;">Always navigate to the selected folder</span>
+- when turned on, if you move up and down the folders with the arrows
+keys, Explorer will navigate to the selected folder immediately</li>
+  <li><span style="font-weight: bold;">Enable classic tree style, Display simple folder view</span> - these settings control the look of the expanding buttons in the navigation pane. there are 3 modes:<br>
+    <img style="width: 200px; height: 200px;" alt="Different folder views" title="Different folder views" src="ClassicExplorer_files/FolderView.gif"></li>
+  <li><span style="font-weight: bold;">Don't fade buttons</span> - for <strong style="color: rgb(0, 112, 192);">XP Simple</strong> and <strong><span style="color: rgb(0, 112, 192);">Vista</span></strong> modes you can disable fading of the buttons when the folder tree
 doesn't have the focus. This is useful if you want to see if a folder
-has sub-folders without mousing over it.<br><br>
+has sub-folders without mousing over it</li>
+  <li><span style="font-weight: bold;">Toolbar buttons </span>- pick which buttons to display in the toolbar, and chose between small and big buttons</li>
+  <li><span style="font-weight: bold;">Enable classic copy UI</span> - when turned on, the "file conflict" dialog box is replaced with the one from Windows XP</li>
+  <ul>
+    <li><span style="font-weight: bold;">For folders too</span> - also replaces the "folder conflict" dialog box</li>
+  </ul>
+  <li><span style="font-weight: bold;">Show free space and file size</span> - shows the free disk space and the total size of the selected files in the status bar</li>
+</ul>
+<br>
 
+<h1>More Settings</h1>
+
+Even more settings are available in the <span style="font-weight: bold; color: rgb(79, 129, 189);">Explorer.ini</span> 
+text file in the installation folder &#8211; usually <span style="font-weight: bold; color: rgb(79, 129, 189);">C:\Program
+Files\Classic Shell</span>. From there you can set things like:<br>
+
+<br>
+<span style="font-weight: bold;">SmallIconSize, LargeIconSize</span> &#8211; the size of the icons in the toolbar<br>
+
+<span style="font-weight: bold;">IconUp, IconCut, etc</span> &#8211; the icons to be used for each toolbar button<br>
+<br>
+The text file contains detailed description of each setting as well as instructions how to change it.<br>
+<br>
+<span style="font-weight: bold;">Important Note:</span> Changes to the
+Explorer.ini file will not take effect until the Explorer process is
+restarted. The easiest way to do that is to log off and back on. Also
+note that the Explorer.ini file is global and the settings are shared
+by all users.<br>
+<span style="font-weight: bold;"><br>
+Note:</span> The Explorer.ini file will be overwritten when you upgrade
+to a new version of Classic Shell. The new version may introduce new
+settings or even change the format of the file. Make a backup copy of
+the file before you upgrade, and after the upgrade reintroduce your
+changes to the new file one by one. Do not simply copy your old file on
+top of the new because you may miss out on the new settings.<br>
+<br>
 <h1>Localization</h1>
+
 
 The user
 interface (except the Settings dialog box) is localized in all 35
@@ -167,7 +224,7 @@ languages available for Vista and Windows 7. New languages can be added
 by editing the file <span style="color: rgb(79, 129, 189); font-weight: bold;">ExplorerL10N.ini</span>
 in the installation folder &#8211;
 usually <span style="font-weight: bold; color: rgb(79, 129, 189);">C:\Program
-Files\ClassicShell</span>. <br>
+Files\Classic Shell</span>. <br>
 
 <br>
 

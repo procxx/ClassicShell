@@ -4,9 +4,13 @@
 #include "stdafx.h"
 #include "IconManager.h"
 #include "MenuContainer.h"
+#include "Accessibility.h"
 #include "ClassicStartMenuDLL.h"
 #include "Settings.h"
+#include "GlobalSettings.h"
 #include "ParseSettings.h"
+#include "TranslationSettings.h"
+#include "CustomMenu.h"
 #include "FNVHash.h"
 #include "resource.h"
 #include <uxtheme.h>
@@ -15,82 +19,32 @@
 #include <WtsApi32.h>
 #include <Lm.h>
 #include <Dsgetdc.h>
+#include <PowrProf.h>
 #include <dwmapi.h>
 #define SECURITY_WIN32
 #include <Security.h>
 #include <algorithm>
 
 #define ALLOW_DEACTIVATE // undefine this to prevent the menu from closing when it is deactivated (useful for debugging)
+//#define REPEAT_ITEMS 10 // define this to repeat each menu item (useful to simulate large menus)
 
 #if defined(BUILD_SETUP) && !defined(ALLOW_DEACTIVATE)
 #define ALLOW_DEACTIVATE // make sure it is defined in Setup
 #endif
 
+#if defined(BUILD_SETUP) && defined(REPEAT_ITEMS)
+#undef REPEAT_ITEMS
+#endif
+
 const int MAX_MENU_ITEMS=500;
 const int MENU_ANIM_SPEED=200;
 const int MENU_ANIM_SPEED_SUBMENU=100;
-
-struct StdMenuItem
-{
-	TMenuID id;
-	const char *key; // localization key
-	const wchar_t *name2; // default name
-	int icon; // index in shell32.dll
-	TMenuID submenu; // MENU_NO if no submenu
-	const KNOWNFOLDERID *folder1; // NULL if not used
-	const KNOWNFOLDERID *folder2; // NULL if not used
-	const char *tipKey; // localization key for the tooltip
-	const wchar_t *tip2; // default tooltip
-};
+const int MENU_FADE_SPEED=400;
 
 struct StdMenuOption
 {
 	TMenuID id;
 	int options;
-};
-
-// This table defines the standard menu items
-static const StdMenuItem g_StdMenu[]=
-{
-	// Start menu
-	{MENU_PROGRAMS,"Menu.Programs",L"&Programs",326,MENU_NO,&FOLDERID_Programs,&FOLDERID_CommonPrograms},
-	{MENU_FAVORITES,"Menu.Favorites",L"F&avorites",322,MENU_NO,&FOLDERID_Favorites},
-	{MENU_DOCUMENTS,"Menu.Documents",L"&Documents",327,MENU_USERFILES,&FOLDERID_Recent},
-	{MENU_SETTINGS,"Menu.Settings",L"&Settings",330,MENU_CONTROLPANEL},
-	{MENU_SEARCH,"Menu.Search",L"Sear&ch",323,MENU_SEARCH_FILES},
-	{MENU_HELP,"Menu.Help",L"&Help and Support",324},
-	{MENU_RUN,"Menu.Run",L"&Run...",328},
-	{MENU_SEPARATOR},
-	{MENU_LOGOFF,"Menu.Logoff",L"&Log Off %s...",325},
-	{MENU_UNDOCK,"Menu.Undock",L"Undock Comput&er",331},
-	{MENU_DISCONNECT,"Menu.Disconnect",L"D&isconnect...",329},
-	{MENU_SHUTDOWN,"Menu.Shutdown",L"Sh&ut Down...",329},
-	{MENU_LAST},
-
-	// Documents
-	{MENU_USERFILES,NULL,NULL,0,MENU_NO,&FOLDERID_UsersFiles,NULL,"Menu.UserFilesTip",L"Contains folders for Documents, Pictures, Music, and other files that belong to you."},
-	{MENU_USERDOCUMENTS,NULL,NULL,0,MENU_NO,&FOLDERID_Documents,NULL,"Menu.UserDocumentsTip",L"Contains letters, reports, and other documents and files."},
-	{MENU_USERPICTURES,NULL,NULL,0,MENU_NO,&FOLDERID_Pictures,NULL,"Menu.UserPicturesTip",L"Contains digital photos, images, and graphic files."},
-	{MENU_SEPARATOR},
-	{MENU_LAST},
-
-	// Settings
-	{MENU_CONTROLPANEL,"Menu.ControlPanel",L"&Control Panel",137,MENU_NO,&FOLDERID_ControlPanelFolder},
-	{MENU_SEPARATOR},
-	{MENU_NETWORK,"Menu.Network",L"&Network Connections",257,MENU_NO,&FOLDERID_ConnectionsFolder,NULL,"Menu.NetworkTip",L"Displays existing network connections on this computer and helps you create new ones"},
-	{MENU_PRINTERS,"Menu.Printers",L"&Printers",138,MENU_NO,&FOLDERID_PrintersFolder,NULL,"Menu.PrintersTip",L"Add, remove, and configure local and network printers."},
-	{MENU_TASKBAR,"Menu.Taskbar",L"&Taskbar and Start Menu",40,MENU_NO,NULL,NULL,"Menu.TaskbarTip",L"Customize the Start Menu and the taskbar, such as the types of items to be displayed and how they should appear."},
-	{MENU_FEATURES,"Menu.Features",L"Programs and &Features",271,MENU_NO,&FOLDERID_ChangeRemovePrograms,NULL,"Menu.FeaturesTip",L"Uninstall or change programs on your computer."},
-	{MENU_SEPARATOR},
-	{MENU_CLASSIC_SETTINGS,"Menu.ClassicSettings",L"Classic Start &Menu",274,MENU_NO,NULL,NULL,"Menu.SettingsTip",L"Settings for Classic Start Menu"},
-	{MENU_LAST},
-
-	// Search
-	{MENU_SEARCH_FILES,"Menu.SearchFiles",L"For &Files and Folders...",134},
-	{MENU_SEARCH_PRINTER,"Menu.SearchPrinter",L"For &Printer",1006},
-	{MENU_SEARCH_COMPUTERS,"Menu.SearchComputers",L"For &Computers",135},
-	{MENU_SEARCH_PEOPLE,"Menu.SearchPeople",L"For &People...",269},
-	{MENU_LAST},
 };
 
 // Options for special menu items
@@ -109,7 +63,7 @@ static StdMenuOption g_StdOptions[]=
 	{MENU_RUN,MENU_ENABLED}, // check policy
 	{MENU_LOGOFF,MENU_NONE}, // MENU_ENABLED from settings, check policy
 	{MENU_DISCONNECT,MENU_NONE}, // MENU_ENABLED if in a remote session, check policy
-	{MENU_SHUTDOWN,MENU_ENABLED}, // MENU_NONE if in a remote session, check policy
+	{MENU_SHUTDOWN_BOX,MENU_ENABLED}, // MENU_NONE if in a remote session, check policy
 	{MENU_UNDOCK,MENU_ENABLED}, // from settings, check policy
 	{MENU_CONTROLPANEL,MENU_ENABLED|MENU_EXPANDED}, // MENU_EXPANDED from settings, check policy
 	{MENU_NETWORK,MENU_ENABLED}, // MENU_EXPANDED from settings, check policy
@@ -124,16 +78,6 @@ static StdMenuOption g_StdOptions[]=
 	{MENU_USERDOCUMENTS,MENU_ENABLED}, // check policy
 	{MENU_USERPICTURES,MENU_ENABLED}, // check policy
 };
-
-static int FindStdMenuItem( TMenuID id )
-{
-	ATLASSERT(id!=MENU_NO && id!=MENU_SEPARATOR && id!=MENU_EMPTY);
-	for (int i=0;i<_countof(g_StdMenu);i++)
-		if (g_StdMenu[i].id==id)
-			return i;
-	ATLASSERT(0);
-	return -1;
-}
 
 // Recent document item (sorts by time, newer first)
 struct Document
@@ -161,18 +105,25 @@ bool CMenuContainer::s_bRightDrag;
 std::vector<CMenuContainer*> CMenuContainer::s_Menus;
 std::map<unsigned int,int> CMenuContainer::s_PagerScrolls;
 CComPtr<IShellFolder> CMenuContainer::s_pDesktop;
+HWND CMenuContainer::s_LastFGWindow;
 RECT CMenuContainer::s_MainRect;
 DWORD CMenuContainer::s_TaskbarState;
 DWORD CMenuContainer::s_HoverTime;
 DWORD CMenuContainer::s_SubmenuStyle;
 CLIPFORMAT CMenuContainer::s_ShellFormat;
 MenuSkin CMenuContainer::s_Skin;
+std::vector<CMenuFader*> CMenuFader::s_Faders;
 
 // Subclass proc for the toolbars
 LRESULT CALLBACK CMenuContainer::ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
+	CMenuContainer *pOwner=(CMenuContainer*)uIdSubclass;
+
 	if (uMsg==WM_MOUSEACTIVATE)
 		return MA_NOACTIVATE; // prevent activation with the mouse
+	if (uMsg==WM_GETOBJECT && lParam==OBJID_CLIENT && pOwner->m_pAccessible)
+		return LresultFromObject(IID_IAccessible,wParam,pOwner->m_pAccessible);
+
 	if (uMsg==WM_SYSKEYDOWN)
 	{
 		// forward system keys to the parent so it can show the keyboard cues
@@ -186,9 +137,15 @@ LRESULT CALLBACK CMenuContainer::ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPAR
 		// (but not when the mouse is captured - it interferes with drag/drop)
 		POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
 		int idx=(int)::SendMessage(hWnd,TB_HITTEST,0,(LPARAM)&pt);
-		if (idx<0 && GetCapture()!=hWnd) return 0;
+		LRESULT res=0;
+		pOwner->AddRef(); // the owner may be deleted during DefSubclassProc
+		if (idx>=0 || GetCapture()==hWnd)
+			res=DefSubclassProc(hWnd,uMsg,wParam,lParam);
+		pOwner->m_HotPos=GetMessagePos();
+		pOwner->Release();
+		return res;
 	}
-	if (uMsg==WM_PAINT && !((CMenuContainer*)uIdSubclass)->m_pParent && s_Skin.Main_opacity>=MenuSkin::OPACITY_ALPHA)
+	if (uMsg==WM_PAINT && !pOwner->m_pParent && s_Skin.Main_opacity>=MenuSkin::OPACITY_ALPHA)
 	{
 		PAINTSTRUCT ps;
 		HDC hdc=::BeginPaint(hWnd,&ps);
@@ -213,13 +170,13 @@ LRESULT CALLBACK CMenuContainer::ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPAR
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
-CMenuContainer::CMenuContainer( CMenuContainer *pParent, int index, int options, TMenuID menuID, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName )
+CMenuContainer::CMenuContainer( CMenuContainer *pParent, int index, int options, const StdMenuItem *pStdItem, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName )
 {
 	m_RefCount=1;
 	m_pParent=pParent;
 	m_ParentIndex=index;
 	m_Options=options;
-	m_MenuID=menuID;
+	m_pStdItem=pStdItem;
 	m_RegName=regName;
 	m_Bitmap=NULL;
 	m_Region=NULL;
@@ -263,10 +220,10 @@ void CMenuContainer::InitItems( void )
 	m_Items.clear();
 	m_bRefreshPosted=false;
 	m_Submenu=-1;
-	m_HotPos=0;
+	m_HotPos=GetMessagePos();
 	m_ContextItem=-1;
 
-	if (m_Options&CONTAINER_DOCUMENTS) // create the recent documents list
+	if ((m_Options&CONTAINER_DOCUMENTS) && s_MaxRecentDocuments>0) // create the recent documents list
 	{
 		ATLASSERT(m_Path1 && !m_Path2);
 
@@ -351,7 +308,7 @@ void CMenuContainer::InitItems( void )
 		m_pDropFolder=pFolder;
 
 		CComPtr<IEnumIDList> pEnum;
-		if (pFolder->EnumObjects(NULL,SHCONTF_NONFOLDERS|SHCONTF_FOLDERS,&pEnum)!=S_OK) pEnum=NULL;
+		if (!pFolder || pFolder->EnumObjects(NULL,SHCONTF_NONFOLDERS|SHCONTF_FOLDERS,&pEnum)!=S_OK) pEnum=NULL;
 
 		PITEMID_CHILD pidl;
 		while (pEnum && pEnum->Next(1,&pidl,NULL)==S_OK)
@@ -388,22 +345,29 @@ void CMenuContainer::InitItems( void )
 					flags=0;
 				item.bLink=(flags&SFGAO_LINK)!=0;
 				item.bFolder=(!(m_Options&CONTAINER_NOSUBFOLDERS) && (flags&SFGAO_FOLDER) && (!(flags&(SFGAO_STREAM|SFGAO_LINK)) || (s_bExpandLinks && item.bLink)));
-				item.bPrograms=((m_Options&CONTAINER_PROGRAMS) || (!m_pParent && item.id==MENU_NO));
+				item.bPrograms=(m_Options&CONTAINER_PROGRAMS)!=0;
 
 				m_Items.push_back(item);
+#ifdef REPEAT_ITEMS
+				for (int i=0;i<REPEAT_ITEMS;i++)
+				{
+					item.pItem1=ILCloneFull(item.pItem1);
+					m_Items.push_back(item);
+				}
+#endif
 			}
 			ILFree(pidl);
 		}
 	}
 
 	// add second folder
-	if (m_Path2/* && !SHRestricted(REST_NOCOMMONGROUPS)*/)
+	if (m_Path2 && !(m_Options&CONTAINER_DOCUMENTS))
 	{
 		CComPtr<IShellFolder> pFolder;
 		s_pDesktop->BindToObject(m_Path2,NULL,IID_IShellFolder,(void**)&pFolder);
 
 		CComPtr<IEnumIDList> pEnum;
-		if (pFolder->EnumObjects(NULL,SHCONTF_NONFOLDERS|SHCONTF_FOLDERS,&pEnum)!=S_OK) pEnum=NULL;
+		if (!pFolder || pFolder->EnumObjects(NULL,SHCONTF_NONFOLDERS|SHCONTF_FOLDERS,&pEnum)!=S_OK) pEnum=NULL;
 
 		PITEMID_CHILD pidl;
 		while (pEnum && pEnum->Next(1,&pidl,NULL)==S_OK)
@@ -450,9 +414,16 @@ void CMenuContainer::InitItems( void )
 						flags=0;
 					item.bLink=(flags&SFGAO_LINK)!=0;
 					item.bFolder=(!(m_Options&CONTAINER_NOSUBFOLDERS) && (flags&SFGAO_FOLDER) && (!(flags&(SFGAO_STREAM|SFGAO_LINK)) || (s_bExpandLinks && item.bLink)));
-					item.bPrograms=((m_Options&CONTAINER_PROGRAMS) || (!m_pParent && item.id==MENU_NO));
+					item.bPrograms=(m_Options&CONTAINER_PROGRAMS)!=0;
 
 					m_Items.push_back(item);
+#ifdef REPEAT_ITEMS
+					for (int i=0;i<REPEAT_ITEMS;i++)
+					{
+						item.pItem1=ILCloneFull(item.pItem1);
+						m_Items.push_back(item);
+					}
+#endif
 					CoTaskMemFree(name);
 				}
 			}
@@ -460,20 +431,25 @@ void CMenuContainer::InitItems( void )
 		}
 	}
 
-	if (m_Options&CONTAINER_NOPROGRAMS)
+	if (!m_pParent)
 	{
 		// remove the Programs subfolder from the main menu. it will be added separately
 		PIDLIST_ABSOLUTE progs;
-		SHGetKnownFolderIDList(FOLDERID_Programs,0,NULL,&progs);
-		for (std::vector<MenuItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
-			if (ILIsEqual(it->pItem1,progs))
-			{
-				ILFree(it->pItem1);
-				if (it->pItem2) ILFree(it->pItem2);
-				m_Items.erase(it);
-				break;
-			}
-		ILFree(progs);
+		if (FAILED(SHGetKnownFolderIDList(FOLDERID_Programs,0,NULL,&progs)))
+			if (FAILED(SHGetKnownFolderIDList(FOLDERID_CommonPrograms,0,NULL,&progs)))
+				progs=NULL;
+		if (progs)
+		{
+			for (std::vector<MenuItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
+				if (ILIsEqual(it->pItem1,progs))
+				{
+					ILFree(it->pItem1);
+					if (it->pItem2) ILFree(it->pItem2);
+					m_Items.erase(it);
+					break;
+				}
+			ILFree(progs);
+		}
 	}
 
 	// sort m_Items or read order from the registry
@@ -489,29 +465,32 @@ void CMenuContainer::InitItems( void )
 		m_Items.resize(MAX_MENU_ITEMS);
 	}
 
-	if (m_Items.empty() && m_Path1)
+	if (m_Items.empty() && m_Path1 && m_pDropFolder)
 	{
 		// add (Empty) item to the empty submenus
 		MenuItem item={MENU_EMPTY};
 		item.icon=I_IMAGENONE;
-		item.name=FindSetting("Menu.Empty",L"(Empty)");
+		item.name=FindTranslation("Menu.Empty",L"(Empty)");
 		m_Items.push_back(item);
 	}
 
 	// add standard items
-	if (m_MenuID!=MENU_NO)
+	if (m_pStdItem && m_pStdItem->id!=MENU_NO)
 	{
 		if (!m_Items.empty())
 		{
 			MenuItem item={MENU_SEPARATOR};
-			m_Items.push_back(item);
+			if (m_Options&CONTAINER_ADDTOP)
+				m_Items.insert(m_Items.begin(),item);
+			else
+				m_Items.push_back(item);
 		}
 		size_t menuIdx=(m_Options&CONTAINER_ADDTOP)?0:m_Items.size();
-		for (int idx=FindStdMenuItem(m_MenuID);idx>=0 && g_StdMenu[idx].id!=MENU_LAST;idx++)
+		for (const StdMenuItem *pItem=m_pStdItem;pItem->id!=MENU_LAST;pItem++)
 		{
 			int stdOptions=MENU_ENABLED|MENU_EXPANDED;
 			for (int i=0;i<_countof(g_StdOptions);i++)
-				if (g_StdOptions[i].id==g_StdMenu[idx].id)
+				if (g_StdOptions[i].id==pItem->id)
 				{
 					stdOptions=g_StdOptions[i].options;
 					break;
@@ -519,48 +498,71 @@ void CMenuContainer::InitItems( void )
 
 			if (!(stdOptions&MENU_ENABLED)) continue;
 
-			MenuItem item={g_StdMenu[idx].id};
-			if (g_StdMenu[idx].icon)
-				item.icon=g_IconManager.GetStdIcon(g_StdMenu[idx].icon,(m_Options&CONTAINER_LARGE)!=0);
-			else
-				item.icon=I_IMAGENONE;
+			MenuItem item={pItem->id,pItem};
 
-			if (item.id==MENU_LOGOFF)
+			ATLASSERT(pItem->folder1 || !pItem->folder2);
+			if (pItem->folder1)
 			{
-				// construct the text Log Off <username>...
-				wchar_t user[256]={0};
-				ULONG size=_countof(user);
-				if (!GetUserNameEx(NameDisplay,user,&size))
-				{
-					// GetUserNameEx may fail (for example on Home editions). use the login name
-					DWORD size=_countof(user);
-					GetUserName(user,&size);
-				}
-				item.name.Format(FindSetting(g_StdMenu[idx].key,g_StdMenu[idx].name2),user);
+				SHGetKnownFolderIDList(*pItem->folder1,0,NULL,&item.pItem1);
+				if (pItem->folder2)
+					SHGetKnownFolderIDList(*pItem->folder2,0,NULL,&item.pItem2);
+				item.bFolder=((stdOptions&MENU_EXPANDED) || pItem->submenu);
 			}
-			else
-				item.name=FindSetting(g_StdMenu[idx].key,g_StdMenu[idx].name2);
-
-			ATLASSERT(g_StdMenu[idx].folder1 || !g_StdMenu[idx].folder2);
-
-			if (g_StdMenu[idx].folder1)
+			else if (pItem->link)
 			{
-				SHGetKnownFolderIDList(*g_StdMenu[idx].folder1,0,NULL,&item.pItem1);
-				if (!g_StdMenu[idx].name2)
+				SFGAOF flags=SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK;
+				wchar_t buf[1024];
+				wcscpy_s(buf,item.pStdItem->link);
+				DoEnvironmentSubst(buf,_countof(buf));
+				if (SUCCEEDED(s_pDesktop->ParseDisplayName(NULL,NULL,buf,NULL,(PIDLIST_RELATIVE*)&item.pItem1,&flags)))
 				{
-					// this is used for the special items in the Documents menu - user docs, user pictures, etc
-					// find the real name and icon
-					SHFILEINFO info;
-					SHGetFileInfo((LPCWSTR)item.pItem1,0,&info,sizeof(info),SHGFI_PIDL|SHGFI_DISPLAYNAME);
-					item.name=info.szDisplayName;
-					SHGetFileInfo((LPCWSTR)item.pItem1,0,&info,sizeof(info),SHGFI_PIDL|SHGFI_ICONLOCATION);
-					item.icon=g_IconManager.GetIcon(info.szDisplayName,info.iIcon,(m_Options&CONTAINER_LARGE)!=0);
+					item.bLink=(flags&SFGAO_LINK)!=0;
+					item.bFolder=((flags&SFGAO_FOLDER) && (!(flags&(SFGAO_STREAM|SFGAO_LINK)) || (s_bExpandLinks && item.bLink)));
 				}
 			}
-			if (g_StdMenu[idx].folder2)
-				SHGetKnownFolderIDList(*g_StdMenu[idx].folder2,0,NULL,&item.pItem2);
+			if (pItem->submenu)
+				item.bFolder=true;
 
-			item.bFolder=(!(m_Options&CONTAINER_NOSUBFOLDERS) && ((g_StdMenu[idx].folder1 && (stdOptions&MENU_EXPANDED)) || g_StdMenu[idx].submenu!=MENU_NO));
+			// get icon
+			if (pItem->iconPath)
+				item.icon=g_IconManager.GetCustomIcon(pItem->iconPath,(m_Options&CONTAINER_LARGE)!=0);
+			else if (pItem->icon)
+				item.icon=g_IconManager.GetStdIcon(pItem->icon,(m_Options&CONTAINER_LARGE)!=0);
+			else if (item.pItem1)
+			{
+				// for some reason SHGetFileInfo(SHGFI_PIDL|SHGFI_ICONLOCATION) doesn't work here. go to the IShellFolder directly
+				CComPtr<IShellFolder> pFolder2;
+				PCUITEMID_CHILD pidl;
+				if (SUCCEEDED(SHBindToParent(item.pItem1,IID_IShellFolder,(void**)&pFolder2,&pidl)))
+					item.icon=g_IconManager.GetIcon(pFolder2,pidl,(m_Options&CONTAINER_LARGE)!=0);
+			}
+
+			// get name
+			if (pItem->name)
+			{
+				if (item.id==MENU_LOGOFF)
+				{
+					// construct the text Log Off <username>...
+					wchar_t user[256]={0};
+					ULONG size=_countof(user);
+					if (!GetUserNameEx(NameDisplay,user,&size))
+					{
+						// GetUserNameEx may fail (for example on Home editions). use the login name
+						DWORD size=_countof(user);
+						GetUserName(user,&size);
+					}
+					item.name.Format(pItem->key?FindTranslation(pItem->key,pItem->name):pItem->name,user);
+				}
+				else
+					item.name=pItem->key?FindTranslation(pItem->key,pItem->name):pItem->name;
+			}
+			else if (item.pItem1)
+			{
+				SHFILEINFO info={0};
+				SHGetFileInfo((LPCWSTR)item.pItem1,0,&info,sizeof(info),SHGFI_PIDL|SHGFI_DISPLAYNAME);
+				item.name=info.szDisplayName;
+			}
+
 			item.bPrograms=(item.id==MENU_PROGRAMS || item.id==MENU_FAVORITES);
 			m_Items.insert(m_Items.begin()+menuIdx,1,item);
 			menuIdx++;
@@ -664,14 +666,14 @@ static void MarginsBlitAlpha( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &
 	if (x2a<x3a && y2a<y3a && x2b<x3b && y2b<y3b) AlphaBlend(hDst,x2a,y2a,x3a-x2a,y3a-y2a,hSrc,x2b,y2b,x3b-x2b,y3b-y2b,func);
 }
 
-// Creates the bitmap to show on the main menu in "large icons" mode
+// Creates the bitmap to show on the main menu
 void CMenuContainer::CreateBackground( int width, int height )
 {
 	// get the text from the ini file or from the registry
 	CRegKey regTitle;
 	wchar_t title[256]=L"Windows";
-	const wchar_t *setting=FindSetting("Menu.Title",NULL);
-	if (setting && *setting)
+	const wchar_t *setting=FindSetting("MenuCaption");
+	if (setting)
 		wcscpy_s(title,setting);
 	else
 	{
@@ -968,12 +970,31 @@ CWindow CMenuContainer::CreateToolbar( int id )
 	HFONT font=m_pParent?s_Skin.Submenu_font:s_Skin.Main_font;
 	if (font) toolbar.SetFont(font);
 
-/*
-	see the comment in OnGetInfoTip
 	CWindow tooltip=(HWND)toolbar.SendMessage(TB_GETTOOLTIPS);
 	if (tooltip.m_hWnd)
+	{
+		const wchar_t *str=FindSetting("InfotipDelay");
+		if (str)
+		{
+			wchar_t token[256];
+			str=GetToken(str,token,_countof(token),L", \t");
+			int time=_wtol(token);
+			if (time<=0) time=-1;
+			tooltip.SendMessage(TTM_SETDELAYTIME,TTDT_INITIAL,time);
+			str=GetToken(str,token,_countof(token),L", \t");
+			time=_wtol(token);
+			if (time<=0) time=-1;
+			tooltip.SendMessage(TTM_SETDELAYTIME,TTDT_AUTOPOP,time);
+			str=GetToken(str,token,_countof(token),L", \t");
+			time=_wtol(token);
+			if (time<=0) time=-1;
+			tooltip.SendMessage(TTM_SETDELAYTIME,TTDT_RESHOW,time);
+		}
+/*
+see the comment in OnGetInfoTip
 		tooltip.SetWindowLong(GWL_STYLE,tooltip.GetWindowLong(GWL_STYLE)|TTS_ALWAYSTIP);
 */
+	}
 
 	SetWindowSubclass(toolbar.m_hWnd,ToolbarSubclassProc,(UINT_PTR)this,0);
 
@@ -1085,6 +1106,8 @@ void CMenuContainer::InitToolbars( void )
 		it->DestroyWindow();
 	oldToolbars.clear();
 
+//	CComPtr<IAccPropServices> pAccPropServices;
+//	CoCreateInstance(CLSID_AccPropServices,NULL,CLSCTX_SERVER,IID_IAccPropServices,(void**)&pAccPropServices);
 	// calculate toolbar size
 	int maxw=0, maxh=0, maxbh=0;
 	for (std::vector<CWindow>::iterator it=m_Toolbars.begin();it!=m_Toolbars.end();++it)
@@ -1096,6 +1119,12 @@ void CMenuContainer::InitToolbars( void )
 		if (maxw<rc.right) maxw=rc.right; // button width
 		if (maxh<rc.bottom) maxh=rc.bottom; // toolbar height
 		if (maxbh<rc.bottom-rc.top) maxbh=rc.bottom-rc.top; // button height
+/*		if (pAccPropServices)
+		{
+			pAccPropServices->SetHwndProp(it->m_hWnd,OBJID_CLIENT,CHILDID_SELF,PROPID_ACC_ROLE,CComVariant(ROLE_SYSTEM_MENUPOPUP));
+			for (int i=0;i<n;i++)
+				pAccPropServices->SetHwndProp(it->m_hWnd,OBJID_CLIENT,i+1,PROPID_ACC_ROLE,CComVariant(ROLE_SYSTEM_MENUITEM));
+		}*/
 	}
 
 	maxw+=16; // add 16 pixels for the submenu arrow
@@ -1112,24 +1141,38 @@ void CMenuContainer::InitToolbars( void )
 	}
 
 	int totalWidth, totalHeight;
-	if (!m_pParent)
-	{
-		CreateBackground((int)m_Toolbars.size()*maxw,maxh<maxHeight?maxh:maxHeight);
-		BITMAP info;
-		GetObject(m_Bitmap,sizeof(info),&info);
-		totalWidth=info.bmWidth;
-		totalHeight=info.bmHeight;
-	}
-	else
 	{
 		int w=(int)m_Toolbars.size()*maxw;
 		int h=(maxh<maxHeight?maxh:maxHeight);
-		m_rContent.left=s_Skin.Submenu_padding.left;
-		m_rContent.top=s_Skin.Submenu_padding.top;
-		m_rContent.right=s_Skin.Submenu_padding.left+w;
-		m_rContent.bottom=s_Skin.Submenu_padding.top+h;
-		totalWidth=s_Skin.Submenu_padding.left+s_Skin.Submenu_padding.right+w;
-		totalHeight=s_Skin.Submenu_padding.top+s_Skin.Submenu_padding.bottom+h;
+		if (!m_pParent)
+		{
+			if (s_Skin.Main_bitmap)
+			{
+				CreateBackground((int)m_Toolbars.size()*maxw,maxh<maxHeight?maxh:maxHeight);
+				BITMAP info;
+				GetObject(m_Bitmap,sizeof(info),&info);
+				totalWidth=info.bmWidth;
+				totalHeight=info.bmHeight;
+			}
+			else
+			{
+				m_rContent.left=s_Skin.Main_padding.left;
+				m_rContent.top=s_Skin.Main_padding.top;
+				m_rContent.right=s_Skin.Main_padding.left+w;
+				m_rContent.bottom=s_Skin.Main_padding.top+h;
+				totalWidth=s_Skin.Main_padding.left+s_Skin.Main_padding.right+w;
+				totalHeight=s_Skin.Main_padding.top+s_Skin.Main_padding.bottom+h;
+			}
+		}
+		else
+		{
+			m_rContent.left=s_Skin.Submenu_padding.left;
+			m_rContent.top=s_Skin.Submenu_padding.top;
+			m_rContent.right=s_Skin.Submenu_padding.left+w;
+			m_rContent.bottom=s_Skin.Submenu_padding.top+h;
+			totalWidth=s_Skin.Submenu_padding.left+s_Skin.Submenu_padding.right+w;
+			totalHeight=s_Skin.Submenu_padding.top+s_Skin.Submenu_padding.bottom+h;
+		}
 	}
 
 	int offs=m_rContent.left, step=maxw;
@@ -1208,7 +1251,14 @@ LRESULT CMenuContainer::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 	InitToolbars();
 	m_ClickTime=GetMessageTime()-10000;
 	m_ClickPos.x=m_ClickPos.y=-20;
-	m_HotPos=-1;
+	m_HotPos=GetMessagePos();
+	if (FindSettingBool("EnableAccessibility",false))
+	{
+		m_pAccessible=new CMenuAccessible(this);
+		NotifyWinEvent(EVENT_SYSTEM_MENUPOPUPSTART,m_hWnd,OBJID_CLIENT,CHILDID_SELF);
+	}
+	else
+		m_pAccessible=NULL;
 	return 0;
 }
 
@@ -1401,10 +1451,10 @@ static INT_PTR CALLBACK RenameDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, L
 	if (uMsg==WM_INITDIALOG)
 	{
 		// translate text
-		SetWindowText(hwndDlg,FindSetting("Menu.RenameTitle",L"Rename"));
-		SetDlgItemText(hwndDlg,IDC_LABEL,FindSetting("Menu.RenamePrompt",L"&New name:"));
-		SetDlgItemText(hwndDlg,IDOK,FindSetting("Menu.RenameOK",L"OK"));
-		SetDlgItemText(hwndDlg,IDCANCEL,FindSetting("Menu.RenameCancel",L"Cancel"));
+		SetWindowText(hwndDlg,FindTranslation("Menu.RenameTitle",L"Rename"));
+		SetDlgItemText(hwndDlg,IDC_LABEL,FindTranslation("Menu.RenamePrompt",L"&New name:"));
+		SetDlgItemText(hwndDlg,IDOK,FindTranslation("Menu.RenameOK",L"OK"));
+		SetDlgItemText(hwndDlg,IDCANCEL,FindTranslation("Menu.RenameCancel",L"Cancel"));
 		SetDlgItemText(hwndDlg,IDC_EDITNAME,g_RenameText);
 		if (g_RenamePos)
 		{
@@ -1431,6 +1481,26 @@ static INT_PTR CALLBACK RenameDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, L
 	return FALSE;
 }
 
+static void SetShutdownPrivileges( void )
+{
+	HANDLE hToken;
+	if (OpenProcessToken(GetCurrentProcess(),TOKEN_ADJUST_PRIVILEGES|TOKEN_QUERY,&hToken))
+	{
+		TOKEN_PRIVILEGES tp={1};
+		if (LookupPrivilegeValue(NULL,L"SeShutdownPrivilege",&tp.Privileges[0].Luid))
+			tp.Privileges[0].Attributes=SE_PRIVILEGE_ENABLED;
+		AdjustTokenPrivileges(hToken,FALSE,&tp,sizeof(TOKEN_PRIVILEGES),NULL,NULL); 
+		CloseHandle(hToken);
+	}
+}
+
+static void ExecuteCommand( const wchar_t *command )
+{
+	wchar_t exe[_MAX_PATH];
+	command=GetToken(command,exe,_countof(exe),L" ");
+	ShellExecute(NULL,NULL,exe,command,NULL,SW_SHOWNORMAL);
+}
+
 // Dialog proc for the Log Off dialog box
 static INT_PTR CALLBACK LogOffDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
@@ -1438,10 +1508,10 @@ static INT_PTR CALLBACK LogOffDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, L
 	{
 		// translate text
 		SendDlgItemMessage(hwndDlg,IDC_STATICICON,STM_SETICON,lParam,0);
-		SetWindowText(hwndDlg,FindSetting("Menu.LogoffTitle",L"Log Off Windows"));
-		SetDlgItemText(hwndDlg,IDC_PROMPT,FindSetting("Menu.LogoffPrompt",L"Are you sure you want to log off?"));
-		SetDlgItemText(hwndDlg,IDOK,FindSetting("Menu.LogoffYes",L"&Log Off"));
-		SetDlgItemText(hwndDlg,IDCANCEL,FindSetting("Menu.LogoffNo",L"&No"));
+		SetWindowText(hwndDlg,FindTranslation("Menu.LogoffTitle",L"Log Off Windows"));
+		SetDlgItemText(hwndDlg,IDC_PROMPT,FindTranslation("Menu.LogoffPrompt",L"Are you sure you want to log off?"));
+		SetDlgItemText(hwndDlg,IDOK,FindTranslation("Menu.LogoffYes",L"&Log Off"));
+		SetDlgItemText(hwndDlg,IDCANCEL,FindTranslation("Menu.LogoffNo",L"&No"));
 		return TRUE;
 	}
 	if (uMsg==WM_COMMAND && wParam==IDOK)
@@ -1518,33 +1588,41 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 
 		// open a submenu - create a new menu object
-		TMenuID subMenuID=MENU_NO;
-		if (item.id!=MENU_NO)
-		{
-			// expand standard menu
-			int stdIndex=FindStdMenuItem(item.id);
-			subMenuID=g_StdMenu[stdIndex].submenu;
-		}
+		const StdMenuItem *pSubMenu=item.pStdItem?item.pStdItem->submenu:NULL;
 
-		int options=0;
+		int options=CONTAINER_DRAG;
 		if (item.id==MENU_CONTROLPANEL)
 			options|=CONTAINER_NOSUBFOLDERS;
+		if (item.id!=MENU_DOCUMENTS && item.id!=MENU_CONTROLPANEL && item.id!=MENU_NETWORK && item.id!=MENU_PRINTERS)
+			options|=CONTAINER_DROP;
 		if (item.id==MENU_DOCUMENTS)
-			options|=CONTAINER_DOCUMENTS|CONTAINER_NOSUBFOLDERS|CONTAINER_ADDTOP;
+			options|=CONTAINER_DOCUMENTS|CONTAINER_ADDTOP;
 		if (item.bPrograms)
-			options|=CONTAINER_PROGRAMS|CONTAINER_DRAG|CONTAINER_DROP;
-		if (item.id==MENU_CONTROLPANEL)
-			options|=CONTAINER_DRAG;
+			options|=CONTAINER_PROGRAMS;
 		if (item.bLink || (m_Options&CONTAINER_LINK))
 			options|=CONTAINER_LINK;
 
 		if (!s_bScrollMenus && !(options&CONTAINER_LINK) && ((m_Options&CONTAINER_MULTICOLUMN) || item.id==MENU_PROGRAMS))
 			options|=CONTAINER_MULTICOLUMN;
-		CMenuContainer *pMenu=new CMenuContainer(this,index,options,subMenuID,item.pItem1,item.pItem2,m_RegName+L"\\"+item.name);
+		CMenuContainer *pMenu=new CMenuContainer(this,index,options,pSubMenu,item.pItem1,item.pItem2,m_RegName+L"\\"+item.name);
 		pMenu->InitItems();
 
+		DWORD animFlags;
+		{
+			const wchar_t *str=FindSetting("SubMenuAnimation");
+			if (str && _wcsicmp(str,L"none")==0) animFlags=AW_ACTIVATE;
+			else if (str && _wcsicmp(str,L"fade")==0) animFlags=AW_ACTIVATE|AW_BLEND;
+			else if (str && _wcsicmp(str,L"slide")==0) animFlags=AW_ACTIVATE|AW_SLIDE;
+			else
+			{
+				DWORD fade;
+				SystemParametersInfo(SPI_GETMENUFADE,NULL,&fade,0);
+				animFlags=AW_ACTIVATE|(fade?AW_BLEND:AW_SLIDE);
+			}
+		}
+
 		BOOL animate;
-		if (m_Submenu>=0 || s_bRTL)
+		if ((animFlags&(AW_BLEND|AW_SLIDE))==0 || m_Submenu>=0 || s_bRTL)
 			animate=FALSE;
 		else
 			SystemParametersInfo(SPI_GETMENUANIMATION,NULL,&animate,0);
@@ -1568,9 +1646,6 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		// position new menu
 		int w=rc2.right-rc2.left;
 		int h=rc2.bottom-rc2.top;
-		DWORD fade;
-		SystemParametersInfo(SPI_GETMENUFADE,NULL,&fade,0);
-		DWORD animFlags=AW_ACTIVATE|(fade?AW_BLEND:AW_SLIDE);
 
 		RECT rc;
 		toolbar.SendMessage(TB_GETITEMRECT,item.btnIndex,(LPARAM)&rc);
@@ -1603,6 +1678,15 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				// right again
 				rc2.right=s_MainRect.right;
 				rc2.left=rc2.right-w;
+				if (!s_bRTL)
+				{
+					int minx=m_pParent?s_MainRect.left:(rc.right+border.left);
+					if (rc2.left<minx)
+					{
+						rc2.left=minx;
+						rc2.right=minx+w;
+					}
+				}
 				animFlags|=AW_HOR_POSITIVE;
 				pMenu->m_Options|=CONTAINER_LEFT;
 			}
@@ -1629,6 +1713,15 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				// left again
 				rc2.left=s_MainRect.left;
 				rc2.right=rc2.left+w;
+				if (s_bRTL)
+				{
+					int maxx=m_pParent?s_MainRect.right:(rc.left+border.right);
+					if (rc2.right>maxx)
+					{
+						rc2.left=maxx-w;
+						rc2.right=maxx;
+					}
+				}
 				animFlags|=AW_HOR_NEGATIVE;
 			}
 		}
@@ -1670,7 +1763,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (animate)
 		{
 			pMenu->SetWindowPos(HWND_TOPMOST,&rc2,0);
-			AnimateWindow(pMenu->m_hWnd,MENU_ANIM_SPEED_SUBMENU,animFlags);
+			int speed=_wtol(FindSetting("SubMenuAnimationSpeed",L""));
+			if (speed<=0) speed=MENU_ANIM_SPEED_SUBMENU;
+			else if (speed>=10000) speed=10000;
+			AnimateWindow(pMenu->m_hWnd,speed,animFlags);
 		}
 		else
 			pMenu->SetWindowPos(HWND_TOPMOST,&rc2,SWP_SHOWWINDOW);
@@ -1685,6 +1781,14 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	if (type==ACTIVATE_EXECUTE)
 	{
 		if (item.id==MENU_EMPTY) return;
+
+		if (!item.pItem1)
+		{
+			if (item.id<MENU_PROGRAMS) return; // non-executable item
+			if (item.pStdItem && item.pStdItem->submenu && !item.pStdItem->command)
+				return; // non-executable item
+		}
+
 		// when executing an item close the whole menu
 		if (GetKeyState(VK_SHIFT)>=0)
 		{
@@ -1705,10 +1809,25 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 	m_Toolbars[item.column].SendMessage(TB_SETHOTITEM,item.btnIndex);
 
-	if (!item.pItem1)
+	if (!item.pItem1 && !(item.id==MENU_EMPTY && type==ACTIVATE_MENU))
 	{
 		// regular command item
 		if (type!=ACTIVATE_EXECUTE) return;
+
+		if (GetKeyState(VK_SHIFT)<0)
+			LockSetForegroundWindow(LSFW_LOCK);
+		else
+		{
+			FadeOutItem(index);
+			// flush all messages to close the menus
+			// m_hWnd is not valid after this point
+			MSG msg;
+			while (PeekMessage(&msg,NULL,0,0,PM_REMOVE))
+			{
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
+		}
 
 		// special handling for command items
 		CComPtr<IShellDispatch2> pShellDisp;
@@ -1727,13 +1846,13 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				break;
 			case MENU_SEARCH_FILES: // show the search UI
 				{
-					const wchar_t *command=FindSetting("Command.SearchFiles",L"");
-					if (*command)
+					const wchar_t *command=FindSetting("SearchFilesCommand");
+					if (command)
 					{
 						wchar_t buf[1024];
 						wcscpy_s(buf,command);
 						DoEnvironmentSubst(buf,_countof(buf));
-						ShellExecute(NULL,NULL,buf,NULL,NULL,SW_SHOWNORMAL);
+						ExecuteCommand(buf);
 					}
 					else
 					{
@@ -1752,7 +1871,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				break;
 			case MENU_SEARCH_PEOPLE: // search for people using Windows Mail
 				{
-					SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_DOENVSUBST,m_hWnd,L"open"};
+					SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_DOENVSUBST,NULL,L"open"};
 					execute.lpFile=L"%ProgramFiles%\\Windows Mail\\wab.exe";
 					execute.lpParameters=L"/find";
 					execute.lpDirectory=L"%ProgramFiles%\\Windows Mail";
@@ -1770,7 +1889,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				break;
 			case MENU_LOGOFF: // log off
 				{
-					if (!(m_Options&CONTAINER_CONFIRM_LO))
+					if (!FindSettingBool("ConfirmLogOff",false))
 						ExitWindowsEx(EWX_LOGOFF,0);
 					else
 					{
@@ -1783,6 +1902,23 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 					}
 				}
 				break;
+			case MENU_RESTART: // restart
+				SetShutdownPrivileges();
+				ExitWindowsEx(EWX_REBOOT,0);
+				break;
+			case MENU_SWITCHUSER: // switch_user
+				WTSDisconnectSession(WTS_CURRENT_SERVER_HANDLE,WTS_CURRENT_SESSION,FALSE); // same as "disconnect"
+				break;
+			case MENU_SHUTDOWN: // shutdown, don't ask
+				SetShutdownPrivileges();
+				ExitWindowsEx(EWX_SHUTDOWN,0);
+				break;
+			case MENU_SLEEP:
+				SetSuspendState(FALSE,FALSE,FALSE);
+				break;
+			case MENU_HIBERNATE:
+				SetSuspendState(TRUE,FALSE,FALSE);
+				break;
 			case MENU_DISCONNECT: // disconnect the current Terminal Services session (remote desktop)
 				WTSDisconnectSession(WTS_CURRENT_SERVER_HANDLE,WTS_CURRENT_SESSION,FALSE);
 				break;
@@ -1790,10 +1926,19 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				if (SUCCEEDED(CoCreateInstance(CLSID_Shell,NULL,CLSCTX_SERVER,IID_IShellDispatch2,(void**)&pShellDisp)))
 					pShellDisp->EjectPC();
 				break;
-			case MENU_SHUTDOWN: // shutdown - ask to shutdown, log off, sleep, etc
+			case MENU_SHUTDOWN_BOX: // shutdown - ask to shutdown, log off, sleep, etc
 				if (SUCCEEDED(CoCreateInstance(CLSID_Shell,NULL,CLSCTX_SERVER,IID_IShellDispatch2,(void**)&pShellDisp)))
 					pShellDisp->ShutdownWindows();
 				break;
+			default:
+				if (item.pStdItem && item.pStdItem->command && *item.pStdItem->command)
+				{
+					wchar_t buf[1024];
+					wcscpy_s(buf,item.pStdItem->command);
+					DoEnvironmentSubst(buf,_countof(buf));
+					ExecuteCommand(buf);
+					return;
+				}
 		}
 		return;
 	}
@@ -1806,19 +1951,14 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	CComPtr<IShellFolder> pFolder;
 	PCUITEMID_CHILD pidl;
 
-	if (item.bFolder && item.pItem2)
+	if (item.id==MENU_EMPTY)
 	{
-		// context menu for a double folder - show Open, Open All Users, etc.
-		AppendMenu(menu,MF_STRING,CMD_OPEN,FindSetting("Menu.Open",L"&Open"));
-		AppendMenu(menu,MF_STRING,CMD_OPEN_ALL,FindSetting("Menu.OpenAll",L"O&pen All Users"));
-		AppendMenu(menu,MF_SEPARATOR,0,0);
-		AppendMenu(menu,MF_STRING,CMD_PROPERTIES,FindSetting("Menu.Properties",L"P&roperties"));
-		SetMenuDefaultItem(menu,CMD_OPEN,FALSE);
+		s_pDesktop->BindToObject(m_Path1,NULL,IID_IShellFolder,(void**)&pFolder);
 	}
 	else
 	{
 		SHBindToParent(item.pItem1,IID_IShellFolder,(void**)&pFolder,&pidl);
-		if (FAILED(pFolder->GetUIObjectOf(m_hWnd,1,&pidl,IID_IContextMenu,NULL,(void**)&pMenu)))
+		if (FAILED(pFolder->GetUIObjectOf(g_OwnerWindow,1,&pidl,IID_IContextMenu,NULL,(void**)&pMenu)))
 		{
 			DestroyMenu(menu);
 			return;
@@ -1835,6 +1975,39 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			DestroyMenu(menu);
 			return;
 		}
+
+		if (item.bFolder && item.pItem2)
+		{
+			// context menu for a double folder - remove most command,s add Open All Users
+			int n=GetMenuItemCount(menu);
+			for (int i=0;i<n;i++)
+			{
+				int id=GetMenuItemID(menu,i);
+				if (id>0)
+				{
+					char command[256];
+					if (FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+						command[0]=0;
+					if (_stricmp(command,"open")==0)
+					{
+						InsertMenu(menu,i+1,MF_BYPOSITION|MF_STRING,CMD_OPEN_ALL,FindTranslation("Menu.OpenAll",L"O&pen All Users"));
+						InsertMenu(menu,i+2,MF_BYPOSITION|MF_SEPARATOR,0,0);
+						i+=2;
+						n+=2;
+						continue;
+					}
+					else if (_stricmp(command,"rename")==0 || _stricmp(command,"delete")==0)
+					{
+						if (item.id!=MENU_PROGRAMS) continue;
+					}
+					else if (_stricmp(command,"properties")==0)
+						continue;
+				}
+				DeleteMenu(menu,i,MF_BYPOSITION);
+				i--;
+				n--;
+			}
+		}
 	}
 
 	int res=0;
@@ -1849,19 +2022,92 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		// show the context menu
 		m_pMenu2=pMenu;
 		m_pMenu3=pMenu;
-		if (item.id==MENU_NO && (m_Options&CONTAINER_DROP)) // clicked on a movable item
+		HBITMAP shellBmp=NULL;
+		HBITMAP newFolderBmp=NULL;
+		if ((item.id==MENU_NO || item.id==MENU_EMPTY) && (m_Options&CONTAINER_DROP))// clicked on a movable item
 		{
+			AppendMenu(menu,MF_SEPARATOR,0,0);
+			HMENU menu2=menu;
+			if (FindSettingBool("CascadingMenu",false))
+				menu2=CreatePopupMenu();
+			bool bSort=false, bNew=false;
 			int n=0;
 			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
 				if (it->id==MENU_NO)
 					n++;
 			if (n>1)
+				bSort=true; // more than 1 movable items
+			wchar_t path[_MAX_PATH];
+			if (pFolder && FindSettingBool("ShowNewFolder",true) && SHGetPathFromIDList(m_Path1,path))
+				bNew=true;
+
+			if (bSort)
+				AppendMenu(menu2,MF_STRING,CMD_SORT,FindTranslation("Menu.SortByName",L"Sort &by Name"));
+
+			AppendMenu(menu2,MF_STRING,CMD_AUTOSORT,FindTranslation("Menu.AutoArrange",L"&Auto Arrange"));
+			if (m_Options&CONTAINER_AUTOSORT)
 			{
-				// more than 1 movable items
-				AppendMenu(menu,MF_SEPARATOR,0,0);
-				AppendMenu(menu,MF_STRING,CMD_SORT,FindSetting("Menu.SortByName",L"Sort &by Name"));
+				EnableMenuItem(menu2,CMD_SORT,MF_BYCOMMAND|MF_GRAYED);
+				CheckMenuItem(menu2,CMD_AUTOSORT,MF_BYCOMMAND|MF_CHECKED);
+			}
+
+			if (bNew)
+				AppendMenu(menu2,MF_STRING,CMD_NEWFOLDER,FindTranslation("Menu.NewFolder",L"New Folder"));
+
+			if (bNew || menu!=menu2)
+			{
+				int size=16;
+				BITMAPINFO bi={0};
+				bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
+				bi.bmiHeader.biWidth=bi.bmiHeader.biHeight=size;
+				bi.bmiHeader.biPlanes=1;
+				bi.bmiHeader.biBitCount=32;
+				HDC hdc=CreateCompatibleDC(NULL);
+				RECT rc={0,0,size,size};
+
+				if (bNew)
+				{
+					HMODULE hShell32=GetModuleHandle(L"shell32.dll");
+					HICON icon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(319),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
+					if (icon)
+					{
+						newFolderBmp=CreateDIBSection(hdc,&bi,DIB_RGB_COLORS,NULL,NULL,0);
+						HGDIOBJ bmp0=SelectObject(hdc,newFolderBmp);
+						FillRect(hdc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
+						DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
+						SelectObject(hdc,bmp0);
+						DeleteObject(icon);
+
+						MENUITEMINFO mii={sizeof(mii)};
+						mii.fMask=MIIM_BITMAP;
+						mii.hbmpItem=newFolderBmp;
+						SetMenuItemInfo(menu2,CMD_NEWFOLDER,FALSE,&mii);
+					}
+				}
+				if (menu!=menu2)
+				{
+					int idx=GetMenuItemCount(menu);
+					AppendMenu(menu,MF_POPUP,(UINT_PTR)menu2,FindTranslation("Menu.Organize",L"Organize Start menu"));
+					HICON icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
+					if (icon)
+					{
+						shellBmp=CreateDIBSection(hdc,&bi,DIB_RGB_COLORS,NULL,NULL,0);
+						HGDIOBJ bmp0=SelectObject(hdc,shellBmp);
+						FillRect(hdc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
+						DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
+						SelectObject(hdc,bmp0);
+						DeleteObject(icon);
+
+						MENUITEMINFO mii={sizeof(mii)};
+						mii.fMask=MIIM_BITMAP;
+						mii.hbmpItem=shellBmp;
+						SetMenuItemInfo(menu,idx,TRUE,&mii);
+					}
+				}
+				DeleteDC(hdc);
 			}
 		}
+
 		TPMPARAMS params={sizeof(params)}, *pParams=NULL;
 		POINT pt2=*pPt;
 		if (pt2.x==-1 && pt2.y==-1)
@@ -1879,17 +2125,24 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		m_ContextItem=-1;
 		if (m_pMenu2) m_pMenu2.Release();
 		if (m_pMenu3) m_pMenu3.Release();
+		if (newFolderBmp) DeleteObject(newFolderBmp);
+		if (shellBmp) DeleteObject(shellBmp);
 	}
 
-	if (GetKeyState(VK_SHIFT)<0)
-		LockSetForegroundWindow(LSFW_LOCK);
+	if (type==ACTIVATE_EXECUTE)
+	{
+		if (GetKeyState(VK_SHIFT)<0)
+			LockSetForegroundWindow(LSFW_LOCK);
+		else
+			FadeOutItem(index);
+	}
 
 	// handle our standard commands
-	if (res==CMD_OPEN || res==CMD_OPEN_ALL || res==CMD_PROPERTIES)
+	if (res==CMD_OPEN_ALL)
 	{
 		SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_IDLIST|SEE_MASK_INVOKEIDLIST};
-		execute.lpVerb=res==CMD_PROPERTIES?L"properties":L"open";
-		execute.lpIDList=(res==CMD_OPEN_ALL)?item.pItem2:item.pItem1;
+		execute.lpVerb=L"open";
+		execute.lpIDList=item.pItem2;
 		execute.nShow=SW_SHOWNORMAL;
 		ShellExecuteEx(&execute);
 	}
@@ -1906,6 +2159,124 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		std::sort(items.begin(),items.end());
 		SaveItemOrder(items);
 		PostRefreshMessage();
+	}
+
+	if (res==CMD_AUTOSORT)
+	{
+		CRegKey regOrder;
+		if (regOrder.Open(HKEY_CURRENT_USER,m_RegName)!=ERROR_SUCCESS)
+			regOrder.Create(HKEY_CURRENT_USER,m_RegName);
+		if (m_Options&CONTAINER_AUTOSORT)
+			regOrder.SetBinaryValue(L"Order",NULL,0);
+		else
+		{
+			DWORD cAuto='AUTO';
+			regOrder.SetBinaryValue(L"Order",&cAuto,4);
+		}
+		PostRefreshMessage();
+	}
+
+	if (res==CMD_NEWFOLDER)
+	{
+		s_pDragSource=this; // HACK - prevent the menu from closing
+		g_RenameText=item.name;
+		g_RenamePos=pPt;
+		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+			(*it)->EnableWindow(FALSE); // disable all menus
+
+		CComPtr<IContextMenu> pMenu2;
+		HMENU menu2=CreatePopupMenu();
+
+		std::vector<unsigned int> items;
+		{
+			CComPtr<IEnumIDList> pEnum;
+			if (pFolder->EnumObjects(NULL,SHCONTF_FOLDERS,&pEnum)!=S_OK) pEnum=NULL;
+
+			PITEMID_CHILD pidl;
+			while (pEnum && pEnum->Next(1,&pidl,NULL)==S_OK)
+			{
+				STRRET str;
+				if (SUCCEEDED(pFolder->GetDisplayNameOf(pidl,SHGDN_INFOLDER|SHGDN_FORPARSING,&str)))
+				{
+					wchar_t *name;
+					StrRetToStr(&str,pidl,&name);
+					items.push_back(CalcFNVHash(name));
+					CoTaskMemFree(name);
+				}
+				ILFree(pidl);
+			}
+		}
+
+		if (SUCCEEDED(pFolder->CreateViewObject(g_OwnerWindow,IID_IContextMenu,(void**)&pMenu2)))
+		{
+			if (SUCCEEDED(pMenu2->QueryContextMenu(menu2,0,1,32767,CMF_NORMAL)))
+			{
+				CMINVOKECOMMANDINFOEX info={sizeof(info),CMIC_MASK_UNICODE};
+				info.lpVerb="NewFolder";
+				info.lpVerbW=L"NewFolder";
+				info.nShow=SW_SHOWNORMAL;
+				info.fMask|=CMIC_MASK_NOASYNC;
+				info.hwnd=g_OwnerWindow;
+				pMenu2->InvokeCommand((CMINVOKECOMMANDINFO*)&info);
+			}
+		}
+		DestroyMenu(menu2);
+
+		PITEMID_CHILD newPidl=NULL;
+		unsigned int newHash=0;
+		{
+			CComPtr<IEnumIDList> pEnum;
+			if (pFolder->EnumObjects(NULL,SHCONTF_FOLDERS,&pEnum)!=S_OK) pEnum=NULL;
+
+			PITEMID_CHILD pidl;
+			while (pEnum && pEnum->Next(1,&pidl,NULL)==S_OK)
+			{
+				STRRET str;
+				if (SUCCEEDED(pFolder->GetDisplayNameOf(pidl,SHGDN_INFOLDER|SHGDN_FORPARSING,&str)))
+				{
+					wchar_t *name;
+					StrRetToStr(&str,pidl,&name);
+					unsigned int hash=CalcFNVHash(name);
+					if (std::find(items.begin(),items.end(),hash)==items.end())
+					{
+						if (SUCCEEDED(pFolder->GetDisplayNameOf(pidl,SHGDN_INFOLDER|SHGDN_FOREDITING,&str)))
+						{
+							wchar_t *name2;
+							StrRetToStr(&str,pidl,&name2);
+							g_RenameText=name2;
+							CoTaskMemFree(name2);
+							StrRetToStr(&str,pidl,&name2);
+						}
+						else
+							g_RenameText=name;
+						CharUpper(name);
+						newHash=CalcFNVHash(name);
+						CoTaskMemFree(name);
+						newPidl=pidl;
+						break;
+					}
+					CoTaskMemFree(name);
+				}
+				ILFree(pidl);
+			}
+		}
+
+		PostRefreshMessage();
+		PostMessage(MCM_SETHOTITEM,newHash);
+		// show the Rename dialog box
+		if (newPidl && DialogBox(g_Instance,MAKEINTRESOURCE(s_bRTL?IDD_RENAMER:IDD_RENAME),g_OwnerWindow,RenameDlgProc))
+		{
+			pFolder->SetNameOf(g_OwnerWindow,newPidl,g_RenameText,SHGDN_INFOLDER|SHGDN_FOREDITING,NULL);
+			PostRefreshMessage();
+		}
+		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+			(*it)->EnableWindow(TRUE); // enable all menus
+		SetForegroundWindow(m_hWnd);
+		SetActiveWindow();
+		m_Toolbars[0].SetFocus();
+		s_pDragSource=NULL;
+		DestroyMenu(menu);
+		return;
 	}
 
 	// handle the shell commands
@@ -1933,21 +2304,14 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			g_RenamePos=pPt;
 			for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 				(*it)->EnableWindow(FALSE); // disable all menus
-			HWND temp=NULL;
-			if (!m_pParent)
-			{
-				// HACK - if we don't create a temp hidden parent, our top menu is brought to foreground
-				// this puts it in front of the start button. bad.
-				temp=CreateWindow(L"button",NULL,WS_POPUP,0,0,0,0,NULL,NULL,g_Instance,0);
-			}
 
-			bool bRenamed=DialogBox(g_Instance,MAKEINTRESOURCE(s_bRTL?IDD_RENAMER:IDD_RENAME),temp?temp:m_hWnd,RenameDlgProc)!=0;
+			bool bRenamed=DialogBox(g_Instance,MAKEINTRESOURCE(s_bRTL?IDD_RENAMER:IDD_RENAME),g_OwnerWindow,RenameDlgProc)!=0;
 
 			if (bRenamed)
 			{
 				// perform the rename operation
 				PITEMID_CHILD newPidl;
-				if (SUCCEEDED(pFolder->SetNameOf(m_hWnd,pidl,g_RenameText,SHGDN_INFOLDER|SHGDN_FOREDITING,&newPidl)))
+				if (SUCCEEDED(pFolder->SetNameOf(g_OwnerWindow,pidl,g_RenameText,SHGDN_INFOLDER|SHGDN_FOREDITING,&newPidl)))
 				{
 					STRRET str;
 					if (SUCCEEDED(pFolder->GetDisplayNameOf(newPidl,SHGDN_INFOLDER|SHGDN_FORPARSING,&str)))
@@ -1959,14 +2323,17 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 						item.nameHash=CalcFNVHash(name);
 						CoTaskMemFree(name);
 
-						std::vector<SortMenuItem> items;
-						for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
-							if (it->id==MENU_NO)
-							{
-								SortMenuItem item={it->name,it->nameHash,it->bFolder};
-								items.push_back(item);
-							}
-						SaveItemOrder(items);
+						if (!(m_Options&CONTAINER_AUTOSORT))
+						{
+							std::vector<SortMenuItem> items;
+							for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
+								if (it->id==MENU_NO)
+								{
+									SortMenuItem item={it->name,it->nameHash,it->bFolder};
+									items.push_back(item);
+								}
+							SaveItemOrder(items);
+						}
 					}
 					ILFree(newPidl);
 				}
@@ -1974,8 +2341,6 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			}
 			for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 				(*it)->EnableWindow(TRUE); // enable all menus
-			if (temp)
-				::DestroyWindow(temp);
 			SetForegroundWindow(m_hWnd);
 			SetActiveWindow();
 			m_Toolbars[0].SetFocus();
@@ -2007,24 +2372,22 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		s_pDragSource=this; // prevent the menu from closing. the command may need a HWND to show its UI
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			(*it)->EnableWindow(FALSE);
-		HWND temp=NULL;
-		if (!m_pParent)
-			temp=CreateWindow(L"button",NULL,WS_POPUP,0,0,0,0,NULL,NULL,g_Instance,0);
-		info.hwnd=temp?temp:m_hWnd;
+		info.hwnd=g_OwnerWindow;
 
-		pMenu->InvokeCommand((LPCMINVOKECOMMANDINFO)&info);
+		::SetForegroundWindow(g_OwnerWindow);
+		RECT rc;
+		GetWindowRect(&rc);
+		::SetWindowPos(g_OwnerWindow,HWND_TOPMOST,rc.left,rc.top,rc.right-rc.left,rc.bottom-rc.top,0);
+		HRESULT hr=pMenu->InvokeCommand((LPCMINVOKECOMMANDINFO)&info);
 
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			if (!(*it)->m_bDestroyed)
 				(*it)->EnableWindow(TRUE);
-		if (temp)
-			::DestroyWindow(temp);
-		if (!m_bDestroyed)
+		if (bRefresh && !m_bDestroyed)
 		{
 			SetForegroundWindow(m_hWnd);
 			SetActiveWindow();
 			m_Toolbars[0].SetFocus();
-
 		}
 		s_pDragSource=NULL;
 
@@ -2032,6 +2395,132 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			PostRefreshMessage(); // refresh the menu after an item was deleted or created
 	}
 	DestroyMenu(menu);
+}
+
+CMenuFader::CMenuFader( HBITMAP bmp, int duration, RECT &rect )
+{
+	m_Bitmap=bmp;
+	m_Duration=duration;
+	m_Rect=rect;
+	s_Faders.push_back(this);
+}
+
+CMenuFader::~CMenuFader( void )
+{
+	if (m_Bitmap) DeleteObject(m_Bitmap);
+	s_Faders.erase(std::find(s_Faders.begin(),s_Faders.end(),this));
+}
+
+void CMenuFader::Create( void )
+{
+	CWindowImpl<CMenuFader>::Create(NULL,&m_Rect,NULL,WS_VISIBLE|WS_POPUP,WS_EX_TOOLWINDOW|WS_EX_TOPMOST|WS_EX_LAYERED);
+	SetTimer(1,20);
+	m_Time0=GetMessageTime();
+	m_LastTime=0;
+	PostMessage(WM_TIMER,0,0);
+	SetLayeredWindowAttributes(m_hWnd,0,255,LWA_ALPHA);
+}
+
+LRESULT CMenuFader::OnEraseBkgnd( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	RECT rc;
+	GetClientRect(&rc);
+	HDC hdc=(HDC)wParam;
+
+	// draw the background
+	HDC hdc2=CreateCompatibleDC(hdc);
+	HGDIOBJ bmp0=SelectObject(hdc2,m_Bitmap);
+	BitBlt(hdc,0,0,rc.right,rc.bottom,hdc2,0,0,SRCCOPY);
+	SelectObject(hdc2,bmp0);
+	DeleteDC(hdc2);
+	return 1;
+}
+
+LRESULT CMenuFader::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	int t=GetMessageTime()-m_Time0;
+	const int MAX_DELTA=80; // allow at most 80ms between redraws. if more, slow down time
+	if (t>MAX_DELTA+m_LastTime)
+	{
+		m_Time0+=t-MAX_DELTA-m_LastTime;
+		t=MAX_DELTA+m_LastTime;
+	}
+	m_LastTime=t;
+	if (t<m_Duration)
+	{
+		SetLayeredWindowAttributes(m_hWnd,0,(m_Duration-t)*255/m_Duration,LWA_ALPHA);
+		RedrawWindow();
+	}
+	else
+	{
+		KillTimer(1);
+		PostMessage(WM_CLOSE);
+	}
+	return 0;
+}
+
+void CMenuFader::ClearAll( void )
+{
+	while (!s_Faders.empty())
+		s_Faders[0]->SendMessage(WM_CLOSE);
+}
+
+static DWORD WINAPI FaderThreadProc( void *param )
+{
+	((CMenuFader*)param)->Create();
+	MSG msg;
+	while (GetMessage(&msg,NULL,0,0))
+	{
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	return 0;
+}
+
+void CMenuContainer::FadeOutItem( int index )
+{
+	DWORD fade;
+	SystemParametersInfo(SPI_GETSELECTIONFADE,NULL,&fade,0);
+	if (!fade) return;
+
+	int speed=MENU_FADE_SPEED;
+	const wchar_t *str=FindSetting("MenuFadeSpeed");
+	if (str)
+	{
+		speed=_wtol(str);
+		if (speed<0) speed=0;
+		if (speed>10000) speed=10000;
+	}
+	if (!speed) return;
+
+	const MenuItem &item=m_Items[index];
+	CWindow toolbar=m_Toolbars[item.column];
+	RECT rc;
+	toolbar.SendMessage(TB_GETITEMRECT,item.btnIndex,(LPARAM)&rc);
+
+	BITMAPINFO dib={sizeof(dib)};
+	dib.bmiHeader.biWidth=rc.right-rc.left;
+	dib.bmiHeader.biHeight=rc.bottom-rc.top;
+	dib.bmiHeader.biPlanes=1;
+	dib.bmiHeader.biBitCount=24;
+	dib.bmiHeader.biCompression=BI_RGB;
+
+	HDC hdc=CreateCompatibleDC(NULL);
+	unsigned int *bits;
+	HBITMAP bmp=CreateDIBSection(hdc,&dib,DIB_RGB_COLORS,(void**)&bits,NULL,0);
+	HBITMAP bmp0=(HBITMAP)SelectObject(hdc,bmp);
+
+	SetViewportOrgEx(hdc,-rc.left,-rc.top,NULL);
+	SetDCBrushColor(hdc,m_pParent?s_Skin.Submenu_background:s_Skin.Main_background);
+	FillRect(hdc,&rc,(HBRUSH)GetStockObject(DC_BRUSH));
+	toolbar.SendMessage(WM_PRINTCLIENT,(WPARAM)hdc,PRF_CLIENT);
+
+	SelectObject(hdc,bmp0);
+	DeleteDC(hdc);
+
+	toolbar.ClientToScreen(&rc);
+	CMenuFader *pFader=new CMenuFader(bmp,speed,rc);
+	CreateThread(NULL,0,FaderThreadProc,pFader,0,NULL);
 }
 
 LRESULT CMenuContainer::OnClick( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
@@ -2089,28 +2578,30 @@ LRESULT CMenuContainer::OnKeyDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	{
 		// previous item
 		if (index<0) index=0;
-		while (m_Items[index].id==MENU_SEPARATOR)
+		// skip separators and the (Empty) item in the top menu if hidden
+		while (m_Items[index].id==MENU_SEPARATOR || (!m_pParent && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY))
 			index=(index+n-1)%n;
 		index=(index+n-1)%n;
-		while (m_Items[index].id==MENU_SEPARATOR)
+		while (m_Items[index].id==MENU_SEPARATOR || (!m_pParent && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY))
 			index=(index+n-1)%n;
 		ActivateItem(index,ACTIVATE_SELECT,NULL);
 	}
 	if (pKey->nVKey==VK_DOWN)
 	{
 		// next item
-		while (index>=0 && m_Items[index].id==MENU_SEPARATOR)
+		while (index>=0 && (m_Items[index].id==MENU_SEPARATOR || (!m_pParent && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY)))
 			index=(index+1)%n;
 		index=(index+1)%n;
-		while (m_Items[index].id==MENU_SEPARATOR)
+		while (m_Items[index].id==MENU_SEPARATOR || (!m_pParent && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY))
 			index=(index+1)%n;
 		ActivateItem(index,ACTIVATE_SELECT,NULL);
 	}
 	if (pKey->nVKey==VK_ESCAPE || (pKey->nVKey==VK_LEFT && !s_bRTL) || (pKey->nVKey==VK_RIGHT && s_bRTL))
 	{
 		// close top menu
-		s_Menus[s_Menus.size()-1]->PostMessage(WM_CLOSE);
-		if (s_Menus.size()>=2)
+		if (!s_Menus[s_Menus.size()-1]->m_bDestroyed)
+			s_Menus[s_Menus.size()-1]->PostMessage(WM_CLOSE);
+		if (s_Menus.size()>=2 && !s_Menus[s_Menus.size()-2]->m_bDestroyed)
 			s_Menus[s_Menus.size()-2]->SetActiveWindow();
 		if (s_Menus.size()==1)
 		{
@@ -2187,10 +2678,23 @@ LRESULT CMenuContainer::OnChar( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	return TRUE;
 }
 
+LRESULT CMenuContainer::OnSetHotItem( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	for (int i=0;i<(int)m_Items.size();i++)
+	{
+		if (m_Items[i].nameHash==wParam)
+		{
+			ActivateItem(i,ACTIVATE_SELECT,NULL);
+			break;
+		}
+	}
+	return 0;
+}
+
 LRESULT CMenuContainer::OnHotItemChange( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 {
 	NMTBHOTITEM *pItem=(NMTBHOTITEM*)pnmh;
-	if (m_ContextItem!=-1 && pItem->idNew!=m_ContextItem)
+	if (m_ContextItem!=-1 && pItem->idNew!=m_ContextItem+ID_OFFSET)
 		return TRUE;
 	if ((pItem->dwFlags&(HICF_MOUSE|HICF_LEAVING))==HICF_MOUSE)
 	{
@@ -2250,13 +2754,10 @@ LRESULT CMenuContainer::OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 
 	NMTBGETINFOTIP *pTip=(NMTBGETINFOTIP*)pnmh;
 	const MenuItem &item=m_Items[pTip->lParam-ID_OFFSET];
-	int idx=-1;
-	if (item.id!=MENU_NO && item.id!=MENU_SEPARATOR && item.id!=MENU_EMPTY)
-		idx=FindStdMenuItem(item.id);
-	if (idx>=0 && g_StdMenu[idx].tipKey)
+	if (item.pStdItem && (item.pStdItem->tipKey || item.pStdItem->tip))
 	{
 		// show the tip for the standard item
-		wcscpy_s(pTip->pszText,pTip->cchTextMax,FindSetting(g_StdMenu[idx].tipKey,g_StdMenu[idx].tip2));
+		wcscpy_s(pTip->pszText,pTip->cchTextMax,item.pStdItem->tipKey?FindTranslation(item.pStdItem->tipKey,item.pStdItem->tip):item.pStdItem->tip);
 		return 0;
 	}
 
@@ -2396,6 +2897,12 @@ LRESULT CMenuContainer::OnPagerScroll( int idCtrl, LPNMHDR pnmh, BOOL& bHandled 
 
 LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
+	if (m_pAccessible)
+	{
+		NotifyWinEvent(EVENT_SYSTEM_MENUPOPUPEND,m_hWnd,OBJID_CLIENT,CHILDID_SELF);
+		m_pAccessible->Reset();
+		m_pAccessible->Release();
+	}
 	// remember the scroll position
 	unsigned int key=CalcFNVHash(m_RegName);
 	if (m_Pager.m_hWnd)
@@ -2427,6 +2934,8 @@ LRESULT CMenuContainer::OnRefresh( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		s_PagerScrolls.erase(key);
 	InitItems();
 	InitToolbars();
+	m_Toolbars[0].SetFocus();
+	m_Toolbars[0].SendMessage(TB_SETHOTITEM,-1);
 	return 0;
 }
 
@@ -2478,6 +2987,9 @@ LRESULT CMenuContainer::OnActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 	for (std::vector<CMenuContainer*>::const_iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 		if ((*it)->m_hWnd==(HWND)lParam)
 			return 0;
+
+	if ((HWND)lParam==g_OwnerWindow)
+		return 0;
 
 	for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
 		if (!(*it)->m_bDestroyed)
@@ -2531,24 +3043,34 @@ void CMenuContainer::LoadItemOrder( void )
 				regOrder.QueryBinaryValue(L"Order",&hashes[0],&size);
 			}
 		}
-
-		unsigned int hash0=CalcFNVHash(L"");
-
-		// assign each m_Item an index based on its position in items. store in btnIndex
-		// unknown items get the index of the blank item, or at the end
-		for (std::vector<MenuItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
+		if (hashes.size()==1 && hashes[0]=='AUTO')
 		{
-			unsigned int hash=it->nameHash;
-			it->btnIndex=(int)hashes.size();
-			for (size_t i=0;i<hashes.size();i++)
+			m_Options|=CONTAINER_AUTOSORT;
+			for (std::vector<MenuItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
+				it->btnIndex=0;
+		}
+		else
+		{
+			m_Options&=~CONTAINER_AUTOSORT;
+
+			unsigned int hash0=CalcFNVHash(L"");
+
+			// assign each m_Item an index based on its position in items. store in btnIndex
+			// unknown items get the index of the blank item, or at the end
+			for (std::vector<MenuItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
 			{
-				if (hashes[i]==hash)
+				unsigned int hash=it->nameHash;
+				it->btnIndex=(int)hashes.size();
+				for (size_t i=0;i<hashes.size();i++)
 				{
-					it->btnIndex=(int)i;
-					break;
+					if (hashes[i]==hash)
+					{
+						it->btnIndex=(int)i;
+						break;
+					}
+					else if (hashes[i]==hash0)
+						it->btnIndex=(int)i;
 				}
-				else if (hashes[i]==hash0)
-					it->btnIndex=(int)i;
 			}
 		}
 	}
@@ -2562,6 +3084,19 @@ void CMenuContainer::LoadItemOrder( void )
 	std::sort(m_Items.begin(),m_Items.end());
 }
 
+LRESULT CMenuContainer::OnGetAccObject( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	if (lParam==OBJID_CLIENT && m_pAccessible)
+	{
+		return LresultFromObject(IID_IAccessible,wParam,m_pAccessible);
+	}
+	else
+	{
+		bHandled=FALSE;
+		return 0;
+	}
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 bool CMenuContainer::CloseStartMenu( void )
@@ -2570,14 +3105,28 @@ bool CMenuContainer::CloseStartMenu( void )
 
 	::SetActiveWindow(g_StartButton);
 
+	if (s_LastFGWindow)
+		SetForegroundWindow(s_LastFGWindow);
+
 	return true;
+}
+
+void CMenuContainer::HideStartMenu( void )
+{
+	for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+		if (!(*it)->m_bDestroyed)
+			(*it)->ShowWindow(SW_HIDE);
 }
 
 // Toggles the start menu
 HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 {
+	if (!bKeyboard) s_LastFGWindow=NULL;
 	if (CloseStartMenu())
 		return NULL;
+
+	s_LastFGWindow=GetForegroundWindow();
+	SetForegroundWindow(g_StartButton);
 
 	EnableStartTooltip(false);
 
@@ -2585,12 +3134,12 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	StartMenuSettings settings;
 	ReadSettings(settings);
 
-	if (!LoadMenuSkin(settings.SkinName,s_Skin))
-		LoadDefaultMenuSkin(s_Skin);
+	if (!LoadMenuSkin(settings.SkinName,s_Skin,settings.SkinVariation,false))
+		LoadDefaultMenuSkin(s_Skin,NULL,false);
 
 	s_bScrollMenus=(settings.ScrollMenus!=0);
 	s_bExpandLinks=(settings.ExpandLinks!=0);
-	s_MaxRecentDocuments=settings.RecentDocuments;
+	s_MaxRecentDocuments=_wtol(FindSetting("MaxRecentDocuments",L"15"));
 	s_ShellFormat=RegisterClipboardFormat(CFSTR_SHELLIDLIST);
 
 	bool bRemote=GetSystemMetrics(SM_REMOTESESSION)!=0;
@@ -2654,7 +3203,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 			case MENU_DISCONNECT:
 				g_StdOptions[i].options=(bRemote && !SHRestricted(REST_NODISCONNECT))?MENU_ENABLED:0;
 				break;
-			case MENU_SHUTDOWN:
+			case MENU_SHUTDOWN_BOX:
 				g_StdOptions[i].options=(!bRemote && !SHRestricted(REST_NOCLOSE))?MENU_ENABLED:0;
 				break;
 			case MENU_UNDOCK:
@@ -2694,10 +3243,10 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 				break;
 
 			case MENU_HELP:
-				g_StdOptions[i].options=!SHRestricted(REST_NOSMHELP)?MENU_ENABLED:0;
+				g_StdOptions[i].options=FindSettingBool("ShowHelp",!SHRestricted(REST_NOSMHELP))?MENU_ENABLED:0;
 				break;
 			case MENU_RUN:
-				g_StdOptions[i].options=!SHRestricted(REST_NORUN)?MENU_ENABLED:0;
+				g_StdOptions[i].options=FindSettingBool("ShowRun",!SHRestricted(REST_NORUN))?MENU_ENABLED:0;
 				break;
 			case MENU_TASKBAR:
 				g_StdOptions[i].options=!SHRestricted(REST_NOSETTASKBAR)?MENU_ENABLED:0;
@@ -2706,14 +3255,58 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 				g_StdOptions[i].options=(!bNoSetFolders && !SHRestricted(REST_NOCONTROLPANEL))?MENU_ENABLED:0;
 				break;
 			case MENU_SEARCH:
-				g_StdOptions[i].options=!SHRestricted(REST_NOFIND)?MENU_ENABLED:0;
+				g_StdOptions[i].options=FindSettingBool("ShowSearch",!SHRestricted(REST_NOFIND))?MENU_ENABLED:0;
 				break;
 			case MENU_USERFILES:
+				{
+					const wchar_t *str=FindSetting("ShowUserFiles");
+					if (!str)
+						g_StdOptions[i].options=!SHRestricted(REST_NOSMMYDOCS)?MENU_ENABLED:0;
+					else
+					{
+						int x=_wtol(str);
+						if (x==1)
+							g_StdOptions[i].options=MENU_ENABLED;
+						else if (x==2)
+							g_StdOptions[i].options=MENU_ENABLED|MENU_EXPANDED;
+						else
+							g_StdOptions[i].options=0;
+					}
+				}
+				break;
 			case MENU_USERDOCUMENTS:
-				g_StdOptions[i].options=!SHRestricted(REST_NOSMMYDOCS)?MENU_ENABLED:0;
+				{
+					const wchar_t *str=FindSetting("ShowUserDocuments");
+					if (!str)
+						g_StdOptions[i].options=!SHRestricted(REST_NOSMMYDOCS)?MENU_ENABLED:0;
+					else
+					{
+						int x=_wtol(str);
+						if (x==1)
+							g_StdOptions[i].options=MENU_ENABLED;
+						else if (x==2)
+							g_StdOptions[i].options=MENU_ENABLED|MENU_EXPANDED;
+						else
+							g_StdOptions[i].options=0;
+					}
+				}
 				break;
 			case MENU_USERPICTURES:
-				g_StdOptions[i].options=!SHRestricted(REST_NOSMMYPICS)?MENU_ENABLED:0;
+				{
+					const wchar_t *str=FindSetting("ShowUserPictures");
+					if (!str)
+						g_StdOptions[i].options=!SHRestricted(REST_NOSMMYPICS)?MENU_ENABLED:0;
+					else
+					{
+						int x=_wtol(str);
+						if (x==1)
+							g_StdOptions[i].options=MENU_ENABLED;
+						else if (x==2)
+							g_StdOptions[i].options=MENU_ENABLED|MENU_EXPANDED;
+						else
+							g_StdOptions[i].options=0;
+					}
+				}
 				break;
 		}
 	}	
@@ -2730,7 +3323,13 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 
 	RECT taskbarRect;
 	::GetWindowRect(g_TaskBar,&taskbarRect);
-	SystemParametersInfo(SPI_GETMENUSHOWDELAY,NULL,&s_HoverTime,0);
+	{
+		const wchar_t *str=FindSetting("MenuDelay");
+		if (str)
+			s_HoverTime=_wtol(str);
+		else
+			SystemParametersInfo(SPI_GETMENUSHOWDELAY,NULL,&s_HoverTime,0);
+	}
 
 	// create the top menu from the Start Menu folders
 	PIDLIST_ABSOLUTE path1;
@@ -2738,15 +3337,23 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	SHGetKnownFolderIDList(FOLDERID_StartMenu,0,NULL,&path1);
 	SHGetKnownFolderIDList(FOLDERID_CommonStartMenu,0,NULL,&path2);
 
-	int options=CONTAINER_NOPROGRAMS|CONTAINER_DRAG|CONTAINER_DROP;
+	int options=CONTAINER_PROGRAMS|CONTAINER_DRAG|CONTAINER_DROP;
 	if (s_Skin.Main_large_icons)
 		options|=CONTAINER_LARGE;
-	if (settings.ConfirmLogOff)
-		options|=CONTAINER_CONFIRM_LO;
 
-	DWORD fade;
-	SystemParametersInfo(SPI_GETMENUFADE,NULL,&fade,0);
-	DWORD animFlags=(fade?AW_BLEND:AW_SLIDE);
+	DWORD animFlags;
+	{
+		const wchar_t *str=FindSetting("MainMenuAnimation");
+		if (str && _wcsicmp(str,L"none")==0) animFlags=0;
+		else if (str && _wcsicmp(str,L"fade")==0) animFlags=AW_BLEND;
+		else if (str && _wcsicmp(str,L"slide")==0) animFlags=AW_SLIDE;
+		else
+		{
+			DWORD fade;
+			SystemParametersInfo(SPI_GETMENUFADE,NULL,&fade,0);
+			animFlags=(fade?AW_BLEND:AW_SLIDE);
+		}
+	}
 
 	s_bBehindTaskbar=true;
 	s_bShowTopEmpty=false;
@@ -2780,70 +3387,88 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 
 	memset(&margin,0,sizeof(margin));
 	AdjustWindowRect(&margin,dwStyle,FALSE);
-	if (!s_Skin.Main_bitmap)
+	if (s_Skin.Main_bitmap_slices_X[1]>0)
 	{
-		if (s_Skin.Main_bitmap_slices_X[1]>0)
-		{
-			s_Skin.Caption_padding.left+=margin.left; if (s_Skin.Caption_padding.left<0) s_Skin.Caption_padding.left=0;
-			s_Skin.Caption_padding.top+=margin.top; if (s_Skin.Caption_padding.top<0) s_Skin.Caption_padding.top=0;
-			s_Skin.Caption_padding.bottom-=margin.bottom; if (s_Skin.Caption_padding.bottom<0) s_Skin.Caption_padding.bottom=0;
-		}
-		else
-		{
-			// no caption
-			s_Skin.Main_padding.left+=margin.left; if (s_Skin.Main_padding.left<0) s_Skin.Main_padding.left=0;
-		}
-		s_Skin.Main_padding.right-=margin.right; if (s_Skin.Main_padding.right<0) s_Skin.Main_padding.right=0;
-		s_Skin.Main_padding.top+=margin.top; if (s_Skin.Main_padding.top<0) s_Skin.Main_padding.top=0;
-		s_Skin.Main_padding.bottom-=margin.bottom; if (s_Skin.Main_padding.bottom<0) s_Skin.Main_padding.bottom=0;
+		s_Skin.Caption_padding.left+=margin.left; if (s_Skin.Caption_padding.left<0) s_Skin.Caption_padding.left=0;
+		s_Skin.Caption_padding.top+=margin.top; if (s_Skin.Caption_padding.top<0) s_Skin.Caption_padding.top=0;
+		s_Skin.Caption_padding.bottom-=margin.bottom; if (s_Skin.Caption_padding.bottom<0) s_Skin.Caption_padding.bottom=0;
 	}
+	else
+	{
+		// no caption
+		s_Skin.Main_padding.left+=margin.left; if (s_Skin.Main_padding.left<0) s_Skin.Main_padding.left=0;
+	}
+	s_Skin.Main_padding.right-=margin.right; if (s_Skin.Main_padding.right<0) s_Skin.Main_padding.right=0;
+	s_Skin.Main_padding.top+=margin.top; if (s_Skin.Main_padding.top<0) s_Skin.Main_padding.top=0;
+	s_Skin.Main_padding.bottom-=margin.bottom; if (s_Skin.Main_padding.bottom<0) s_Skin.Main_padding.bottom=0;
 
 	if (!bTheme)
 		memset(&margin,0,sizeof(margin)); // in Classic mode don't offset the main menu by the border size
 	RECT rc;
-	if (appbar.uEdge==ABE_BOTTOM)
+	if ((appbar.uEdge==ABE_LEFT || appbar.uEdge==ABE_RIGHT) && FindSettingBool("ShowNextToTaskbar",false))
 	{
-		// taskbar is at the bottom
-		rc.top=rc.bottom=taskbarRect.top+margin.bottom;
-
-		// animate up
-		animFlags|=AW_VER_NEGATIVE;
-	}
-	else if (appbar.uEdge==ABE_TOP)
-	{
-		// taskbar is at the top
-		rc.top=rc.bottom=taskbarRect.bottom+margin.top;
-
-		// animate down
-		animFlags|=AW_VER_POSITIVE;
+		// when the taskbar is on the side and the menu is not on top of it
+		// the start button is assumed at the top
+		rc.top=rc.bottom=s_MainRect.top+margin.top;
+		if (appbar.uEdge==ABE_LEFT)
+		{
+			rc.left=rc.right=taskbarRect.right+margin.left;
+			options|=CONTAINER_LEFT;
+		}
+		else
+		{
+			rc.left=rc.right=taskbarRect.left+margin.right;
+		}
 		options|=CONTAINER_TOP;
+		animFlags|=AW_VER_POSITIVE;
+		s_bBehindTaskbar=true;
 	}
 	else
 	{
-		// taskbar is on the side, start button must be at the top
-		rc.top=rc.bottom=startRect.bottom;
+		if (appbar.uEdge==ABE_BOTTOM)
+		{
+			// taskbar is at the bottom
+			rc.top=rc.bottom=taskbarRect.top+margin.bottom;
 
-		// animate down
-		animFlags|=AW_VER_POSITIVE;
-		options|=CONTAINER_TOP;
-		s_bBehindTaskbar=false;
+			// animate up
+			animFlags|=AW_VER_NEGATIVE;
+		}
+		else if (appbar.uEdge==ABE_TOP)
+		{
+			// taskbar is at the top
+			rc.top=rc.bottom=taskbarRect.bottom+margin.top;
+
+			// animate down
+			animFlags|=AW_VER_POSITIVE;
+			options|=CONTAINER_TOP;
+		}
+		else
+		{
+			// taskbar is on the side, start button must be at the top
+			rc.top=rc.bottom=startRect.bottom;
+
+			// animate down
+			animFlags|=AW_VER_POSITIVE;
+			options|=CONTAINER_TOP;
+			s_bBehindTaskbar=false;
+		}
+
+		if (startRect.right+startRect.left<s_MainRect.left+s_MainRect.right)
+		{
+			// start button on the left
+			rc.left=rc.right=s_MainRect.left+margin.left;
+			options|=CONTAINER_LEFT;
+			s_bExpandRight=true;
+		}
+		else
+		{
+			// start button on the right
+			rc.left=rc.right=s_MainRect.right+margin.right;
+			s_bExpandRight=false;
+		}
 	}
 
-	if (startRect.right<(s_MainRect.left+s_MainRect.right)/2)
-	{
-		// start button on the left
-		rc.left=rc.right=s_MainRect.left+margin.left;
-		options|=CONTAINER_LEFT;
-		s_bExpandRight=true;
-	}
-	else
-	{
-		// start button on the right
-		rc.left=rc.right=s_MainRect.right+margin.right;
-		s_bExpandRight=false;
-	}
-
-	CMenuContainer *pStartMenu=new CMenuContainer(NULL,-1,options,g_StdMenu[0].id,path1,path2,L"Software\\IvoSoft\\ClassicStartMenu\\Order");
+	CMenuContainer *pStartMenu=new CMenuContainer(NULL,-1,options,ParseCustomMenu(),path1,path2,L"Software\\IvoSoft\\ClassicStartMenu\\Order");
 	pStartMenu->InitItems();
 	ILFree(path1);
 	ILFree(path2);
@@ -2861,7 +3486,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	// toolbars don't handle WM_PRINT correctly with RTL, so AnimateWindow doesn't work. disable animations with RTL
 	// AnimateWindow also doesn't work correctly for region, alpha or glass windows
 	// so only LTR and solid windows can animate. bummer.
-	if (s_bRTL || s_Skin.Main_opacity!=MenuSkin::OPACITY_SOLID)
+	if ((animFlags&(AW_BLEND|AW_SLIDE))==0 || s_bRTL || s_Skin.Main_opacity!=MenuSkin::OPACITY_SOLID)
 		animate=FALSE;
 	else
 		SystemParametersInfo(SPI_GETMENUANIMATION,NULL,&animate,0);
@@ -2869,7 +3494,12 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	if (s_bBehindTaskbar)
 		::SetWindowPos(startButton,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE); // bring the start button on top
 	if (animate)
-		AnimateWindow(pStartMenu->m_hWnd,MENU_ANIM_SPEED,animFlags);
+	{
+		int speed=_wtol(FindSetting("MainMenuAnimationSpeed",L""));
+		if (speed<=0) speed=MENU_ANIM_SPEED;
+		else if (speed>=10000) speed=10000;
+		AnimateWindow(pStartMenu->m_hWnd,speed,animFlags);
+	}
 	else
 		pStartMenu->ShowWindow(SW_SHOW);
 	pStartMenu->m_Toolbars[0].SetFocus();
@@ -2877,6 +3507,8 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	// position the start button on top
 	if (s_bBehindTaskbar)
 		::SetWindowPos(startButton,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+
+	SetForegroundWindow(pStartMenu->m_hWnd);
 
 	return pStartMenu->m_hWnd;
 }

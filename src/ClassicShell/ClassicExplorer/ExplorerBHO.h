@@ -27,10 +27,10 @@ public:
 	CExplorerBHO()
 	{
 		m_bResetStatus=true;
+		m_bForceRefresh=false;
 	}
 
 DECLARE_REGISTRY_RESOURCEID(IDR_EXPLORERBHO)
-
 
 BEGIN_COM_MAP(CExplorerBHO)
 	COM_INTERFACE_ENTRY(IExplorerBHO)
@@ -58,6 +58,7 @@ END_COM_MAP()
 		FOLDERS_CLASSIC=2, // use classic XP style
 		FOLDERS_SIMPLE=4, // use simple XP style
 		FOLDERS_NOFADE=8, // don't fade the buttons
+		FOLDERS_AUTONAVIGATE=16, // always navigate to selected folder
 
 		FOLDERS_DEFAULT=FOLDERS_ALTENTER
 	};
@@ -76,6 +77,7 @@ public:
 private:
 	CComPtr<IShellBrowser> m_pBrowser;
 	bool m_bResetStatus;
+	bool m_bForceRefresh;
 
 	static __declspec(thread) HHOOK s_Hook;
 

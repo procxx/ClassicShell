@@ -5,7 +5,8 @@
 
 #include "stdafx.h"
 #include "ExplorerBHO.h"
-#include "..\LocalizationSettings\ParseSettings.h"
+#include "GlobalSettings.h"
+#include "TranslationSettings.h"
 #include <uxtheme.h>
 #include <Ntquery.h>
 
@@ -31,8 +32,29 @@ static BOOL CALLBACK FindFolderTreeEnum( HWND hwnd, LPARAM lParam )
 	return FALSE;
 }
 
+const UINT_PTR TIMER_NAVIGATE='CLSH';
+
+static LRESULT CALLBACK SubclassParentProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+{
+	// when the tree selection changes start a timer to navigate to the new folder in 100ms
+	if (uMsg==WM_NOTIFY && ((NMHDR*)lParam)->code==TVN_SELCHANGED && ((NMTREEVIEW*)lParam)->action==TVC_BYKEYBOARD)
+		SetTimer(((NMHDR*)lParam)->hwndFrom,TIMER_NAVIGATE,100,NULL);
+	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+}
+
 static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
+	if (uMsg==WM_TIMER && wParam==TIMER_NAVIGATE)
+	{
+		// time to navigate to the new folder (simulate pressing Space)
+		PostMessage(hWnd,WM_KEYDOWN,VK_SPACE,0);
+		KillTimer(hWnd,TIMER_NAVIGATE);
+		return 0;
+	}
+
+	if (uMsg==WM_CHAR && wParam==' ')
+		return 0; // ignore the Space character (to stop the tree view from beeping)
+
 	if (uMsg==WM_SYSKEYDOWN && wParam==VK_RETURN)
 	{
 		// Alt+Enter is pressed
@@ -53,6 +75,9 @@ static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, L
 		CRegKey regSettings;
 		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
 			regSettings.QueryDWORDValue(L"FoldersSettings",FoldersSettings);
+
+		if (FoldersSettings&CExplorerBHO::FOLDERS_AUTONAVIGATE)
+			SetWindowSubclass(GetParent(hWnd),SubclassParentProc,'CLSH',0);
 
 		if (!(FoldersSettings&CExplorerBHO::FOLDERS_NOFADE))
 			wParam&=~TVS_EX_FADEINOUTEXPANDOS;
@@ -92,6 +117,14 @@ static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, L
 LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	wchar_t buf[1024];
+	if (uMsg==WM_PAINT && ((CExplorerBHO*)uIdSubclass)->m_bForceRefresh)
+	{
+		// sometimes Explorer doesn't fully initialize the status bar on Windows 7 and leaves it with 1 part
+		// in such case force the view to refresh after the status bar is fully visible
+		((CExplorerBHO*)uIdSubclass)->m_bForceRefresh=false;
+		if (SendMessage(hWnd,SB_GETPARTS,0,0)<=1)
+			PostMessage(GetParent(hWnd),WM_COMMAND,41504,0); // Refresh command
+	}
 	if (uMsg==SB_SETTEXT && LOWORD(wParam)==0)
 	{
 		// when the text of the first part is changing
@@ -138,7 +171,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM 
 								const wchar_t *text=(wchar_t*)lParam;
 								wchar_t str[100];
 								StrFormatByteSize64(size.QuadPart,str,_countof(str));
-								swprintf_s(buf,FindSetting("Status.FreeSpace",L"%s (Disk free space: %s)"),text,str);
+								swprintf_s(buf,FindTranslation("Status.FreeSpace",L"%s (Disk free space: %s)"),text,str);
 								lParam=(LPARAM)buf;
 							}
 						}
@@ -254,6 +287,8 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 				if (m_pBrowser && SUCCEEDED(m_pBrowser->GetControlWindow(FCW_STATUS,&status)))
 					SetWindowSubclass(status,SubclassStatusProc,(UINT_PTR)this,FreeSpace);
 			}
+
+			m_bForceRefresh=(bWin7 && FindSettingBool("ForceRefreshWin7",true));
 		}
 	}
 	else

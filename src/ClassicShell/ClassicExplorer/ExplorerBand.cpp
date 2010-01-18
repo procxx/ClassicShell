@@ -7,7 +7,12 @@
 #include "ExplorerBand.h"
 #include "resource.h"
 #include "ExplorerBHO.h"
-#include "..\LocalizationSettings\ParseSettings.h"
+#include "GlobalSettings.h"
+#include "TranslationSettings.h"
+#include <vector>
+
+const int DEFAULT_BUTTONS=0x1FE; // buttons visible by default
+const int DEFAULT_ONLY_BUTTON=CBandWindow::ID_SETTINGS; // use this button when all buttons are hidden (there must be at least one visible button)
 
 // Dialog proc for the Settings dialog. Edits the settings and saves them to the registry
 INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
@@ -50,7 +55,14 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (regSettings.QueryDWORDValue(L"BigButtons",BigButtons)!=ERROR_SUCCESS)
 			BigButtons=0;
 		if (regSettings.QueryDWORDValue(L"ToolbarButtons",ToolbarButtons)!=ERROR_SUCCESS)
-			ToolbarButtons=((1<<CBandWindow::ID_LAST)-1)&~3;
+			ToolbarButtons=DEFAULT_BUTTONS|((CBandWindow::ID_LAST-1)<<24);
+
+		if (!(ToolbarButtons&0xFF000000)) ToolbarButtons|=0x07000002; // for backwards compatibility (when there were 7 buttons the the button count was not saved)
+		unsigned int mask1=(((2<<(ToolbarButtons>>24))-1)&~1); // bits to keep
+		unsigned int mask2=(((2<<CBandWindow::ID_LAST)-1)&~1)&~mask1; // bits to replace with defaults
+		ToolbarButtons=(ToolbarButtons&mask1)|(DEFAULT_BUTTONS&mask2)|((CBandWindow::ID_LAST-1)<<24);
+		if ((ToolbarButtons&0xFFFFFF)==0)
+			ToolbarButtons|=1<<DEFAULT_ONLY_BUTTON;
 
 		RECT rc1,rc2;
 		GetWindowRect(hwndDlg,&rc1);
@@ -64,6 +76,7 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		CheckDlgButton(hwndDlg,IDC_CHECKCOPYFOLDER,(EnableCopyUI&1)?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKSIZE,FreeSpace?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKBHO,(FoldersSettings&CExplorerBHO::FOLDERS_ALTENTER)?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKAUTO,(FoldersSettings&CExplorerBHO::FOLDERS_AUTONAVIGATE)?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKXPSTYLE,(FoldersSettings&CExplorerBHO::FOLDERS_CLASSIC)?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKSIMPLE,(FoldersSettings&CExplorerBHO::FOLDERS_SIMPLE)?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKNOFADE,(FoldersSettings&CExplorerBHO::FOLDERS_NOFADE)?BST_CHECKED:BST_UNCHECKED);
@@ -74,6 +87,8 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		CheckDlgButton(hwndDlg,IDC_CHECK4,(ToolbarButtons&(1<<CBandWindow::ID_PASTE))?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECK5,(ToolbarButtons&(1<<CBandWindow::ID_DELETE))?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECK6,(ToolbarButtons&(1<<CBandWindow::ID_PROPERTIES))?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECK7,(ToolbarButtons&(1<<CBandWindow::ID_EMAIL))?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECK8,(ToolbarButtons&(1<<CBandWindow::ID_SETTINGS))?BST_CHECKED:BST_UNCHECKED);
 	}
 	if (uMsg==WM_INITDIALOG || (uMsg==WM_COMMAND && (wParam==IDC_CHECKXPSTYLE || wParam==IDC_CHECKSIMPLE)))
 	{
@@ -108,7 +123,14 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (regSettings.QueryDWORDValue(L"BigButtons",BigButtons)!=ERROR_SUCCESS)
 			BigButtons=0;
 		if (regSettings.QueryDWORDValue(L"ToolbarButtons",ToolbarButtons)!=ERROR_SUCCESS)
-			ToolbarButtons=((1<<CBandWindow::ID_LAST)-1)&~3;
+			ToolbarButtons=DEFAULT_BUTTONS|((CBandWindow::ID_LAST-1)<<24);
+		DWORD ToolbarButtons0=ToolbarButtons;
+		if (!(ToolbarButtons&0xFF000000)) ToolbarButtons|=0x07000002; // for backwards compatibility (when there were 7 buttons the the button count was not saved)
+		unsigned int mask1=(((2<<(ToolbarButtons>>24))-1)&~1); // bits to keep
+		unsigned int mask2=(((2<<CBandWindow::ID_LAST)-1)&~1)&~mask1; // bits to replace with defaults
+		ToolbarButtons=(ToolbarButtons&mask1)|(DEFAULT_BUTTONS&mask2)|((CBandWindow::ID_LAST-1)<<24);
+		if ((ToolbarButtons&0xFFFFFF)==0)
+			ToolbarButtons|=1<<DEFAULT_ONLY_BUTTON;
 
 		DWORD EnableCopyUI2=(IsDlgButtonChecked(hwndDlg,IDC_CHECKCOPY)==BST_CHECKED)?2:0;
 		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKCOPYFOLDER)==BST_CHECKED)
@@ -117,6 +139,8 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		DWORD FoldersSettings2=0;
 		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKBHO)==BST_CHECKED)
 			FoldersSettings2|=CExplorerBHO::FOLDERS_ALTENTER;
+		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKAUTO)==BST_CHECKED)
+			FoldersSettings2|=CExplorerBHO::FOLDERS_AUTONAVIGATE;
 		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKXPSTYLE)==BST_CHECKED)
 		{
 			FoldersSettings2|=CExplorerBHO::FOLDERS_CLASSIC;
@@ -134,32 +158,41 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		ToolbarButtons2|=(IsDlgButtonChecked(hwndDlg,IDC_CHECK4)==BST_CHECKED)?(1<<CBandWindow::ID_PASTE):0;
 		ToolbarButtons2|=(IsDlgButtonChecked(hwndDlg,IDC_CHECK5)==BST_CHECKED)?(1<<CBandWindow::ID_DELETE):0;
 		ToolbarButtons2|=(IsDlgButtonChecked(hwndDlg,IDC_CHECK6)==BST_CHECKED)?(1<<CBandWindow::ID_PROPERTIES):0;
+		ToolbarButtons2|=(IsDlgButtonChecked(hwndDlg,IDC_CHECK7)==BST_CHECKED)?(1<<CBandWindow::ID_EMAIL):0;
+		ToolbarButtons2|=(IsDlgButtonChecked(hwndDlg,IDC_CHECK8)==BST_CHECKED)?(1<<CBandWindow::ID_SETTINGS):0;
+		ToolbarButtons2|=((CBandWindow::ID_LAST-1)<<24);
+		if ((ToolbarButtons2&0xFFFFFF)==0)
+			ToolbarButtons2|=1<<DEFAULT_ONLY_BUTTON;
 
 		int res=0;
 		if (EnableCopyUI!=EnableCopyUI2)
 		{
+extern bool g_bHookCopyThreads;
+			if (!g_bHookCopyThreads && (EnableCopyUI2==1 || EnableCopyUI2==2))
+				res|=2;
 			regSettings.SetDWORDValue(L"EnableCopyUI",EnableCopyUI2);
 		}
 		if (FreeSpace!=FreeSpace2)
 		{
 			regSettings.SetDWORDValue(L"FreeSpace",FreeSpace2);
-			res=1;
+			res|=1;
 		}
 		if (FoldersSettings!=FoldersSettings2)
 		{
-			if ((FoldersSettings^FoldersSettings2)!=CExplorerBHO::FOLDERS_ALTENTER)
-				res=1;
 			regSettings.SetDWORDValue(L"FoldersSettings",FoldersSettings2);
+			if ((FoldersSettings^FoldersSettings2)!=CExplorerBHO::FOLDERS_ALTENTER)
+				res|=1;
 		}
 		if (BigButtons!=BigButtons2)
 		{
 			regSettings.SetDWORDValue(L"BigButtons",BigButtons2);
-			res=1;
+			res|=1;
 		}
-		if (ToolbarButtons!=ToolbarButtons2)
+		if (ToolbarButtons0!=ToolbarButtons2)
 		{
 			regSettings.SetDWORDValue(L"ToolbarButtons",ToolbarButtons2);
-			res=1;
+			if (ToolbarButtons!=ToolbarButtons2)
+				res|=1;
 		}
 
 		EndDialog(hwndDlg,res);
@@ -190,6 +223,35 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
 // CBandWindow - the parent window of the toolbar
 
+static HICON LoadIcon( int iconSize, const char *setting, int index, std::vector<HMODULE> &modules, HMODULE hShell32 )
+{
+	const wchar_t *str=FindSetting(setting);
+	if (!str)
+		return (HICON)LoadImage(hShell32,MAKEINTRESOURCE(index),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+	wchar_t text[1024];
+	wcscpy_s(text,str);
+	DoEnvironmentSubst(text,_countof(text));
+	wchar_t *c=wcsrchr(text,',');
+	if (c)
+	{
+		// resource file
+		*c=0;
+		index=_wtol(c+1);
+		HMODULE hMod=GetModuleHandle(PathFindFileName(text));
+		if (!hMod)
+		{
+			hMod=LoadLibraryEx(text,NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+			if (!hMod) return NULL;
+			modules.push_back(hMod);
+		}
+		return (HICON)LoadImage(hMod,MAKEINTRESOURCE(index),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+	}
+	else
+	{
+		return (HICON)LoadImage(NULL,text,IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR|LR_LOADFROMFILE);
+	}
+}
+
 LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
 	// create the toolbar
@@ -207,56 +269,86 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	if (regSettings.QueryDWORDValue(L"BigButtons",BigButtons)!=ERROR_SUCCESS)
 		BigButtons=0;
 	if (regSettings.QueryDWORDValue(L"ToolbarButtons",ToolbarButtons)!=ERROR_SUCCESS)
-		ToolbarButtons=((1<<CBandWindow::ID_LAST)-1)&~3;
-	// pick icon size based on the DPI setting
-	HDC hdc=::GetDC(NULL);
-	int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
-	::ReleaseDC(NULL,hdc);
-	int iconSize;
-	if (dpi>=120)
-		iconSize=BigButtons?32:24;
+		ToolbarButtons=DEFAULT_BUTTONS|((ID_LAST-1)<<24);
+	if (!(ToolbarButtons&0xFF000000)) ToolbarButtons|=0x07000002; // for backwards compatibility (when there were 7 buttons the the button count was not saved)
+	unsigned int mask1=(((2<<(ToolbarButtons>>24))-1)&~1); // bits to keep
+	unsigned int mask2=(((2<<ID_LAST)-1)&~1)&~mask1; // bits to replace with defaults
+	ToolbarButtons=(ToolbarButtons&mask1)|(DEFAULT_BUTTONS&mask2)|((ID_LAST-1)<<24);
+	if ((ToolbarButtons&0xFFFFFF)==0)
+		ToolbarButtons|=1<<DEFAULT_ONLY_BUTTON;
+
+	int iconSize=0;
+	if (BigButtons)
+	{
+		const wchar_t *str=FindSetting("LargeIconSize");
+		if (str) iconSize=_wtol(str);
+	}
 	else
-		iconSize=BigButtons?24:16;
+	{
+		const wchar_t *str=FindSetting("SmallIconSize");
+		if (str) iconSize=_wtol(str);
+	}
+
+	if (iconSize==0)
+	{
+		// pick icon size based on the DPI setting
+		HDC hdc=::GetDC(NULL);
+		int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
+		::ReleaseDC(NULL,hdc);
+		if (dpi>=120)
+			iconSize=BigButtons?32:24;
+		else
+			iconSize=BigButtons?24:16;
+	}
+	else if (iconSize<8) iconSize=8;
+	else if (iconSize>128) iconSize=128;
 
 	m_Enabled=ImageList_Create(iconSize,iconSize,ILC_COLOR32|ILC_MASK|(IsLanguageRTL()?ILC_MIRROR:0),0,2);
 
-	// load icons from Shell32.dll
-	int icons[]={
-		46, // up one level
-		16762, // cut
-		243, // copy
-		16763, // paste
-		240, // delete
-		253, // properties
-		210, // settings
+	TBBUTTON buttons[]={
+		{46,ID_GOUP,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},(DWORD_PTR)"IconUp",(INT_PTR)FindTranslation("Toolbar.GoUp",L"Up One Level")},
+		{16762,ID_CUT,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},(DWORD_PTR)"IconCut",(INT_PTR)FindTranslation("Toolbar.Cut",L"Cut")},
+		{243,ID_COPY,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},(DWORD_PTR)"IconCopy",(INT_PTR)FindTranslation("Toolbar.Copy",L"Copy")},
+		{16763,ID_PASTE,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},(DWORD_PTR)"IconPaste",(INT_PTR)FindTranslation("Toolbar.Paste",L"Paste")},
+		{240,ID_DELETE,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},(DWORD_PTR)"IconDelete",(INT_PTR)FindTranslation("Toolbar.Delete",L"Delete")},
+		{253,ID_PROPERTIES,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},(DWORD_PTR)"IconProperties",(INT_PTR)FindTranslation("Toolbar.Properties",L"Properties")},
+		{265,ID_EMAIL,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},(DWORD_PTR)"IconEmail",(INT_PTR)FindTranslation("Toolbar.Email",L"E-mail the selected items")},
+		{IDI_APPICON,ID_SETTINGS,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},(DWORD_PTR)"IconSettings",(INT_PTR)FindTranslation("Toolbar.Settings",L"Classic Explorer Settings")},
 	};
-	HMODULE hModule=GetModuleHandle(L"Shell32.dll");
 
-	for (int i=0;i<_countof(icons);i++)
+	// load icons from Shell32.dll
+	HMODULE hShell32=GetModuleHandle(L"Shell32.dll");
+	std::vector<HMODULE> modules;
+
+	int count=0; // count up until the last visible button and don't create the rest (we use the last button to get the total toolbar size)
+	for (int i=0;i<_countof(buttons);i++)
 	{
-		HICON icon=(HICON)LoadImage(hModule,MAKEINTRESOURCE(icons[i]),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
-		ImageList_AddIcon(m_Enabled,icon);
-		DestroyIcon(icon);
+		if (!(ToolbarButtons&(1<<buttons[i].idCommand)))
+		{
+			buttons[i].fsState|=TBSTATE_HIDDEN;
+			buttons[i].iBitmap=I_IMAGENONE;
+			continue;
+		}
+		count=i+1;
+		HICON hIcon=LoadIcon(iconSize,(const char*)buttons[i].dwData,buttons[i].iBitmap,modules,(buttons[i].idCommand==ID_SETTINGS?g_Instance:hShell32));
+		if (!hIcon)
+			hIcon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(1),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+		if (hIcon)
+		{
+			buttons[i].iBitmap=ImageList_AddIcon(m_Enabled,hIcon);
+			DestroyIcon(hIcon);
+		}
+		else
+			buttons[i].iBitmap=I_IMAGENONE;
 	}
 
-	HIMAGELIST old=(HIMAGELIST)m_Toolbar.SendMessage(TB_SETIMAGELIST,0,(LPARAM)m_Enabled);
-	if (old) ImageList_Destroy(old);
+	for (std::vector<HMODULE>::const_iterator it=modules.begin();it!=modules.end();++it)
+		FreeLibrary(*it);
 
 	// add buttons
-	ToolbarButtons|=1<<ID_SETTINGS;
-	TBBUTTON buttons[]={
-		{0,ID_GOUP,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.GoUp",L"Up One Level")},
-		{1,ID_CUT,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Cut",L"Cut")},
-		{2,ID_COPY,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Copy",L"Copy")},
-		{3,ID_PASTE,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Paste",L"Paste")},
-		{4,ID_DELETE,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Delete",L"Delete")},
-		{5,ID_PROPERTIES,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Properties",L"Properties")},
-		{6,ID_SETTINGS,TBSTATE_ENABLED,BTNS_BUTTON|BTNS_AUTOSIZE,{0},0,(INT_PTR)FindSetting("Toolbar.Settings",L"Classic Explorer Settings")},
-	};
-	for (int i=0;i<_countof(buttons);i++)
-		if (!(ToolbarButtons&(1<<buttons[i].idCommand)))
-			buttons[i].fsState|=TBSTATE_HIDDEN;
-	m_Toolbar.SendMessage(TB_ADDBUTTONS,_countof(buttons),(LPARAM)buttons);
+	HIMAGELIST old=(HIMAGELIST)m_Toolbar.SendMessage(TB_SETIMAGELIST,0,(LPARAM)m_Enabled);
+	if (old) ImageList_Destroy(old);
+	m_Toolbar.SendMessage(TB_ADDBUTTONS,count,(LPARAM)buttons);
 	return 0;
 }
 
@@ -322,6 +414,37 @@ LRESULT CBandWindow::OnFileOperation( WORD wNotifyCode, WORD wID, HWND hWndCtl, 
 	return TRUE;
 }
 
+LRESULT CBandWindow::OnEmail( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
+{
+	const IID CLSID_SendMail={0x9E56BE60,0xC50F,0x11CF,{0x9A,0x2C,0x00,0xA0,0xC9,0x0A,0x90,0xCE}};
+
+	CComPtr<IShellView> pView;
+	if (FAILED(m_pBrowser->QueryActiveShellView(&pView))) return TRUE;
+
+	// check if there is anything selected
+	CComQIPtr<IFolderView> pView2=pView;
+	int count;
+	if (pView2 && SUCCEEDED(pView2->ItemCount(SVGIO_SELECTION,&count)) && count==0) return TRUE;
+
+	// get the data object
+	CComPtr<IDataObject> pDataObj;
+	if (FAILED(pView->GetItemObject(SVGIO_SELECTION,IID_IDataObject,(void**)&pDataObj))) return TRUE;
+	CComQIPtr<IAsyncOperation> pAsync=pDataObj;
+	if (pAsync)
+		pAsync->SetAsyncMode(FALSE);
+
+	// drop into the SendMail handler
+	CComPtr<IDropTarget> pDropTarget;
+	if (SUCCEEDED(CoCreateInstance(CLSID_SendMail,NULL,CLSCTX_ALL,IID_IDropTarget,(void **)&pDropTarget)))
+	{
+		POINTL pt={0,0};
+		DWORD dwEffect=0;
+		pDropTarget->DragEnter(pDataObj,MK_LBUTTON,pt,&dwEffect);
+		pDropTarget->Drop(pDataObj,0,pt,&dwEffect);
+	}
+	return TRUE;
+}
+
 // Show the settings dialog
 LRESULT CBandWindow::OnSettings( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
 {
@@ -329,9 +452,59 @@ LRESULT CBandWindow::OnSettings( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL&
 	if (GetKeyState(VK_SHIFT)<0)
 		*(int*)0=0; // force a crash if Shift is pressed. Makes it easy to restart explorer.exe
 #endif
-	if (DialogBox(g_Instance,MAKEINTRESOURCE(IDD_SETTINGS),m_hWnd,SettingsDlgProc))
+	INT_PTR res=DialogBox(g_Instance,MAKEINTRESOURCE(IDD_SETTINGS),m_hWnd,SettingsDlgProc);
+	if (res&2)
+		MessageBox(L"You need to log off and back on for the new settings to take effect.",L"Classic Explorer");
+	else if (res&1)
 		MessageBox(L"The new settings will take effect the next time you open an Explorer window.",L"Classic Explorer");
 	return TRUE;
+}
+
+LRESULT CBandWindow::OnRClick( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
+{
+	NMMOUSE *pInfo=(NMMOUSE*)pnmh;
+	POINT pt=pInfo->pt;
+	{
+		RECT rc;
+		int count=(int)m_Toolbar.SendMessage(TB_BUTTONCOUNT);
+		m_Toolbar.SendMessage(TB_GETITEMRECT,count-1,(LPARAM)&rc);
+		if (pt.x>rc.right)
+			return 0;
+	}
+	m_Toolbar.ClientToScreen(&pt);
+	HMENU menu=CreatePopupMenu();
+	AppendMenu(menu,MF_STRING,ID_SETTINGS,FindTranslation("Toolbar.Settings",L"Classic Explorer Settings"));
+	HBITMAP shellBmp=NULL;
+	int size=16;
+	BITMAPINFO bi={0};
+	bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
+	bi.bmiHeader.biWidth=bi.bmiHeader.biHeight=size;
+	bi.bmiHeader.biPlanes=1;
+	bi.bmiHeader.biBitCount=32;
+	HDC hdc=CreateCompatibleDC(NULL);
+	RECT rc={0,0,size,size};
+	HICON icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
+	if (icon)
+	{
+		shellBmp=CreateDIBSection(hdc,&bi,DIB_RGB_COLORS,NULL,NULL,0);
+		HGDIOBJ bmp0=SelectObject(hdc,shellBmp);
+		FillRect(hdc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
+		DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
+		SelectObject(hdc,bmp0);
+		DeleteObject(icon);
+
+		MENUITEMINFO mii={sizeof(mii)};
+		mii.fMask=MIIM_BITMAP;
+		mii.hbmpItem=shellBmp;
+		SetMenuItemInfo(menu,ID_SETTINGS,FALSE,&mii);
+	}
+	DeleteDC(hdc);
+
+	DWORD pos=GetMessagePos();
+	TrackPopupMenu(menu,0,pt.x,pt.y,0,m_hWnd,NULL);
+	DestroyMenu(menu);
+	if (shellBmp) DeleteObject(shellBmp);
+	return 0;
 }
 
 void CBandWindow::UpdateToolbar( void )

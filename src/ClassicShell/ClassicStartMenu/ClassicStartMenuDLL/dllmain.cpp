@@ -4,15 +4,21 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 
 #include "stdafx.h"
-#include "..\LocalizationSettings\ParseSettings.h"
+#include "GlobalSettings.h"
+#include "TranslationSettings.h"
 #include "ClassicStartMenuDLL.h"
 #include "IconManager.h"
 #include "Settings.h"
 
-BOOL APIENTRY DllMain( HMODULE hModule,
-                       DWORD  ul_reason_for_call,
-                       LPVOID lpReserved
-					 )
+#pragma comment(linker, \
+	"\"/manifestdependency:type='Win32' "\
+	"name='Microsoft.Windows.Common-Controls' "\
+	"version='6.0.0.0' "\
+	"processorArchitecture='*' "\
+	"publicKeyToken='6595b64144ccf1df' "\
+	"language='*'\"")
+
+BOOL APIENTRY DllMain( HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved )
 {
 	switch (ul_reason_for_call)
 	{
@@ -22,14 +28,27 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 //		_CrtSetBreakAlloc(91);
 		g_Instance=hModule;
 		{
+#ifdef BUILD_SETUP
+#define INI_PATH L""
+#else
+#define INI_PATH L"..\\"
+#endif
+
 			wchar_t fname[_MAX_PATH];
 			GetModuleFileName(hModule,fname,_countof(fname));
 			*PathFindFileName(fname)=0;
-			wcscat_s(fname,_countof(fname),L"StartMenuL10N.ini");
-			ParseSettings(fname);
+			wcscat_s(fname,_countof(fname),INI_PATH L"StartMenu.ini");
+			ParseGlobalSettings(fname);
+
+			GetModuleFileName(hModule,fname,_countof(fname));
+			*PathFindFileName(fname)=0;
+			wcscat_s(fname,_countof(fname),INI_PATH L"StartMenuL10N.ini");
+			ParseTranslations(fname);
+			g_IconManager.Init();
 		}
 		break;
 	case DLL_PROCESS_DETACH:
+		if (g_OwnerWindow) DestroyWindow(g_OwnerWindow);
 		CloseSettings();
 		// just in case the drop target is not already unhooked, which shouldn't happen
 		// this is not really safe doing here because we don't know which thread this will execute in
@@ -44,4 +63,3 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	}
 	return TRUE;
 }
-

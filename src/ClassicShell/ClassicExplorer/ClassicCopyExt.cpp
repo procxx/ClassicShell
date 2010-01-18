@@ -5,7 +5,7 @@
 
 #include "stdafx.h"
 #include "ClassicCopyExt.h"
-#include "..\LocalizationSettings\ParseSettings.h"
+#include "TranslationSettings.h"
 
 
 // CClassicCopyExt - this is a dummy drag and drop handler. Its purpose is to get Explorer to load the DLL when

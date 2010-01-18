@@ -21,8 +21,6 @@ const DWORD DEFAULT_EXPAND_SHORTCUTS=1;
 const DWORD DEFAULT_SMALL_ICONS=0;
 const DWORD DEFAULT_THEME=1;
 const DWORD DEFAULT_SCROLL_MENUS=0;
-const DWORD DEFAULT_CONFIRM_LOGOFF=0;
-const DWORD DEFAULT_RECENT_DOCUMENTS=15;
 const DWORD DEFAULT_HOTKEY=0;
 
 static HWND g_SettingsDlg;
@@ -38,8 +36,6 @@ static void ReadSettings( HWND hwndDlg, StartMenuSettings &settings )
 	settings.ExpandPrinters=(IsDlgButtonChecked(hwndDlg,IDC_CHECKPRINTERS)==BST_CHECKED)?1:0;
 	settings.ExpandLinks=(IsDlgButtonChecked(hwndDlg,IDC_CHECKLINKS)==BST_CHECKED)?1:0;
 	settings.ScrollMenus=(IsDlgButtonChecked(hwndDlg,IDC_CHECKSCROLL)==BST_CHECKED)?1:0;
-	settings.ConfirmLogOff=(IsDlgButtonChecked(hwndDlg,IDC_CHECKCONFIRM)==BST_CHECKED)?1:0;
-	settings.RecentDocuments=GetDlgItemInt(hwndDlg,IDC_EDITRECENT,NULL,TRUE);
 	settings.Hotkey=(DWORD)SendDlgItemMessage(hwndDlg,IDC_HOTKEY,HKM_GETHOTKEY,0,0);
 	if (IsDlgButtonChecked(hwndDlg,IDC_CHECKHOTKEY)!=BST_CHECKED)
 		settings.Hotkey=0;
@@ -53,6 +49,15 @@ static void ReadSettings( HWND hwndDlg, StartMenuSettings &settings )
 		settings.SkinName.Empty();
 	else
 		settings.SkinName=skinName;
+
+	idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOVAR,CB_GETCURSEL,0,0);
+	if (idx>=0)
+	{
+		SendDlgItemMessage(hwndDlg,IDC_COMBOVAR,CB_GETLBTEXT,idx,(LPARAM)skinName);
+		settings.SkinVariation=skinName;
+	}
+	else
+		settings.SkinVariation.Empty();
 }
 
 // Read the settings from the registry
@@ -85,21 +90,22 @@ void ReadSettings( StartMenuSettings &settings )
 		settings.ExpandLinks=DEFAULT_EXPAND_SHORTCUTS;
 	if (regSettings.QueryDWORDValue(L"ScrollMenus",settings.ScrollMenus)!=ERROR_SUCCESS)
 		settings.ScrollMenus=DEFAULT_SCROLL_MENUS;
-	if (regSettings.QueryDWORDValue(L"ConfirmLogOff",settings.ConfirmLogOff)!=ERROR_SUCCESS)
-		settings.ConfirmLogOff=DEFAULT_CONFIRM_LOGOFF;
-	if (regSettings.QueryDWORDValue(L"RecentDocuments",settings.RecentDocuments)!=ERROR_SUCCESS)
-		settings.RecentDocuments=DEFAULT_RECENT_DOCUMENTS;
 	if (regSettings.QueryDWORDValue(L"Hotkey",settings.Hotkey)!=ERROR_SUCCESS)
 		settings.Hotkey=DEFAULT_HOTKEY;
 	wchar_t skinName[256];
 	ULONG size=_countof(skinName);
 	if (regSettings.QueryStringValue(L"SkinName",skinName,&size)==ERROR_SUCCESS)
+	{
 		settings.SkinName=skinName;
+		size=_countof(skinName);
+		if (regSettings.QueryStringValue(L"SkinVariation",skinName,&size)==ERROR_SUCCESS)
+			settings.SkinVariation=skinName;
+	}
 	else
 	{
 		BOOL comp;
 		if (!IsAppThemed())
-			settings.SkinName=L"Large Icons";
+			settings.SkinName=L"Classic Skin";
 		else if (LOWORD(GetVersion())==0x0006)
 			settings.SkinName=L"Windows Vista Aero";
 		else if (SUCCEEDED(DwmIsCompositionEnabled(&comp)) && comp)
@@ -118,6 +124,38 @@ static HRESULT CALLBACK TaskDialogCallbackProc( HWND hwnd, UINT uNotification, W
 	return S_OK;
 }
 
+
+static void InitSkinVariations( HWND hwndDlg, const wchar_t *var )
+{
+	wchar_t skinName[256];
+	int idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETCURSEL,0,0);
+	SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETLBTEXT,idx,(LPARAM)skinName);
+	MenuSkin skin;
+	if (!LoadMenuSkin(skinName,skin,NULL,true))
+		skin.Variations.clear();
+
+	HWND label=GetDlgItem(hwndDlg,IDC_STATICVAR);
+	HWND combo=GetDlgItem(hwndDlg,IDC_COMBOVAR);
+	SendMessage(combo,CB_RESETCONTENT,0,0);
+	if (skin.Variations.empty())
+	{
+		ShowWindow(label,SW_HIDE);
+		ShowWindow(combo,SW_HIDE);
+	}
+	else
+	{
+		ShowWindow(label,SW_SHOW);
+		ShowWindow(combo,SW_SHOW);
+		idx=0;
+		for (int i=0;i<(int)skin.Variations.size();i++)
+		{
+			SendMessage(combo,CB_ADDSTRING,0,(LPARAM)(const wchar_t*)skin.Variations[i].second);
+			if (var && wcscmp(var,skin.Variations[i].second)==0)
+				idx=i;
+		}
+		SendMessage(combo,CB_SETCURSEL,idx,0);
+	}
+}
 
 // Dialog proc for the settings dialog box. Edits and saves the settings.
 static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
@@ -167,14 +205,10 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		CheckDlgButton(hwndDlg,IDC_CHECKPRINTERS,settings.ExpandPrinters?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKLINKS,settings.ExpandLinks?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKSCROLL,settings.ScrollMenus?BST_CHECKED:BST_UNCHECKED);
-		CheckDlgButton(hwndDlg,IDC_CHECKCONFIRM,settings.ConfirmLogOff?BST_CHECKED:BST_UNCHECKED);
-		SetDlgItemInt(hwndDlg,IDC_EDITRECENT,settings.RecentDocuments,TRUE);
 		CheckDlgButton(hwndDlg,IDC_CHECKHOTKEY,settings.Hotkey!=0?BST_CHECKED:BST_UNCHECKED);
 		if (settings.Hotkey!=0 && settings.Hotkey!=1)
 			SendDlgItemMessage(hwndDlg,IDC_HOTKEY,HKM_SETHOTKEY,settings.Hotkey,0);
 		SendDlgItemMessage(hwndDlg,IDC_HOTKEY,HKM_SETRULES,HKCOMB_NONE|HKCOMB_S|HKCOMB_C,HOTKEYF_CONTROL|HOTKEYF_ALT);
-		EnableWindow(GetDlgItem(hwndDlg,IDC_EDITRECENT),settings.ShowDocuments!=0);
-		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKCONFIRM),settings.ShowLogOff!=0);
 		EnableWindow(GetDlgItem(hwndDlg,IDC_HOTKEY),settings.Hotkey!=0);
 
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKFAVORITES),!SHRestricted(REST_NOFAVORITESMENU));
@@ -182,13 +216,11 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 
 		BOOL bDocuments=!SHRestricted(REST_NORECENTDOCSMENU);
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKDOCUMENTS),bDocuments);
-		EnableWindow(GetDlgItem(hwndDlg,IDC_EDITRECENT),bDocuments);
 
 		DWORD logoff1=SHRestricted(REST_STARTMENULOGOFF);
 		DWORD logoff2=SHRestricted(REST_FORCESTARTMENULOGOFF);
 		BOOL bLogOff=!SHRestricted(REST_STARTMENULOGOFF) && !SHRestricted(REST_FORCESTARTMENULOGOFF);
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKLOGOFF),logoff1==0 && !logoff2);
-		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKCONFIRM),logoff1!=1);
 
 		bool bNoSetFolders=SHRestricted(REST_NOSETFOLDERS)!=0; // hide control panel, printers, network
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKCONTROLPANEL),!bNoSetFolders && !SHRestricted(REST_NOCONTROLPANEL));
@@ -222,19 +254,16 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			}
 			if (!FindNextFile(h,&data)) break;
 		}
+		InitSkinVariations(hwndDlg,settings.SkinVariation);
+		return TRUE;
+	}
 
-		return TRUE;
-	}
-	if (uMsg==WM_COMMAND && wParam==IDC_CHECKDOCUMENTS)
+	if (uMsg==WM_COMMAND && wParam==MAKEWPARAM(IDC_COMBOSKIN,CBN_SELENDOK))
 	{
-		EnableWindow(GetDlgItem(hwndDlg,IDC_EDITRECENT),IsDlgButtonChecked(hwndDlg,IDC_CHECKDOCUMENTS)==BST_CHECKED);
+		InitSkinVariations(hwndDlg,NULL);
 		return TRUE;
 	}
-	if (uMsg==WM_COMMAND && wParam==IDC_CHECKLOGOFF)
-	{
-		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKCONFIRM),IsDlgButtonChecked(hwndDlg,IDC_CHECKLOGOFF)==BST_CHECKED);
-		return TRUE;
-	}
+
 	if (uMsg==WM_COMMAND && wParam==IDC_CHECKHOTKEY)
 	{
 		EnableWindow(GetDlgItem(hwndDlg,IDC_HOTKEY),IsDlgButtonChecked(hwndDlg,IDC_CHECKHOTKEY)==BST_CHECKED);
@@ -249,7 +278,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		MenuSkin skin;
 		wchar_t caption[256];
 		swprintf_s(caption,L"About skin %s",name);
-		if (!LoadMenuSkin(name,skin))
+		if (!LoadMenuSkin(name,skin,NULL,true))
 		{
 			MessageBox(hwndDlg,L"Failed to load skin.",caption,MB_OK|MB_ICONERROR);
 			return TRUE;
@@ -279,11 +308,10 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		regSettings.SetDWORDValue(L"ExpandPrinters",settings.ExpandPrinters);
 		regSettings.SetDWORDValue(L"ExpandLinks",settings.ExpandLinks);
 		regSettings.SetDWORDValue(L"ScrollMenus",settings.ScrollMenus);
-		regSettings.SetDWORDValue(L"ConfirmLogOff",settings.ConfirmLogOff);
-		regSettings.SetDWORDValue(L"RecentDocuments",settings.RecentDocuments);
 		regSettings.SetDWORDValue(L"Hotkey",settings.Hotkey);
 		s_Hotkey=settings.Hotkey;
 		regSettings.SetStringValue(L"SkinName",settings.SkinName);
+		regSettings.SetStringValue(L"SkinVariation",settings.SkinVariation);
 
 		DestroyWindow(hwndDlg);
 		return TRUE;
@@ -323,6 +351,7 @@ void EditSettings( bool bModal )
 	{
 		HWND dlg=CreateDialog(g_Instance,MAKEINTRESOURCE(IDD_SETTINGS),NULL,SettingsDlgProc);
 		ShowWindow(dlg,SW_SHOWNORMAL);
+		SetForegroundWindow(dlg);
 		if (bModal)
 		{
 			MSG msg;

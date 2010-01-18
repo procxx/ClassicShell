@@ -3,11 +3,14 @@
 
 #pragma once
 
+#include <vector>
+
 struct MenuSkin
 {
 	CString About; // the text to show in the About box
 	HICON AboutIcon; // the icon to show in the About box
 	bool ForceRTL;
+	std::vector<std::pair<int,CString>> Variations;
 
 	// MAIN BITMAP SECTION - describes the background of the main menu
 	HBITMAP Main_bitmap;
@@ -78,8 +81,8 @@ struct MenuSkin
 	void Reset( void );
 };
 
-bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin );
-void LoadDefaultMenuSkin( MenuSkin &skin );
+bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variation, bool bNoResources );
+void LoadDefaultMenuSkin( MenuSkin &skin, const wchar_t *variation, bool bNoResources );
 void FreeMenuSkin( MenuSkin &skin );
 
 // Returns the path to the skin files. path must be _MAX_PATH characters

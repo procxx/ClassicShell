@@ -502,6 +502,14 @@
 			>
 		</File>
 		<File
+			RelativePath=".\StartMenu.ini"
+			>
+		</File>
+		<File
+			RelativePath=".\StartMenuItems.ini"
+			>
+		</File>
+		<File
 			RelativePath=".\StartMenuL10N.ini"
 			>
 		</File>

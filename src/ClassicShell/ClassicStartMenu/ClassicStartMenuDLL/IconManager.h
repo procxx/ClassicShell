@@ -10,7 +10,6 @@
 class CIconManager
 {
 public:
-	CIconManager( void );
 	~CIconManager( void );
 
 	static int LARGE_ICON_SIZE;
@@ -18,12 +17,17 @@ public:
 	HIMAGELIST m_LargeIcons;
 	HIMAGELIST m_SmallIcons;
 
+	// Initializes the manager. Called from DllMain
+	void Init( void );
+
 	// Retrieves an icon from a shell folder and child ID
-	int GetIcon( IShellFolder *pFolder, PITEMID_CHILD item, bool bLarge );
+	int GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLarge );
 	// Retrieves an icon from a file and icon index (index>=0 - icon index, index<0 - resource ID)
 	int GetIcon( const wchar_t *location, int index, bool bLarge );
 	// Retrieves an icon from shell32.dll by resource ID
 	int GetStdIcon( int id, bool bLarge );
+	// Retrieves an icon for a custom menu item
+	int GetCustomIcon( const wchar_t *path, bool bLarge );
 
 	// Must be called when the start menu is about to be unloaded
 	void StopPreloading( bool bWait );

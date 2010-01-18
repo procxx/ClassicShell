@@ -15,10 +15,9 @@ struct StartMenuSettings
 	DWORD ExpandPrinters;
 	DWORD ExpandLinks;
 	DWORD ScrollMenus;
-	DWORD ConfirmLogOff;
-	DWORD RecentDocuments;
 	DWORD Hotkey; // 0 - Win key, 1 - no key
 	CString SkinName;
+	CString SkinVariation;
 };
 
 // Read the settings from the registry

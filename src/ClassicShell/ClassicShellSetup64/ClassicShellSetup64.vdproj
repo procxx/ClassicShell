@@ -51,6 +51,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_4C7E1FBF7CF84DC9930DD983E1B6CB7E"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_4CA9B16E47B84EAD84103EA9B8C2A280"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -64,6 +70,12 @@
         "Entry"
         {
         "MsmKey" = "8:_5AA47F118E79416C95DB40B2057B6786"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_69D57E4B30094411AB90F141A0A5D31E"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -87,7 +99,7 @@
         }
         "Entry"
         {
-        "MsmKey" = "8:_823CF2910CC349E2830300D6AE25EF39"
+        "MsmKey" = "8:_8A6C1F82947D4314B3033C35F531E822"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -142,6 +154,12 @@
         "Entry"
         {
         "MsmKey" = "8:_D55CE48B0D5D457590D62955FAEDF338"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_DC730B12EA1643B892511DAD57BFCAFA"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -349,6 +367,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_4C7E1FBF7CF84DC9930DD983E1B6CB7E"
+            {
+            "SourcePath" = "8:..\\ClassicExplorer\\Explorer.ini"
+            "TargetName" = "8:Explorer.ini"
+            "Tag" = "8:"
+            "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
+            "Condition" = "8:CHECK_EXPLORER"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_4CA9B16E47B84EAD84103EA9B8C2A280"
             {
             "SourcePath" = "8:..\\Docs\\ClassicExplorer_files\\FolderView.gif"
@@ -373,6 +411,26 @@
             {
             "SourcePath" = "8:..\\ClassicStartMenu\\StartMenuL10N.ini"
             "TargetName" = "8:StartMenuL10N.ini"
+            "Tag" = "8:"
+            "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_69D57E4B30094411AB90F141A0A5D31E"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\StartMenu.ini"
+            "TargetName" = "8:StartMenu.ini"
             "Tag" = "8:"
             "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
             "Condition" = "8:CHECK_STARTMENU"
@@ -416,6 +474,26 @@
             "Tag" = "8:"
             "Folder" = "8:_72CC6D70B1724AC6A7E3B3DF4086200D"
             "Condition" = "8:CHECK_EXPLORER"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_8A6C1F82947D4314B3033C35F531E822"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\StartMenuItems.ini"
+            "TargetName" = "8:StartMenuItems.ini"
+            "Tag" = "8:"
+            "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
+            "Condition" = "8:CHECK_STARTMENU"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
             "ReadOnly" = "11:FALSE"
@@ -685,14 +763,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Classic Shell"
-        "ProductCode" = "8:{4F5A8EAD-D866-47CB-85C3-E17BB328687E}"
-        "PackageCode" = "8:{7353B374-29D7-4538-9422-19D115D41865}"
+        "ProductCode" = "8:{029C99FA-B112-486A-8350-DA2099C812ED}"
+        "PackageCode" = "8:{E02002CA-71F8-4768-A4EB-C10E29C60A7C}"
         "UpgradeCode" = "8:{779A74EF-23DE-4C71-AC12-2EE5A542ED34}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:0.9.8"
+        "ProductVersion" = "8:0.9.9"
         "Manufacturer" = "8:IvoSoft"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -1645,34 +1723,6 @@
                 {
                 }
             }
-            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_823CF2910CC349E2830300D6AE25EF39"
-            {
-            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Large Icons.skin"
-            "TargetName" = "8:"
-            "Tag" = "8:"
-            "Folder" = "8:_F9BB55954BD441C1B0A5FADD1DBEABC1"
-            "Condition" = "8:CHECK_STARTMENU"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:FALSE"
-            "IsolateTo" = "8:"
-            "ProjectOutputGroupRegister" = "3:1"
-            "OutputConfiguration" = "8:"
-            "OutputGroupCanonicalName" = "8:Built"
-            "OutputProjectGuid" = "8:{9B1B89CD-31CA-4C15-8F57-80299FBF25C1}"
-            "ShowKeyOutput" = "11:TRUE"
-                "ExcludeFilters"
-                {
-                }
-            }
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_A023F7C592924D55B63B857CA3803F79"
             {
             "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Windows Vista Aero.skin"
@@ -1780,6 +1830,34 @@
             "OutputConfiguration" = "8:Setup|x64"
             "OutputGroupCanonicalName" = "8:Built"
             "OutputProjectGuid" = "8:{87D5FE20-AF86-458A-9AA3-3131EB06179B}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_DC730B12EA1643B892511DAD57BFCAFA"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Classic Skin.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_F9BB55954BD441C1B0A5FADD1DBEABC1"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{9EC23CA9-384A-4EEB-979E-69879DC1A78C}"
             "ShowKeyOutput" = "11:TRUE"
                 "ExcludeFilters"
                 {

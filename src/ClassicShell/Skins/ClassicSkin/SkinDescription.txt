@@ -1,10 +1,21 @@
-; Large Icons skin
+; Classic skin
 
 ; About - text to use in the About box for this skin. use \n for new line
-About=Large Icons skin\n\nClassic look with large icons.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2010, Ivo Beltchev
+About=Classic skin\n\nClassic look with large or small icons.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2010, Ivo Beltchev
 
 ; AboutIcon - the ID of an icon resource to use in the About box
 AboutIcon=1
+
+; Variation1, Variation2, ... - variations of the skin
+; Variation1 is the default variation
+; Each variation has a SKIN resource ID and a name
+; The resource is a text file with overrides for some parameters. For Variation1 the resource ID must be 0 (no resource) and it can't override any parameters
+; The name is the display name in the settings UI
+; The number in the Variation# parameter name determines the position in the settings UI. The numbers must start from 1 and be sequential with no gaps
+Variation1=0, "Large Icons, Solid Selection"
+Variation2=2, "Large Icons, Gradient Selection"
+Variation3=3, "Small Icons, Solid Selection"
+Variation4=4, "Small Icons, Gradient Selection"
 
 
 ;MAIN BITMAP SECTION - describes the background of the main menu
@@ -39,7 +50,7 @@ Caption_font="Segoe UI",normal,18
 Caption_text_color=#FFFFFF
 
 ; Caption_padding - number of pixels to add on left/top/right/bottom of the caption
-Caption_padding=2,2,2,12
+Caption_padding=3,3,3,12
 
 
 ;MAIN MENU SECTION - describes the menu portion of the main menu
@@ -51,7 +62,7 @@ Caption_padding=2,2,2,12
 Main_large_icons=1
 
 ; Main_padding - number of pixels to add on left/top/right/bottom of the menu
-Main_padding=0,1,1,1
+Main_padding=0,2,2,2
 
 ; Main_thin_frame - use a thin 1-pixel frame instead of the thick 3D frame
 ; This parameter is only used in Classic mode, and when Main_opacity is "solid". Default is 0

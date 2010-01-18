@@ -12,7 +12,7 @@
 class CIDropSource: public IDropSource
 {
 public:
-	CIDropSource( bool bRight ) { m_bRight=bRight; }
+	CIDropSource( bool bRight ) { m_bRight=bRight; m_bClosed=false; m_Time=GetMessageTime(); }
 	// IUnknown
 	virtual STDMETHODIMP QueryInterface( REFIID riid, void **ppvObject )
 	{
@@ -31,6 +31,32 @@ public:
 	// IDropSource
 	virtual STDMETHODIMP QueryContinueDrag( BOOL fEscapePressed, DWORD grfKeyState )
 	{
+		if (!m_bClosed)
+		{
+			// if the mouse is outside of the menu for more than 4 seconds close the menu
+			DWORD pos=GetMessagePos();
+			POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
+			HWND hWnd=WindowFromPoint(pt);
+			if (hWnd) hWnd=GetAncestor(hWnd,GA_ROOT);
+			wchar_t name[256];
+			if (hWnd)
+				GetClassName(hWnd,name,_countof(name));
+			else
+				name[0]=0;
+			if (_wcsicmp(name,L"ClassicShell.CMenuContainer")==0)
+			{
+				m_Time=GetMessageTime();
+			}
+			else
+			{
+				int dt=GetMessageTime()-m_Time;
+				if (dt>4000)
+				{
+					m_bClosed=true;
+					CMenuContainer::HideStartMenu();
+				}
+			}
+		}
 		if (m_bRight)
 		{
 			if (fEscapePressed || (grfKeyState&MK_LBUTTON))
@@ -54,8 +80,12 @@ public:
 		return DRAGDROP_S_USEDEFAULTCURSORS;
 	}
 
+	bool IsClosed( void ) { return m_bClosed; }
+
 private:
 	bool m_bRight;
+	bool m_bClosed;
+	long m_Time;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -90,9 +120,18 @@ LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	s_pDragSource=this;
 	m_DragIndex=pInfo->iItem-ID_OFFSET;
 	CIDropSource src(!bLeft);
-	DWORD dwEffect=DROPEFFECT_COPY|DROPEFFECT_MOVE;
-	if (!item.bLink) dwEffect|=DROPEFFECT_LINK;
+	DWORD dwEffect=DROPEFFECT_COPY|DROPEFFECT_MOVE|DROPEFFECT_LINK;
 	HRESULT res=SHDoDragDrop(NULL,pDataObj,&src,dwEffect,&dwEffect);
+
+	s_pDragSource=NULL;
+
+	if (src.IsClosed())
+	{
+		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+			if (!(*it)->m_bDestroyed)
+				(*it)->PostMessage(WM_CLOSE);
+		return 0;
+	}
 
 	if (res==DRAGDROP_S_DROP && !m_bDestroyed)
 	{
@@ -100,6 +139,7 @@ LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 		SFGAOF flags=SFGAO_VALIDATE;
 		if (FAILED(pFolder->GetAttributesOf(1,&pidl,&flags)))
 		{
+			SetActiveWindow();
 			// close all submenus
 			for (int i=(int)s_Menus.size()-1;s_Menus[i]!=this;i--)
 				if (!s_Menus[i]->m_bDestroyed)
@@ -116,7 +156,6 @@ LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 			s_Menus[i]->SetActiveWindow();
 			break;
 		}
-	s_pDragSource=NULL;
 
 	return 0;
 }
@@ -164,8 +203,10 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 		*pdwEffect&=DROPEFFECT_MOVE;
 	else if (grfKeyState==MK_CONTROL)
 		*pdwEffect&=DROPEFFECT_COPY;
+	else if (grfKeyState==0 && s_pDragSource==this)
+		*pdwEffect&=DROPEFFECT_MOVE;
 	else
-		*pdwEffect&=((s_pDragSource && ((s_pDragSource->m_Options&CONTAINER_PROGRAMS) || !s_pDragSource->m_pParent))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
+		*pdwEffect&=((s_pDragSource && (s_pDragSource->m_Options&CONTAINER_PROGRAMS))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
 
 	// only accept CFSTR_SHELLIDLIST data
 	FORMATETC format={s_ShellFormat,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
@@ -228,8 +269,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 				if (m_Items[index].id!=MENU_NO && m_Items[index].id!=MENU_EMPTY && (index==m_Items.size()-1 || m_Items[index+1].id!=MENU_NO))
 					mark.iButton=-1;
 			}
-			m_DropToolbar.SendMessage(TB_SETINSERTMARK,0,(LPARAM)&mark);
-			if (mark.iButton==-1 && m_Items[index].bFolder && m_Items[index].bPrograms)
+			if (mark.iButton==-1 && m_Items[index].bFolder && (m_Items[index].bPrograms || m_Items[index].id==MENU_NO))
 			{
 				m_DropToolbar.SendMessage(TB_SETHOTITEM,btnIndex);
 			}
@@ -237,6 +277,9 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 			{
 				m_DropToolbar.SendMessage(TB_SETHOTITEM,-1);
 			}
+			if ((m_Options&CONTAINER_AUTOSORT) && s_pDragSource==this)
+				mark.iButton=-1;
+			m_DropToolbar.SendMessage(TB_SETINSERTMARK,0,(LPARAM)&mark);
 		}
 		else
 		{
@@ -248,10 +291,11 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 		// check if the hover delay is done and it's time to open the item
 		if (index>=0 && index==m_DragHoverItem)
 		{
-			if ((GetMessageTime()-m_DragHoverTime)>(int)s_HoverTime && m_Submenu!=m_DragHoverItem && (!m_Items[index].bFolder || m_Items[index].bPrograms))
+			if ((GetMessageTime()-m_DragHoverTime)>(int)s_HoverTime && m_Submenu!=m_DragHoverItem)
 			{
 				// expand m_DragHoverItem
-				ActivateItem(index,ACTIVATE_OPEN,NULL);
+				if (!m_Items[index].bFolder || m_Items[index].pItem1)
+					ActivateItem(index,ACTIVATE_OPEN,NULL);
 				if (!m_Items[index].bFolder)
 					m_DropToolbar.SendMessage(TB_SETHOTITEM,-1);
 			}
@@ -292,8 +336,10 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 			*pdwEffect&=DROPEFFECT_MOVE;
 		else if (grfKeyState==MK_CONTROL)
 			*pdwEffect&=DROPEFFECT_COPY;
+		else if (grfKeyState==0 && s_pDragSource==this)
+			*pdwEffect&=DROPEFFECT_MOVE;
 		else
-			*pdwEffect&=((s_pDragSource && ((s_pDragSource->m_Options&CONTAINER_PROGRAMS) || !s_pDragSource->m_pParent))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
+			*pdwEffect&=((s_pDragSource && (s_pDragSource->m_Options&CONTAINER_PROGRAMS))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
 		grfKeyState=0;
 	}
 	else if (!grfKeyState && (*pdwEffect&DROPEFFECT_LINK))
@@ -328,20 +374,23 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 	if (s_pDragSource==this && (*pdwEffect&DROPEFFECT_MOVE))
 	{
 		// dropped in the same menu, just rearrange the items
-		std::vector<SortMenuItem> items;
-		for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
-			if (it->id==MENU_NO)
-			{
-				SortMenuItem item={it->name,it->nameHash,it->bFolder};
-				items.push_back(item);
-			}
-		SortMenuItem drag=items[m_DragIndex];
-		items.erase(items.begin()+m_DragIndex);
-		if (before>m_DragIndex)
-			before--;
-		items.insert(items.begin()+before,drag);
-		SaveItemOrder(items);
-		PostRefreshMessage();
+		if (!(m_Options&CONTAINER_AUTOSORT))
+		{
+			std::vector<SortMenuItem> items;
+			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
+				if (it->id==MENU_NO)
+				{
+					SortMenuItem item={it->name,it->nameHash,it->bFolder};
+					items.push_back(item);
+				}
+			SortMenuItem drag=items[m_DragIndex];
+			items.erase(items.begin()+m_DragIndex);
+			if (before>m_DragIndex)
+				before--;
+			items.insert(items.begin()+before,drag);
+			SaveItemOrder(items);
+			PostRefreshMessage();
+		}
 	}
 	else if (m_pDropFolder)
 	{
@@ -377,16 +426,19 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 		SetActiveWindow();
 		m_Toolbars[0].SetFocus();
 
-		std::vector<SortMenuItem> items;
-		for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
-			if (it->id==MENU_NO)
-			{
-				SortMenuItem item={it->name,it->nameHash,it->bFolder};
-				items.push_back(item);
-			}
-		SortMenuItem ins={L"",CalcFNVHash(L""),false};
-		items.insert(items.begin()+before,ins);
-		SaveItemOrder(items);
+		if (!(m_Options&CONTAINER_AUTOSORT))
+		{
+			std::vector<SortMenuItem> items;
+			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
+				if (it->id==MENU_NO)
+				{
+					SortMenuItem item={it->name,it->nameHash,it->bFolder};
+					items.push_back(item);
+				}
+			SortMenuItem ins={L"",CalcFNVHash(L""),false};
+			items.insert(items.begin()+before,ins);
+			SaveItemOrder(items);
+		}
 		PostRefreshMessage();
 	}
 	return S_OK;

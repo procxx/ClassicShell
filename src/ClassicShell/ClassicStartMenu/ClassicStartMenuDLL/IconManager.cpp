@@ -4,7 +4,8 @@
 #include "stdafx.h"
 #include "IconManager.h"
 #include "FNVHash.h"
-#include "ParseSettings.h"
+#include "GlobalSettings.h"
+#include "TranslationSettings.h"
 
 const int MAX_FOLDER_LEVEL=10; // don't go more than 10 levels deep
 
@@ -17,7 +18,7 @@ CRITICAL_SECTION CIconManager::s_PreloadSection;
 
 CIconManager g_IconManager; // must be after s_PreloadedIcons and s_PreloadSection because the constructor starts a thread that uses the Preloaded stuff
 
-CIconManager::CIconManager( void )
+void CIconManager::Init( void )
 {
 	wchar_t path[_MAX_PATH];
 	GetModuleFileName(NULL,path,_countof(path));
@@ -26,18 +27,34 @@ CIconManager::CIconManager( void )
 	// so we hack it here
 	if (_wcsicmp(PathFindFileName(path),L"ClassicStartMenu.exe")==0)
 		SetProcessDPIAware();
-	HDC hdc=::GetDC(NULL);
-	s_DPI=GetDeviceCaps(hdc,LOGPIXELSY);
-	::ReleaseDC(NULL,hdc);
 	int iconSize;
-	if (s_DPI>120)
-		iconSize=24;
-	else if (s_DPI>96)
-		iconSize=20;
+	const wchar_t *str=FindSetting("SmallIconSize");
+	if (str)
+	{
+		iconSize=_wtol(str);
+		if (iconSize<8) iconSize=8;
+		if (iconSize>128) iconSize=128;
+	}
 	else
-		iconSize=16;
-	LARGE_ICON_SIZE=iconSize*2;
+	{
+		HDC hdc=::GetDC(NULL);
+		s_DPI=GetDeviceCaps(hdc,LOGPIXELSY);
+		::ReleaseDC(NULL,hdc);
+		if (s_DPI>120)
+			iconSize=24;
+		else if (s_DPI>96)
+			iconSize=20;
+		else
+			iconSize=16;
+	}
 	SMALL_ICON_SIZE=iconSize;
+	str=FindSetting("LargeIconSize");
+	if (str)
+		LARGE_ICON_SIZE=_wtol(str);
+	else
+		LARGE_ICON_SIZE=iconSize*2;
+	if (LARGE_ICON_SIZE<8) LARGE_ICON_SIZE=8;
+	if (LARGE_ICON_SIZE>128) LARGE_ICON_SIZE=128;
 
 	bool bRTL=IsLanguageRTL();
 	// create the image lists
@@ -88,7 +105,7 @@ CIconManager::~CIconManager( void )
 }
 
 // Retrieves an icon from a shell folder and child ID
-int CIconManager::GetIcon( IShellFolder *pFolder, PITEMID_CHILD item, bool bLarge )
+int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLarge )
 {
 	ProcessPreloadedIcons();
 
@@ -221,12 +238,23 @@ int CIconManager::GetIcon( const wchar_t *location, int index, bool bLarge )
 
 	// extract icon
 	HICON hIcon;
-	if (ExtractIconEx(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)!=1)
-		return 0;
+	HMODULE hMod=GetModuleHandle(PathFindFileName(location));
+	if (hMod && index<0)
+	{
+		int iconSize=bLarge?LARGE_ICON_SIZE:SMALL_ICON_SIZE;
+		hIcon=(HICON)LoadImage(hMod,MAKEINTRESOURCE(-index),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+	}
+	else if (ExtractIconEx(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)!=1)
+		hIcon=NULL;
 
 	// add to the image list
-	index=ImageList_AddIcon(bLarge?m_LargeIcons:m_SmallIcons,hIcon);
-	DestroyIcon(hIcon);
+	if (hIcon)
+	{
+		index=ImageList_AddIcon(bLarge?m_LargeIcons:m_SmallIcons,hIcon);
+		DestroyIcon(hIcon);
+	}
+	else
+		index=0;
 
 	// add to the cache
 	if (bLarge)
@@ -284,6 +312,21 @@ int CIconManager::GetStdIcon( int id, bool bLarge )
 	}
 
 	return index;
+}
+
+int CIconManager::GetCustomIcon( const wchar_t *path, bool bLarge )
+{
+	wchar_t text[1024];
+	wcscpy_s(text,path);
+	DoEnvironmentSubst(text,_countof(text));
+	wchar_t *c=wcsrchr(text,',');
+	int index=0;
+	if (c)
+	{
+		*c=0;
+		index=-_wtol(c+1);
+	}
+	return GetIcon(text,index,bLarge);
 }
 
 void CIconManager::ProcessPreloadedIcons( void )

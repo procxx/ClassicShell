@@ -7,13 +7,16 @@
 #include "resource.h"
 #include "ClassicExplorer_i.h"
 #include "dllmain.h"
-#include "..\LocalizationSettings\ParseSettings.h"
+#include "GlobalSettings.h"
+#include "TranslationSettings.h"
 
 CClassicExplorerModule _AtlModule;
 
 void InitClassicCopyProcess( void );
 void InitClassicCopyThread( void );
 void FreeClassicCopyThread( void );
+
+bool g_bHookCopyThreads;
 
 // DLL Entry Point
 extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved )
@@ -27,22 +30,43 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 
 		g_Instance=hInstance;
 
+#ifdef BUILD_SETUP
+#define INI_PATH L""
+#else
+#define INI_PATH L"..\\"
+#endif
+
 		wchar_t fname[_MAX_PATH];
 		GetModuleFileName(hInstance,fname,_countof(fname));
 		*PathFindFileName(fname)=0;
-		wcscat_s(fname,_countof(fname),L"ExplorerL10N.ini");
-		ParseSettings(fname);
-		InitClassicCopyProcess();
+		wcscat_s(fname,_countof(fname),INI_PATH L"Explorer.ini");
+		ParseGlobalSettings(fname);
+
+		GetModuleFileName(hInstance,fname,_countof(fname));
+		*PathFindFileName(fname)=0;
+		wcscat_s(fname,_countof(fname),INI_PATH L"ExplorerL10N.ini");
+		ParseTranslations(fname);
+
+		DWORD EnableCopyUI=1;
+		CRegKey regSettings;
+		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
+			regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI);
+		g_bHookCopyThreads=(EnableCopyUI==1 || EnableCopyUI==2);
+
+		if (g_bHookCopyThreads)
+			InitClassicCopyProcess();
 	}
 
 	if (dwReason==DLL_THREAD_ATTACH)
 	{
-		InitClassicCopyThread();
+		if (g_bHookCopyThreads)
+			InitClassicCopyThread();
 	}
 
 	if (dwReason==DLL_THREAD_DETACH)
 	{
-		FreeClassicCopyThread();
+		if (g_bHookCopyThreads)
+			FreeClassicCopyThread();
 	}
 
 	return _AtlModule.DllMain(dwReason, lpReserved); 

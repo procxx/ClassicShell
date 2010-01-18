@@ -8,7 +8,6 @@
 #include <atlstr.h>
 #include <commctrl.h>
 #include <shlobj.h>
-#include "..\LocalizationSettings\ParseSettings.h"
 
 #include "ClassicStartMenuDLL\ClassicStartMenuDLL.h"
 
@@ -108,8 +107,9 @@ LRESULT CStartHookWindow::OnTaskbarCreated( UINT uMsg, WPARAM wParam, LPARAM lPa
 int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrCmdLine, int nCmdShow )
 {
 	int open=-1;
-	if (wcsstr(lpstrCmdLine,L"-toggle")!=NULL) open=0;
-	if (wcsstr(lpstrCmdLine,L"-open")!=NULL) open=1;
+	if (wcsstr(lpstrCmdLine,L"-togglenew")!=NULL) open=-2;
+	else if (wcsstr(lpstrCmdLine,L"-toggle")!=NULL) open=0;
+	else if (wcsstr(lpstrCmdLine,L"-open")!=NULL) open=1;
 	// prevent multiple instances from hooking the same explorer process
 	HWND progWin=FindWindowEx(NULL,NULL,L"Progman",NULL);
 	DWORD process;
@@ -121,8 +121,14 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	{
 		if (open>=0)
 		{
+			AllowSetForegroundWindow(process);
 			HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
 			if (hwnd) PostMessage(hwnd,WM_OPEN,open,0);
+		}
+		if (open==-2 && progWin)
+		{
+			AllowSetForegroundWindow(process);
+			PostMessage(progWin,WM_SYSCOMMAND,SC_TASKLIST,'CLSM');
 		}
 		return 0;
 	}

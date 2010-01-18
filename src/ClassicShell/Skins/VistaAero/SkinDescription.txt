@@ -6,6 +6,17 @@ About=Windows Vista Aero skin\n\nDefault skin to use for Vista Aero.\nAlso works
 ; AboutIcon - the ID of an icon resource to use in the About box
 AboutIcon=1
 
+; Variation1, Variation2, ... - variations of the skin
+; Variation1 is the default variation
+; Each variation has a SKIN resource ID and a name
+; The resource is a text file with overrides for some parameters. For Variation1 the resource ID must be 0 (no resource) and it can't override any parameters
+; The name is the display name in the settings UI
+; The number in the Variation# parameter name determines the position in the settings UI. The numbers must start from 1 and be sequential with no gaps
+Variation1=0, "Large Icons, With Caption"
+Variation2=2, "Large Icons, No Caption"
+Variation3=3, "Small Icons, With Caption"
+Variation4=4, "Small Icons, No Caption"
+
 
 ;MAIN BITMAP SECTION - describes the background of the main menu
 

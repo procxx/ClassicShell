@@ -5,7 +5,8 @@
 #include "ClassicStartMenuDLL.h"
 #include "MenuContainer.h"
 #include "IconManager.h"
-#include "ParseSettings.h"
+#include "GlobalSettings.h"
+#include "TranslationSettings.h"
 #include "Settings.h"
 
 #define HOOK_DROPTARGET // define this to replace the IDropTarget of the start button
@@ -16,11 +17,54 @@
 
 HWND g_StartButton;
 HWND g_TaskBar;
+HWND g_OwnerWindow;
 static UINT g_StartMenuMsg;
 static HWND g_Tooltip;
 static TOOLINFO g_StarButtonTool;
 static int g_HotkeyID;
 static DWORD g_Hotkey;
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+// COwnerWindow - a special window used as owner for some UI elements, like the ones created by IContextMenu::InvokeCommand.
+// A menu window cannot be used because it may disappear immediately after InvokeCommand. Some UI elements, like the UAC-related
+// stuff can be created long after InvokeCommand returns and the menu may be deleted by then.
+class COwnerWindow: public CWindowImpl<COwnerWindow>
+{
+public:
+	DECLARE_WND_CLASS_EX(L"ClassicShell.CTempWindow",0,COLOR_MENU)
+
+	// message handlers
+	BEGIN_MSG_MAP( COwnerWindow )
+		MESSAGE_HANDLER( WM_ACTIVATE, OnActivate )
+	END_MSG_MAP()
+
+protected:
+	LRESULT OnActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+	{
+		if (LOWORD(wParam)!=WA_INACTIVE)
+			return 0;
+
+		if (CMenuContainer::s_pDragSource) return 0;
+
+		// check if another menu window is being activated
+		// if not, close all menus
+		for (std::vector<CMenuContainer*>::const_iterator it=CMenuContainer::s_Menus.begin();it!=CMenuContainer::s_Menus.end();++it)
+			if ((*it)->m_hWnd==(HWND)lParam)
+				return 0;
+
+		for (std::vector<CMenuContainer*>::reverse_iterator it=CMenuContainer::s_Menus.rbegin();it!=CMenuContainer::s_Menus.rend();++it)
+			if (!(*it)->m_bDestroyed)
+				(*it)->PostMessage(WM_CLOSE);
+
+		return 0;
+	}
+};
+
+static COwnerWindow g_Owner;
+
+///////////////////////////////////////////////////////////////////////////////
 
 static BOOL CALLBACK FindTooltipEnum( HWND hwnd, LPARAM lParam )
 {
@@ -72,15 +116,18 @@ STARTMENUAPI HWND FindStartButton( DWORD process )
 	{
 		// find start button
 		EnumThreadWindows(GetWindowThreadProcessId(g_TaskBar,NULL),FindStartButtonEnum,NULL);
-		// find tooltip
 		if (GetWindowThreadProcessId(g_TaskBar,NULL)==GetCurrentThreadId())
-			EnumThreadWindows(GetWindowThreadProcessId(g_TaskBar,NULL),FindTooltipEnum,NULL);
-		if (g_Tooltip)
 		{
-			g_StarButtonTool.cbSize=sizeof(g_StarButtonTool);
-			g_StarButtonTool.hwnd=g_TaskBar;
-			g_StarButtonTool.uId=(UINT_PTR)g_StartButton;
-			SendMessage(g_Tooltip,TTM_GETTOOLINFO,0,(LPARAM)&g_StarButtonTool);
+			// find tooltip
+			EnumThreadWindows(GetWindowThreadProcessId(g_TaskBar,NULL),FindTooltipEnum,NULL);
+			if (g_Tooltip)
+			{
+				g_StarButtonTool.cbSize=sizeof(g_StarButtonTool);
+				g_StarButtonTool.hwnd=g_TaskBar;
+				g_StarButtonTool.uId=(UINT_PTR)g_StartButton;
+				SendMessage(g_Tooltip,TTM_GETTOOLINFO,0,(LPARAM)&g_StarButtonTool);
+			}
+			g_OwnerWindow=g_Owner.Create(NULL,0,0,WS_POPUP,WS_EX_TOOLWINDOW|WS_EX_TOPMOST);
 		}
 	}
 	return g_StartButton;
@@ -221,14 +268,13 @@ STARTMENUAPI LRESULT CALLBACK HookProgMan( int code, WPARAM wParam, LPARAM lPara
 	if (code==HC_ACTION)
 	{
 		MSG *msg=(MSG*)lParam;
-		if (msg->message==WM_SYSCOMMAND && (msg->wParam&0xFFF0)==SC_TASKLIST)
+		if (msg->message==WM_SYSCOMMAND && (msg->wParam&0xFFF0)==SC_TASKLIST && msg->lParam!='CLSM')
 		{
 			FindStartButton();
 			if (g_Hotkey==0)
 			{
 				if (g_StartButton)
 				{
-					SetForegroundWindow(g_StartButton);
 					PostMessage(g_StartButton,g_StartMenuMsg,0,0);
 				}
 				msg->message=WM_NULL;
@@ -268,40 +314,70 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			ToggleStartMenu(g_StartButton,true);
 		}
 
-		if ((msg->message==WM_LBUTTONDOWN || msg->message==WM_LBUTTONDBLCLK) && msg->hwnd==g_StartButton && !(msg->wParam&MK_SHIFT))
+		if (msg->message==WM_KEYDOWN && msg->hwnd==g_StartButton && (msg->wParam==VK_SPACE || msg->wParam==VK_RETURN))
 		{
-			DWORD pos=GetMessagePos();
-			POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
-			if (msg->time==g_LastClickTime || WindowFromPoint(pt)!=g_StartButton)
-			{
-				// ignore the click if it matches the last click's timestamp (sometimes the same message comes twice)
-				// or when the mouse is not over the start button (sometimes clicks on a context menu are sent to the start button)
-				return CallNextHookEx(NULL,code,wParam,lParam);
-			}
-			g_LastClickTime=msg->time;
-			// click on the start button - toggle the menu
-			DWORD keyboard;
-			SystemParametersInfo(SPI_GETKEYBOARDCUES,NULL,&keyboard,0);
-			ToggleStartMenu(g_StartButton,keyboard!=0);
 			msg->message=WM_NULL;
+			SetForegroundWindow(g_StartButton);
+			ToggleStartMenu(g_StartButton,true);
 		}
 
-		if ((msg->message==WM_NCLBUTTONDOWN || msg->message==WM_NCLBUTTONDBLCLK) && msg->wParam==HTCAPTION && msg->hwnd==g_TaskBar && GetKeyState(VK_SHIFT)>=0)
+		if ((msg->message==WM_LBUTTONDOWN || msg->message==WM_LBUTTONDBLCLK) && msg->hwnd==g_StartButton)
 		{
-			DWORD pos=GetMessagePos();
-			POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
-			ScreenToClient(g_TaskBar,&pt);
-			HWND child=ChildWindowFromPoint(g_TaskBar,pt);
-			if (child!=NULL && child!=g_TaskBar)
+			bool bShiftClick=FindSettingBool("InvertShiftClick",false);
+
+			if ((bShiftClick && (msg->wParam&MK_SHIFT)) || (!bShiftClick && !(msg->wParam&MK_SHIFT)))
 			{
-				// ignore the click if it is on a child window (like the rebar or the tray area)
-				return CallNextHookEx(NULL,code,wParam,lParam);
+				DWORD pos=GetMessagePos();
+				POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
+				if (msg->time==g_LastClickTime || WindowFromPoint(pt)!=g_StartButton)
+				{
+					// ignore the click if it matches the last click's timestamp (sometimes the same message comes twice)
+					// or when the mouse is not over the start button (sometimes clicks on a context menu are sent to the start button)
+					return CallNextHookEx(NULL,code,wParam,lParam);
+				}
+				g_LastClickTime=msg->time;
+				// click on the start button - toggle the menu
+				DWORD keyboard;
+				SystemParametersInfo(SPI_GETKEYBOARDCUES,NULL,&keyboard,0);
+				ToggleStartMenu(g_StartButton,keyboard!=0);
+				msg->message=WM_NULL;
 			}
-			// click on the taskbar around the start menu - toggle the menu
-			DWORD keyboard;
-			SystemParametersInfo(SPI_GETKEYBOARDCUES,NULL,&keyboard,0);
-			ToggleStartMenu(g_StartButton,keyboard!=0);
-			msg->message=WM_NULL;
+		}
+
+		if ((msg->message==WM_NCLBUTTONDOWN || msg->message==WM_NCLBUTTONDBLCLK) && msg->wParam==HTCAPTION && msg->hwnd==g_TaskBar)
+		{
+			bool bShiftClick=FindSettingBool("InvertShiftClick",false);
+
+			if ((bShiftClick && GetKeyState(VK_SHIFT)<0) || (!bShiftClick && GetKeyState(VK_SHIFT)>=0))
+			{
+				DWORD pos=GetMessagePos();
+				POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
+				RECT rc;
+				GetWindowRect(g_TaskBar,&rc);
+				if (PtInRect(&rc,pt))
+				{
+					// in Classic mode there are few pixels at the edge of the taskbar that are not covered by a child window
+					// we nudge the point to be in the middle of the taskbar to avoid those pixels
+					APPBARDATA appbar={sizeof(appbar),g_TaskBar};
+					SHAppBarMessage(ABM_GETTASKBARPOS,&appbar);
+					if (appbar.uEdge==ABE_LEFT || appbar.uEdge==ABE_RIGHT)
+						pt.x=(rc.left+rc.right)/2; // vertical taskbar, set X
+					else
+						pt.y=(rc.top+rc.bottom)/2; // vertical taskbar, set Y
+				}
+				ScreenToClient(g_TaskBar,&pt);
+				HWND child=ChildWindowFromPoint(g_TaskBar,pt);
+				if (child!=NULL && child!=g_TaskBar)
+				{
+					// ignore the click if it is on a child window (like the rebar or the tray area)
+					return CallNextHookEx(NULL,code,wParam,lParam);
+				}
+				// click on the taskbar around the start menu - toggle the menu
+				DWORD keyboard;
+				SystemParametersInfo(SPI_GETKEYBOARDCUES,NULL,&keyboard,0);
+				ToggleStartMenu(g_StartButton,keyboard!=0);
+				msg->message=WM_NULL;
+			}
 		}
 
 		if (msg->message==WM_TIMER && msg->hwnd==g_TaskBar && CMenuContainer::IgnoreTaskbarTimers())
@@ -310,71 +386,78 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			msg->message=WM_NULL;
 		}
 
-		if (msg->message==WM_RBUTTONUP && msg->hwnd==g_StartButton && !(msg->wParam&MK_SHIFT))
+		if (msg->message==WM_RBUTTONUP && msg->hwnd==g_StartButton)
 		{
-			// additional commands for the context menu
-			enum
-			{
-				CMD_SETTINGS=1,
-				CMD_HELP,
-				CMD_EXIT,
-				CMD_OPEN,
-				CMD_OPEN_ALL,
-			};
+			bool bShiftClick=FindSettingBool("InvertShiftClick",false);
 
-			// right-click on the start button - open the context menu (Settings, Help, Exit)
-			msg->message=WM_NULL;
-			POINT p={(short)LOWORD(msg->lParam),(short)HIWORD(msg->lParam)};
-			ClientToScreen(msg->hwnd,&p);
-			HMENU menu=CreatePopupMenu();
-			AppendMenu(menu,MF_STRING,0,L"== Classic Start Menu ==");
-			EnableMenuItem(menu,0,MF_BYPOSITION|MF_DISABLED);
-			SetMenuDefaultItem(menu,0,TRUE);
-			AppendMenu(menu,MF_SEPARATOR,0,0);
-			AppendMenu(menu,MF_STRING,CMD_OPEN,FindSetting("Menu.Open",L"&Open"));
-			AppendMenu(menu,MF_STRING,CMD_OPEN_ALL,FindSetting("Menu.OpenAll",L"O&pen All Users"));
-			AppendMenu(menu,MF_SEPARATOR,0,0);
-			AppendMenu(menu,MF_STRING,CMD_SETTINGS,FindSetting("Menu.MenuSettings",L"Settings"));
-			AppendMenu(menu,MF_STRING,CMD_HELP,FindSetting("Menu.MenuHelp",L"Help"));
-			AppendMenu(menu,MF_STRING,CMD_EXIT,FindSetting("Menu.MenuExit",L"Exit"));
-			MENUITEMINFO mii={sizeof(mii)};
-			mii.fMask=MIIM_BITMAP;
-			mii.hbmpItem=HBMMENU_POPUP_CLOSE;
-			SetMenuItemInfo(menu,3,FALSE,&mii);
-			g_bInMenu=true;
-			int res=TrackPopupMenu(menu,TPM_LEFTBUTTON|TPM_RETURNCMD|(IsLanguageRTL()?TPM_LAYOUTRTL:0),p.x,p.y,0,msg->hwnd,NULL);
-			DestroyMenu(menu);
-			g_bInMenu=false;
-			if (res==CMD_SETTINGS)
+			if ((bShiftClick && (msg->wParam&MK_SHIFT)) || (!bShiftClick && !(msg->wParam&MK_SHIFT)))
 			{
-				EditSettings(false);
-			}
-			if (res==CMD_HELP)
-			{
-				wchar_t path[_MAX_PATH];
-				GetModuleFileName(g_Instance,path,_countof(path));
-				*PathFindFileName(path)=0;
-				wcscat_s(path,L"ClassicStartMenu.html");
-				ShellExecute(NULL,NULL,path,NULL,NULL,SW_SHOWNORMAL);
-			}
-			if (res==CMD_EXIT)
-			{
-				// cleanup
-				CloseSettings();
-				CMenuContainer::CloseStartMenu();
-				g_IconManager.StopPreloading(true);
-				UnhookDropTarget();
-				// send WM_CLOSE to the window in ClassicStartMenu.exe. it will unhook everything and unload the DLL
-				HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
-				if (hwnd) PostMessage(hwnd,WM_CLOSE,0,0);
-			}
-			if (res==CMD_OPEN || res==CMD_OPEN_ALL)
-			{
-				wchar_t *path;
-				if (SUCCEEDED(SHGetKnownFolderPath((res==CMD_OPEN)?FOLDERID_StartMenu:FOLDERID_CommonStartMenu,0,NULL,&path)))
+				// additional commands for the context menu
+				enum
 				{
-					ShellExecute(NULL,L"open",path,NULL,NULL,SW_SHOWNORMAL);
-					CoTaskMemFree(path);
+					CMD_SETTINGS=1,
+					CMD_HELP,
+					CMD_EXIT,
+					CMD_OPEN,
+					CMD_OPEN_ALL,
+				};
+
+				// right-click on the start button - open the context menu (Settings, Help, Exit)
+				msg->message=WM_NULL;
+				POINT p={(short)LOWORD(msg->lParam),(short)HIWORD(msg->lParam)};
+				ClientToScreen(msg->hwnd,&p);
+				HMENU menu=CreatePopupMenu();
+				AppendMenu(menu,MF_STRING,0,L"== Classic Start Menu ==");
+				EnableMenuItem(menu,0,MF_BYPOSITION|MF_DISABLED);
+				SetMenuDefaultItem(menu,0,TRUE);
+				AppendMenu(menu,MF_SEPARATOR,0,0);
+				AppendMenu(menu,MF_STRING,CMD_OPEN,FindTranslation("Menu.Open",L"&Open"));
+				AppendMenu(menu,MF_STRING,CMD_OPEN_ALL,FindTranslation("Menu.OpenAll",L"O&pen All Users"));
+				AppendMenu(menu,MF_SEPARATOR,0,0);
+				AppendMenu(menu,MF_STRING,CMD_SETTINGS,FindTranslation("Menu.MenuSettings",L"Settings"));
+				AppendMenu(menu,MF_STRING,CMD_HELP,FindTranslation("Menu.MenuHelp",L"Help"));
+				AppendMenu(menu,MF_STRING,CMD_EXIT,FindTranslation("Menu.MenuExit",L"Exit"));
+				MENUITEMINFO mii={sizeof(mii)};
+				mii.fMask=MIIM_BITMAP;
+				mii.hbmpItem=HBMMENU_POPUP_CLOSE;
+				SetMenuItemInfo(menu,3,FALSE,&mii);
+				g_bInMenu=true;
+				int res=TrackPopupMenu(menu,TPM_LEFTBUTTON|TPM_RETURNCMD|(IsLanguageRTL()?TPM_LAYOUTRTL:0),p.x,p.y,0,msg->hwnd,NULL);
+				DestroyMenu(menu);
+				g_bInMenu=false;
+				if (res==CMD_SETTINGS)
+				{
+					EditSettings(false);
+				}
+				if (res==CMD_HELP)
+				{
+					wchar_t path[_MAX_PATH];
+					GetModuleFileName(g_Instance,path,_countof(path));
+					*PathFindFileName(path)=0;
+					wcscat_s(path,L"ClassicStartMenu.html");
+					ShellExecute(NULL,NULL,path,NULL,NULL,SW_SHOWNORMAL);
+				}
+				if (res==CMD_EXIT)
+				{
+					// cleanup
+					if (g_Owner.m_hWnd) g_Owner.DestroyWindow();
+					CloseSettings();
+					CMenuContainer::CloseStartMenu();
+					CMenuFader::ClearAll();
+					g_IconManager.StopPreloading(true);
+					UnhookDropTarget();
+					// send WM_CLOSE to the window in ClassicStartMenu.exe. it will unhook everything and unload the DLL
+					HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
+					if (hwnd) PostMessage(hwnd,WM_CLOSE,0,0);
+				}
+				if (res==CMD_OPEN || res==CMD_OPEN_ALL)
+				{
+					wchar_t *path;
+					if (SUCCEEDED(SHGetKnownFolderPath((res==CMD_OPEN)?FOLDERID_StartMenu:FOLDERID_CommonStartMenu,0,NULL,&path)))
+					{
+						ShellExecute(NULL,L"open",path,NULL,NULL,SW_SHOWNORMAL);
+						CoTaskMemFree(path);
+					}
 				}
 			}
 		}

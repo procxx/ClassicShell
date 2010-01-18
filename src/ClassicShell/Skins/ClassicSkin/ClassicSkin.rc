@@ -49,26 +49,24 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// SKIN
-//
-
-1                       SKIN                    "SkinDescription.txt"
-
-/////////////////////////////////////////////////////////////////////////////
-//
 // Bitmap
 //
 
 1                       BITMAP                  "main_bitmap.bmp"
+2                       BITMAP                  "selection.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// Icon
+// SKIN
 //
 
-// Icon with lowest ID value placed first to ensure application icon
-// remains consistent on all systems.
-1                       ICON                    "..\\..\\ClassicShellSetup\\ClassicShell.ico"
+1                       SKIN                    "SkinDescription.txt"
+2                       SKIN                    "LargeIconsTheme.txt"
+3                       SKIN                    "SmallIcons.txt"
+4                       SKIN                    "SmallIconsTheme.txt"
+
+
+
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

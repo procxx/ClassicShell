@@ -64,7 +64,7 @@
 				IgnoreImportLibrary="true"
 				OutputFile="$(SolutionDir)ClassicStartMenu\Skins\Windows Vista Aero.skin"
 				LinkIncremental="1"
-				GenerateDebugInformation="true"
+				GenerateDebugInformation="false"
 				ProgramDatabaseFile="$(OutDir)\$(ProjectName).pdb"
 				SubSystem="2"
 				OptimizeReferences="2"
@@ -113,6 +113,10 @@
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
 			<File
+				RelativePath=".\LargeIconsNoCaption.txt"
+				>
+			</File>
+			<File
 				RelativePath=".\main_bitmap.bmp"
 				>
 			</File>
@@ -126,6 +130,14 @@
 			</File>
 			<File
 				RelativePath=".\SkinDescription.txt"
+				>
+			</File>
+			<File
+				RelativePath=".\SmallIconsCaption.txt"
+				>
+			</File>
+			<File
+				RelativePath=".\SmallIconsNoCaption.txt"
 				>
 			</File>
 			<File

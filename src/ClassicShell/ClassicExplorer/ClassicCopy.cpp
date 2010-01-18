@@ -6,7 +6,7 @@
 #include <oleacc.h>
 #include <atlcomcli.h>
 #include <utility>
-#include "..\LocalizationSettings\ParseSettings.h"
+#include "TranslationSettings.h"
 
 static wchar_t g_TitleMove[256];
 static wchar_t g_TitleCopy[256];
@@ -273,10 +273,10 @@ INT_PTR CALLBACK CClassicCopyFile::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM w
 {
 	if (uMsg==WM_INITDIALOG)
 	{
-		SetWindowText(hwndDlg,FindSetting("Copy.Title",L"Confirm File Replace"));
+		SetWindowText(hwndDlg,FindTranslation("Copy.Title",L"Confirm File Replace"));
 		CClassicCopyFile *pThis=(CClassicCopyFile*)lParam;
 		wchar_t text[_MAX_PATH*2];
-		swprintf_s(text,FindSetting("Copy.Subtitle",L"This folder already contains a file called '%s'."),pThis->m_FileName);
+		swprintf_s(text,FindTranslation("Copy.Subtitle",L"This folder already contains a file called '%s'."),pThis->m_FileName);
 		SetDlgItemText(hwndDlg,IDC_STATICFNAME,text);
 
 		// load icon for file conflict (146) from Shell32.dll
@@ -286,21 +286,21 @@ INT_PTR CALLBACK CClassicCopyFile::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM w
 			SendDlgItemMessage(hwndDlg,IDC_STATICICON,STM_SETICON,(LPARAM)pThis->m_Icon,0);
 
 		// set the localized text
-		SetDlgItemText(hwndDlg,IDC_STATICPROMPT1,FindSetting("Copy.Prompt1",L"Do you want to replace the existing file:"));
+		SetDlgItemText(hwndDlg,IDC_STATICPROMPT1,FindTranslation("Copy.Prompt1",L"Do you want to replace the existing file:"));
 		SetDlgItemText(hwndDlg,IDC_STATICDSTSIZE,pThis->m_DstSize);
 		SetDlgItemText(hwndDlg,IDC_STATICDSTTIME,pThis->m_DstTime);
-		SetDlgItemText(hwndDlg,IDC_STATICPROMPT2,FindSetting("Copy.Prompt2",L"with this one?"));
+		SetDlgItemText(hwndDlg,IDC_STATICPROMPT2,FindTranslation("Copy.Prompt2",L"with this one?"));
 		SendDlgItemMessage(hwndDlg,IDC_STATICDSTICON,STM_SETICON,(LPARAM)pThis->m_DstIcon,0);
 		SetDlgItemText(hwndDlg,IDC_STATICSRCSIZE,pThis->m_SrcSize);
 		SetDlgItemText(hwndDlg,IDC_STATICSRCTIME,pThis->m_SrcTime);
 		SendDlgItemMessage(hwndDlg,IDC_STATICSRCICON,STM_SETICON,(LPARAM)pThis->m_SrcIcon,0);
-		SetDlgItemText(hwndDlg,IDOK,FindSetting("Copy.Yes",L"&Yes"));
-		SetDlgItemText(hwndDlg,IDNO,FindSetting("Copy.No",L"&No"));
+		SetDlgItemText(hwndDlg,IDOK,FindTranslation("Copy.Yes",L"&Yes"));
+		SetDlgItemText(hwndDlg,IDNO,FindTranslation("Copy.No",L"&No"));
 		if (GetDlgItem(hwndDlg,IDYES))
-			SetDlgItemText(hwndDlg,IDYES,FindSetting("Copy.YesAll",L"Yes to &All"));
+			SetDlgItemText(hwndDlg,IDYES,FindTranslation("Copy.YesAll",L"Yes to &All"));
 		if (GetDlgItem(hwndDlg,IDCANCEL))
-			SetDlgItemText(hwndDlg,IDCANCEL,FindSetting("Copy.Cancel",L"Cancel"));
-		swprintf_s(text,L"<a>%s</a>",FindSetting("Copy.More",L"&More..."));
+			SetDlgItemText(hwndDlg,IDCANCEL,FindTranslation("Copy.Cancel",L"Cancel"));
+		swprintf_s(text,L"<a>%s</a>",FindTranslation("Copy.More",L"&More..."));
 		SetDlgItemText(hwndDlg,IDC_LINKMORE,text);
 		PostMessage(hwndDlg,WM_BRINGFOREGROUND,0,0);
 		return TRUE;
@@ -421,7 +421,7 @@ INT_PTR CALLBACK CClassicCopyFolder::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM
 		else
 			text[0]=0;
 		wcscat_s(text,_countof(text),L"\r\n\r\n");
-		wcscat_s(text,_countof(text),FindSetting("Folder.Prompt",L"Do you still want to move or copy the folder?"));
+		wcscat_s(text,_countof(text),FindTranslation("Folder.Prompt",L"Do you still want to move or copy the folder?"));
 		SetDlgItemText(hwndDlg,IDC_STATICFNAME,text);
 
 		// load icon for file conflict (146) from Shell32.dll
@@ -431,13 +431,13 @@ INT_PTR CALLBACK CClassicCopyFolder::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM
 			SendDlgItemMessage(hwndDlg,IDC_STATICICON,STM_SETICON,(LPARAM)pThis->m_Icon,0);
 
 		// set the localized text
-		SetDlgItemText(hwndDlg,IDOK,FindSetting("Copy.Yes",L"&Yes"));
-		SetDlgItemText(hwndDlg,IDNO,FindSetting("Copy.No",L"&No"));
+		SetDlgItemText(hwndDlg,IDOK,FindTranslation("Copy.Yes",L"&Yes"));
+		SetDlgItemText(hwndDlg,IDNO,FindTranslation("Copy.No",L"&No"));
 		if (GetDlgItem(hwndDlg,IDYES))
-			SetDlgItemText(hwndDlg,IDYES,FindSetting("Copy.YesAll",L"Yes to &All"));
+			SetDlgItemText(hwndDlg,IDYES,FindTranslation("Copy.YesAll",L"Yes to &All"));
 		if (GetDlgItem(hwndDlg,IDCANCEL))
-			SetDlgItemText(hwndDlg,IDCANCEL,FindSetting("Copy.Cancel",L"Cancel"));
-		swprintf_s(text,L"<a>%s</a>",FindSetting("Copy.More",L"&More..."));
+			SetDlgItemText(hwndDlg,IDCANCEL,FindTranslation("Copy.Cancel",L"Cancel"));
+		swprintf_s(text,L"<a>%s</a>",FindTranslation("Copy.More",L"&More..."));
 		SetDlgItemText(hwndDlg,IDC_LINKMORE,text);
 		PostMessage(hwndDlg,WM_BRINGFOREGROUND,0,0);
 		return TRUE;

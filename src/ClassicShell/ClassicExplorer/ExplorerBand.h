@@ -22,6 +22,7 @@ public:
 		ID_PASTE,
 		ID_DELETE,
 		ID_PROPERTIES,
+		ID_EMAIL,
 
 		ID_LAST
 	};
@@ -37,7 +38,9 @@ public:
 		COMMAND_ID_HANDLER( ID_PASTE, OnFileOperation )
 		COMMAND_ID_HANDLER( ID_DELETE, OnFileOperation )
 		COMMAND_ID_HANDLER( ID_PROPERTIES, OnFileOperation )
+		COMMAND_ID_HANDLER( ID_EMAIL, OnEmail )
 		COMMAND_ID_HANDLER( ID_SETTINGS, OnSettings )
+		NOTIFY_CODE_HANDLER( NM_RCLICK, OnRClick )
 	END_MSG_MAP()
 
 	CBandWindow( void ) { m_Enabled=NULL; }
@@ -55,7 +58,9 @@ protected:
 	LRESULT OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnGoUp( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnFileOperation( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
+	LRESULT OnEmail( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnSettings( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
+	LRESULT OnRClick( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 
 private:
 	CWindow m_Toolbar;

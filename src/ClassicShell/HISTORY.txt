@@ -1,4 +1,22 @@
 ===============================================================================
+== Version 0.9.9 release candidate (Jan, 2010) - more new features:
+
+- The skins in the start menu can have variations
+
+- Added ini files that contain even more customization options for the Explorer
+  toolbar and the start menu, including options to completely redesign the
+  start menu
+
+- Added "New Folder" and "Auto Arrange" commands to the start menu
+
+- The selected menu item fades out like in a real menu
+
+- Added "Email" button to Explorer
+
+- First try to support Active Accessibility (disabled by default for now)
+
+
+===============================================================================
 == Version 0.9.8 beta (Jan, 2010) - now with skins!
 
 - Added support for skins in the classic start menu

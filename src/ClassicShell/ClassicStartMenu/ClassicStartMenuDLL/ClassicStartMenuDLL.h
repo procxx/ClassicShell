@@ -32,3 +32,4 @@ void SetHotkey( DWORD hotkey );
 
 extern HWND g_StartButton;
 extern HWND g_TaskBar;
+extern HWND g_OwnerWindow;

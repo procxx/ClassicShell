@@ -1,0 +1,5 @@
+Main_bitmap=0
+Main_bitmap_slices_X=0,0,0,0,0,0
+Main_bitmap_slices_Y=0,0,0
+Main_large_icons=0
+Main_padding=2,2,2,2
