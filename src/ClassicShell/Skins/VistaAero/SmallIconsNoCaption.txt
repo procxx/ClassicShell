@@ -1,0 +1,4 @@
+Main_large_icons=0
+Main_font="Segoe UI",normal,-9
+Main_bitmap_slices_X=0,0,0,14,1,13
+Main_padding=11,10,10,5

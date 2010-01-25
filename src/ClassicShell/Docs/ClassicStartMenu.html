@@ -5,11 +5,16 @@
 
 
 
-  
-  <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Start Menu</title>
-  
 
-  
+
+
+
+
+
+
+
+
+  <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Start Menu</title>
 <style type="text/css">
 h1 {
   font-family: "Times New Roman",Times,serif;
@@ -23,9 +28,10 @@ body {
 }
 
 </style></head><body>
-<h1><a href="http://sourceforge.net/projects/classicshell/"><img style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge" src="ClassicStartMenu_files/ClassicShell.png"></a>&nbsp;
-Classic Start Menu
-</h1><p>The <span style="color: rgb(79, 129, 189); font-weight: bold;">Classic Start Menu</span> is a
+<h1><a href="http://classicshell.sourceforge.net/"><img style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge" src="ClassicStartMenu_files/ClassicShell.png"></a>&nbsp;
+Classic Start Menu</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 0.9.10 (release candidate)</span><br>
+<br>
+<p><span style="color: rgb(79, 129, 189); font-weight: bold;">Classic Start Menu</span> is a
 clone of the original start menu, which you can find in all versions of
 Windows from 95 to Vista. It has a variety of advanced features:</p>
 
@@ -41,7 +47,14 @@ Arabic and Hebrew</li>
 access it by Shift+Click on the start button</li>
   <li>Right-click on an item in the menu to delete, rename, sort, or
 perform other tasks</li>
-  <li>Available for 32 and 64-bit operating systems</li><li>And last but not least &#8211; it's FREE!</li>
+  <li>Available for 32 and 64-bit operating systems</li>
+  <li>Has support for skins, including additional 3rd party skins. Make your own!</li>
+  <li>Fully customizable in both looks and functionality</li>
+  <li>Support for Microsoft&#8217;s Active Accessibility<br>
+  </li>
+
+
+<li>And last but not least &#8211; it's FREE!</li>
 </ul>If you have used the start menu in older versions of Windows you&#8217;ll
 feel right at home:<br>
 
@@ -68,42 +81,122 @@ Right-click on an item to rename it, delete it, explore it, sort the
 menu, or perform other tasks.</p>
 <p>
 Right-click on the orb to edit the settings for the start menu, to view this help file, or to
-stop the start menu.
+stop the start menu.<br>
+<br>
+
 </p>
 <h1>
-Settings</h1>
-
-The available settings are:<br>
+Settings</h1>Right-click on the orb to access the Settings dialog. The available settings are:<br>
 
 <ul>
 
-  <li>Show Favorites, Show Log Off, Show Undock</li>
+  <li><strong>Hotkey</strong> &#8211; use this to set an alternative hotkey (like <strong style="color: rgb(0, 112, 192);">Ctrl+Alt+C</strong>) for opening the menu instead of the Windows key</li><li>Show Favorites, Show Documents, Show Log Off, Show Undock</li>
+
+
   <li>Expand Control Panel, Expand Network, Expand Printers</li>
-  <li>Use Small Icons</li>
-  <li>Scroll Menus</li>
-  <li>Recent Documents &#8211; select how many recent documents you want to
-see</li>
-</ul>
-<h1>
-Localization</h1>
+  <li><strong>Expand Links to Folders</strong> &#8211; links (shortcuts) to folders will be expanded as sub-menus </li><li><strong>Scroll Programs</strong> &#8211; when the program items don't fit on screen scroll the menu vertically rather than show multiple columns<br>
+</li>
+  <li><strong>Skin</strong> &#8211; pick a skin to use for the start menu. Press the <strong>About This Skin</strong> button to see who the author of the skin is</li>
+  <li><strong>Skin Variation</strong> &#8211; some skins can have variations for small and large icons, for Basic and Aero, etc.<br>
+  </li>
+
+  
+
+</ul>Before you click on the <strong>OK</strong> button you can open
+the start menu to see how it will look with the current settings. This
+is especially useful when you are trying different skins.<br>
+<br>
+There is no setting to show small or large icons in the start menu. The
+size of the icons depends on the current skin variation. Pick a skin variation that has the
+icon size you want.<br>
+<br>
+The start menu also checks most of the group policies set by the administrator. Run <strong style="color: rgb(0, 112, 192);">gpedit.msc</strong> and go to <strong style="color: rgb(0, 112, 192);">User Configuration -&gt; Administrative Templates -&gt; Start Menu and Taskbar</strong>. From there you can disable Run, Shutdown, Help, and other features. <span style="font-style: italic;">(Not available on Home versions of Windows)</span>.<br>
+<br>
+Some settings used to be available in this dialog, but starting with
+version 0.9.9 have been moved to a text file. Read the "More Settings"
+section for details.<br>
+<br>
+<h1>More Settings</h1>
+Even more settings are available in the <span style="font-weight: bold; color: rgb(79, 129, 189);">StartMenu.ini</span> 
+text file in the installation folder &#8211; usually <span style="font-weight: bold; color: rgb(79, 129, 189);">C:\Program
+Files\Classic Shell</span>. From there you can set things like:<br>
+<br>
+<span style="font-weight: bold;">MenuCaption</span> &#8211; what text will show on the side of the main menu<br>
+<span style="font-weight: bold;">SmallIconSize, LargeIconSize</span> &#8211; the size of the icons in the menu<br>
+<span style="font-weight: bold;">MenuDelay</span> &#8211; the delay from hovering over a folder until the folder is expanded<br>
+<span style="font-weight: bold;">ShowSearch</span> &#8211; to show the Search menu or not<br>
+<span style="font-weight: bold;">SearchFilesCommand</span> &#8211; the command to run when <span style="font-weight: bold;">Search -&gt; For Files or Folders</span> is selected<br>
+<span style="font-weight: bold;">ShowHelp</span> &#8211; to show/hide <span style="font-weight: bold;">Help and Support</span><br>
+...and many others.<br>
+<br>
+The text file contains detailed description of each setting as well as instructions how to change it.<br>
+<br><span style="font-weight: bold;">Note:</span> Changes to the
+StartMenu.ini file will not take effect until the start menu is
+restarted. Right-click on the orb and select "Exit". Then run <span style="font-weight: bold;">ClassicStartMenu.exe</span>. Also note that the StartMenu.ini file is global and the settings are shared by all users.<br>
+<br>
+
+<span style="font-weight: bold;">Important </span><span style="font-weight: bold;">Note:</span> The StartMenu.ini file (also the StartMenuItems.ini file described later)
+will be overwritten when you upgrade to a new version of Classic Shell.
+The new version may introduce new settings or even change the format of
+the file. Make a backup copy of the file before you upgrade, and after
+the upgrade reintroduce your changes to the new file one by one. Do not
+simply copy your old file on top of the new because you may miss out on the
+new settings.<br>
+<br>
+<h1>More About Skins</h1>You can pick from the 5 default skins:<br>
+<br>
+<img style="width: 220px; height: 450px;" alt="Skins for Classic Start Menu" title="Skins for Classic Start Menu" src="ClassicStartMenu_files/skins.gif"><br>
+<br>
+Or you can download and install additional 3rd party skins (from Source
+Forge or from another place). After you download a new skin you
+must copy the <span style="font-weight: bold;">.skin</span> file to the Skins directory &#8211; usually <span style="font-weight: bold; color: rgb(79, 129, 189);">C:\Program
+Files\Classic Shell\Skins</span>. After that it will be available in the settings.<br>
+<br>
+<strong>Note:</strong> Some skins may be specifically designed for
+Classic, Basic, or Aero mode. For example an Aero skin may require
+glass support any will look weird if the Classic or Basic theme is
+selected. Some Aero skins may also require specific glass color to be
+selected.<br>
+<br>
+You can create your own skin. You will need an image editor that
+supports alpha channel (like Gimp or Photoshop) and a tool to edit
+resource files (like Resource Hacker or Visual Studio). And of course
+some talent for graphical design :). Read the <a href="http://classicshell.sourceforge.net/skintutorial.html">Skinning Tutorial</a> before you begin.<br>
+<br>
+<h1>Custom Start Menu</h1>
+If you wish you can completely change the structure of the start menu. Look at the file <span style="font-weight: bold; color: rgb(79, 129, 189);">StartMenuItems.ini</span> 
+in the installation folder &#8211; usually <span style="font-weight: bold; color: rgb(79, 129, 189);">C:\Program
+Files\Classic Shell</span>.
+From there you can add, remove or reorder the menu items. Change the
+text or the icon. Create new sub-menus with even more commands. The
+possibilities are limitless. Before you begin read the instructions in the ini file carefully.<br>
+<br>
+<h1>Localization</h1>
 
 The user interface (except the Settings dialog box) is localized in all
 35 languages available for Vista and Windows 7. New languages can be
 added by editing the file <span style="font-weight: bold; color: rgb(79, 129, 189);">StartMenuL10N.ini</span> 
 in the installation folder &#8211; usually <span style="font-weight: bold; color: rgb(79, 129, 189);">C:\Program
-Files\ClassicShell</span>. From the same file you can also change the
-caption that appears on the side of the menu:<br>
+Files\Classic Shell</span>.<br>
+<br><h1>Command Line</h1>
+The <span style="font-weight: bold; color: rgb(0, 112, 192);">ClassicStartMenu.exe</span> supports 3 command line parameters: <span style="font-weight: bold; color: rgb(0, 112, 192);">-open</span>, <span style="font-weight: bold; color: rgb(0, 112, 192);">-toggle</span>, and <span style="font-weight: bold; color: rgb(0, 112, 192);">-togglenew</span>.<br>
 <br>
-<big><span style="font-family: monospace; font-weight: bold;">
-[default]</span><br style="font-family: monospace; font-weight: bold;">
-<span style="font-family: monospace; font-weight: bold;">
-.....</span><br style="font-family: monospace; font-weight: bold;">
-<span style="font-family: monospace; font-weight: bold;">
-Menu.Title = My Cool Caption</span></big><br>
+The first two do what the name suggests. One opens the classic start menu, the other
+toggles it. You can use the parameters to create a shortcut in your
+QuickLaunch bar that opens the start menu. Or to set a hotkey in
+programs such as <a href="http://www.softpedia.com/get/System/OS-Enhancements/WinKey.shtml">WinKey</a>.<br>
 <br>
-If the caption is not set, the name of the operating system is used by
-default. It is taken from the registry key <span style="font-weight: bold; color: rgb(79, 129, 189);">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion</span>.<br>
-
+The third one "-togglenew" toggles the new start menu. It is useful if
+you want to map the new start menu to a hotkey and use the default Win
+key for the classic menu.<br>
+<br>
+<h1>Accessibility</h1>The start menu supports screen readers like JAWS,
+or Microsoft's Narrator. There is a known problem with JAWS when the
+menu takes more than one column. If you are experiencing this problem
+you can turn off the multi-column menus by checking the "Scroll
+Programs" option in the Settings.<br>
+<br>
+If the accessibility support causes problems it can be disabled from the StartMenu.ini file. Set <strong>EnableAccessibility</strong> to 0 (don't forget to remove the semicolon from the beginning of the line)<br>
 <br>
 
 </body></html>

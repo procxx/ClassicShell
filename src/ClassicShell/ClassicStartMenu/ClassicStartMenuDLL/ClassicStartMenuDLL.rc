@@ -52,30 +52,37 @@ END
 // Dialog
 //
 
-IDD_SETTINGS DIALOGEX 0, 0, 225, 115
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Classic Start Menu Settings"
+IDD_SETTINGS DIALOGEX 0, 0, 239, 169
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Settings for Classic Start Menu"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    CONTROL         "Show Favorites",IDC_CHECKFAVORITES,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,20,65,10
-    CONTROL         "Show Log Off",IDC_CHECKLOGOFF,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,33,59,10
-    CONTROL         "Show Undock",IDC_CHECKUNDOCK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,46,59,10
-    CONTROL         "Expand Control Panel",IDC_CHECKCONTROLPANEL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,127,20,85,10
-    CONTROL         "Expand Network",IDC_CHECKNETWORK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,127,33,69,10
-    CONTROL         "Expand Printers",IDC_CHECKPRINTERS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,127,46,67,10
-    CONTROL         "Use Small Icons",IDC_CHECKSMALL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,68,65,10
-    CONTROL         "Scroll Menus",IDC_CHECKSCROLL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,81,55,10
-    LTEXT           "Recent Documents:",IDC_STATIC,120,66,64,14,SS_CENTERIMAGE
-    EDITTEXT        IDC_EDITRECENT,187,66,31,14,ES_AUTOHSCROLL
-    DEFPUSHBUTTON   "OK",IDOK,112,94,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,168,94,50,14
-    GROUPBOX        "Show",IDC_STATIC,7,7,100,55
-    GROUPBOX        "Expand",IDC_STATIC,118,7,100,55
-    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,8,99,40,10
+    CONTROL         "Hotkey to use instead of the Win key:",IDC_CHECKHOTKEY,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,9,137,10
+    CONTROL         "",IDC_HOTKEY,"msctls_hotkey32",WS_BORDER | WS_TABSTOP,145,7,87,14
+    GROUPBOX        "Show",IDC_STATIC,7,23,100,68
+    CONTROL         "Show Favorites",IDC_CHECKFAVORITES,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,36,65,10
+    CONTROL         "Show Documents",IDC_CHECKDOCUMENTS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,49,71,10
+    CONTROL         "Show Log Off",IDC_CHECKLOGOFF,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,62,59,10
+    CONTROL         "Show Undock",IDC_CHECKUNDOCK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,75,59,10
+    GROUPBOX        "Expand",IDC_STATIC,112,23,120,68
+    CONTROL         "Expand Control Panel",IDC_CHECKCONTROLPANEL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,121,36,85,10
+    CONTROL         "Expand Network",IDC_CHECKNETWORK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,121,49,69,10
+    CONTROL         "Expand Printers",IDC_CHECKPRINTERS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,121,62,67,10
+    CONTROL         "Expand Links to Folders",IDC_CHECKLINKS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,121,75,91,10
+    CONTROL         "Scroll Programs",IDC_CHECKSCROLL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,95,65,10
+    LTEXT           "Skin:",IDC_STATIC,7,112,19,12,SS_CENTERIMAGE
+    COMBOBOX        IDC_COMBOSKIN,30,112,135,96,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "About This Skin",IDC_ABOUT,172,111,60,14
+    LTEXT           "Skin Variation:",IDC_STATICVAR,7,129,49,12,SS_CENTERIMAGE
+    COMBOBOX        IDC_COMBOVAR,62,129,170,96,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,153,40,10
+    DEFPUSHBUTTON   "OK",IDOK,126,148,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,182,148,50,14
 END
 
 IDD_RENAME DIALOGEX 0, 0, 227, 54
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_TOPMOST
 CAPTION "Rename"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -87,7 +94,7 @@ BEGIN
 END
 
 IDD_RENAMER DIALOGEX 0, 0, 227, 54
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_TOPMOST | WS_EX_LAYOUTRTL
 CAPTION "Rename"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -96,6 +103,29 @@ BEGIN
     EDITTEXT        IDC_EDITNAME,56,7,163,14,ES_AUTOHSCROLL
     DEFPUSHBUTTON   "OK",IDOK,116,33,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,170,33,50,14
+END
+
+IDD_LOGOFF DIALOGEX 0, 0, 179, 59
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Log Off Windows"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Log Off",IDOK,55,38,55,14
+    PUSHBUTTON      "&No",IDCANCEL,117,38,55,14
+    ICON            "",IDC_STATICICON,7,7,20,20
+    LTEXT           "Are you sure you want to log off?",IDC_PROMPT,35,7,137,20,SS_CENTERIMAGE
+END
+
+IDD_LOGOFFR DIALOGEX 0, 0, 179, 59
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_LAYOUTRTL
+CAPTION "Log Off Windows"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Log Off",IDOK,55,38,55,14
+    PUSHBUTTON      "&No",IDCANCEL,117,38,55,14
+    ICON            "",IDC_STATICICON,7,7,20,20
+    LTEXT           "Are you sure you want to log off?",IDC_PROMPT,35,7,137,20,SS_CENTERIMAGE
 END
 
 
@@ -110,9 +140,9 @@ BEGIN
     IDD_SETTINGS, DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 218
+        RIGHTMARGIN, 232
         TOPMARGIN, 7
-        BOTTOMMARGIN, 108
+        BOTTOMMARGIN, 162
     END
 
     IDD_RENAME, DIALOG
@@ -130,6 +160,22 @@ BEGIN
         TOPMARGIN, 7
         BOTTOMMARGIN, 47
     END
+
+    IDD_LOGOFF, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 172
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 52
+    END
+
+    IDD_LOGOFFR, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 172
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 52
+    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -140,8 +186,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,9,0,0
- PRODUCTVERSION 0,9,0,0
+ FILEVERSION 0,9,10,0
+ PRODUCTVERSION 0,9,10,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -158,12 +204,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic start menu to Windows"
-            VALUE "FileVersion", "0, 9, 0, 0"
+            VALUE "FileVersion", "0, 9, 10, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
-            VALUE "LegalCopyright", "Copyright (C) 2009"
+            VALUE "LegalCopyright", "Copyright (C) 2009-2010, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "0, 9, 0, 0"
+            VALUE "ProductVersion", "0, 9, 10, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -172,6 +218,22 @@ BEGIN
     END
 END
 
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_APPICON             ICON                    "..\\..\\ClassicShellSetup\\ClassicShell.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// SKIN
+//
+
+1                       SKIN                    "SkinDescription.txt"
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

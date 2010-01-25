@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ExplorerBHO.h : Declaration of the CExplorerBHO
@@ -26,11 +26,11 @@ class ATL_NO_VTABLE CExplorerBHO :
 public:
 	CExplorerBHO()
 	{
-		s_hwndTree=0;
+		m_bResetStatus=true;
+		m_bForceRefresh=false;
 	}
 
 DECLARE_REGISTRY_RESOURCEID(IDR_EXPLORERBHO)
-
 
 BEGIN_COM_MAP(CExplorerBHO)
 	COM_INTERFACE_ENTRY(IExplorerBHO)
@@ -51,15 +51,45 @@ END_COM_MAP()
 	{
 	}
 
+	// Options for the folders tree
+	enum
+	{
+		FOLDERS_ALTENTER=1, // enable Alt+Enter support
+
+		FOLDERS_VISTA=0, // no change
+		FOLDERS_CLASSIC=2, // use classic XP style
+		FOLDERS_SIMPLE=6, // use simple XP style
+		FOLDERS_STYLE_MASK=6,
+
+		FOLDERS_NOFADE=8, // don't fade the buttons
+		FOLDERS_AUTONAVIGATE=16, // always navigate to selected folder
+		FOLDERS_FULLINDENT=32, // use full-size indent
+
+		FOLDERS_DEFAULT=FOLDERS_ALTENTER
+	};
+
+	enum
+	{
+		SPACE_SHOW=1, // show free space and selection size
+		SPACE_TOTAL=2, // show total size when nothing is selected
+		SPACE_WIN7=4, // running on Win7 (fix the status bar parts and show the disk free space)
+	};
+
 public:
 	// IObjectWithSite
 	STDMETHOD(SetSite)(IUnknown *pUnkSite);
 
 private:
+	CComPtr<IShellBrowser> m_pBrowser;
+	bool m_bResetStatus;
+	bool m_bForceRefresh;
+
 	static __declspec(thread) HHOOK s_Hook;
-	static __declspec(thread) HWND s_hwndTree;
 
 	static LRESULT CALLBACK HookExplorer( int code, WPARAM wParam, LPARAM lParam );
+	static LRESULT CALLBACK SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(ExplorerBHO), CExplorerBHO)
+
+bool ShowTreeProperties( HWND hwndTree );

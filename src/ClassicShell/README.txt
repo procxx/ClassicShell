@@ -1,14 +1,25 @@
 CLASSIC SHELL
+Version 0.9.10 (release candidate)
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
-classic start menu, Up button in Explorer and others.
+classic start menu, a toolbar for Windows Explorer and others.
+
+The latest version can be found on Source Forge:
+http://classicshell.sourceforge.net/
+
+Report problems in the Classic Shell help forum:
+http://sourceforge.net/projects/classicshell/forums/forum/1049756
+
+For answers to frequently asked questions look here:
+http://classicshell.sourceforge.net/faq.html
+
 
 ///////////////////////////////////////////////////////////////////////////////
 
 1) Classic Start Menu
 
-The Classic Start Menu is a clone of the start menu from Windows 2000, XP and
-Vista that sadly is missing from Windows 7. It has a variety of advanced features:
+Classic Start Menu is a clone of the start menu from Windows 2000, XP and Vista that
+sadly is missing from Windows 7. It has a variety of advanced features:
 
 *	Drag and drop to let you organize your applications
 
@@ -25,6 +36,12 @@ Vista that sadly is missing from Windows 7. It has a variety of advanced feature
 
 *	Available for 32 and 64-bit operating systems
 
+*	Has support for skins, including additional 3rd party skins. Make your own!
+
+*	Fully customizable in both looks and functionality
+
+*	Support for Microsoft’s Active Accessibility
+
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -32,23 +49,25 @@ Vista that sadly is missing from Windows 7. It has a variety of advanced feature
 
 Classic Explorer is a plugin for Windows Explorer that:
 
+*	Adds a toolbar to Explorer for some common operations (Go to parent folder,
+  Cut, Copy, Paste, Delete, Properties, Email). More buttons can be added manually
+
 *	Replaces the copy UI in Vista and Windows 7 with the more user-friendly "classic"
   version similar to Windows XP
 
 *	Handles Alt+Enter in the folder panel of Windows Explorer and shows the properties
   of the selected folder
 
-*	Adds an Up button in the toolbar (for navigating to the parent folder)
+*	Has options for customizing the folder panel to look more like the Windows XP
+  version or to not fade the expand buttons
+
+*	Can show the free disk space and the total file size in the status bar
 
 
 ///////////////////////////////////////////////////////////////////////////////
 
 3) The source code
 
-Classic Shell is open source, and the source code is licensed under the therms of the
+Classic Shell is open source, and the source code is licensed under the terms of the
 MIT open source license. See the LICENSE.txt file in the main directory.
 
-The latest version can be found on Source Forge:
-http://sourceforge.net/projects/classicshell/
-
-Report any problems to ivo@roadrunner.com.

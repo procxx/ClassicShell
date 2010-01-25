@@ -56,6 +56,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
+				AdditionalIncludeDirectories="..\ParseSettings"
 				PreprocessorDefinitions="WIN32;_WINDOWS;_DEBUG;_USRDLL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -80,7 +81,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
 				OutputFile="$(OutDir)\$(ProjectName)32.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile=".\ClassicExplorer32.def"
@@ -147,6 +148,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
+				AdditionalIncludeDirectories="..\ParseSettings"
 				PreprocessorDefinitions="WIN32;_WINDOWS;_DEBUG;_USRDLL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -171,7 +173,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
 				OutputFile="$(OutDir)\$(ProjectName)64.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile=".\ClassicExplorer64.def"
@@ -239,6 +241,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
+				AdditionalIncludeDirectories="..\ParseSettings"
 				PreprocessorDefinitions="WIN32;_WINDOWS;NDEBUG;_USRDLL"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="2"
@@ -261,7 +264,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
 				OutputFile="$(OutDir)\$(ProjectName)32.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer32.def"
@@ -330,6 +333,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
+				AdditionalIncludeDirectories="..\ParseSettings"
 				PreprocessorDefinitions="WIN32;_WINDOWS;NDEBUG;_USRDLL"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="2"
@@ -352,7 +356,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
 				OutputFile="$(OutDir)\$(ProjectName)64.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer64.def"
@@ -422,6 +426,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
+				AdditionalIncludeDirectories="..\ParseSettings"
 				PreprocessorDefinitions="WIN32;_WINDOWS;NDEBUG;_USRDLL;BUILD_SETUP"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="2"
@@ -444,7 +449,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="false"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
 				OutputFile="$(OutDir)\$(ProjectName)32.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer32.def"
@@ -513,6 +518,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
+				AdditionalIncludeDirectories="..\ParseSettings"
 				PreprocessorDefinitions="WIN32;_WINDOWS;NDEBUG;_USRDLL;BUILD_SETUP"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="2"
@@ -535,7 +541,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="false"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
 				OutputFile="$(OutDir)\$(ProjectName)64.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer64.def"
@@ -765,6 +771,14 @@
 			</File>
 			<File
 				RelativePath=".\ClassicExplorer.rgs"
+				>
+			</File>
+			<File
+				RelativePath="..\ClassicShellSetup\ClassicShell.ico"
+				>
+			</File>
+			<File
+				RelativePath=".\Explorer.ini"
 				>
 			</File>
 			<File

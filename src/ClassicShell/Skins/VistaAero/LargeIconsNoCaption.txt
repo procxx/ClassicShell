@@ -1,0 +1,2 @@
+Main_bitmap_slices_X=0,0,0,14,1,13
+Main_padding=11,10,10,5

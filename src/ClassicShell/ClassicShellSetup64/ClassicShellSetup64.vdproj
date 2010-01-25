@@ -39,7 +39,25 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_3EAE3A2101434845A5187158A21A7A18"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_45AA8D5D0C814828B7F8C148B69C6BDA"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_4C7E1FBF7CF84DC9930DD983E1B6CB7E"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_4CA9B16E47B84EAD84103EA9B8C2A280"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -57,7 +75,43 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_69D57E4B30094411AB90F141A0A5D31E"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_6B5383E12B8F41468A7CE88261910671"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_7A8ED248755B482DB0E9660F7CA04B61"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_8133DF28FA724B6083091316C61C8377"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_8A6C1F82947D4314B3033C35F531E822"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_A023F7C592924D55B63B857CA3803F79"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_A5AE9C46AC4348A892DE9FA5F29032B0"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -105,6 +159,18 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_DC730B12EA1643B892511DAD57BFCAFA"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_E52913D28DA04F148D5A6788921883C5"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_EE7EABAAB7C74F2AB7DFA1EA2AE47722"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -112,6 +178,12 @@
         "Entry"
         {
         "MsmKey" = "8:_FB2AFD3F88F64C53AA81DCF9DE0B4ED5"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_FED58B90C9254E5C8CEAB1CCFE9C4B3E"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -255,6 +327,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_3EAE3A2101434845A5187158A21A7A18"
+            {
+            "SourcePath" = "8:..\\ClassicShellSetup\\ClassicShellBanner.jpg"
+            "TargetName" = "8:ClassicShellBanner.jpg"
+            "Tag" = "8:"
+            "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:TRUE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_45AA8D5D0C814828B7F8C148B69C6BDA"
             {
             "SourcePath" = "8:..\\ClassicShellSetup\\ClassicShell.ico"
@@ -275,10 +367,70 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_4C7E1FBF7CF84DC9930DD983E1B6CB7E"
+            {
+            "SourcePath" = "8:..\\ClassicExplorer\\Explorer.ini"
+            "TargetName" = "8:Explorer.ini"
+            "Tag" = "8:"
+            "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
+            "Condition" = "8:CHECK_EXPLORER"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_4CA9B16E47B84EAD84103EA9B8C2A280"
+            {
+            "SourcePath" = "8:..\\Docs\\ClassicExplorer_files\\FolderView.gif"
+            "TargetName" = "8:FolderView.gif"
+            "Tag" = "8:"
+            "Folder" = "8:_72CC6D70B1724AC6A7E3B3DF4086200D"
+            "Condition" = "8:CHECK_EXPLORER"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_5AA47F118E79416C95DB40B2057B6786"
             {
             "SourcePath" = "8:..\\ClassicStartMenu\\StartMenuL10N.ini"
             "TargetName" = "8:StartMenuL10N.ini"
+            "Tag" = "8:"
+            "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_69D57E4B30094411AB90F141A0A5D31E"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\StartMenu.ini"
+            "TargetName" = "8:StartMenu.ini"
             "Tag" = "8:"
             "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
             "Condition" = "8:CHECK_STARTMENU"
@@ -315,10 +467,50 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A85D502986F94850983A2686664D4BFA"
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_8133DF28FA724B6083091316C61C8377"
             {
-            "SourcePath" = "8:..\\Docs\\ClassicShellReadme.rtf"
-            "TargetName" = "8:ClassicShellReadme.rtf"
+            "SourcePath" = "8:..\\Docs\\ClassicExplorer_files\\statusbar.png"
+            "TargetName" = "8:statusbar.png"
+            "Tag" = "8:"
+            "Folder" = "8:_72CC6D70B1724AC6A7E3B3DF4086200D"
+            "Condition" = "8:CHECK_EXPLORER"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_8A6C1F82947D4314B3033C35F531E822"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\StartMenuItems.ini"
+            "TargetName" = "8:StartMenuItems.ini"
+            "Tag" = "8:"
+            "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A5AE9C46AC4348A892DE9FA5F29032B0"
+            {
+            "SourcePath" = "8:..\\HISTORY.txt"
+            "TargetName" = "8:HISTORY.txt"
             "Tag" = "8:"
             "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
             "Condition" = "8:"
@@ -331,7 +523,27 @@
             "SharedLegacy" = "11:FALSE"
             "PackageAs" = "3:1"
             "Register" = "3:1"
-            "Exclude" = "11:TRUE"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A85D502986F94850983A2686664D4BFA"
+            {
+            "SourcePath" = "8:..\\Docs\\ClassicShellReadme.rtf"
+            "TargetName" = "8:README.rtf"
+            "Tag" = "8:"
+            "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
@@ -378,10 +590,30 @@
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_CD9DA8BDED4F40E493604FD205068E5C"
             {
             "SourcePath" = "8:..\\Docs\\ClassicShellEULA.rtf"
-            "TargetName" = "8:License.rtf"
+            "TargetName" = "8:LICENSE.rtf"
             "Tag" = "8:"
             "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
             "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E52913D28DA04F148D5A6788921883C5"
+            {
+            "SourcePath" = "8:..\\Docs\\ClassicStartMenu_files\\skins.gif"
+            "TargetName" = "8:skins.gif"
+            "Tag" = "8:"
+            "Folder" = "8:_BA1C3729D1F2427FB6EDBD0C4F754143"
+            "Condition" = "8:CHECK_STARTMENU"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
             "ReadOnly" = "11:FALSE"
@@ -495,6 +727,17 @@
                         {
                         }
                     }
+                    "{9EF0B969-E518-4E46-987F-47570745A589}:_F9BB55954BD441C1B0A5FADD1DBEABC1"
+                    {
+                    "Name" = "8:Skins"
+                    "AlwaysCreate" = "11:FALSE"
+                    "Condition" = "8:CHECK_STARTMENU"
+                    "Transitive" = "11:FALSE"
+                    "Property" = "8:_0D09E725D89A479C8881896818666946"
+                        "Folders"
+                        {
+                        }
+                    }
                 }
             }
         }
@@ -520,14 +763,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Classic Shell"
-        "ProductCode" = "8:{F8CD4CD3-3E4F-4BAF-9B90-76BC07EC10FB}"
-        "PackageCode" = "8:{88C52E64-EC14-4AB8-BC0F-7DB7C541CB30}"
+        "ProductCode" = "8:{2099745F-EFD7-43C8-9A3A-5EAF01CD56FF}"
+        "PackageCode" = "8:{F9B4FDF9-1F71-4060-97B7-CC233C8F2BBB}"
         "UpgradeCode" = "8:{779A74EF-23DE-4C71-AC12-2EE5A542ED34}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:0.9.0"
+        "ProductVersion" = "8:0.9.10"
         "Manufacturer" = "8:IvoSoft"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -689,7 +932,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "ShowProgress"
@@ -739,7 +983,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                         }
@@ -770,7 +1015,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "ReadmeText"
@@ -817,7 +1063,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "UpdateText"
@@ -861,7 +1108,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                         }
@@ -883,7 +1131,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                         }
@@ -905,7 +1154,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "CopyrightWarning"
@@ -962,7 +1212,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "EulaText"
@@ -1009,7 +1260,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "InstallAllUsersVisible"
@@ -1044,7 +1296,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "BannerText"
@@ -1300,7 +1553,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                         }
@@ -1322,7 +1576,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "CopyrightWarning"
@@ -1379,7 +1634,8 @@
                             "Type" = "3:8"
                             "ContextData" = "8:Bitmap"
                             "Attributes" = "3:4"
-                            "Setting" = "3:1"
+                            "Setting" = "3:2"
+                            "Value" = "8:_3EAE3A2101434845A5187158A21A7A18"
                             "UsePlugInResources" = "11:TRUE"
                             }
                             "ShowProgress"
@@ -1434,6 +1690,62 @@
             "OutputConfiguration" = "8:Setup|x64"
             "OutputGroupCanonicalName" = "8:Built"
             "OutputProjectGuid" = "8:{9AF324B7-F786-4D85-B2E1-6E51720F874E}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_6B5383E12B8F41468A7CE88261910671"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Windows 7 Basic.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_F9BB55954BD441C1B0A5FADD1DBEABC1"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{404821C5-4EE4-4908-A759-5EF6DAC14AB6}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_A023F7C592924D55B63B857CA3803F79"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Windows Vista Aero.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_F9BB55954BD441C1B0A5FADD1DBEABC1"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{EDE9E4F2-53E5-42A0-93B4-00AD0B2FC097}"
             "ShowKeyOutput" = "11:TRUE"
                 "ExcludeFilters"
                 {
@@ -1518,6 +1830,62 @@
             "OutputConfiguration" = "8:Setup|x64"
             "OutputGroupCanonicalName" = "8:Built"
             "OutputProjectGuid" = "8:{87D5FE20-AF86-458A-9AA3-3131EB06179B}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_DC730B12EA1643B892511DAD57BFCAFA"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Classic Skin.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_F9BB55954BD441C1B0A5FADD1DBEABC1"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{9EC23CA9-384A-4EEB-979E-69879DC1A78C}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_FED58B90C9254E5C8CEAB1CCFE9C4B3E"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Windows 7 Aero.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_F9BB55954BD441C1B0A5FADD1DBEABC1"
+            "Condition" = "8:CHECK_STARTMENU"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{EA65FDDD-CB77-417F-8BB4-2F3ECB5B3E75}"
             "ShowKeyOutput" = "11:TRUE"
                 "ExcludeFilters"
                 {

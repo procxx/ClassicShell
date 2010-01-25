@@ -1,13 +1,15 @@
-// Classic Shell (c) 2009, Ivo Beltchev
+// Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
 #include "IconManager.h"
 #include "FNVHash.h"
-#include "ParseSettings.h"
+#include "GlobalSettings.h"
+#include "TranslationSettings.h"
 
 const int MAX_FOLDER_LEVEL=10; // don't go more than 10 levels deep
 
+int CIconManager::s_DPI;
 int CIconManager::LARGE_ICON_SIZE;
 int CIconManager::SMALL_ICON_SIZE;
 bool CIconManager::s_bStopLoading;
@@ -16,7 +18,7 @@ CRITICAL_SECTION CIconManager::s_PreloadSection;
 
 CIconManager g_IconManager; // must be after s_PreloadedIcons and s_PreloadSection because the constructor starts a thread that uses the Preloaded stuff
 
-CIconManager::CIconManager( void )
+void CIconManager::Init( void )
 {
 	wchar_t path[_MAX_PATH];
 	GetModuleFileName(NULL,path,_countof(path));
@@ -25,18 +27,34 @@ CIconManager::CIconManager( void )
 	// so we hack it here
 	if (_wcsicmp(PathFindFileName(path),L"ClassicStartMenu.exe")==0)
 		SetProcessDPIAware();
-	HDC hdc=::GetDC(NULL);
-	int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
-	::ReleaseDC(NULL,hdc);
 	int iconSize;
-	if (dpi>120)
-		iconSize=24;
-	else if (dpi>96)
-		iconSize=20;
+	const wchar_t *str=FindSetting("SmallIconSize");
+	if (str)
+	{
+		iconSize=_wtol(str);
+		if (iconSize<8) iconSize=8;
+		if (iconSize>128) iconSize=128;
+	}
 	else
-		iconSize=16;
-	LARGE_ICON_SIZE=iconSize*2;
+	{
+		HDC hdc=::GetDC(NULL);
+		s_DPI=GetDeviceCaps(hdc,LOGPIXELSY);
+		::ReleaseDC(NULL,hdc);
+		if (s_DPI>120)
+			iconSize=24;
+		else if (s_DPI>96)
+			iconSize=20;
+		else
+			iconSize=16;
+	}
 	SMALL_ICON_SIZE=iconSize;
+	str=FindSetting("LargeIconSize");
+	if (str)
+		LARGE_ICON_SIZE=_wtol(str);
+	else
+		LARGE_ICON_SIZE=iconSize*2;
+	if (LARGE_ICON_SIZE<8) LARGE_ICON_SIZE=8;
+	if (LARGE_ICON_SIZE>128) LARGE_ICON_SIZE=128;
 
 	bool bRTL=IsLanguageRTL();
 	// create the image lists
@@ -87,53 +105,96 @@ CIconManager::~CIconManager( void )
 }
 
 // Retrieves an icon from a shell folder and child ID
-int CIconManager::GetIcon( IShellFolder *pFolder, PITEMID_CHILD item, bool bLarge )
+int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLarge )
 {
 	ProcessPreloadedIcons();
 
 	// get the IExtractIcon object
 	CComPtr<IExtractIcon> pExtract;
 	HRESULT hr=pFolder->GetUIObjectOf(NULL,1,&item,IID_IExtractIcon,NULL,(void**)&pExtract);
-	if (FAILED(hr))
-		return 0;
-
-	// get the icon location
-	wchar_t location[_MAX_PATH];
-	int index=0;
-	UINT flags=0;
-	hr=pExtract->GetIconLocation(0,location,_countof(location),&index,&flags);
-	if (hr!=S_OK)
-		return 0;
-
-	// check if this location+index is in the cache
-	unsigned int key=CalcFNVHash(location,CalcFNVHash(&index,4));
-	if (bLarge)
+	HICON hIcon;
+	unsigned int key;
+	if (SUCCEEDED(hr))
 	{
-		if (m_LargeCache.find(key)!=m_LargeCache.end())
-			return m_LargeCache[key];
+		// get the icon location
+		wchar_t location[_MAX_PATH];
+		int index=0;
+		UINT flags=0;
+		hr=pExtract->GetIconLocation(0,location,_countof(location),&index,&flags);
+		if (hr!=S_OK)
+			return 0;
+
+		// check if this location+index is in the cache
+		key=CalcFNVHash(location,CalcFNVHash(&index,4));
+		if (bLarge)
+		{
+			if (m_LargeCache.find(key)!=m_LargeCache.end())
+				return m_LargeCache[key];
+		}
+		else
+		{
+			EnterCriticalSection(&s_PreloadSection);
+			int res=-1;
+			if (m_SmallCache.find(key)!=m_SmallCache.end())
+				res=m_SmallCache[key];
+			LeaveCriticalSection(&s_PreloadSection);
+			if (res>=0) return res;
+		}
+
+		// extract the icon
+		hr=pExtract->Extract(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+		if (hr==S_FALSE)
+		{
+			// the IExtractIcon object didn't do anything - use ExtractIconEx instead
+			if (ExtractIconEx(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)==1)
+				hr=S_OK;
+		}
 	}
 	else
 	{
-		EnterCriticalSection(&s_PreloadSection);
-		int res=-1;
-		if (m_SmallCache.find(key)!=m_SmallCache.end())
-			res=m_SmallCache[key];
-		LeaveCriticalSection(&s_PreloadSection);
-		if (res>=0) return res;
-	}
+		// try again using the ANSI version
+		CComPtr<IExtractIconA> pExtractA;
+		hr=pFolder->GetUIObjectOf(NULL,1,&item,IID_IExtractIconA,NULL,(void**)&pExtractA);
+		if (FAILED(hr))
+			return 0;
 
-	// extract the icon
-	HICON hIcon;
-	hr=pExtract->Extract(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
-	if (hr==S_FALSE)
-	{
-		// the IExtractIcon object didn't do anything - use ExtractIconEx instead
-		if (ExtractIconEx(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)==1)
-			hr=S_OK;
+		// get the icon location
+		char location[_MAX_PATH];
+		int index=0;
+		UINT flags=0;
+		hr=pExtractA->GetIconLocation(0,location,_countof(location),&index,&flags);
+		if (hr!=S_OK)
+			return 0;
+
+		// check if this location+index is in the cache
+		key=CalcFNVHash(location,CalcFNVHash(&index,4));
+		if (bLarge)
+		{
+			if (m_LargeCache.find(key)!=m_LargeCache.end())
+				return m_LargeCache[key];
+		}
+		else
+		{
+			EnterCriticalSection(&s_PreloadSection);
+			int res=-1;
+			if (m_SmallCache.find(key)!=m_SmallCache.end())
+				res=m_SmallCache[key];
+			LeaveCriticalSection(&s_PreloadSection);
+			if (res>=0) return res;
+		}
+
+		// extract the icon
+		hr=pExtractA->Extract(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+		if (hr==S_FALSE)
+		{
+			// the IExtractIcon object didn't do anything - use ExtractIconEx instead
+			if (ExtractIconExA(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)==1)
+				hr=S_OK;
+		}
 	}
 
 	// add to the image list
-	index=0;
+	int index=0;
 	if (hr==S_OK)
 	{
 		index=ImageList_AddIcon(bLarge?m_LargeIcons:m_SmallIcons,hIcon);
@@ -177,12 +238,23 @@ int CIconManager::GetIcon( const wchar_t *location, int index, bool bLarge )
 
 	// extract icon
 	HICON hIcon;
-	if (ExtractIconEx(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)!=1)
-		return 0;
+	HMODULE hMod=GetModuleHandle(PathFindFileName(location));
+	if (hMod && index<0)
+	{
+		int iconSize=bLarge?LARGE_ICON_SIZE:SMALL_ICON_SIZE;
+		hIcon=(HICON)LoadImage(hMod,MAKEINTRESOURCE(-index),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+	}
+	else if (ExtractIconEx(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)!=1)
+		hIcon=NULL;
 
 	// add to the image list
-	index=ImageList_AddIcon(bLarge?m_LargeIcons:m_SmallIcons,hIcon);
-	DestroyIcon(hIcon);
+	if (hIcon)
+	{
+		index=ImageList_AddIcon(bLarge?m_LargeIcons:m_SmallIcons,hIcon);
+		DestroyIcon(hIcon);
+	}
+	else
+		index=0;
 
 	// add to the cache
 	if (bLarge)
@@ -242,6 +314,21 @@ int CIconManager::GetStdIcon( int id, bool bLarge )
 	return index;
 }
 
+int CIconManager::GetCustomIcon( const wchar_t *path, bool bLarge )
+{
+	wchar_t text[1024];
+	wcscpy_s(text,path);
+	DoEnvironmentSubst(text,_countof(text));
+	wchar_t *c=wcsrchr(text,',');
+	int index=0;
+	if (c)
+	{
+		*c=0;
+		index=-_wtol(c+1);
+	}
+	return GetIcon(text,index,bLarge);
+}
+
 void CIconManager::ProcessPreloadedIcons( void )
 {
 	EnterCriticalSection(&s_PreloadSection);
@@ -264,7 +351,8 @@ void CIconManager::ProcessPreloadedIcons( void )
 void CIconManager::LoadFolderIcons( IShellFolder *pFolder, int level )
 {
 	CComPtr<IEnumIDList> pEnum;
-	pFolder->EnumObjects(NULL,SHCONTF_NONFOLDERS|SHCONTF_FOLDERS,&pEnum);
+	if (pFolder->EnumObjects(NULL,SHCONTF_NONFOLDERS|SHCONTF_FOLDERS,&pEnum)!=S_OK) pEnum=NULL;
+	if (!pEnum) return;
 
 	PITEMID_CHILD pidl;
 	while (pEnum->Next(1,&pidl,NULL)==S_OK)
@@ -304,12 +392,52 @@ void CIconManager::LoadFolderIcons( IShellFolder *pFolder, int level )
 				}
 			}
 		}
+		else
+		{
+			// try the ANSI version
+			CComPtr<IExtractIconA> pExtractA;
+			if (SUCCEEDED(pFolder->GetUIObjectOf(NULL,1,&pidl,IID_IExtractIconA,NULL,(void**)&pExtractA)))
+			{
+				// get the icon location
+				char location[_MAX_PATH];
+				int index=0;
+				UINT flags=0;
+				if (SUCCEEDED(pExtractA->GetIconLocation(0,location,_countof(location),&index,&flags)))
+				{
+					// check if this location+index is in the cache
+					unsigned int key=CalcFNVHash(location,CalcFNVHash(&index,4));
+					EnterCriticalSection(&s_PreloadSection);
+					bool bLoaded=g_IconManager.m_SmallCache.find(key)!=g_IconManager.m_SmallCache.end() || s_PreloadedIcons.find(key)!=s_PreloadedIcons.end();
+					LeaveCriticalSection(&s_PreloadSection);
+					if (!bLoaded)
+					{
+						// extract the icon
+						HICON hIcon;
+						HRESULT hr=pExtractA->Extract(location,index,NULL,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+						if (hr==S_FALSE)
+						{
+							// the IExtractIcon object didn't do anything - use ExtractIconEx instead
+							if (ExtractIconExA(location,index,NULL,&hIcon,1)==1)
+								hr=S_OK;
+						}
+						Sleep(10); // pause for a bit to reduce the stress on the system
+						if (hr==S_OK)
+						{
+							EnterCriticalSection(&s_PreloadSection);
+							s_PreloadedIcons[key]=hIcon;
+							LeaveCriticalSection(&s_PreloadSection);
+						}
+					}
+				}
+			}
+		}
 
 		if (level<MAX_FOLDER_LEVEL)
 		{
-			SFGAOF flags=SFGAO_FOLDER;
-			if (SUCCEEDED(pFolder->GetAttributesOf(1,&pidl,&flags)) && (flags&SFGAO_FOLDER))
+			SFGAOF flags=SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK;
+			if (SUCCEEDED(pFolder->GetAttributesOf(1,&pidl,&flags)) && (flags&(SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK))==SFGAO_FOLDER)
 			{
+				// go into subfolders but not archives or links to folders
 				CComPtr<IShellFolder> pChild;
 				if (SUCCEEDED(pFolder->BindToObject(pidl,NULL,IID_IShellFolder,(void**)&pChild)))
 					LoadFolderIcons(pChild,level+1);
@@ -351,7 +479,7 @@ DWORD CALLBACK CIconManager::PreloadThread( void *param )
 		SHGetKnownFolderIDList(g_CacheFolders[i],0,NULL,&path);
 		CComPtr<IShellFolder> pFolder;
 		pDesktop->BindToObject(path,NULL,IID_IShellFolder,(void**)&pFolder);
-		LoadFolderIcons(pFolder,0);
+		LoadFolderIcons(pFolder,g_CacheFolders[i]==FOLDERID_ControlPanelFolder?MAX_FOLDER_LEVEL:0);
 		ILFree(path);
 		if (s_bStopLoading) break;
 	}

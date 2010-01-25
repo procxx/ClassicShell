@@ -1,0 +1,124 @@
+===============================================================================
+== Version 0.9.10 release candidate (Jan, 2010) - customizable toolbar:
+
+- The Explorer toolbar can be customized with new icons and additional buttons
+
+- Fixed a crash bug when Windows is restarting
+
+- Fixed a crash bug when Explorer is restarting
+
+- Fixed a bug that was failing to replace the copy dialog for French, Hebrew,
+  Croatian and Slovenian languages
+
+- Added more options for the navigation pane in Explorer
+
+- Active Accessibility support is enabled by default
+
+
+===============================================================================
+== Version 0.9.9 release candidate (Jan, 2010) - more new features:
+
+- The skins in the start menu can have variations
+
+- Added ini files that contain even more customization options for the Explorer
+  toolbar and the start menu, including options to completely redesign the
+  start menu
+
+- Added "New Folder" and "Auto Arrange" commands to the start menu
+
+- The selected menu item fades out like in a real menu
+
+- Added "Email" button to Explorer
+
+- First attempt to support Active Accessibility (disabled by default for now)
+
+
+===============================================================================
+== Version 0.9.8 beta (Jan, 2010) - now with skins!
+
+- Added support for skins in the classic start menu
+
+- Fixed compatibility problems with Unicode-unaware shell extensions (Microangelo
+  On Display, I'm looking at you)
+
+- The start menu supports auto-hide taskbar and (on Vista only) a taskbar that is
+  not "always on top"
+
+- Replaced the folder conflict dialog box with a simpler version (similar to the
+  file conflict dialog box)
+
+- Fixed a crash when right-clicking on the caption area of the start menu
+
+- The start menu remembers the scroll position of scrollable menus
+
+- Added "-open" and "-toggle" command line parameters to ClassicStartMenu.exe to
+  programmatically open the start menu
+
+
+===============================================================================
+== Version 0.9.7 beta (Dec, 2009) - status bar and more:
+
+- Added free disk space and file size to the status bar in Windows 7 Explorer
+
+- Added dragging with the right mouse button for the start menu
+
+- Fixed a few UAC bugs
+
+- Fixed a few drag and drop bugs
+
+
+===============================================================================
+== Version 0.9.6 beta (Dec, 2009) - more improvements:
+
+- Added Properties button to the toolbar
+
+- Added settings for the look of the folder tree in Explorer - XP classic,
+  XP simple, don't fade buttons
+
+- Added option to expand links to folders in the start menu
+
+- Added option to show a confirmation dialog during Log Off from the start menu
+
+- Added option for a hotkey to replace the Win key for the start menu
+
+- The start menu hides the commands to search for printers or computers if
+  Active Directory is not available
+
+- The start menu accepts click in all of the start button area even if it is not
+  exactly on the orb
+
+- The start menu doesn't close if you hold down Shift while launching a program.
+  Allows the user to start multiple programs more easily
+
+- The start menu follows the group policies for showing Run, Shutdown, Help, etc
+
+- Fixed a bug with sorting Favorites and other top-level folders
+
+
+===============================================================================
+== Version 0.9.5 beta (Dec, 2009) - few improvements:
+
+- Added option to remove the Documents menu and option to use an alternative
+  search application
+
+- Added more buttons to the toolbar - Cut, Copy, Paste, Delete
+
+- Added option for "big buttons" in the toolbar
+
+- The selected menu item is drawn using the current theme
+
+- Fixed a crash in the start menu
+
+- Fixed a problem when dropping items in an empty sub-menu
+
+
+===============================================================================
+== Version 0.9 beta (Nov, 2009) - first public version:
+
+- Classic start menu
+
+- Replacement for the Copy UI in Vista
+
+- Fix for Alt+Enter in Explorer
+
+- Toolbar for Explorer with Up button
