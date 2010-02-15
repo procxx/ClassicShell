@@ -2,6 +2,13 @@
 // Microsoft Visual C++ generated include file.
 // Used by ClassicExplorer.rc
 //
+#define IDI_APPICON                     1
+#define IDI_UP                          2
+#define IDI_UPDISABLED                  3
+#define IDI_UP2NORMAL                   4
+#define IDI_UP2PRESSED                  5
+#define IDI_UP2HOT                      6
+#define IDI_UP2DISABLED                 7
 #define IDS_PROJNAME                    100
 #define IDR_CLASSICEXPLORER             101
 #define IDR_EXPLORERBAND                102
@@ -33,8 +40,6 @@
 #define IDR_REGISTRY1                   216
 #define IDR_CLASSICCOPYEXT              216
 #define IDC_CHECKXPSTYLE                216
-#define IDI_ICON1                       217
-#define IDI_APPICON                     217
 #define IDC_CHECKSIMPLE                 217
 #define IDC_CHECKNOFADE                 218
 #define IDC_CHECKSIZE                   219
@@ -43,6 +48,9 @@
 #define IDC_CHECKCOPYFOLDER             221
 #define IDC_CHECK7                      222
 #define IDC_CHECK8                      223
+#define IDC_COMBOSTYLE                  224
+#define IDC_CHECKOFFSET                 225
+#define IDC_CHECKUP                     226
 #define IDC_STATICFNAME                 1003
 #define IDC_STATICSRCSIZE               1004
 #define IDC_STATICSRCTIME               1005
@@ -56,9 +64,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        218
+#define _APS_NEXT_RESOURCE_VALUE        224
 #define _APS_NEXT_COMMAND_VALUE         32769
-#define _APS_NEXT_CONTROL_VALUE         223
+#define _APS_NEXT_CONTROL_VALUE         227
 #define _APS_NEXT_SYMED_VALUE           105
 #endif
 #endif

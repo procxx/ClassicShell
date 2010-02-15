@@ -1,11 +1,41 @@
 ===============================================================================
-== Version 0.9.9 release candidate (Jan, 2010) - more new features:
+== Version 1.0.0 general release (Feb, 2010):
+
+- Added Up button to the Explorer title bar
+
+- More options for the start menu and for the Explorer toolbar
+
+- The installer supports command line options for logging or unattended install
+
+- Fix for the scroll problems in the Explorer navigation pane (Windows 7 only)
+
+
+===============================================================================
+== Version 0.9.10 release candidate (Jan, 2010) - make your own toolbar:
+
+- The Explorer toolbar can be customized with new icons and additional buttons
+
+- Fixed a crash bug when Windows is restarting
+
+- Fixed a crash bug when Explorer is restarting
+
+- Fixed a bug that was failing to replace the copy dialog for French, Hebrew,
+  Croatian and Slovenian languages
+
+- Added more options for the navigation pane in Explorer
+
+- Active Accessibility support is enabled by default
+
+
+===============================================================================
+== Version 0.9.9 release candidate (Jan, 2010) - make your own start menu:
+
+- The start menu can be customized with new icons and additional menu items
 
 - The skins in the start menu can have variations
 
 - Added ini files that contain even more customization options for the Explorer
-  toolbar and the start menu, including options to completely redesign the
-  start menu
+  toolbar and the start menu than are available from the Settings dialog box
 
 - Added "New Folder" and "Auto Arrange" commands to the start menu
 
@@ -13,11 +43,11 @@
 
 - Added "Email" button to Explorer
 
-- First try to support Active Accessibility (disabled by default for now)
+- First attempt to support Active Accessibility (disabled by default for now)
 
 
 ===============================================================================
-== Version 0.9.8 beta (Jan, 2010) - now with skins!
+== Version 0.9.8 beta (Jan, 2010) - skins for the start menu:
 
 - Added support for skins in the classic start menu
 
@@ -39,7 +69,7 @@
 
 
 ===============================================================================
-== Version 0.9.7 beta (Dec, 2009) - status bar and more:
+== Version 0.9.7 beta (Dec, 2009):
 
 - Added free disk space and file size to the status bar in Windows 7 Explorer
 
@@ -51,7 +81,7 @@
 
 
 ===============================================================================
-== Version 0.9.6 beta (Dec, 2009) - more improvements:
+== Version 0.9.6 beta (Dec, 2009):
 
 - Added Properties button to the toolbar
 
@@ -79,7 +109,7 @@
 
 
 ===============================================================================
-== Version 0.9.5 beta (Dec, 2009) - few improvements:
+== Version 0.9.5 beta (Dec, 2009):
 
 - Added option to remove the Documents menu and option to use an alternative
   search application
@@ -92,7 +122,7 @@
 
 - Fixed a crash in the start menu
 
-- Fixed a problem when dropping items in an empty submenu
+- Fixed a problem when dropping items in an empty sub-menu
 
 
 ===============================================================================

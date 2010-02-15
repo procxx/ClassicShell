@@ -40,7 +40,7 @@ static StdMenuItem g_StdMenu[]=
 	{MENU_TASKBAR,"Menu.Taskbar",L"&Taskbar and Start Menu",40,MENU_NO,NULL,NULL,"Menu.TaskbarTip",L"Customize the Start Menu and the taskbar, such as the types of items to be displayed and how they should appear."},
 	{MENU_FEATURES,"Menu.Features",L"Programs and &Features",271,MENU_NO,&FOLDERID_ChangeRemovePrograms,NULL,"Menu.FeaturesTip",L"Uninstall or change programs on your computer."},
 	{MENU_SEPARATOR},
-	{MENU_CLASSIC_SETTINGS,"Menu.ClassicSettings",L"Classic Start &Menu",274,MENU_NO,NULL,NULL,"Menu.SettingsTip",L"Settings for Classic Start Menu",NULL,NULL,NULL,L"ClassicStartMenuDLL,103"},
+	{MENU_CLASSIC_SETTINGS,"Menu.ClassicSettings",L"Classic Start &Menu",274,MENU_NO,NULL,NULL,"Menu.SettingsTip",L"Settings for Classic Start Menu",NULL,NULL,NULL,L"ClassicStartMenuDLL.dll,103"},
 	{MENU_LAST},
 
 	// Search
@@ -53,7 +53,7 @@ static StdMenuItem g_StdMenu[]=
 
 static std::vector<StdMenuItem> g_CustomMenu;
 static int g_CustomMenuRoot;
-static FILETIME g_ItemsFileTime;
+static FILETIME g_IniTimestamp;
 static CSettingsParser g_CustomMenuParser;
 
 static const StdMenuItem *FindStdMenuItem( TMenuID id )
@@ -236,18 +236,13 @@ const StdMenuItem *ParseCustomMenu( void )
 	wchar_t fname[_MAX_PATH];
 	GetModuleFileName(g_Instance,fname,_countof(fname));
 	*PathFindFileName(fname)=0;
-#ifdef BUILD_SETUP
-#define INI_PATH L""
-#else
-#define INI_PATH L"..\\"
-#endif
 	wcscat_s(fname,_countof(fname),INI_PATH L"StartMenuItems.ini");
 	WIN32_FILE_ATTRIBUTE_DATA data;
 	if (GetFileAttributesEx(fname,GetFileExInfoStandard,&data))
 	{
-		if (CompareFileTime(&g_ItemsFileTime,&data.ftLastWriteTime)!=0)
+		if (CompareFileTime(&g_IniTimestamp,&data.ftLastWriteTime)!=0)
 		{
-			g_ItemsFileTime=data.ftLastWriteTime;
+			g_IniTimestamp=data.ftLastWriteTime;
 			g_CustomMenu.clear();
 			g_CustomMenuParser.Reset();
 			if (g_CustomMenuParser.LoadText(fname))

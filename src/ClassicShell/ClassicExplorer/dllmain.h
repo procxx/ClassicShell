@@ -3,6 +3,8 @@
 
 // dllmain.h : Declaration of module class.
 
+#include <vector>
+
 class CClassicExplorerModule : public CAtlDllModuleT< CClassicExplorerModule >
 {
 public :
@@ -11,3 +13,8 @@ public :
 };
 
 extern class CClassicExplorerModule _AtlModule;
+
+// Some utulity functions used by various modules
+void ReadIniFile( bool bStartup );
+HICON LoadIcon( int iconSize, const wchar_t *path, int index, std::vector<HMODULE> &modules, HMODULE hShell32 );
+HICON CreateDisabledIcon( HICON icon, int size );

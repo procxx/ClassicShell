@@ -29,3 +29,11 @@ using namespace ATL;
 #include <shlobj.h>
 
 extern HINSTANCE g_Instance;
+
+#ifdef BUILD_SETUP
+#define INI_PATH L""
+#define DOC_PATH L""
+#else
+#define INI_PATH L"..\\"
+#define DOC_PATH L"..\\..\\Docs\\"
+#endif

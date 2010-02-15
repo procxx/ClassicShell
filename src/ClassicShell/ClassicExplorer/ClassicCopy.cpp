@@ -412,6 +412,7 @@ INT_PTR CALLBACK CClassicCopyFolder::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM
 {
 	if (uMsg==WM_INITDIALOG)
 	{
+		SetWindowText(hwndDlg,FindTranslation("Folder.Title",L"Confirm Folder Replace"));
 		CClassicCopyFolder *pThis=(CClassicCopyFolder*)lParam;
 		wchar_t text[2048];
 		// find the link control and get its text
@@ -545,8 +546,8 @@ void InitClassicCopyProcess( void )
 	// load UI text from shell32.dll
 	// the text is used to locate controls in the copy dialog by name
 	HMODULE hShell32=GetModuleHandle(L"shell32.dll");
-	LoadString(hShell32,16875,g_TitleMove,256);
-	LoadString(hShell32,16876,g_TitleCopy,256);
+	LoadString(hShell32,17027,g_TitleMove,256);
+	LoadString(hShell32,17024,g_TitleCopy,256);
 	LoadString(hShell32,16705,g_TitleFolder,256);
 	LoadString(hShell32,13610,g_ButtonMove,256);
 	LoadString(hShell32,13623,g_ButtonDontMove,256);

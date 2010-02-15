@@ -501,7 +501,7 @@ bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variatio
 	{
 		wcscat_s(path,fname);
 		wcscat_s(path,L".skin");
-		HMODULE hMod=LoadLibraryEx(path,NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+		HMODULE hMod=LoadLibraryEx(path,NULL,LOAD_LIBRARY_AS_DATAFILE);
 		if (!hMod)
 			return false;
 

@@ -21,7 +21,8 @@ class ATL_NO_VTABLE CExplorerBHO :
 	public CComObjectRootEx<CComSingleThreadModel>,
 	public CComCoClass<CExplorerBHO, &CLSID_ExplorerBHO>,
 	public IObjectWithSiteImpl<CExplorerBHO>,
-	public IDispatchImpl<IExplorerBHO, &IID_IExplorerBHO, &LIBID_ClassicExplorerLib, /*wMajor =*/ 1, /*wMinor =*/ 0>
+	public IDispatchImpl<IExplorerBHO, &IID_IExplorerBHO, &LIBID_ClassicExplorerLib, /*wMajor =*/ 1, /*wMinor =*/ 0>,
+	public IDispEventImpl<1,CExplorerBHO,&DIID_DWebBrowserEvents2,&LIBID_SHDocVw,1,1>
 {
 public:
 	CExplorerBHO()
@@ -30,13 +31,18 @@ public:
 		m_bForceRefresh=false;
 	}
 
-DECLARE_REGISTRY_RESOURCEID(IDR_EXPLORERBHO)
+	DECLARE_REGISTRY_RESOURCEID(IDR_EXPLORERBHO)
 
-BEGIN_COM_MAP(CExplorerBHO)
-	COM_INTERFACE_ENTRY(IExplorerBHO)
-	COM_INTERFACE_ENTRY(IObjectWithSite)
-	COM_INTERFACE_ENTRY(IDispatch)
-END_COM_MAP()
+	BEGIN_SINK_MAP( CExplorerBHO )
+		SINK_ENTRY_EX(1, DIID_DWebBrowserEvents2, DISPID_NAVIGATECOMPLETE2, OnNavigateComplete)
+		SINK_ENTRY_EX(1, DIID_DWebBrowserEvents2, DISPID_ONQUIT, OnQuit)
+	END_SINK_MAP()
+
+	BEGIN_COM_MAP(CExplorerBHO)
+		COM_INTERFACE_ENTRY(IExplorerBHO)
+		COM_INTERFACE_ENTRY(IObjectWithSite)
+		COM_INTERFACE_ENTRY(IDispatch)
+	END_COM_MAP()
 
 
 
@@ -55,10 +61,15 @@ END_COM_MAP()
 	enum
 	{
 		FOLDERS_ALTENTER=1, // enable Alt+Enter support
+
+		FOLDERS_VISTA=0, // no change
 		FOLDERS_CLASSIC=2, // use classic XP style
-		FOLDERS_SIMPLE=4, // use simple XP style
+		FOLDERS_SIMPLE=6, // use simple XP style
+		FOLDERS_STYLE_MASK=6,
+
 		FOLDERS_NOFADE=8, // don't fade the buttons
 		FOLDERS_AUTONAVIGATE=16, // always navigate to selected folder
+		FOLDERS_FULLINDENT=32, // use full-size indent
 
 		FOLDERS_DEFAULT=FOLDERS_ALTENTER
 	};
@@ -74,15 +85,23 @@ public:
 	// IObjectWithSite
 	STDMETHOD(SetSite)(IUnknown *pUnkSite);
 
+	// DWebBrowserEvents2
+	STDMETHOD(OnNavigateComplete)( IDispatch *pDisp, VARIANT *URL );
+	STDMETHOD(OnQuit)( void );
+
 private:
 	CComPtr<IShellBrowser> m_pBrowser;
+	CComPtr<IWebBrowser2> m_pWebBrowser;
 	bool m_bResetStatus;
 	bool m_bForceRefresh;
+	CWindow m_Toolbar;
+	HICON m_IconNormal, m_IconHot, m_IconPressed, m_IconDisabled;
 
 	static __declspec(thread) HHOOK s_Hook;
 
 	static LRESULT CALLBACK HookExplorer( int code, WPARAM wParam, LPARAM lParam );
 	static LRESULT CALLBACK SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+	static LRESULT CALLBACK RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(ExplorerBHO), CExplorerBHO)

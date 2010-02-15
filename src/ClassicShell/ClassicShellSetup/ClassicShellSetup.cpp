@@ -17,13 +17,15 @@ typedef BOOL (WINAPI *FIsWow64Process)( HANDLE hProcess, PBOOL Wow64Process );
 
 int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow )
 {
+	bool bQuiet=wcsstr(lpCmdLine,L"/qn")!=NULL;
 	INITCOMMONCONTROLSEX init={sizeof(init),ICC_STANDARD_CLASSES};
 	InitCommonControlsEx(&init);
 	// check Windows version
 	if ((GetVersion()&255)<6)
 	{
-		MessageBox(NULL,L"Classic Shell requires Windows Vista or later.",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
-		return 1;
+		if (!bQuiet)
+			MessageBox(NULL,L"Classic Shell requires Windows Vista or later.",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
+		return 101;
 	}
 
 	// dynamically link to IsWow64Process because it is not available for Windows 2000
@@ -31,13 +33,53 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	FIsWow64Process isWow64Process=(FIsWow64Process)GetProcAddress(hKernel32,"IsWow64Process");
 	if (!isWow64Process)
 	{
-		MessageBox(NULL,L"Classic Shell requires Windows Vista or later.",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
-		return 1;
+		if (!bQuiet)
+			MessageBox(NULL,L"Classic Shell requires Windows Vista or later.",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
+		return 101;
+	}
+
+	BOOL b64=FALSE;
+	isWow64Process(GetCurrentProcess(),&b64);
+
+	// check for versions older than 1.0.0
+	const wchar_t *oldVersions32[]={
+		L"{4FB649CF-3B19-44C2-AE13-3978BA10E3C0}", // 0.9.7
+		L"{131E8BB5-6E2F-437B-9923-3BAC5402995D}", // 0.9.8
+		L"{962C0EF9-28A6-48B5-AE5D-F8F8B4B1C5F6}", // 0.9.9
+		L"{AA86C803-F195-4593-A9EC-24D26D4F9C7E}", // 0.9.10
+		NULL
+	};
+
+	const wchar_t *oldVersions64[]={
+		L"{962E3DB4-82A7-4B38-80B4-F3DB790D9CA2}", // 0.9.7
+		L"{4F5A8EAD-D866-47CB-85C3-E17BB328687E}", // 0.9.8
+		L"{029C99FA-B112-486A-8350-DA2099C812ED}", // 0.9.9
+		L"{2099745F-EFD7-43C8-9A3A-5EAF01CD56FF}", // 0.9.10
+		NULL
+	};
+
+	
+	for (const wchar_t **oldVersion=b64?oldVersions64:oldVersions32;*oldVersion;oldVersion++)
+	{
+		wchar_t buf[256];
+		swprintf_s(buf,L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\%s",*oldVersion);
+		HKEY hKey=NULL;
+		if (RegCreateKeyEx(HKEY_LOCAL_MACHINE,buf,0,NULL,REG_OPTION_NON_VOLATILE,KEY_READ|KEY_QUERY_VALUE|KEY_WOW64_64KEY,NULL,&hKey,NULL)==ERROR_SUCCESS)
+		{
+			DWORD version;
+			DWORD size=sizeof(version);
+			if (RegQueryValueEx(hKey,L"Version",0,NULL,(BYTE*)&version,&size)==ERROR_SUCCESS)
+			{
+				RegCloseKey(hKey);
+				if (!bQuiet)
+					MessageBox(NULL,L"This version of Classic Shell cannot be installed over versions older than 1.0.0. Please uninstall the old version of Classic Shell, log off, and run the installer again.",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
+				return 102;
+			}
+			RegCloseKey(hKey);
+		}
 	}
 
 	// extract the installer
-	BOOL b64=FALSE;
-	isWow64Process(GetCurrentProcess(),&b64);
 	void *pRes=NULL;
 	HRSRC hResInfo=FindResource(hInstance,MAKEINTRESOURCE(b64?IDR_MSI_FILE64:IDR_MSI_FILE32),L"MSI_FILE");
 	if (hResInfo)
@@ -47,8 +89,9 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	}
 	if (!pRes)
 	{
-		MessageBox(NULL,L"Internal Setup Error",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
-		return 1;
+		if (!bQuiet)
+			MessageBox(NULL,L"Internal Setup Error",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
+		return 103;
 	}
 	wchar_t path[_MAX_PATH*2];
 	GetTempPath(_countof(path),path);
@@ -59,8 +102,9 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	{
 		wchar_t message[1024];
 		swprintf_s(message,L"Failed to create temp file '%s'.",msiName);
-		MessageBox(NULL,message,L"Classic Shell Setup",MB_OK|MB_ICONERROR);
-		return 2;
+		if (!bQuiet)
+			MessageBox(NULL,message,L"Classic Shell Setup",MB_OK|MB_ICONERROR);
+		return 104;
 	}
 	DWORD q;
 	WriteFile(hFile,pRes,SizeofResource(hInstance,hResInfo),&q,NULL);
@@ -72,13 +116,15 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	startupInfo.cb=sizeof(startupInfo);
 	PROCESS_INFORMATION processInfo;
 	memset(&processInfo,0,sizeof(processInfo));
-	wchar_t cmdLine[1024];
-	swprintf_s(cmdLine,L"msiexec.exe /i %s",msiName);
+	wchar_t cmdLine[2048];
+	swprintf_s(cmdLine,L"msiexec.exe /i %s %s",msiName,lpCmdLine);
 
 	if (!CreateProcess(NULL,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
 	{
 		DeleteFile(msiName);
-		MessageBox(NULL,L"Failed to run msiexec.exe",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
+		if (!bQuiet)
+			MessageBox(NULL,L"Failed to run msiexec.exe",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
+		return 105;
 	}
 	else
 	{
@@ -100,7 +146,8 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 				memset(&startupInfo,0,sizeof(startupInfo));
 				startupInfo.cb=sizeof(startupInfo);
 				memset(&processInfo,0,sizeof(processInfo));
-				wcscat_s(path,L" -open");
+				if (!bQuiet)
+					wcscat_s(path,L" -open");
 				CreateProcess(NULL,path,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo);
 			}
 			RegCloseKey(hKey);

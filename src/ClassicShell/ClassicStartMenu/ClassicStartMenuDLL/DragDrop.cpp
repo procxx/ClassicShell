@@ -92,7 +92,7 @@ private:
 
 LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 {
-	if (!(m_Options&CONTAINER_DRAG) || s_bNoEditMenu) return 0;
+	if (!(m_Options&CONTAINER_DRAG) || s_bNoDragDrop) return 0;
 	NMTOOLBAR *pInfo=(NMTOOLBAR*)pnmh;
 	const MenuItem &item=m_Items[pInfo->iItem-ID_OFFSET];
 	if (!item.pItem1 || item.id!=MENU_NO) return 0;
@@ -153,6 +153,7 @@ LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	for (int i=(int)s_Menus.size()-1;i>=0;i--)
 		if (!s_Menus[i]->m_bDestroyed)
 		{
+			SetForegroundWindow(s_Menus[i]->m_hWnd);
 			s_Menus[i]->SetActiveWindow();
 			break;
 		}
@@ -210,7 +211,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 
 	// only accept CFSTR_SHELLIDLIST data
 	FORMATETC format={s_ShellFormat,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-	if (s_bNoEditMenu || !m_pDropFolder || !(m_Options&CONTAINER_DROP) || m_pDragObject->QueryGetData(&format)!=S_OK)
+	if (s_bNoDragDrop || !m_pDropFolder || !(m_Options&CONTAINER_DROP) || m_pDragObject->QueryGetData(&format)!=S_OK)
 		*pdwEffect=DROPEFFECT_NONE;
 
 	POINT p={pt.x,pt.y};

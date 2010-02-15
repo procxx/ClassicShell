@@ -81,7 +81,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib"
 				OutputFile="$(OutDir)\$(ProjectName)32.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile=".\ClassicExplorer32.def"
@@ -173,7 +173,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib"
 				OutputFile="$(OutDir)\$(ProjectName)64.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile=".\ClassicExplorer64.def"
@@ -264,7 +264,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib"
 				OutputFile="$(OutDir)\$(ProjectName)32.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer32.def"
@@ -356,7 +356,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib"
 				OutputFile="$(OutDir)\$(ProjectName)64.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer64.def"
@@ -449,7 +449,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="false"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib"
 				OutputFile="$(OutDir)\$(ProjectName)32.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer32.def"
@@ -541,7 +541,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="false"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib"
 				OutputFile="$(OutDir)\$(ProjectName)64.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer64.def"
@@ -674,6 +674,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Settings.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\stdafx.cpp"
 				>
 				<FileConfiguration
@@ -748,6 +752,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Settings.h"
+				>
+			</File>
+			<File
 				RelativePath=".\stdafx.h"
 				>
 			</File>
@@ -795,6 +803,30 @@
 			</File>
 			<File
 				RelativePath=".\Resource.h"
+				>
+			</File>
+			<File
+				RelativePath=".\up.ico"
+				>
+			</File>
+			<File
+				RelativePath=".\up2Disabled.ico"
+				>
+			</File>
+			<File
+				RelativePath=".\up2Hot.ico"
+				>
+			</File>
+			<File
+				RelativePath=".\up2Normal.ico"
+				>
+			</File>
+			<File
+				RelativePath=".\up2Pressed.ico"
+				>
+			</File>
+			<File
+				RelativePath=".\upDisabled.ico"
 				>
 			</File>
 		</Filter>

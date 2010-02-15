@@ -1,8 +1,18 @@
 CLASSIC SHELL
-version 0.9.9 (release candidate)
+Version 1.0.0
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.
+
+The latest version can be found on Source Forge:
+http://classicshell.sourceforge.net/
+
+Report problems in the Classic Shell help forum:
+http://sourceforge.net/projects/classicshell/forums/forum/1049756
+
+For answers to frequently asked questions look here:
+http://classicshell.sourceforge.net/faq.html
+
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -28,6 +38,10 @@ sadly is missing from Windows 7. It has a variety of advanced features:
 
 *	Has support for skins, including additional 3rd party skins. Make your own!
 
+*	Fully customizable in both looks and functionality
+
+*	Support for Microsoft’s Active Accessibility
+
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -35,8 +49,8 @@ sadly is missing from Windows 7. It has a variety of advanced features:
 
 Classic Explorer is a plugin for Windows Explorer that:
 
-*	Adds a toolbar to Explorer for some common operations (Go to the parent folder,
-  Cut, Copy, Paste, Delete, Properties, Email)
+*	Adds a toolbar to Explorer for some common operations (Go to parent folder,
+  Cut, Copy, Paste, Delete, Properties, Email). More buttons can be added manually
 
 *	Replaces the copy UI in Vista and Windows 7 with the more user-friendly "classic"
   version similar to Windows XP
@@ -57,7 +71,3 @@ Classic Explorer is a plugin for Windows Explorer that:
 Classic Shell is open source, and the source code is licensed under the terms of the
 MIT open source license. See the LICENSE.txt file in the main directory.
 
-The latest version can be found on Source Forge:
-http://classicshell.sourceforge.net/
-
-Report any problems to ivo@roadrunner.com.

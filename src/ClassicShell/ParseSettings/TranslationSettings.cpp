@@ -20,8 +20,7 @@ void ParseTranslations( const wchar_t *fname )
 		ULONG len=_countof(languages);
 		GetThreadPreferredUILanguages(MUI_LANGUAGE_NAME,&size,languages,&len);
 		// uncomment this to force a specific language
-//		memcpy(languages,L"bg-BG",10);
-		//		len=7;
+//		memcpy(languages,L"bg-BG",10); len=7;
 		wcscpy_s(languages+len-1,10,L"default");
 		languages[len+7]=0;
 	}

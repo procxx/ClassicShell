@@ -27,6 +27,14 @@ void CIconManager::Init( void )
 	// so we hack it here
 	if (_wcsicmp(PathFindFileName(path),L"ClassicStartMenu.exe")==0)
 		SetProcessDPIAware();
+
+	{
+		// get the DPI setting
+		HDC hdc=::GetDC(NULL);
+		s_DPI=GetDeviceCaps(hdc,LOGPIXELSY);
+		::ReleaseDC(NULL,hdc);
+	}
+
 	int iconSize;
 	const wchar_t *str=FindSetting("SmallIconSize");
 	if (str)
@@ -37,9 +45,6 @@ void CIconManager::Init( void )
 	}
 	else
 	{
-		HDC hdc=::GetDC(NULL);
-		s_DPI=GetDeviceCaps(hdc,LOGPIXELSY);
-		::ReleaseDC(NULL,hdc);
 		if (s_DPI>120)
 			iconSize=24;
 		else if (s_DPI>96)

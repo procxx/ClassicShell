@@ -17,7 +17,7 @@
 #define HOOK_EXPLORER // make sure it is defined in Setup
 #endif
 
-static HHOOK g_ProgHook, g_StartHook;
+static HHOOK g_StartHook;
 static HWND g_StartButton;
 
 static void UnhookStartMenu( void )
@@ -25,9 +25,6 @@ static void UnhookStartMenu( void )
 	if (g_StartHook)
 		UnhookWindowsHookEx(g_StartHook);
 	g_StartHook=NULL;
-	if (g_ProgHook)
-		UnhookWindowsHookEx(g_ProgHook);
-	g_ProgHook=NULL;
 }
 
 static HWND HookStartMenu( void )
@@ -36,18 +33,19 @@ static HWND HookStartMenu( void )
 
 	// find the Progman window and the start button
 	HWND progWin=FindWindowEx(NULL,NULL,L"Progman",NULL);
+	if (!progWin) return NULL; // the Progman window may not be created yet (if Explorer is currently restarting)
 
 	DWORD process;
 	DWORD thread=GetWindowThreadProcessId(progWin,&process);
 
 	g_StartButton=FindStartButton(process);
+	if (!g_StartButton) return NULL; // the start button may not be created yet (if Explorer is currently restarting)
 
 #ifdef HOOK_EXPLORER
 	// install hooks in the explorer process
-	g_ProgHook=SetWindowsHookEx(WH_GETMESSAGE,HookProgMan,hHookModule,thread);
-
 	thread=GetWindowThreadProcessId(g_StartButton,NULL);
-	g_StartHook=SetWindowsHookEx(WH_GETMESSAGE,HookStartButton,hHookModule,thread);
+	g_StartHook=SetWindowsHookEx(WH_GETMESSAGE,HookInject,hHookModule,thread);
+	PostMessage(g_StartButton,WM_NULL,0,0); // make sure there is one message in the queue
 
 	return NULL;
 #else
@@ -62,6 +60,8 @@ static UINT g_TaskbarCreatedMsg; // the "TaskbarCreated" message
 
 const int WM_OPEN=WM_USER+10;
 
+const int TIMER_HOOK=1;
+
 class CStartHookWindow: public CWindowImpl<CStartHookWindow>
 {
 public:
@@ -71,6 +71,8 @@ public:
 	BEGIN_MSG_MAP( CStartHookWindow )
 		MESSAGE_HANDLER( WM_OPEN, OnOpen )
 		MESSAGE_HANDLER( WM_CLOSE, OnClose )
+		MESSAGE_HANDLER( WM_CLEAR, OnClear )
+		MESSAGE_HANDLER( WM_TIMER, OnTimer )
 		MESSAGE_HANDLER( g_TaskbarCreatedMsg, OnTaskbarCreated )
 	END_MSG_MAP()
 
@@ -81,6 +83,8 @@ protected:
 	//  LRESULT NotifyHandler(int idCtrl, LPNMHDR pnmh, BOOL& bHandled);
 	LRESULT OnOpen( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnClose( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnClear( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnTaskbarCreated( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 };
 
@@ -97,10 +101,27 @@ LRESULT CStartHookWindow::OnClose( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 	return 0;
 }
 
-LRESULT CStartHookWindow::OnTaskbarCreated( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+LRESULT CStartHookWindow::OnClear( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
 	UnhookStartMenu();
-	HookStartMenu();
+	return 0;
+}
+
+LRESULT CStartHookWindow::OnTaskbarCreated( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	SetTimer(TIMER_HOOK,100);
+	return 0;
+}
+
+LRESULT CStartHookWindow::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	if (wParam==TIMER_HOOK)
+	{
+		UnhookStartMenu();
+		HookStartMenu();
+		if (g_StartHook)
+			KillTimer(TIMER_HOOK);
+	}
 	return 0;
 }
 
@@ -114,6 +135,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	HWND progWin=FindWindowEx(NULL,NULL,L"Progman",NULL);
 	DWORD process;
 	DWORD thread=GetWindowThreadProcessId(progWin,&process);
+#ifdef HOOK_EXPLORER
 	wchar_t mutexName[256];
 	swprintf_s(mutexName,L"ClassicStartMenu.Mutex.%08x",process);
 	HANDLE hMutex=CreateMutex(NULL,FALSE,mutexName);
@@ -132,7 +154,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 		}
 		return 0;
 	}
-
+#endif
 	OleInitialize(NULL);
 	g_TaskbarCreatedMsg=RegisterWindowMessage(L"TaskbarCreated");
 	ChangeWindowMessageFilter(g_TaskbarCreatedMsg,MSGFLT_ADD);
@@ -140,12 +162,11 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	window.Create(NULL,NULL,L"StartHookWindow",WS_POPUP);
 
 	MSG msg;
+	HWND menu=HookStartMenu();
 #ifdef HOOK_EXPLORER
-	window.PostMessage(g_TaskbarCreatedMsg,0,0);
 	if (open>=0) window.PostMessage(WM_OPEN,open,0);
 	while (GetMessage(&msg,0,0,0))
 #else
-	HWND menu=HookStartMenu();
 	while (IsWindow(menu) && GetMessage(&msg,0,0,0))
 #endif
 	{

@@ -329,7 +329,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			wchar_t path[_MAX_PATH];
 			GetModuleFileName(g_Instance,path,_countof(path));
 			*PathFindFileName(path)=0;
-			wcscat_s(path,L"ClassicStartMenu.html");
+			wcscat_s(path,DOC_PATH L"ClassicStartMenu.html");
 			ShellExecute(NULL,NULL,path,NULL,NULL,SW_SHOWNORMAL);
 			return TRUE;
 		}

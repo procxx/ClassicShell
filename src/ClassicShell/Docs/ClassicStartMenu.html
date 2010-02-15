@@ -11,6 +11,10 @@
 
 
 
+
+
+
+
   <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Start Menu</title>
 <style type="text/css">
 h1 {
@@ -26,7 +30,7 @@ body {
 
 </style></head><body>
 <h1><a href="http://classicshell.sourceforge.net/"><img style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge" src="ClassicStartMenu_files/ClassicShell.png"></a>&nbsp;
-Classic Start Menu</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 0.9.9 (release candidate)</span><br>
+Classic Start Menu</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 1.0.0</span><br>
 <br>
 <p><span style="color: rgb(79, 129, 189); font-weight: bold;">Classic Start Menu</span> is a
 clone of the original start menu, which you can find in all versions of
@@ -46,8 +50,10 @@ access it by Shift+Click on the start button</li>
 perform other tasks</li>
   <li>Available for 32 and 64-bit operating systems</li>
   <li>Has support for skins, including additional 3rd party skins. Make your own!</li>
-  <li>Fully customizable in both looks and functionality<br>
+  <li>Fully customizable in both looks and functionality</li>
+  <li>Support for Microsoft&#8217;s Active Accessibility<br>
   </li>
+
 
 <li>And last but not least &#8211; it's FREE!</li>
 </ul>If you have used the start menu in older versions of Windows you&#8217;ll
@@ -176,7 +182,7 @@ Files\Classic Shell</span>.<br>
 <br><h1>Command Line</h1>
 The <span style="font-weight: bold; color: rgb(0, 112, 192);">ClassicStartMenu.exe</span> supports 3 command line parameters: <span style="font-weight: bold; color: rgb(0, 112, 192);">-open</span>, <span style="font-weight: bold; color: rgb(0, 112, 192);">-toggle</span>, and <span style="font-weight: bold; color: rgb(0, 112, 192);">-togglenew</span>.<br>
 <br>
-The first two do what the name suggests. One opens the the classic start menu, the other
+The first two do what the name suggests. One opens the classic start menu, the other
 toggles it. You can use the parameters to create a shortcut in your
 QuickLaunch bar that opens the start menu. Or to set a hotkey in
 programs such as <a href="http://www.softpedia.com/get/System/OS-Enhancements/WinKey.shtml">WinKey</a>.<br>
@@ -185,14 +191,13 @@ The third one "-togglenew" toggles the new start menu. It is useful if
 you want to map the new start menu to a hotkey and use the default Win
 key for the classic menu.<br>
 <br>
-<h1>Accessibility</h1>
-Version 0.9.9 tries to be more compatible with Active Accessibility. It is not fully functional yet and has some problems:<br>
-<ul>
-  <li>on 64-bit systems Narrator thinks the start menu is actually a toolbar</li>
-  <li>the JAWS program doesn't work well with multi-column menus</li>
-  <li>the system is not fully tested and may affect negatively other areas of functionality</li>
-</ul>
-Because of these problems, the accessibility features are disabled by default. To enable them set <strong>EnableAccessibility=1</strong> in the StartMenu.ini file (don't forget to remove the semicolon from the beginning of the line)<br>
+<h1>Accessibility</h1>The start menu supports screen readers like JAWS,
+or Microsoft's Narrator. There is a known problem with JAWS when the
+menu takes more than one column. If you are experiencing this problem
+you can turn off the multi-column menus by checking the "Scroll
+Programs" option in the Settings.<br>
+<br>
+If the accessibility support causes problems it can be disabled from the StartMenu.ini file. Set <strong>EnableAccessibility</strong> to 0 (don't forget to remove the semicolon from the beginning of the line)<br>
 <br>
 
 </body></html>
