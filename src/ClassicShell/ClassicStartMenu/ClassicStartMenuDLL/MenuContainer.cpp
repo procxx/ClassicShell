@@ -571,6 +571,15 @@ void CMenuContainer::InitItems( void )
 		}
 	}
 
+	if (m_Items.empty())
+	{
+		// add (Empty) item to the empty submenus
+		MenuItem item={MENU_EMPTY};
+		item.icon=I_IMAGENONE;
+		item.name=FindTranslation("Menu.Empty",L"(Empty)");
+		m_Items.push_back(item);
+	}
+
 	// remove trailing separators
 	while (!m_Items.empty() && m_Items[m_Items.size()-1].id==MENU_SEPARATOR)
 		m_Items.pop_back();
@@ -1613,6 +1622,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		{
 			const wchar_t *str=FindSetting("SubMenuAnimation");
 			if (str && _wcsicmp(str,L"none")==0) animFlags=AW_ACTIVATE;
+			else if (str && _wcsicmp(str,L"random")==0) animFlags=AW_ACTIVATE|((rand()<RAND_MAX/2)?AW_BLEND:AW_SLIDE); // easter egg
 			else if (str && _wcsicmp(str,L"fade")==0) animFlags=AW_ACTIVATE|AW_BLEND;
 			else if (str && _wcsicmp(str,L"slide")==0) animFlags=AW_ACTIVATE|AW_SLIDE;
 			else
@@ -3436,6 +3446,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	{
 		const wchar_t *str=FindSetting("MainMenuAnimation");
 		if (str && _wcsicmp(str,L"none")==0) animFlags=0;
+		else if (str && _wcsicmp(str,L"random")==0) animFlags=((rand()<RAND_MAX/2)?AW_BLEND:AW_SLIDE); // easter egg
 		else if (str && _wcsicmp(str,L"fade")==0) animFlags=AW_BLEND;
 		else if (str && _wcsicmp(str,L"slide")==0) animFlags=AW_SLIDE;
 		else

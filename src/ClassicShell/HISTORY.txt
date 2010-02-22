@@ -1,4 +1,10 @@
 ===============================================================================
+== Version 1.0.1 general release (Feb, 2010):
+
+- This is a bugfix-only release. Fixes a few rare crashes in the start menu
+
+
+===============================================================================
 == Version 1.0.0 general release (Feb, 2010):
 
 - Added Up button to the Explorer title bar

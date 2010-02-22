@@ -188,6 +188,7 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 			StdMenuItem child={MENU_LAST};
 			children.push_back(child);
 			item.submenu=(StdMenuItem*)IntToPtr((int)g_CustomMenu.size()+1);
+			item.submenuID=MENU_NO;
 			g_CustomMenu.insert(g_CustomMenu.end(),children.begin(),children.end());
 		}
 		res=true;
@@ -251,10 +252,12 @@ const StdMenuItem *ParseCustomMenu( void )
 				StdMenuItem root={MENU_NO};
 				ParseCustomMenuRec(L"MAIN_MENU",root);
 				for (std::vector<StdMenuItem>::iterator it=g_CustomMenu.begin();it!=g_CustomMenu.end();++it)
-				{
-					int i=PtrToInt(it->submenu);
-					it->submenu=(i>0)?&g_CustomMenu[i-1]:NULL;
-				}
+					if (it->submenuID==MENU_NO)
+					{
+						int i=PtrToInt(it->submenu);
+						it->submenu=(i>0)?&g_CustomMenu[i-1]:NULL;
+					}
+
 				g_CustomMenuRoot=PtrToInt(root.submenu)-1;
 			}
 		}

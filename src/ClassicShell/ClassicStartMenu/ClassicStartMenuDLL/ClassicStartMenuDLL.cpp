@@ -193,9 +193,9 @@ static void FindStartButton( void )
 	{
 		g_StartMenuMsg=RegisterWindowMessage(L"ClassicStartMenu.StartMenuMsg");
 		g_StartButton=FindStartButton(GetCurrentProcessId());
-#ifdef HOOK_DROPTARGET
 		if (g_StartButton)
 		{
+#ifdef HOOK_DROPTARGET
 			g_pOriginalTarget=(IDropTarget*)GetProp(g_StartButton,L"OleDropTargetInterface");
 			if (g_pOriginalTarget)
 				RevokeDragDrop(g_StartButton);
@@ -203,11 +203,12 @@ static void FindStartButton( void )
 			RegisterDragDrop(g_StartButton,pNewTarget);
 			pNewTarget->Release();
 			g_HotkeyID=GlobalAddAtom(L"ClassicStartMenu.Hotkey");
+#endif
 			StartMenuSettings settings;
 			ReadSettings(settings);
 			SetHotkey(settings.Hotkey);
+			srand(GetTickCount());
 		}
-#endif
 		if (!g_StartButton) g_StartButton=(HWND)1;
 	}
 }
@@ -403,12 +404,29 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				{
 					// in Classic mode there are few pixels at the edge of the taskbar that are not covered by a child window
 					// we nudge the point to be in the middle of the taskbar to avoid those pixels
+					// also ignore clicks on the half of the taskbar that doesn't contain the start button
 					APPBARDATA appbar={sizeof(appbar),g_TaskBar};
 					SHAppBarMessage(ABM_GETTASKBARPOS,&appbar);
 					if (appbar.uEdge==ABE_LEFT || appbar.uEdge==ABE_RIGHT)
+					{
 						pt.x=(rc.left+rc.right)/2; // vertical taskbar, set X
+						if (pt.y>(rc.top+rc.bottom)/2)
+							return CallNextHookEx(NULL,code,wParam,lParam);
+					}
 					else
+					{
 						pt.y=(rc.top+rc.bottom)/2; // vertical taskbar, set Y
+						if (pt.x>(rc.left+rc.right)/2)
+						{
+							if (!IsLanguageRTL())
+								return CallNextHookEx(NULL,code,wParam,lParam);
+						}
+						else
+						{
+							if (IsLanguageRTL())
+								return CallNextHookEx(NULL,code,wParam,lParam);
+						}
+					}
 				}
 				ScreenToClient(g_TaskBar,&pt);
 				HWND child=ChildWindowFromPoint(g_TaskBar,pt);
