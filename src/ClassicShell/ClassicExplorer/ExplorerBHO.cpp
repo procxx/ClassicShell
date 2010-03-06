@@ -354,6 +354,103 @@ LRESULT CALLBACK CExplorerBHO::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM w
 		UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
 		((CExplorerBHO*)uIdSubclass)->m_pBrowser->BrowseObject(NULL,flags|SBSP_PARENT);
 	}
+	if (uMsg==RB_GETRECT && wParam==1 && GetCapture()==hWnd && ((CExplorerBHO*)uIdSubclass)->m_bFixSearchResize)
+	{
+		// HACK! there is a bug in Win7 so when the user is resizing the Search box Explorer asks for the rect of band with
+		// index=1 instead of ID=1. So here we find the correct band index.
+		wParam=DefSubclassProc(hWnd,RB_IDTOINDEX,1,0);
+	}
+	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+}
+
+LRESULT CALLBACK CExplorerBHO::BreadcrumbSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+{
+	if (uMsg==WM_SETFOCUS)
+	{
+		if (wParam)
+		{
+			// see if the focus comes from the combo box. if so, most likely Escape was pressed, so just focus the main frame
+			HWND from=(HWND)wParam;
+			HWND combo=FindChildWindow(GetParent(GetParent(hWnd)),WC_COMBOBOXEX);
+			if (combo && (combo==from || IsChild(combo,from)))
+			{
+				SetFocus(GetAncestor(hWnd,GA_ROOT));
+				return 0;
+			}
+		}
+		// when the breadcrumbs are focused, switch to the combobox by simulating a mouse click
+		RECT rc;
+		GetClientRect(hWnd,&rc);
+		LPARAM pos=MAKELONG(rc.right-1,rc.bottom/2);
+		DefSubclassProc(hWnd,WM_LBUTTONDOWN,MK_LBUTTON,pos);
+		DefSubclassProc(hWnd,WM_LBUTTONUP,0,pos);
+		return 0;
+	}
+	if (uMsg==WM_LBUTTONDOWN || uMsg==WM_LBUTTONDBLCLK || uMsg==WM_LBUTTONUP)
+	{
+		// unless the mouse is clicked on the icon, replace the mouse position with a point on the far right.
+		// this will cause Explorer to switch to the combobox even when a breadcrumb is clicked
+		CExplorerBHO *pThis=(CExplorerBHO*)uIdSubclass;
+
+		int iconSize=GetSystemMetrics(SM_CXSMICON);
+		if (!pThis->m_CurIcon || (short)LOWORD(lParam)>iconSize+3)
+		{
+			RECT rc;
+			GetClientRect(hWnd,&rc);
+			lParam=MAKELONG(rc.right-1,rc.bottom/2);
+		}
+	}
+
+	if (uMsg==WM_PAINT)
+	{
+		// make the breadcrumbs control draw the full path like the XP address bar
+		CExplorerBHO *pThis=(CExplorerBHO*)uIdSubclass;
+		RECT rc;
+		GetClientRect(hWnd,&rc);
+
+		PAINTSTRUCT ps;
+		HDC hdc=BeginPaint(hWnd,&ps);
+
+		// we need to use buffered painting because DrawThemeTextEx with DTT_COMPOSITED requires it
+		// on Vista DTT_COMPOSITED is required so that the black text doesn't get transparent. On Windows 7 regular DrawText seems to work fine
+		BP_PAINTPARAMS paintParams={sizeof(paintParams)};
+		paintParams.dwFlags=BPPF_ERASE;
+		HDC hdcPaint=NULL;
+		HPAINTBUFFER hBufferedPaint=BeginBufferedPaint(hdc,&rc,BPBF_TOPDOWNDIB,&paintParams,&hdcPaint);
+		if (hdcPaint)
+		{
+			rc.top++;
+			SendMessage(GetParent(GetParent(hWnd)),WM_PRINTCLIENT,(WPARAM)hdcPaint,PRF_CLIENT);
+
+			// draw icon
+			int iconSize=GetSystemMetrics(SM_CXSMICON);
+			if (pThis->m_CurIcon)
+				DrawIconEx(hdcPaint,rc.left+3,(rc.top+rc.bottom-iconSize)/2,pThis->m_CurIcon,iconSize,iconSize,0,NULL,DI_NORMAL);
+			rc.left+=iconSize+8; // Not a good idea to hard-code number of pixels, but seems to work fine for different DPI settings
+
+			// draw path
+			HFONT font=(HFONT)SendMessage(hWnd,WM_GETFONT,0,0);
+			HFONT font0=(HFONT)SelectObject(hdcPaint,font);
+			SetBkMode(hdcPaint,TRANSPARENT);
+			SetTextColor(hdcPaint,GetSysColor(COLOR_WINDOWTEXT));
+			HTHEME theme=GetWindowTheme(hWnd);
+			BOOL dwm;
+			if (theme && SUCCEEDED(DwmIsCompositionEnabled(&dwm)) && dwm)
+			{
+				DTTOPTS opts={sizeof(opts),DTT_COMPOSITED|DTT_TEXTCOLOR};
+				opts.crText=GetSysColor(COLOR_WINDOWTEXT);
+				DrawThemeTextEx(theme,hdcPaint,0,0,pThis->m_CurPath,-1,DT_NOPREFIX|DT_VCENTER|DT_SINGLELINE,&rc,&opts);
+			}
+			else
+			{
+				DrawText(hdcPaint,pThis->m_CurPath,-1,&rc,DT_NOPREFIX|DT_VCENTER|DT_SINGLELINE);
+			}
+			SelectObject(hdcPaint,font0);
+			EndBufferedPaint(hBufferedPaint,TRUE);
+		}
+		EndPaint(hWnd,&ps);
+		return 0;
+	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
@@ -376,6 +473,14 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 		{
 			pProvider->QueryService(SID_SShellBrowser,IID_IShellBrowser,(void**)&m_pBrowser);
 
+			// listen for web browser notifications. we only care about DISPID_NAVIGATECOMPLETE2 and DISPID_ONQUIT
+			pProvider->QueryService(SID_SWebBrowserApp,IID_IWebBrowser2,(void**)&m_pWebBrowser);
+			if (m_pWebBrowser)
+			{
+				if (m_dwEventCookie==0xFEFEFEFE) // ATL's event cookie is 0xFEFEFEFE when the sink is not advised
+					DispEventAdvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
+			}
+
 			HWND status;
 			if (m_pBrowser && SUCCEEDED(m_pBrowser->GetControlWindow(FCW_STATUS,&status)))
 			{
@@ -383,80 +488,113 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 				bool bWin7=(LOWORD(GetVersion())==0x0106);
 				DWORD FreeSpace=bWin7?SPACE_SHOW:0;
 				DWORD UpButton=1;
+				DWORD AddressBar=0;
 				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
 				{
 					regSettings.QueryDWORDValue(L"FreeSpace",FreeSpace);
 					regSettings.QueryDWORDValue(L"UpButton",UpButton);
+					regSettings.QueryDWORDValue(L"AddressBar",AddressBar);
 				}
 
-				if (UpButton)
+				HWND root=GetAncestor(status,GA_ROOT);
+				if (root && (AddressBar&(ADDRESS_SHOWTITLE|ADDRESS_SHOWICON)))
 				{
-					// find the TravelBand, the rebar and the toolbar
-					HWND band=GetAncestor(status,GA_ROOT);
-					if (band)
-						band=FindChildWindow(band,L"TravelBand");
-					if (band)
+					// show the title and the icon for the main Explorer window
+					DWORD flags=WTNCA_NODRAWCAPTION|WTNCA_NODRAWICON;
+					if (AddressBar&ADDRESS_SHOWTITLE) flags&=~WTNCA_NODRAWCAPTION;
+					if (AddressBar&ADDRESS_SHOWICON) flags&=~WTNCA_NODRAWICON;
+					SetWindowThemeNonClientAttributes(root,WTNCA_NODRAWCAPTION|WTNCA_NODRAWICON,flags);
+				}
+
+				// find the TravelBand and the rebar
+				HWND band=NULL, rebar=NULL;
+				if (root)
+					band=FindChildWindow(root,L"TravelBand");
+				if (band)
+					rebar=GetParent(band);
+
+				bool bRedrawRebar=false;
+				if (rebar && UpButton)
+				{
+					// find the toolbar 
+					HWND toolbar=FindWindowEx(band,NULL,TOOLBARCLASSNAME,NULL);
+					RECT rc;
+					GetClientRect(toolbar,&rc);
+					const wchar_t *str=FindSetting("UpIconSize");
+					int size=str?_wtol(str):rc.bottom;
+					m_Toolbar=CreateWindow(TOOLBARCLASSNAME,L"",WS_CHILD|TBSTYLE_TOOLTIPS|TBSTYLE_FLAT|TBSTYLE_CUSTOMERASE|CCS_NODIVIDER|CCS_NOPARENTALIGN|CCS_NORESIZE,0,0,10,10,rebar,NULL,g_Instance,NULL);
+					m_Toolbar.SendMessage(TB_SETEXTENDEDSTYLE,0,TBSTYLE_EX_MIXEDBUTTONS);
+					m_Toolbar.SendMessage(TB_BUTTONSTRUCTSIZE,sizeof(TBBUTTON));
+					m_Toolbar.SendMessage(TB_SETMAXTEXTROWS,1);
+
+					HMODULE hShell32=GetModuleHandle(L"Shell32.dll");
+					std::vector<HMODULE> modules;
+					str=FindSetting("UpIconNormal");
+					m_IconNormal=str?LoadIcon(size,str,0,modules,hShell32):NULL;
+					if (m_IconNormal)
 					{
-						HWND toolbar=FindWindowEx(band,NULL,TOOLBARCLASSNAME,NULL);
-						RECT rc;
-						GetClientRect(toolbar,&rc);
-						HWND rebar=GetParent(band);
-						const wchar_t *str=FindSetting("UpIconSize");
-						int size=str?_wtol(str):rc.bottom;
-						m_Toolbar=CreateWindow(TOOLBARCLASSNAME,L"",WS_CHILD|TBSTYLE_TOOLTIPS|TBSTYLE_FLAT|TBSTYLE_CUSTOMERASE|CCS_NODIVIDER|CCS_NOPARENTALIGN|CCS_NORESIZE,0,0,10,10,rebar,NULL,g_Instance,NULL);
-						m_Toolbar.SendMessage(TB_SETEXTENDEDSTYLE,0,TBSTYLE_EX_MIXEDBUTTONS);
-						m_Toolbar.SendMessage(TB_BUTTONSTRUCTSIZE,sizeof(TBBUTTON));
-						m_Toolbar.SendMessage(TB_SETMAXTEXTROWS,1);
+						str=FindSetting("UpIconHot");
+						m_IconHot=str?LoadIcon(size,str,0,modules,NULL):NULL;
+						str=FindSetting("UpIconPressed");
+						m_IconPressed=str?LoadIcon(size,str,0,modules,NULL):NULL;
+						str=FindSetting("UpIconDisabled");
+						m_IconDisabled=str?LoadIcon(size,str,0,modules,NULL):NULL;
+						if (!m_IconDisabled)
+							m_IconDisabled=CreateDisabledIcon(m_IconNormal,size);
+					}
+					else
+					{
+						m_IconNormal=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_UP2NORMAL),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
+						m_IconHot=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_UP2HOT),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
+						m_IconPressed=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_UP2PRESSED),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
+						m_IconDisabled=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_UP2DISABLED),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
+					}
 
-						HMODULE hShell32=GetModuleHandle(L"Shell32.dll");
-						std::vector<HMODULE> modules;
-						str=FindSetting("UpIconNormal");
-						m_IconNormal=str?LoadIcon(size,str,0,modules,hShell32):NULL;
-						if (m_IconNormal)
-						{
-							str=FindSetting("UpIconHot");
-							m_IconHot=str?LoadIcon(size,str,0,modules,NULL):NULL;
-							str=FindSetting("UpIconPressed");
-							m_IconPressed=str?LoadIcon(size,str,0,modules,NULL):NULL;
-							str=FindSetting("UpIconDisabled");
-							m_IconDisabled=str?LoadIcon(size,str,0,modules,NULL):NULL;
-							if (!m_IconDisabled)
-								m_IconDisabled=CreateDisabledIcon(m_IconNormal,size);
-						}
-						else
-						{
-							m_IconNormal=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_UP2NORMAL),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
-							m_IconHot=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_UP2HOT),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
-							m_IconPressed=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_UP2PRESSED),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
-							m_IconDisabled=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_UP2DISABLED),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
-						}
+					for (std::vector<HMODULE>::const_iterator it=modules.begin();it!=modules.end();++it)
+						FreeLibrary(*it);
 
-						for (std::vector<HMODULE>::const_iterator it=modules.begin();it!=modules.end();++it)
-							FreeLibrary(*it);
+					TBBUTTON button={I_IMAGENONE,1,TBSTATE_ENABLED};
+					m_Toolbar.SendMessage(TB_ADDBUTTONS,1,(LPARAM)&button);
+					m_Toolbar.SendMessage(TB_SETBUTTONSIZE,0,MAKELONG(size,size));
 
-						TBBUTTON button={I_IMAGENONE,1,TBSTATE_ENABLED};
-						m_Toolbar.SendMessage(TB_ADDBUTTONS,1,(LPARAM)&button);
-						m_Toolbar.SendMessage(TB_SETBUTTONSIZE,0,MAKELONG(size,size));
-
-						SetWindowSubclass(rebar,RebarSubclassProc,(UINT_PTR)this,(DWORD_PTR)m_Toolbar.m_hWnd);
-						REBARBANDINFO info={sizeof(info),RBBIM_CHILD|RBBIM_CHILDSIZE|RBBIM_IDEALSIZE|RBBIM_SIZE|RBBIM_STYLE};
-						SendMessage(rebar,RB_GETBANDINFO,1,(LPARAM)&info);
-						info.fStyle=RBBS_HIDETITLE|RBBS_NOGRIPPER|RBBS_FIXEDSIZE;
-						info.hwndChild=m_Toolbar.m_hWnd;
-						info.cxIdeal=info.cx=info.cxMinChild=size;
-						info.cyMinChild=size;
-						SendMessage(rebar,RB_INSERTBAND,1,(LPARAM)&info);
-						RedrawWindow(rebar,NULL,NULL,RDW_UPDATENOW|RDW_ALLCHILDREN);
-
-						// listen for web browser notifications. we only care about DISPID_DOWNLOADCOMPLETE and DISPID_ONQUIT
-						pProvider->QueryService(SID_SWebBrowserApp,IID_IWebBrowser2,(void**)&m_pWebBrowser);
-						if (m_pWebBrowser)
-						{
-							if (m_dwEventCookie==0xFEFEFEFE) // ATL's event cookie is 0xFEFEFEFE when the sink is not advised
-								DispEventAdvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
-						}
+					m_bFixSearchResize=FindSettingBool("FixSearchResize",bWin7);
+					SetWindowSubclass(rebar,RebarSubclassProc,(UINT_PTR)this,(DWORD_PTR)m_Toolbar.m_hWnd);
+					REBARBANDINFO info={sizeof(info),RBBIM_CHILD|RBBIM_ID|RBBIM_CHILDSIZE|RBBIM_IDEALSIZE|RBBIM_SIZE|RBBIM_STYLE};
+					info.fStyle=RBBS_HIDETITLE|RBBS_NOGRIPPER|RBBS_FIXEDSIZE;
+					info.hwndChild=m_Toolbar.m_hWnd;
+					info.cxIdeal=info.cx=info.cxMinChild=size;
+					info.cyMinChild=size;
+					info.wID='UBTN';
+					SendMessage(rebar,RB_INSERTBAND,1,(LPARAM)&info);
+					bRedrawRebar=true;
+				}
+				if (rebar && (AddressBar&ADDRESS_NOBREADCRUMBS))
+				{
+					// "hide" the breadcrumbs. no, not really. instead of hiding the breadcrumbs we just make them show the full path as text
+					HWND breadcrumbs=FindChildWindow(rebar,L"Breadcrumb Parent");
+					if (breadcrumbs)
+						breadcrumbs=FindChildWindow(breadcrumbs,TOOLBARCLASSNAME);
+					if (breadcrumbs)
+					{
+						m_bNoBreadcrumbs=true;
+						SetWindowSubclass(breadcrumbs,BreadcrumbSubclassProc,(UINT_PTR)this,0);
 					}
 				}
+				const wchar_t *str=FindSetting("Search",NULL);
+				if (rebar && str && _wcsicmp(str,L"none")==0)
+				{
+					// to remove the Search box, first find the band with ID=2. Then disable the child control and hide the band
+					int idx=(int)SendMessage(rebar,RB_IDTOINDEX,2,0);
+					REBARBANDINFO info={sizeof(info),RBBIM_CHILD};
+					SendMessage(rebar,RB_GETBANDINFO,idx,(LPARAM)&info);
+					if (info.hwndChild)
+						EnableWindow(info.hwndChild,FALSE);
+					SendMessage(rebar,RB_SHOWBAND,idx,FALSE);
+					bRedrawRebar=true;
+				}
+
+				if (bRedrawRebar)
+					RedrawWindow(rebar,NULL,NULL,RDW_UPDATENOW|RDW_ALLCHILDREN);
 
 				if (FreeSpace)
 				{
@@ -484,6 +622,7 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 		if (m_IconHot) DestroyIcon(m_IconHot); m_IconHot=NULL;
 		if (m_IconPressed) DestroyIcon(m_IconPressed); m_IconPressed=NULL;
 		if (m_IconDisabled) DestroyIcon(m_IconDisabled); m_IconDisabled=NULL;
+		if (m_CurIcon) DestroyIcon(m_CurIcon); m_CurIcon=NULL;
 	}
 	return S_OK;
 }
@@ -493,6 +632,9 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 {
 	// this is called when the current folder changes. disable the Up button if this is the desktop folder
 	bool bDesktop=false;
+	m_CurPath[0]=0;
+	if (m_CurIcon) DestroyIcon(m_CurIcon);
+	m_CurIcon=NULL;
 	if (m_pBrowser)
 	{
 		CComPtr<IShellView> pView;
@@ -510,6 +652,25 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 					pFolder->GetCurFolder(&pidl);
 					if (ILIsEmpty(pidl))
 						bDesktop=true; // only the top level has empty PIDL
+
+					// find path and icon
+					// it is possible to get the path and icon from the caption of the main window, but there are 2 problems:
+					//   1) on Vista the icon is wrong. after you navigate to a new folder the icon switches to some default image and doesn't change any more
+					//   2) if the user has not checked "display full path in title bar", the caption of the main window is just the current folder name and not the full path
+					// so do it the hard way and grab it from SHGetNameFromIDList and SHGetFileInfo
+					if (m_bNoBreadcrumbs)
+					{
+						wchar_t *pPath=NULL;
+						if (SUCCEEDED(SHGetNameFromIDList(pidl,SIGDN_DESKTOPABSOLUTEEDITING,&pPath)))
+							wcscpy_s(m_CurPath,pPath);
+						else if (SUCCEEDED(SHGetNameFromIDList(pidl,SIGDN_FILESYSPATH,&pPath)))
+							wcscpy_s(m_CurPath,pPath); // just in case DESKTOPABSOLUTE fails let's try the FILESYSPATH. probably not needed
+						if (pPath) CoTaskMemFree(pPath);
+						SHFILEINFO info;
+						if (SUCCEEDED(SHGetFileInfo((LPCTSTR)pidl,0,&info,sizeof(info),SHGFI_ICON|SHGFI_SMALLICON|SHGFI_PIDL)))
+							m_CurIcon=info.hIcon;
+					}
+
 					CoTaskMemFree(pidl);
 				}
 			}

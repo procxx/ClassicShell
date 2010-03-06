@@ -40,7 +40,7 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
 			regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
 
-		DWORD EnableCopyUI, FreeSpace, FoldersSettings, BigButtons, ToolbarButtons, UpButton;
+		DWORD EnableCopyUI, FreeSpace, FoldersSettings, BigButtons, ToolbarButtons, UpButton, AddressBar;
 		if (regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI)!=ERROR_SUCCESS)
 			EnableCopyUI=1;
 		if (regSettings.QueryDWORDValue(L"FreeSpace",FreeSpace)!=ERROR_SUCCESS)
@@ -53,6 +53,8 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 			ToolbarButtons=DEFAULT_BUTTONS|((CBandWindow::ID_LAST-1)<<24);
 		if (regSettings.QueryDWORDValue(L"UpButton",UpButton)!=ERROR_SUCCESS)
 			UpButton=1;
+		if (regSettings.QueryDWORDValue(L"AddressBar",AddressBar)!=ERROR_SUCCESS)
+			AddressBar=0;
 
 		if (!(ToolbarButtons&0xFF000000)) ToolbarButtons|=0x07000002; // for backwards compatibility (when there were 7 buttons the the button count was not saved)
 		unsigned int mask1=(((2<<(ToolbarButtons>>24))-1)&~1); // bits to keep
@@ -89,6 +91,9 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 			SendDlgItemMessage(hwndDlg,IDC_COMBOSTYLE,CB_SETCURSEL,0,0);
 
 		CheckDlgButton(hwndDlg,IDC_CHECKUP,UpButton?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKTITLE,(AddressBar&CExplorerBHO::ADDRESS_SHOWTITLE)?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKICON,(AddressBar&CExplorerBHO::ADDRESS_SHOWICON)?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKCRUMBS,(AddressBar&CExplorerBHO::ADDRESS_NOBREADCRUMBS)?BST_CHECKED:BST_UNCHECKED);
 
 		CheckDlgButton(hwndDlg,IDC_CHECKBIG,BigButtons?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECK1,(ToolbarButtons&(1<<CBandWindow::ID_GOUP))?BST_CHECKED:BST_UNCHECKED);
@@ -134,7 +139,7 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
 			regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
 
-		DWORD EnableCopyUI, FreeSpace, FoldersSettings, BigButtons, ToolbarButtons, UpButton;
+		DWORD EnableCopyUI, FreeSpace, FoldersSettings, BigButtons, ToolbarButtons, UpButton, AddressBar;
 		if (regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI)!=ERROR_SUCCESS)
 			EnableCopyUI=1;
 		if (regSettings.QueryDWORDValue(L"FreeSpace",FreeSpace)!=ERROR_SUCCESS)
@@ -145,6 +150,8 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 			BigButtons=0;
 		if (regSettings.QueryDWORDValue(L"UpButton",UpButton)!=ERROR_SUCCESS)
 			UpButton=1;
+		if (regSettings.QueryDWORDValue(L"AddressBar",AddressBar)!=ERROR_SUCCESS)
+			AddressBar=0;
 		if (regSettings.QueryDWORDValue(L"ToolbarButtons",ToolbarButtons)!=ERROR_SUCCESS)
 			ToolbarButtons=DEFAULT_BUTTONS|((CBandWindow::ID_LAST-1)<<24);
 		DWORD ToolbarButtons0=ToolbarButtons;
@@ -188,6 +195,14 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if ((ToolbarButtons2&0xFFFFFF)==0)
 			ToolbarButtons2|=1<<DEFAULT_ONLY_BUTTON;
 
+		DWORD AddressBar2=0;
+		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKTITLE)==BST_CHECKED)
+			AddressBar2|=CExplorerBHO::ADDRESS_SHOWTITLE;
+		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKICON)==BST_CHECKED)
+			AddressBar2|=CExplorerBHO::ADDRESS_SHOWICON;
+		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKCRUMBS)==BST_CHECKED)
+			AddressBar2|=CExplorerBHO::ADDRESS_NOBREADCRUMBS;
+
 		int res=0;
 		if (EnableCopyUI!=EnableCopyUI2)
 		{
@@ -210,6 +225,11 @@ extern bool g_bHookCopyThreads;
 		if (UpButton!=UpButton2)
 		{
 			regSettings.SetDWORDValue(L"UpButton",UpButton2);
+			res|=1;
+		}
+		if (AddressBar!=AddressBar2)
+		{
+			regSettings.SetDWORDValue(L"AddressBar",AddressBar2);
 			res|=1;
 		}
 		if (BigButtons!=BigButtons2)

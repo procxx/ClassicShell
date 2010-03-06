@@ -153,8 +153,7 @@ LRESULT CALLBACK CMenuContainer::ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPAR
 		HDC hdc=::BeginPaint(hWnd,&ps);
 		if(hdc)
 		{
-			BP_PAINTPARAMS paintParams = {0};
-			paintParams.cbSize = sizeof(paintParams);
+			BP_PAINTPARAMS paintParams={sizeof(paintParams)};
 			paintParams.dwFlags=BPPF_ERASE;
 
 			HDC hdcPaint=NULL;

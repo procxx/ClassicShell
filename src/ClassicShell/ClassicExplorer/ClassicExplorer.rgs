@@ -9,18 +9,3 @@ HKCR
 		}
 	}
 }
-
-HKCU
-{
-	NoRemove 'SOFTWARE'
-	{
-		NoRemove 'IvoSoft'
-		{
-			NoRemove 'ClassicExplorer'
-			{
-				val EnableCopyUI = d 1
-				val EnableAltEnter = d 1
-			}
-		}
-	}
-}

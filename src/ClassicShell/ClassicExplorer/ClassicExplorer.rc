@@ -59,8 +59,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,1,0
- PRODUCTVERSION 1,0,1,0
+ FILEVERSION 1,0,2,0
+ PRODUCTVERSION 1,0,2,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -77,12 +77,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic Windows Explorer features"
-            VALUE "FileVersion", "1, 0, 1, 0"
+            VALUE "FileVersion", "1, 0, 2, 0"
             VALUE "InternalName", "ClassicExplorer.dll"
             VALUE "LegalCopyright", "Copyright (C) 2009-2010, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicExplorer.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "1, 0, 1, 0"
+            VALUE "ProductVersion", "1, 0, 2, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -149,40 +149,44 @@ BEGIN
     CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,120,45,10
 END
 
-IDD_SETTINGS DIALOGEX 0, 0, 263, 228
+IDD_SETTINGS DIALOGEX 0, 0, 380, 184
 STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Settings for Classic Explorer"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    GROUPBOX        "Navigation pane tweaks:",IDC_STATIC,7,7,249,73
+    GROUPBOX        "Navigation pane tweaks:",IDC_STATIC,7,7,180,86
     LTEXT           "Navigation pane style:",IDC_STATIC,16,19,77,12,SS_CENTERIMAGE
     COMBOBOX        IDC_COMBOSTYLE,94,19,85,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     CONTROL         "Don't fade buttons",IDC_CHECKNOFADE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,38,76,10
     CONTROL         "Full-size offset for sub-folders",IDC_CHECKOFFSET,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,112,38,112,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,51,112,10
     CONTROL         "Enable Alt+Enter to show properties",IDC_CHECKBHO,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,51,137,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,64,137,10
     CONTROL         "Always navigate to the selected folder",IDC_CHECKAUTO,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,64,139,10
-    GROUPBOX        "Toolbar buttons:",IDC_STATIC,7,85,249,74
-    CONTROL         "Use big buttons",IDC_CHECKBIG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,97,69,10
-    CONTROL         "Up One Level",IDC_CHECK1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,110,59,10
-    CONTROL         "Cut",IDC_CHECK2,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,86,110,27,10
-    CONTROL         "Copy",IDC_CHECK3,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,150,110,33,10
-    CONTROL         "Paste",IDC_CHECK4,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,202,110,34,10
-    CONTROL         "Delete",IDC_CHECK5,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,123,37,10
-    CONTROL         "Properties",IDC_CHECK6,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,86,123,49,10
-    CONTROL         "Email",IDC_CHECK7,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,150,123,32,10
-    CONTROL         "Settings",IDC_CHECK8,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,202,123,42,10
-    LTEXT           "Note: If you hide the Settings button you can still access the settings by right-clicking on any other button",IDC_STATIC,13,140,236,17
-    CONTROL         "Enable classic copy UI",IDC_CHECKCOPY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,167,89,10
-    CONTROL         "For folders too",IDC_CHECKCOPYFOLDER,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,110,167,63,10
-    CONTROL         "Show Up button in the title bar",IDC_CHECKUP,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,180,114,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,77,139,10
+    GROUPBOX        "Title bar tweaks:",IDC_STATIC,7,96,180,68
+    CONTROL         "Show Up button in the title bar",IDC_CHECKUP,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,110,114,10
+    CONTROL         "Show caption in the title bar",IDC_CHECKTITLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,123,105,10
+    CONTROL         "Show icon in the title bar",IDC_CHECKICON,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,136,95,10
+    CONTROL         "Disable breadcrumbs",IDC_CHECKCRUMBS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,149,82,10
+    GROUPBOX        "Toolbar buttons:",IDC_STATIC,193,7,180,86
+    CONTROL         "Use big buttons",IDC_CHECKBIG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,18,69,10
+    CONTROL         "Up One Level",IDC_CHECK1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,31,59,10
+    CONTROL         "Cut",IDC_CHECK2,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,269,31,27,10
+    CONTROL         "Copy",IDC_CHECK3,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,318,31,33,10
+    CONTROL         "Paste",IDC_CHECK4,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,44,34,10
+    CONTROL         "Delete",IDC_CHECK5,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,269,44,37,10
+    CONTROL         "Properties",IDC_CHECK6,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,318,44,49,10
+    CONTROL         "Email",IDC_CHECK7,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,57,32,10
+    CONTROL         "Settings",IDC_CHECK8,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,269,57,42,10
+    LTEXT           "Note: If you hide the Settings button you can still access the settings by right-clicking on the toolbar",IDC_STATIC,199,71,168,19
+    CONTROL         "Enable classic copy UI",IDC_CHECKCOPY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,102,89,10
+    CONTROL         "For folders too",IDC_CHECKCOPYFOLDER,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,305,102,63,10
     CONTROL         "Show free space and file size in status bar",IDC_CHECKSIZE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,193,151,10
-    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,212,40,10
-    DEFPUSHBUTTON   "OK",IDOK,148,207,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,206,207,50,14
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,115,151,10
+    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,168,40,10
+    DEFPUSHBUTTON   "OK",IDOK,265,163,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,323,163,50,14
 END
 
 IDD_FILEMULTIR DIALOGEX 0, 0, 285, 136
@@ -311,9 +315,9 @@ BEGIN
     IDD_SETTINGS, DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 256
+        RIGHTMARGIN, 373
         TOPMARGIN, 7
-        BOTTOMMARGIN, 221
+        BOTTOMMARGIN, 177
     END
 
     IDD_FILEMULTIR, DIALOG

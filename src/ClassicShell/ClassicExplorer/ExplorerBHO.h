@@ -29,6 +29,10 @@ public:
 	{
 		m_bResetStatus=true;
 		m_bForceRefresh=false;
+		m_bFixSearchResize=false;
+		m_bNoBreadcrumbs=false;
+		m_CurIcon=NULL;
+		m_CurPath[0]=0;
 	}
 
 	DECLARE_REGISTRY_RESOURCEID(IDR_EXPLORERBHO)
@@ -79,6 +83,10 @@ public:
 		SPACE_SHOW=1, // show free space and selection size
 		SPACE_TOTAL=2, // show total size when nothing is selected
 		SPACE_WIN7=4, // running on Win7 (fix the status bar parts and show the disk free space)
+
+		ADDRESS_NOBREADCRUMBS=1, // hide breadcrumbs bar
+		ADDRESS_SHOWTITLE=2, // show path on title bar
+		ADDRESS_SHOWICON=4, // show icon on title bar
 	};
 
 public:
@@ -94,14 +102,19 @@ private:
 	CComPtr<IWebBrowser2> m_pWebBrowser;
 	bool m_bResetStatus;
 	bool m_bForceRefresh;
+	bool m_bFixSearchResize;
+	bool m_bNoBreadcrumbs;
 	CWindow m_Toolbar;
 	HICON m_IconNormal, m_IconHot, m_IconPressed, m_IconDisabled;
+	wchar_t m_CurPath[1024]; // the current path
+	HICON m_CurIcon;
 
 	static __declspec(thread) HHOOK s_Hook;
 
 	static LRESULT CALLBACK HookExplorer( int code, WPARAM wParam, LPARAM lParam );
 	static LRESULT CALLBACK SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+	static LRESULT CALLBACK BreadcrumbSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(ExplorerBHO), CExplorerBHO)

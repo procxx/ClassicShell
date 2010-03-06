@@ -1,4 +1,14 @@
 ===============================================================================
+== Version 1.0.2 general release (Mar, 2010):
+
+- Added a setting to disable the breadcrumbs
+
+- Added a setting to show the path and icon in the Explorer title bar
+
+- Fixed a bug with the resizing of the Search box in Explorer
+
+
+===============================================================================
 == Version 1.0.1 general release (Feb, 2010):
 
 - This is a bugfix-only release. Fixes a few rare crashes in the start menu

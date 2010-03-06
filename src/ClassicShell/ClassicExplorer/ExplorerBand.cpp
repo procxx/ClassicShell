@@ -758,7 +758,7 @@ extern void ReadIniFile( bool bStartup );
 			pProvider->QueryService(SID_SShellBrowser,IID_IShellBrowser,(void**)&pBrowser);
 			m_BandWindow.SetBrowser(pBrowser);
 
-			// listen for web browser notifications. we only care about DISPID_DOWNLOADCOMPLETE and DISPID_ONQUIT
+			// listen for web browser notifications. we only care about DISPID_NAVIGATECOMPLETE2 and DISPID_ONQUIT
 			pProvider->QueryService(SID_SWebBrowserApp,IID_IWebBrowser2,(void**)&m_pWebBrowser);
 			if (m_pWebBrowser)
 			{

@@ -51,6 +51,10 @@
 #define IDC_COMBOSTYLE                  224
 #define IDC_CHECKOFFSET                 225
 #define IDC_CHECKUP                     226
+#define IDC_CHECKPATH                   227
+#define IDC_CHECKTITLE                  227
+#define IDC_CHECKICON                   228
+#define IDC_CHECKCRUMBS                 229
 #define IDC_STATICFNAME                 1003
 #define IDC_STATICSRCSIZE               1004
 #define IDC_STATICSRCTIME               1005
@@ -66,7 +70,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        224
 #define _APS_NEXT_COMMAND_VALUE         32769
-#define _APS_NEXT_CONTROL_VALUE         227
+#define _APS_NEXT_CONTROL_VALUE         230
 #define _APS_NEXT_SYMED_VALUE           105
 #endif
 #endif

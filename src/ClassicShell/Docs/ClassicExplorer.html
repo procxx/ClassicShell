@@ -23,6 +23,13 @@
 
 
 
+
+
+
+
+
+
+
   <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Explorer</title>
   <style type="text/css">
 h1 {
@@ -34,7 +41,7 @@ body {
 }
 
   </style></head><body>
-<h1><a href="http://classicshell.sourceforge.net/"><img src="ClassicExplorer_files/ClassicShell.png" style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge"></a>&nbsp; Classic Explorer</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 1.0.1 &#8211; general release</span><br>
+<h1><a href="http://classicshell.sourceforge.net/"><img src="ClassicExplorer_files/ClassicShell.png" style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge"></a>&nbsp; Classic Explorer</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 1.0.2 &#8211; general release</span><br>
 <br>
 
 
@@ -53,6 +60,9 @@ buttons can be added manually</li>
 
   <li>Has options for customizing the folder panel to look more like the Windows XP version or to not fade the expand buttons</li>
   <li>Can show the free disk space and the total file size in the status bar</li>
+  <li>Can disable the breadcrumbs in the address bar<br>
+  </li>
+
 
 
 </ul><br>
@@ -212,33 +222,54 @@ has sub-folders without mousing over it<br>
 - when turned on, if you move up and down the folders with the arrows
 keys, Explorer will navigate to the selected folder immediately<br>
     <br>
-</li><li><span style="font-weight: bold;">Toolbar buttons </span>- pick which buttons to display in the toolbar, and chose between small and big buttons<br>
-    <br>
 </li>
-  <li><span style="font-weight: bold;">Enable classic copy UI</span> - when turned on, the "file conflict" dialog box is replaced with the one from Windows XP</li>
-  <ul>
-    
-    <li><span style="font-weight: bold;">For folders too</span> - also replaces the "folder conflict" dialog box<br>
+  <li><span style="font-weight: bold;">Toolbar buttons </span>- pick which buttons to display in the toolbar, and chose between small and big buttons<br>
       <br>
     </li>
 
-  </ul>
   
-  <li><span style="font-weight: bold;">Show Up button in the title bar</span> - use this to insert the Up button in the title bar of Explorer:<br>
-    <img style="width: 275px; height: 120px;" alt="Up button in title bar" title="Up button in title bar" src="ClassicExplorer_files/titlebar.png"><br>
-If all you need from the toolbar is the Up button, you can enable this option and hide the toolbar to save some screen space<br>
+  
+  <li><span style="font-weight: bold;">Title bar tweaks</span> - as shown in this image:<br>
+    <img style="width: 705px; height: 124px;" alt="Title bar tweaks" title="Title bar tweaks" src="ClassicExplorer_files/titlebar.png"><br>
+<span style="font-weight: bold;"></span></li>
+  <ul>
+    <li><span style="font-weight: bold;">Show Up button in the title bar</span>
+- use this to insert the Up button in the title bar of Explorer. If all
+you need from the toolbar is the Up button, you can enable this option
+and hide the toolbar to save some screen space</li>
+    <li><span style="font-weight: bold;">Show caption in the title bar, Show icon in the title bar</span> - customize the look of the caption.
+You may have to go to the Folder Options and turn on the setting
+"Display the full path in the title bar (Classic folders only)" if you
+want to see the full path instead of just the current folder name<br>
+    </li>
+    
+    <li><span style="font-weight: bold;">Disable breadcrumbs</span> -
+when turned on, the address bar always shows the full path with no
+breadcrumbs. It is recommended that you show the Up button as well,
+otherwise you won't be able to go to the parent folder with the mouse<br>
     <br>
 <span style="font-weight: bold;"></span></li>
 
-  <li><span style="font-weight: bold;">Show free space and file size</span> - shows the free disk space and the total size of the selected files in the status bar</li>
+  </ul>
+
+
+  
+  <li><span style="font-weight: bold;">Enable classic copy UI</span> - when turned on, the "file conflict" dialog box is replaced with the one from Windows XP</li>
+  <ul>
+<li><span style="font-weight: bold;">For folders too</span> - also replaces the "folder conflict" dialog box</li>
+  </ul>
+</ul>
+<ul>
+<li><span style="font-weight: bold;">Show free space and file size</span> - shows the free disk space and the total size of the selected files in the status bar</li>
 
 </ul>
+
 <br>
 
 <h1>More Settings</h1>
 
-Even more settings are available in the <span style="font-weight: bold; color: rgb(79, 129, 189);">Explorer.ini</span> 
-text file in the installation folder &#8211; usually <span style="font-weight: bold; color: rgb(79, 129, 189);">C:\Program
+Even more settings are available in the <a href="Explorer.ini"><span style="font-weight: bold; color: rgb(79, 129, 189);">Explorer.ini</span></a> 
+text file in the <a href=".">installation folder</a> &#8211; usually <span style="font-weight: bold; color: rgb(79, 129, 189);">C:\Program
 Files\Classic Shell</span>. From there you can set things like:<br>
 
 <br>
@@ -250,14 +281,18 @@ to update the status bar. This is a workaround for a bug in Windows 7<br>
 <span style="font-weight: bold;">FixFolderScroll</span> &#8211; when this is
 1, it enables a fix for a bug in Windows 7 that makes the current
 folder jump down in the navigation pane when expanded<br>
-<span style="font-weight: bold;">ToolbarItems</span> &#8211; lists the
+<span style="font-weight: bold;">FixSearchResize</span> &#8211;<span style="font-weight: bold;"></span> when this is 1, it enables a fix for a bug in Windows 7 that breaks the resizing of the Search box when the Up button is added to the title bar<br>
+
+<span style="font-weight: bold;">Search</span> &#8211;<span style="font-weight: bold;"></span> set this to <span style="font-weight: bold;">none</span> to hide the Search box in Explorer<br>
+
+
+<span style="font-weight: bold;">ToolbarSameSize</span> &#8211; set this to 1 to make all buttons the same size<br>
+<span style="font-weight: bold;">ToolbarListMode</span> &#8211; set this to 1 to show the button text next to the icon instead of under the icon<br><span style="font-weight: bold;">UpIconNormal, UpIconHot, UpIconPressed,UpIconDisabled, UpIconSize</span> &#8211; provide alternate icons for the Up button in the Explorer title bar<br><span style="font-weight: bold;">ToolbarItems</span> &#8211; lists the
 buttons of the toolbar. Use this setting to create your own toolbar
 with custom icons, order of buttons, and more. You can add commands
 like <span style="font-weight: bold;">Undo</span>, <span style="font-weight: bold;">Redo</span>, <span style="font-weight: bold;">Refresh</span>, <span style="font-weight: bold;">Select All</span>, etc<br>
-<span style="font-weight: bold;">ToolbarSameSize</span> &#8211; set this to 1 to make all buttons the same size<br>
-<span style="font-weight: bold;">ToolbarListMode</span> &#8211; set this to 1 to show the button text next to the icon instead of under the icon<br><span style="font-weight: bold;">UpIconNormal, UpIconHot, UpIconPressed,UpIconDisabled, UpIconSize</span> &#8211; provide alternate icons for the Up button in the Explorer title bar<br>
 
-<br>
+<span style="font-weight: bold;"></span><br>
 The text file contains detailed description of each setting as well as instructions how to change it.<br>
 <br><span style="font-weight: bold;">Note:</span> Changes to the
 Explorer.ini file will be applied the next time you open an Explorer window. Also
@@ -278,8 +313,8 @@ top of the new because you may miss out on the new settings.<br>
 The user
 interface (except the Settings dialog box) is localized in all 35
 languages available for Vista and Windows 7. New languages can be added
-by editing the file <span style="color: rgb(79, 129, 189); font-weight: bold;">ExplorerL10N.ini</span>
-in the installation folder &#8211;
+by editing the file <a href="ExplorerL10N.ini"><span style="color: rgb(79, 129, 189); font-weight: bold;">ExplorerL10N.ini</span></a>
+in the <a href=".">installation folder</a> &#8211;
 usually <span style="font-weight: bold; color: rgb(79, 129, 189);">C:\Program
 Files\Classic Shell</span>. <br>
 
