@@ -1,4 +1,0 @@
-Main_large_icons=0
-Main_font="Segoe UI",normal,-9
-Caption_font="Segoe UI",normal,15
-

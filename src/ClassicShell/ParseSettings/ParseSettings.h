@@ -6,6 +6,11 @@
 #include <windows.h>
 #include <vector>
 
+#define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS      // some CString constructors will be explicit
+
+#include <atlbase.h>
+#include <atlstr.h>
+
 ///////////////////////////////////////////////////////////////////////////////
 
 class CSettingsParser
@@ -47,6 +52,13 @@ public:
 	bool LoadVariation( const wchar_t *fname );
 	bool LoadVariation( HMODULE hMod, HRSRC hResInfo );
 	virtual void Reset( void );
+
+	// Parses the option from m_Lines[index]. Returns false if index is out of bounds
+	bool ParseOption( CString &name, CString &label, bool &value, int index );
+
+	// Filters the conditional groups
+	// values/count - list of true options. the rest are assumed to be false
+	void FilterConditions( const wchar_t **values, int count );
 
 protected:
 	std::vector<wchar_t> m_VarText;

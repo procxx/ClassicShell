@@ -5,4 +5,4 @@
 
 struct StdMenuItem;
 
-const StdMenuItem *ParseCustomMenu( void );
+const StdMenuItem *ParseCustomMenu( unsigned int &rootSettings );

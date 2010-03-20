@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <vector>
+
 // Contains all settings stored in the registry
 struct StartMenuSettings
 {
@@ -15,9 +17,20 @@ struct StartMenuSettings
 	DWORD ExpandPrinters;
 	DWORD ExpandLinks;
 	DWORD ScrollMenus;
-	DWORD Hotkey; // 0 - Win key, 1 - no key
+	DWORD HotkeyCSM;
+	DWORD HotkeyNSM;
 	CString SkinName;
 	CString SkinVariation;
+	std::vector<unsigned int> SkinOptions; // high 31 bits FNV of the name, 1 bit for the value
+
+	enum
+	{
+		OPEN_NOTHING,
+		OPEN_CLASSIC,
+		OPEN_WINDOWS,
+	};
+
+	DWORD Controls; // LSB - Click, then Shift+Click, Win, Shift+Win
 };
 
 // Read the settings from the registry

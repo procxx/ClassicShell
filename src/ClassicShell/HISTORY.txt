@@ -1,4 +1,21 @@
 ===============================================================================
+== Version 1.9.0 beta (Mar, 2010) - new skin engine:
+
+- The sub-menus can be skinned like the main menu
+
+- Full glass support, even behind the menu items
+
+- More skinnable elements - the sub-menu arrows, the scroll buttons, the
+  vertical separator
+
+- Skins can provide customization options (small or large icons, add/remove
+  caption, and many more)
+
+- The start menu plays the system sounds for opening a menu or selecting a
+  command
+
+
+===============================================================================
 == Version 1.0.3 general release (Mar, 2010):
 
 - Added an overlay icon for shared folders

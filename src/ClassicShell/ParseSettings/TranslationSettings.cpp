@@ -43,7 +43,7 @@ const wchar_t *FindTranslation( const wchar_t *name, const wchar_t *def )
 bool IsLanguageRTL( void )
 {
 #ifdef _DEBUG
-	//	return true; // uncomment this to simulate RTL environment
+//	return true; // uncomment this to simulate RTL environment
 #endif
 	LOCALESIGNATURE localesig;
 	LANGID language=GetUserDefaultUILanguage();

@@ -1,0 +1,6 @@
+Main_bitmap=3
+Submenu_bitmap=7
+Main_text_color=#FFFFFF,#000000,#3F3F3F,#7F7F7F
+Main_glow_size=0
+Submenu_text_color=#FFFFFF,#000000,#3F3F3F,#7F7F7F
+Submenu_glow_size=0

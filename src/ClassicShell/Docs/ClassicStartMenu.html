@@ -19,6 +19,10 @@
 
 
 
+
+
+
+
   <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Start Menu</title>
 <style type="text/css">
 h1 {
@@ -34,7 +38,7 @@ body {
 
 </style></head><body>
 <h1><a href="http://classicshell.sourceforge.net/"><img style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge" src="ClassicStartMenu_files/ClassicShell.png"></a>&nbsp;
-Classic Start Menu</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 1.0.3 &#8211; general release</span><br>
+Classic Start Menu</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 1.9.0 &#8211; beta</span><br>
 <br>
 <p><span style="color: rgb(79, 129, 189); font-weight: bold;">Classic Start Menu</span> is a
 clone of the original start menu, which you can find in all versions of
@@ -95,27 +99,25 @@ Settings</h1>Right-click on the orb to access the Settings dialog. The available
 
 <ul>
 
-  <li><strong>Hotkey</strong> &#8211; use this to set an alternative hotkey (like <strong style="color: rgb(0, 112, 192);">Ctrl+Alt+C</strong>) for opening the menu instead of the Windows key</li><li>Show Favorites, Show Documents, Show Log Off, Show Undock</li>
+  <li><strong>Controls</strong> &#8211; here you can set if you want the Classic Menu to open with the <span style="color: rgb(0, 112, 192); font-weight: bold;">Win key</span>, with <span style="color: rgb(0, 112, 192); font-weight: bold;">Shift+Win</span>, etc. Also you can set additional hotkeys for showing the Classic Menu or the Windows Menu</li><li>Show Favorites, Show Documents, Show Log Off, Show Undock</li>
 
 
   <li>Expand Control Panel, Expand Network, Expand Printers</li>
-  <li><strong>Expand Links to Folders</strong> &#8211; links (shortcuts) to folders will be expanded as sub-menus </li><li><strong>Scroll Programs</strong> &#8211; when the program items don't fit on screen scroll the menu vertically rather than show multiple columns<br>
+  <li><strong>Expand Links to Folders</strong> &#8211; links (shortcuts) to folders will be expanded as sub-menus </li><li><strong>Skin</strong> &#8211; pick a skin to use for the start menu. Press the <strong>About This Skin</strong> button to see who the author of the skin is</li>
+  <li><strong>Skin Variation</strong> &#8211; some skins can have variations for things like different color schemes or other properties<br>
 </li>
-  <li><strong>Skin</strong> &#8211; pick a skin to use for the start menu. Press the <strong>About This Skin</strong> button to see who the author of the skin is</li>
-  <li><strong>Skin Variation</strong> &#8211; some skins can have variations for small and large icons, for Basic and Aero, etc.<br>
+  <li><span style="font-weight: bold;">Skin Options</span> &#8211; some skins can have options you can turn on and off like caption, small icons, etc</li>
+  <li><strong>Scroll Programs</strong> &#8211; when the program items don't fit on screen scroll the menu vertically rather than show multiple columns<br>
   </li>
+
+
 
   
 
 </ul>Before you click on the <strong>OK</strong> button you can open
 the start menu to see how it will look with the current settings. This
-is especially useful when you are trying different skins.<br>
-<br>
-There is no setting to show small or large icons in the start menu. The
-size of the icons depends on the current skin variation. Pick a skin variation that has the
-icon size you want.<br>
-<br>
-The start menu also checks most of the group policies set by the administrator. Run <strong style="color: rgb(0, 112, 192);">gpedit.msc</strong> and go to <strong style="color: rgb(0, 112, 192);">User Configuration -&gt; Administrative Templates -&gt; Start Menu and Taskbar</strong>. From there you can disable Run, Shutdown, Help, and other features. <span style="font-style: italic;">(Not available on Home versions of Windows)</span>.<br>
+is especially useful when you are trying different skins. <span style="font-weight: bold;">Note:</span> The new controls and hotkeys will not work until you press <span style="font-weight: bold;">OK</span>.<br>
+<br>The start menu also checks most of the group policies set by the administrator. Run <strong style="color: rgb(0, 112, 192);">gpedit.msc</strong> and go to <strong style="color: rgb(0, 112, 192);">User Configuration -&gt; Administrative Templates -&gt; Start Menu and Taskbar</strong>. From there you can disable Run, Shutdown, Help, and other features. <span style="font-style: italic;">(Not available on Home versions of Windows)</span>.<br>
 <br>
 Some settings used to be available in this dialog, but starting with
 version 0.9.9 have been moved to a text file. Read the "More Settings"
@@ -150,7 +152,7 @@ new settings.<br>
 <br>
 <h1>More About Skins</h1>You can pick from the 5 default skins:<br>
 <br>
-<img style="width: 220px; height: 450px;" alt="Skins for Classic Start Menu" title="Skins for Classic Start Menu" src="ClassicStartMenu_files/skins.gif"><br>
+<img style="width: 250px; height: 470px;" alt="Skins for Classic Start Menu" title="Skins for Classic Start Menu" src="ClassicStartMenu_files/skins.gif"><br>
 <br>
 Or you can download and install additional 3rd party skins (from Source
 Forge or from another place). After you download a new skin you
@@ -196,12 +198,7 @@ you want to map the new start menu to a hotkey and use the default Win
 key for the classic menu.<br>
 <br>
 <h1>Accessibility</h1>The start menu supports screen readers like JAWS,
-or Microsoft's Narrator. There is a known problem with JAWS when the
-menu takes more than one column. If you are experiencing this problem
-you can turn off the multi-column menus by checking the "Scroll
-Programs" option in the Settings.<br>
-<br>
-If the accessibility support causes problems it can be disabled from the StartMenu.ini file. Set <strong>EnableAccessibility</strong> to 0 (don't forget to remove the semicolon from the beginning of the line)<br>
+or Microsoft's Narrator. If the accessibility support causes problems it can be disabled from the StartMenu.ini file. Set <strong>EnableAccessibility</strong> to 0 (don't forget to remove the semicolon from the beginning of the line)<br>
 <br>
 
 </body></html>

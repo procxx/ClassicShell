@@ -1,6 +1,8 @@
 // Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
+// Accessibility.cpp - contains the accessibility class CMenuAccessible, used by CMenuContainer
+
 #include "stdafx.h"
 #include "Accessibility.h"
 #include "MenuContainer.h"
@@ -101,13 +103,15 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::get_accState( VARIANT varChild, VARIA
 	if (index>=0 && index<(int)m_pOwner->m_Items.size())
 	{
 		const CMenuContainer::MenuItem &item=m_pOwner->m_Items[index];
-		CWindow toolbar=m_pOwner->m_Toolbars[item.column];
-		if (toolbar.SendMessage(TB_GETHOTITEM)==item.btnIndex)
+		if (m_pOwner->m_HotItem==index)
 			flags|=STATE_SYSTEM_FOCUSED;
 		if (item.bFolder)
 			flags|=STATE_SYSTEM_HASPOPUP;
 		if (item.id==MENU_SEPARATOR)
 			flags=0;
+		RECT rc;
+		if (!m_pOwner->GetItemRect(index,rc))
+			flags|=STATE_SYSTEM_INVISIBLE;
 	}
 	pvarState->vt=VT_I4;
 	pvarState->lVal=flags;
@@ -134,20 +138,10 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::get_accFocus( VARIANT *pvarChild )
 	if (!m_pOwner) return RPC_E_DISCONNECTED;
 	HWND focus=GetFocus();
 	pvarChild->vt=VT_EMPTY;
-	for (std::vector<CWindow>::iterator it=m_pOwner->m_Toolbars.begin();it!=m_pOwner->m_Toolbars.end();++it)
+	if (m_pOwner->m_hWnd==focus && m_pOwner->m_HotItem>=0)
 	{
-		if (it->m_hWnd==focus)
-		{
-			int index=(int)it->SendMessage(TB_GETHOTITEM);
-			if (index>=0)
-			{
-				TBBUTTON button;
-				it->SendMessage(TB_GETBUTTON,index,(LPARAM)&button);
-				pvarChild->vt=VT_I4;
-				pvarChild->lVal=(int)button.dwData-CMenuContainer::ID_OFFSET+1;
-			}
-			break;
-		}
+		pvarChild->vt=VT_I4;
+		pvarChild->lVal=m_pOwner->m_HotItem+1;
 	}
 	return S_OK;
 }
@@ -206,10 +200,12 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::accLocation( long *pxLeft, long *pyTo
 		int index=varChild.lVal-1;
 		if (index<0 || index>=(int)m_pOwner->m_Items.size())
 			return S_FALSE;
-		const CMenuContainer::MenuItem &item=m_pOwner->m_Items[index];
-		CWindow toolbar=m_pOwner->m_Toolbars[item.column];
-		toolbar.SendMessage(TB_GETITEMRECT,item.btnIndex,(LPARAM)&rc);
-		toolbar.ClientToScreen(&rc);
+		m_pOwner->GetItemRect(index,rc);
+		m_pOwner->ClientToScreen(&rc);
+		if (rc.left>rc.right)
+		{
+			int q=rc.left; rc.left=rc.right; rc.right=q;
+		}
 	}
 	*pxLeft=rc.left;
 	*pyTop=rc.top;
@@ -296,19 +292,13 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::accHitTest( long xLeft, long yTop, VA
 		pvarChild->vt=VT_EMPTY;
 		return S_FALSE;
 	}
-	for (std::vector<CWindow>::iterator it=m_pOwner->m_Toolbars.begin();it!=m_pOwner->m_Toolbars.end();++it)
+	POINT pt2=pt;
+	m_pOwner->ScreenToClient(&pt2);
+	int index=m_pOwner->HitTest(pt2);
+	if (index>=0)
 	{
-		POINT pt2=pt;
-		it->ScreenToClient(&pt2);
-		int index=(int)it->SendMessage(TB_HITTEST,0,(LPARAM)&pt2);
-		if (index>=0)
-		{
-			TBBUTTON button;
-			it->SendMessage(TB_GETBUTTON,index,(LPARAM)&button);
-			pvarChild->vt=VT_I4;
-			pvarChild->lVal=(int)button.dwData-CMenuContainer::ID_OFFSET+1;
-			break;
-		}
+		pvarChild->vt=VT_I4;
+		pvarChild->lVal=index+1;
 	}
 	return S_OK;
 }

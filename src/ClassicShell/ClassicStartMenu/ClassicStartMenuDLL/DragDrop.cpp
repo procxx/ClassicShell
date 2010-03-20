@@ -1,3 +1,4 @@
+// ## MenuContainer.h
 // Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
@@ -90,26 +91,25 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
+bool CMenuContainer::DragOut( int index )
 {
-	if (!(m_Options&CONTAINER_DRAG) || s_bNoDragDrop) return 0;
-	NMTOOLBAR *pInfo=(NMTOOLBAR*)pnmh;
-	const MenuItem &item=m_Items[pInfo->iItem-ID_OFFSET];
-	if (!item.pItem1 || item.id!=MENU_NO) return 0;
+	if (!(m_Options&CONTAINER_DRAG) || s_bNoDragDrop) return false;
+	const MenuItem &item=m_Items[index];
+	if (!item.pItem1 || item.id!=MENU_NO) return false;
 
 	bool bLeft=(GetKeyState(VK_LBUTTON)<0);
 	bool bRight=(GetKeyState(VK_RBUTTON)<0);
-	if (!bLeft && !bRight) return 0;
+	if (!bLeft && !bRight) return false;
 
 	// get IDataObject for the current item
 	CComPtr<IShellFolder> pFolder;
 	PCUITEMID_CHILD pidl;
 	if (FAILED(SHBindToParent(item.pItem1,IID_IShellFolder,(void**)&pFolder,&pidl)))
-		return 0;
+		return true;
 
 	CComPtr<IDataObject> pDataObj;
 	if (FAILED(pFolder->GetUIObjectOf(NULL,1,&pidl,IID_IDataObject,NULL,(void**)&pDataObj)))
-		return 0;
+		return true;
 
 	// force synchronous operation
 	CComQIPtr<IAsyncOperation> pAsync=pDataObj;
@@ -118,7 +118,7 @@ LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 
 	// do drag drop
 	s_pDragSource=this;
-	m_DragIndex=pInfo->iItem-ID_OFFSET;
+	m_DragIndex=index;
 	CIDropSource src(!bLeft);
 	DWORD dwEffect=DROPEFFECT_COPY|DROPEFFECT_MOVE|DROPEFFECT_LINK;
 	HRESULT res=SHDoDragDrop(NULL,pDataObj,&src,dwEffect,&dwEffect);
@@ -130,7 +130,7 @@ LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			if (!(*it)->m_bDestroyed)
 				(*it)->PostMessage(WM_CLOSE);
-		return 0;
+		return true;
 	}
 
 	if (res==DRAGDROP_S_DROP && !m_bDestroyed)
@@ -158,21 +158,7 @@ LRESULT CMenuContainer::OnDragOut( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 			break;
 		}
 
-	return 0;
-}
-
-LRESULT CMenuContainer::OnGetObject( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
-{
-	NMOBJECTNOTIFY *pInfo=(NMOBJECTNOTIFY*)pnmh;
-	if (*pInfo->piid==IID_IDropTarget)
-	{
-		AddRef();
-		pInfo->pObject=(IDropTarget*)this;
-		pInfo->hResult=S_OK;
-	}
-	else
-		pInfo->hResult=E_NOINTERFACE;
-	return 0;
+	return true;
 }
 
 HRESULT STDMETHODCALLTYPE CMenuContainer::DragEnter( IDataObject *pDataObj, DWORD grfKeyState, POINTL pt, DWORD *pdwEffect )
@@ -183,12 +169,11 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragEnter( IDataObject *pDataObj, DWOR
 		POINT p={pt.x,pt.y};
 		m_pDropTargetHelper->DragEnter(m_hWnd,pDataObj,&p,*pdwEffect);
 	}
-	m_DropToolbar=NULL;
 	if (!m_pParent && m_Items[0].id==MENU_EMPTY && !s_bShowTopEmpty)
 	{
 		// when dragging over the main menu, show an (Empty) item at the top so the user can drop items there
 		s_bShowTopEmpty=true;
-		InitToolbars();
+		InitWindow();
 	}
 	m_DragHoverTime=GetMessageTime()-10000;
 	m_DragHoverItem=-1;
@@ -220,92 +205,64 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 		m_pDropTargetHelper->DragOver(&p,*pdwEffect);
 	}
 
-	// find toolbar under the mouse
-	CWindow toolbar=NULL;
-	for (std::vector<CWindow>::iterator it=m_Toolbars.begin();it!=m_Toolbars.end();++it)
+	ScreenToClient(&p);
+	int index=HitTest(p);
+	if (index>=0)
 	{
+		// set the new insert mark
+		int mark=index;
+		bool bAfter=false;
 		RECT rc;
-		it->GetWindowRect(&rc);
-		if (PtInRect(&rc,p))
+		GetItemRect(index,rc);
+		int y=(rc.top+rc.bottom)/2;
+		if (p.y<y)
 		{
-			toolbar=*it;
-			break;
+			// insert above
+			if (m_Items[index].id!=MENU_NO && m_Items[index].id!=MENU_EMPTY && (index==0 || m_Items[index-1].id!=MENU_NO))
+				mark=-1;
 		}
+		else
+		{
+			// insert below
+			bAfter=true;
+			if (m_Items[index].id!=MENU_NO && m_Items[index].id!=MENU_EMPTY && (index==m_Items.size()-1 || m_Items[index+1].id!=MENU_NO))
+				mark=-1;
+		}
+		if (mark==-1 && m_Items[index].bFolder && (m_Items[index].bPrograms || m_Items[index].id==MENU_NO))
+		{
+			SetHotItem(index);
+		}
+		else
+		{
+			SetHotItem(-1);
+		}
+		if ((m_Options&CONTAINER_AUTOSORT) && s_pDragSource==this)
+			mark=-1;
+		SetInsertMark(mark,bAfter);
 	}
-	if (m_DropToolbar.m_hWnd && m_DropToolbar!=toolbar)
+	else
 	{
 		// clear the insert mark
-		TBINSERTMARK mark={-1,0};
-		m_DropToolbar.SendMessage(TB_SETINSERTMARK,0,(LPARAM)&mark);
+		SetInsertMark(-1,false);
 	}
+	UpdateScroll(&p);
 
-	m_DropToolbar=toolbar;
-	if (m_DropToolbar.m_hWnd)
+	// check if the hover delay is done and it's time to open the item
+	if (index>=0 && index==m_DragHoverItem)
 	{
-		// mouse is over a button
-		m_DropToolbar.ScreenToClient(&p);
-		int btnIndex=(int)m_DropToolbar.SendMessage(TB_HITTEST,0,(LPARAM)&p);
-		int index=-1;
-		if (btnIndex>=0)
+		if ((GetMessageTime()-m_DragHoverTime)>(int)s_HoverTime && m_Submenu!=m_DragHoverItem)
 		{
-			TBBUTTON button;
-			m_DropToolbar.SendMessage(TB_GETBUTTON,btnIndex,(LPARAM)&button);
-			index=(int)button.dwData-ID_OFFSET;
-
-			// set the new insert mark
-			TBINSERTMARK mark={btnIndex,0};
-			RECT rc;
-			m_DropToolbar.SendMessage(TB_GETITEMRECT,btnIndex,(LPARAM)&rc);
-			int y=(rc.top+rc.bottom)/2;
-			if (p.y<y)
-			{
-				// insert above
-				if (m_Items[index].id!=MENU_NO && m_Items[index].id!=MENU_EMPTY && (index==0 || m_Items[index-1].id!=MENU_NO))
-					mark.iButton=-1;
-			}
-			else
-			{
-				// insert below
-				mark.dwFlags=TBIMHT_AFTER;
-				if (m_Items[index].id!=MENU_NO && m_Items[index].id!=MENU_EMPTY && (index==m_Items.size()-1 || m_Items[index+1].id!=MENU_NO))
-					mark.iButton=-1;
-			}
-			if (mark.iButton==-1 && m_Items[index].bFolder && (m_Items[index].bPrograms || m_Items[index].id==MENU_NO))
-			{
-				m_DropToolbar.SendMessage(TB_SETHOTITEM,btnIndex);
-			}
-			else
-			{
-				m_DropToolbar.SendMessage(TB_SETHOTITEM,-1);
-			}
-			if ((m_Options&CONTAINER_AUTOSORT) && s_pDragSource==this)
-				mark.iButton=-1;
-			m_DropToolbar.SendMessage(TB_SETINSERTMARK,0,(LPARAM)&mark);
+			// expand m_DragHoverItem
+			if (!m_Items[index].bFolder || m_Items[index].pItem1)
+				ActivateItem(index,ACTIVATE_OPEN,NULL);
+			if (!m_Items[index].bFolder)
+				SetHotItem(-1);
 		}
-		else
-		{
-			// clear the insert mark
-			TBINSERTMARK mark={-1,0};
-			m_DropToolbar.SendMessage(TB_SETINSERTMARK,0,(LPARAM)&mark);
-		}
-
-		// check if the hover delay is done and it's time to open the item
-		if (index>=0 && index==m_DragHoverItem)
-		{
-			if ((GetMessageTime()-m_DragHoverTime)>(int)s_HoverTime && m_Submenu!=m_DragHoverItem)
-			{
-				// expand m_DragHoverItem
-				if (!m_Items[index].bFolder || m_Items[index].pItem1)
-					ActivateItem(index,ACTIVATE_OPEN,NULL);
-				if (!m_Items[index].bFolder)
-					m_DropToolbar.SendMessage(TB_SETHOTITEM,-1);
-			}
-		}
-		else
-		{
-			m_DragHoverItem=index;
-			m_DragHoverTime=GetMessageTime();
-		}
+	}
+	else
+	{
+		m_DragHoverItem=index;
+		m_DragHoverTime=GetMessageTime();
 	}
 	
 	return S_OK;
@@ -315,14 +272,9 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragLeave( void )
 {
 	if (m_pDropTargetHelper)
 		m_pDropTargetHelper->DragLeave();
-	if (m_DropToolbar.m_hWnd)
-	{
-		// clear the insert mark
-		TBINSERTMARK mark={-1,0};
-		m_DropToolbar.SendMessage(TB_SETINSERTMARK,0,(LPARAM)&mark);
-		m_DropToolbar=NULL;
-	}
+	SetInsertMark(-1,false);
 	m_pDragObject.Release();
+	UpdateScroll(NULL);
 	return S_OK;
 }
 
@@ -356,25 +308,22 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 		m_pDropTargetHelper->Drop(pDataObj,&p,*pdwEffect);
 	}
 
-	if (!m_DropToolbar.m_hWnd) return S_OK;
+	if (m_InsertMark==-1) return S_OK;
 
-	TBINSERTMARK mark={-1,0};
-	m_DropToolbar.SendMessage(TB_GETINSERTMARK,0,(LPARAM)&mark);
-	int before=mark.iButton;
+	int before=m_InsertMark;
 	if (before<0) return S_OK;
-	for (std::vector<CWindow>::iterator it=m_Toolbars.begin();it!=m_Toolbars.end() && it->m_hWnd!=m_DropToolbar.m_hWnd;++it)
-		before+=(int)it->SendMessage(TB_BUTTONCOUNT,0,0);
-	if (mark.dwFlags==TBIMHT_AFTER && (before!=0 || m_Items[0].id!=MENU_EMPTY))
+	if (m_bInsertAfter && (before!=0 || m_Items[0].id!=MENU_EMPTY))
 		before++;
 
 	// clear the insert mark
-	mark.iButton=-1;
-	m_DropToolbar.SendMessage(TB_SETINSERTMARK,0,(LPARAM)&mark);
-	m_DropToolbar=NULL;
+	SetInsertMark(-1,false);
 
 	if (s_pDragSource==this && (*pdwEffect&DROPEFFECT_MOVE))
 	{
+		if (before==m_DragIndex || before==m_DragIndex+1)
+			return S_OK;
 		// dropped in the same menu, just rearrange the items
+		PlayMenuSound(SOUND_DROP);
 		if (!(m_Options&CONTAINER_AUTOSORT))
 		{
 			std::vector<SortMenuItem> items;
@@ -396,6 +345,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 	else if (m_pDropFolder)
 	{
 		// simulate dropping the object into the original folder
+		PlayMenuSound(SOUND_DROP);
 		CComPtr<IDropTarget> pTarget;
 		if (FAILED(m_pDropFolder->CreateViewObject(m_hWnd,IID_IDropTarget,(void**)&pTarget)))
 			return S_OK;
@@ -425,7 +375,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 				(*it)->EnableWindow(TRUE); // enable all menus
 		SetForegroundWindow(m_hWnd);
 		SetActiveWindow();
-		m_Toolbars[0].SetFocus();
+		SetFocus();
 
 		if (!(m_Options&CONTAINER_AUTOSORT))
 		{

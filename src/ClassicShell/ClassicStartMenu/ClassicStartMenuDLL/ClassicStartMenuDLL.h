@@ -24,8 +24,8 @@ void EnableStartTooltip( bool bEnable );
 // Restore the original drop target
 void UnhookDropTarget( void );
 
-// Set the hotkey for the start menu (0 - Win key, 1 - no hotkey)
-void SetHotkey( DWORD hotkey );
+// Set the hotkeys and controls for the start menu
+void SetControls( DWORD hotkeyCSM, DWORD hotkeyNSM, DWORD controls );
 
 extern HWND g_StartButton;
 extern HWND g_TaskBar;

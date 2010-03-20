@@ -52,6 +52,7 @@ static StdMenuItem g_StdMenu[]=
 };
 
 static std::vector<StdMenuItem> g_CustomMenu;
+static unsigned int g_RootSettings;
 static int g_CustomMenuRoot;
 static FILETIME g_IniTimestamp;
 static CSettingsParser g_CustomMenuParser;
@@ -220,10 +221,27 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 	Sprintf(buf,_countof(buf),L"%s.Icon",name);
 	item.iconPath=g_CustomMenuParser.FindSetting(buf);
 
+	Sprintf(buf,_countof(buf),L"%s.Settings",name);
+	str=g_CustomMenuParser.FindSetting(buf);
+	if (str)
+	{
+		// parse settings
+		while(*str)
+		{
+			wchar_t token[256];
+			str=GetToken(str,token,_countof(token),L", \t|;");
+			if (_wcsicmp(token,L"OPEN_UP")==0) item.settings|=StdMenuItem::MENU_OPENUP;
+			if (_wcsicmp(token,L"OPEN_UP_CHILDREN")==0) item.settings|=StdMenuItem::MENU_OPENUP_REC;
+			if (_wcsicmp(token,L"SORT_ZA")==0) item.settings|=StdMenuItem::MENU_SORTZA;
+			if (_wcsicmp(token,L"SORT_ZA_CHILDREN")==0) item.settings|=StdMenuItem::MENU_SORTZA_REC;
+			if (_wcsicmp(token,L"SORT_ONCE")==0) item.settings|=StdMenuItem::MENU_SORTONCE;
+		}
+	}
+
 	return res;
 }
 
-const StdMenuItem *ParseCustomMenu( void )
+const StdMenuItem *ParseCustomMenu( unsigned int &rootSettings )
 {
 	static bool bInit=true;
 	if (bInit)
@@ -250,6 +268,7 @@ const StdMenuItem *ParseCustomMenu( void )
 				g_CustomMenuParser.ParseText();
 				StdMenuItem root={MENU_NO};
 				ParseCustomMenuRec(L"MAIN_MENU",root);
+				g_RootSettings=root.settings;
 				for (std::vector<StdMenuItem>::iterator it=g_CustomMenu.begin();it!=g_CustomMenu.end();++it)
 					if (it->submenuID==MENU_NO)
 					{
@@ -265,7 +284,13 @@ const StdMenuItem *ParseCustomMenu( void )
 		g_CustomMenu.clear();
 
 	if (g_CustomMenu.empty())
+	{
+		rootSettings=0;
 		return g_StdMenu;
+	}
 	else
+	{
+		rootSettings=g_RootSettings;
 		return &g_CustomMenu[g_CustomMenuRoot];
+	}
 }

@@ -53,7 +53,12 @@ END
 //
 
 1                       BITMAP                  "main_bitmap.bmp"
-2                       BITMAP                  "selection.bmp"
+2                       BITMAP                  "main_bitmap_mask.bmp"
+3                       BITMAP                  "selection.bmp"
+4                       BITMAP                  "pager.bmp"
+5                       BITMAP                  "pager_arrows.bmp"
+6                       BITMAP                  "menu_arrows.bmp"
+7                       BITMAP                  "menu_arrows2.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -61,9 +66,6 @@ END
 //
 
 1                       SKIN                    "SkinDescription.txt"
-2                       SKIN                    "LargeIconsNoCaption.txt"
-3                       SKIN                    "SmallIconsCaption.txt"
-4                       SKIN                    "SmallIconsNoCaption.txt"
 
 /////////////////////////////////////////////////////////////////////////////
 //

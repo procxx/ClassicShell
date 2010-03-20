@@ -43,6 +43,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
+				WholeProgramOptimization="false"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;VISTAAERO_EXPORTS"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -69,6 +70,7 @@
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
+				LinkTimeCodeGeneration="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -113,11 +115,11 @@
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
 			<File
-				RelativePath=".\LargeIconsNoCaption.txt"
+				RelativePath=".\main_bitmap.bmp"
 				>
 			</File>
 			<File
-				RelativePath=".\main_bitmap.bmp"
+				RelativePath=".\main_bitmap_mask.bmp"
 				>
 			</File>
 			<File
@@ -130,14 +132,6 @@
 			</File>
 			<File
 				RelativePath=".\SkinDescription.txt"
-				>
-			</File>
-			<File
-				RelativePath=".\SmallIconsCaption.txt"
-				>
-			</File>
-			<File
-				RelativePath=".\SmallIconsNoCaption.txt"
 				>
 			</File>
 			<File

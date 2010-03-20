@@ -19,12 +19,14 @@
 HWND g_StartButton;
 HWND g_TaskBar;
 HWND g_OwnerWindow;
+HWND g_ProgWin;
 static UINT g_StartMenuMsg;
 static HWND g_Tooltip;
 static TOOLINFO g_StarButtonTool;
-static int g_HotkeyID;
-static DWORD g_Hotkey;
-static HHOOK g_ProgHook, g_StartHook;
+static int g_HotkeyCSMID, g_HotkeyNSMID;
+static DWORD g_HotkeyCSM, g_HotkeyNSM;
+static DWORD g_Controls;
+static HHOOK g_ProgHook, g_StartHook, g_KeyboardHook;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -202,11 +204,12 @@ static void FindStartButton( void )
 			CStartMenuTarget *pNewTarget=new CStartMenuTarget();
 			RegisterDragDrop(g_StartButton,pNewTarget);
 			pNewTarget->Release();
-			g_HotkeyID=GlobalAddAtom(L"ClassicStartMenu.Hotkey");
+			g_HotkeyCSMID=GlobalAddAtom(L"ClassicStartMenu.HotkeyCSM");
+			g_HotkeyNSMID=GlobalAddAtom(L"ClassicStartMenu.HotkeyNSM");
 #endif
 			StartMenuSettings settings;
 			ReadSettings(settings);
-			SetHotkey(settings.Hotkey);
+			SetControls(settings.HotkeyCSM,settings.HotkeyNSM,settings.Controls);
 			srand(GetTickCount());
 		}
 		if (!g_StartButton) g_StartButton=(HWND)1;
@@ -238,25 +241,38 @@ void UnhookDropTarget( void )
 		RevokeDragDrop(g_StartButton);
 		RegisterDragDrop(g_StartButton,g_pOriginalTarget);
 		g_pOriginalTarget=NULL;
-		SetHotkey(0);
 	}
 #endif
 }
 
-// Set the hotkey for the start menu (0 - Win key, 1 - no hotkey)
-void SetHotkey( DWORD hotkey )
+// Set the hotkeys and controls for the start menu
+void SetControls( DWORD hotkeyCSM, DWORD hotkeyNSM, DWORD controls )
 {
-	if (g_Hotkey>1)
-		UnregisterHotKey(g_StartButton,g_HotkeyID);
-	g_Hotkey=hotkey;
-	if (hotkey>1)
+	if (g_HotkeyCSM)
+		UnregisterHotKey(g_StartButton,g_HotkeyCSMID);
+	g_HotkeyCSM=hotkeyCSM;
+	if (hotkeyCSM)
 	{
 		int mod=0;
-		if (hotkey&(HOTKEYF_SHIFT<<8)) mod|=MOD_SHIFT;
-		if (hotkey&(HOTKEYF_CONTROL<<8)) mod|=MOD_CONTROL;
-		if (hotkey&(HOTKEYF_ALT<<8)) mod|=MOD_ALT;
-		RegisterHotKey(g_StartButton,g_HotkeyID,mod,hotkey&255);
+		if (hotkeyCSM&(HOTKEYF_SHIFT<<8)) mod|=MOD_SHIFT;
+		if (hotkeyCSM&(HOTKEYF_CONTROL<<8)) mod|=MOD_CONTROL;
+		if (hotkeyCSM&(HOTKEYF_ALT<<8)) mod|=MOD_ALT;
+		RegisterHotKey(g_StartButton,g_HotkeyCSMID,mod,hotkeyCSM&255);
 	}
+
+	if (g_HotkeyNSM)
+		UnregisterHotKey(g_StartButton,g_HotkeyNSMID);
+	g_HotkeyNSM=hotkeyNSM;
+	if (hotkeyNSM)
+	{
+		int mod=0;
+		if (hotkeyNSM&(HOTKEYF_SHIFT<<8)) mod|=MOD_SHIFT;
+		if (hotkeyNSM&(HOTKEYF_CONTROL<<8)) mod|=MOD_CONTROL;
+		if (hotkeyNSM&(HOTKEYF_ALT<<8)) mod|=MOD_ALT;
+		RegisterHotKey(g_StartButton,g_HotkeyNSMID,mod,hotkeyNSM&255);
+	}
+
+	g_Controls=controls;
 }
 
 // Toggle the start menu. bKeyboard - set to true to show the keyboard cues
@@ -265,16 +281,38 @@ STARTMENUAPI HWND ToggleStartMenu( HWND startButton, bool bKeyboard )
 	return CMenuContainer::ToggleStartMenu(startButton,bKeyboard);
 }
 
+static LRESULT CALLBACK HookKeyboardLL( int code, WPARAM wParam, LPARAM lParam )
+{
+	static bool s_bLWinPressed, s_bRWinPressed;
+	if (wParam==WM_KEYDOWN)
+	{
+		KBDLLHOOKSTRUCT *pKbd=(KBDLLHOOKSTRUCT*)lParam;
+		s_bLWinPressed=(pKbd->vkCode==VK_LWIN);
+		s_bRWinPressed=(pKbd->vkCode==VK_RWIN);
+	}
+	if (wParam==WM_KEYUP)
+	{
+		KBDLLHOOKSTRUCT *pKbd=(KBDLLHOOKSTRUCT*)lParam;
+		if (((pKbd->vkCode==VK_LWIN && s_bLWinPressed) || (pKbd->vkCode==VK_RWIN && s_bRWinPressed)) && GetAsyncKeyState(VK_SHIFT)<0)
+		{
+			PostMessage(g_StartButton,g_StartMenuMsg,2,0);
+		}
+	}
+	return CallNextHookEx(NULL,code,wParam,lParam);
+}
+
+
 static void InitStartMenuDLL( void )
 {
 	FindStartButton();
-	HWND progWin=FindWindowEx(NULL,NULL,L"Progman",NULL);
-	DWORD thread=GetWindowThreadProcessId(progWin,NULL);
+	g_ProgWin=FindWindowEx(NULL,NULL,L"Progman",NULL);
+	DWORD thread=GetWindowThreadProcessId(g_ProgWin,NULL);
 	g_ProgHook=SetWindowsHookEx(WH_GETMESSAGE,HookProgMan,NULL,thread);
 	g_StartHook=SetWindowsHookEx(WH_GETMESSAGE,HookStartButton,NULL,GetCurrentThreadId());
 	HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
 	LoadLibrary(L"ClassicStartMenuDLL.dll"); // keep the DLL from unloading
 	if (hwnd) PostMessage(hwnd,WM_CLEAR,0,0); // tell the exe to unhook this hook
+	g_KeyboardHook=SetWindowsHookEx(WH_KEYBOARD_LL,HookKeyboardLL,g_Instance,NULL);
 }
 
 static DWORD WINAPI ExitThreadProc( void *param )
@@ -292,11 +330,13 @@ static void CleanStartMenuDLL( void )
 	CMenuFader::ClearAll();
 	g_IconManager.StopPreloading(true);
 	UnhookDropTarget();
+	SetControls(0,0,0);
 	// send WM_CLOSE to the window in ClassicStartMenu.exe to close that process
 	HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
 	if (hwnd) PostMessage(hwnd,WM_CLOSE,0,0);
 	UnhookWindowsHookEx(g_ProgHook);
 	UnhookWindowsHookEx(g_StartHook);
+	UnhookWindowsHookEx(g_KeyboardHook);
 
 	// we need to unload the DLL here. but we can't just call FreeLibrary because it will unload the code
 	// while it is still executing. So we create a separate thread and use FreeLibraryAndExitThread
@@ -313,14 +353,14 @@ STARTMENUAPI LRESULT CALLBACK HookProgMan( int code, WPARAM wParam, LPARAM lPara
 		MSG *msg=(MSG*)lParam;
 		if (msg->message==WM_SYSCOMMAND && (msg->wParam&0xFFF0)==SC_TASKLIST && msg->lParam!='CLSM')
 		{
+			// Win button pressed
 			FindStartButton();
-			if (g_Hotkey==0)
+			int control=(g_Controls>>16)&0xFF;
+			if (control!=StartMenuSettings::OPEN_WINDOWS)
 			{
-				if (g_StartButton)
-				{
-					PostMessage(g_StartButton,g_StartMenuMsg,0,0);
-				}
 				msg->message=WM_NULL;
+				if (control==StartMenuSettings::OPEN_CLASSIC)
+					PostMessage(g_StartButton,g_StartMenuMsg,0,0);
 			}
 		}
 	}
@@ -346,15 +386,30 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 		{
 			// wParam=0 - toggle
 			// wParam=1 - open
+			// wParam=2 - Shift+Win was pressed
 			msg->message=WM_NULL;
-			if (msg->wParam==0 || !CMenuContainer::IsMenuOpened())
+			if (msg->wParam==2)
+			{
+				int control=(g_Controls>>24)&0xFF;
+				if (control==StartMenuSettings::OPEN_CLASSIC)
+					ToggleStartMenu(g_StartButton,true);
+				else if (control==StartMenuSettings::OPEN_WINDOWS)
+					PostMessage(g_ProgWin,WM_SYSCOMMAND,SC_TASKLIST,'CLSM');
+			}
+			else if (msg->wParam==0 || !CMenuContainer::IsMenuOpened())
 				ToggleStartMenu(g_StartButton,true);
 		}
-		if (msg->message==WM_HOTKEY && msg->hwnd==g_StartButton && msg->wParam==g_HotkeyID)
+
+		if (msg->message==WM_HOTKEY && msg->hwnd==g_StartButton)
 		{
-			msg->message=WM_NULL;
-			SetForegroundWindow(g_StartButton);
-			ToggleStartMenu(g_StartButton,true);
+			if (msg->wParam==g_HotkeyCSMID)
+			{
+				msg->message=WM_NULL;
+				SetForegroundWindow(g_StartButton);
+				ToggleStartMenu(g_StartButton,true);
+			}
+			else if (msg->wParam==g_HotkeyNSMID)
+				PostMessage(g_ProgWin,WM_SYSCOMMAND,SC_TASKLIST,'CLSM');
 		}
 
 		if (msg->message==WM_KEYDOWN && msg->hwnd==g_StartButton && (msg->wParam==VK_SPACE || msg->wParam==VK_RETURN))
@@ -366,10 +421,10 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 
 		if ((msg->message==WM_LBUTTONDOWN || msg->message==WM_LBUTTONDBLCLK) && msg->hwnd==g_StartButton)
 		{
-			const wchar_t *str=FindSetting("EnableShiftClick");
-			int shiftClick=str?_wtol(str):1;
-
-			if (shiftClick<1 || shiftClick>2 || (shiftClick==2 && (msg->wParam&MK_SHIFT)) || (shiftClick==1 && !(msg->wParam&MK_SHIFT)))
+			int control=(g_Controls>>((msg->wParam&MK_SHIFT)?8:0))&0xFF;
+			if (control==StartMenuSettings::OPEN_NOTHING)
+				msg->message=WM_NULL;
+			if (control==StartMenuSettings::OPEN_CLASSIC)
 			{
 				DWORD pos=GetMessagePos();
 				POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
@@ -391,10 +446,10 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 		if ((msg->message==WM_NCLBUTTONDOWN || msg->message==WM_NCLBUTTONDBLCLK) && msg->hwnd==g_TaskBar
 			&& (msg->wParam==HTCAPTION || !IsAppThemed())) // HACK: in Classic mode the start menu can show up even if wParam is not HTCAPTION (most likely a bug in Windows)
 		{
-			const wchar_t *str=FindSetting("EnableShiftClick");
-			int shiftClick=str?_wtol(str):1;
-
-			if (shiftClick<1 || shiftClick>2 || (shiftClick==2 && GetKeyState(VK_SHIFT)<0) || (shiftClick==1 && GetKeyState(VK_SHIFT)>=0))
+			int control=(g_Controls>>((GetKeyState(VK_SHIFT)<0)?8:0))&0xFF;
+			if (control==StartMenuSettings::OPEN_NOTHING)
+				msg->message=WM_NULL;
+			else if (control==StartMenuSettings::OPEN_CLASSIC)
 			{
 				DWORD pos=GetMessagePos();
 				POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
@@ -451,10 +506,8 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 
 		if (msg->message==WM_RBUTTONUP && msg->hwnd==g_StartButton)
 		{
-			const wchar_t *str=FindSetting("EnableShiftClick");
-			int shiftClick=str?_wtol(str):1;
-
-			if (shiftClick<1 || shiftClick>2 || (shiftClick==2 && (msg->wParam&MK_SHIFT)) || (shiftClick==1 && !(msg->wParam&MK_SHIFT)))
+			int control=(g_Controls>>((msg->wParam&MK_SHIFT)?8:0))&0xFF;
+			if (control==StartMenuSettings::OPEN_CLASSIC || g_Controls==0) // g_Controls==0 is a safeguard when you set all controls to "Nothing"
 			{
 				// additional commands for the context menu
 				enum

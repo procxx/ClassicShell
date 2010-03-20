@@ -1,8 +1,0 @@
-Main_selection=2
-Main_text_color=#000000,#000000,#7F7F7F,#7F7F7F
-Main_selection_slices_X=3,1,3
-Main_selection_slices_Y=4,66,4
-Submenu_text_color=#000000,#000000,#7F7F7F,#7F7F7F
-Submenu_selection=2
-Submenu_selection_slices_X=3,1,3
-Submenu_selection_slices_Y=4,66,4

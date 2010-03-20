@@ -39,6 +39,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_23F8306A3CEE4460BD6A37536C13C99A"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_38052545EC414AFFA5ABD7BC8905D21A"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -172,6 +178,12 @@
         "Entry"
         {
         "MsmKey" = "8:_E62C2ED889CC4C17A08EF196F1EF4D76"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_EA7FEC9C5B4B4E2387144019CCA1C35B"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -816,14 +828,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Classic Shell"
-        "ProductCode" = "8:{6FE3D179-C937-4FA7-8C47-1F08A21965A4}"
-        "PackageCode" = "8:{40828FDF-DDF9-41EA-8FF9-413C4F272347}"
+        "ProductCode" = "8:{F260865C-5694-4BB8-9EB2-31D255EF89B4}"
+        "PackageCode" = "8:{68EB68BC-CF63-4B90-87BF-C264C8E1B55C}"
         "UpgradeCode" = "8:{EB7DA1D9-44EA-43BF-8A08-0B103007D4F2}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:1.0.3"
+        "ProductVersion" = "8:1.9.0"
         "Manufacturer" = "8:IvoSoft"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -948,7 +960,7 @@
                                             "Condition" = "8:"
                                             "Transitive" = "11:FALSE"
                                             "ValueTypes" = "3:3"
-                                            "Value" = "3:10003"
+                                            "Value" = "3:10900"
                                             }
                                         }
                                     }
@@ -1812,6 +1824,34 @@
                 {
                 }
             }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_23F8306A3CEE4460BD6A37536C13C99A"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Full Glass.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_9DE73E0DE7A748B496E77ABAE9A95CE2"
+            "Condition" = "8:CHECK_STARTMENU AND CS_COMPONENT<>1"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{066C9721-26D5-4C4D-868E-50C2BA0A8196}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_3F662FBCA80A4FE381BF12FE5F78302D"
             {
             "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Windows Vista Aero.skin"
@@ -1919,6 +1959,34 @@
             "OutputConfiguration" = "8:Setup|Win32"
             "OutputGroupCanonicalName" = "8:Built"
             "OutputProjectGuid" = "8:{85DEECBB-1F9B-4983-9D54-3BF42182B7E7}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_EA7FEC9C5B4B4E2387144019CCA1C35B"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Smoked Glass.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_9DE73E0DE7A748B496E77ABAE9A95CE2"
+            "Condition" = "8:CHECK_STARTMENU AND CS_COMPONENT<>1"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{66D1EAA4-65D1-45CC-9989-E616FC0575EB}"
             "ShowKeyOutput" = "11:TRUE"
                 "ExcludeFilters"
                 {

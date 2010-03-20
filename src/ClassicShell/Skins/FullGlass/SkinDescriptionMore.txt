@@ -1,0 +1,2 @@
+Main_bitmap=1
+Submenu_bitmap=5
