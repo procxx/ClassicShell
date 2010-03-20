@@ -235,7 +235,7 @@ void CMenuContainer::InitItems( void )
 		wchar_t recentPath[_MAX_PATH];
 		SHGetPathFromIDList(m_Path1,recentPath);
 		wchar_t find[_MAX_PATH];
-		swprintf_s(find,L"%s\\*.lnk",recentPath);
+		Sprintf(find,_countof(find),L"%s\\*.lnk",recentPath);
 
 		std::vector<Document> docs;
 
@@ -513,7 +513,7 @@ void CMenuContainer::InitItems( void )
 			{
 				SFGAOF flags=SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK;
 				wchar_t buf[1024];
-				wcscpy_s(buf,item.pStdItem->link);
+				Strcpy(buf,_countof(buf),item.pStdItem->link);
 				DoEnvironmentSubst(buf,_countof(buf));
 				if (SUCCEEDED(s_pDesktop->ParseDisplayName(NULL,NULL,buf,NULL,(PIDLIST_RELATIVE*)&item.pItem1,&flags)))
 				{
@@ -684,7 +684,7 @@ void CMenuContainer::CreateBackground( int width, int height )
 	wchar_t title[256]=L"Windows";
 	const wchar_t *setting=FindSetting("MenuCaption");
 	if (setting)
-		wcscpy_s(title,setting);
+		Strcpy(title,_countof(title),setting);
 	else
 	{
 		ULONG size=_countof(title);
@@ -1861,7 +1861,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 					if (command)
 					{
 						wchar_t buf[1024];
-						wcscpy_s(buf,command);
+						Strcpy(buf,_countof(buf),command);
 						DoEnvironmentSubst(buf,_countof(buf));
 						ExecuteCommand(buf);
 					}
@@ -1945,7 +1945,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				if (item.pStdItem && item.pStdItem->command && *item.pStdItem->command)
 				{
 					wchar_t buf[1024];
-					wcscpy_s(buf,item.pStdItem->command);
+					Strcpy(buf,_countof(buf),item.pStdItem->command);
 					DoEnvironmentSubst(buf,_countof(buf));
 					ExecuteCommand(buf);
 					return;
@@ -2852,7 +2852,7 @@ LRESULT CMenuContainer::OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	if (item.pStdItem && (item.pStdItem->tipKey || item.pStdItem->tip))
 	{
 		// show the tip for the standard item
-		wcscpy_s(pTip->pszText,pTip->cchTextMax,item.pStdItem->tipKey?FindTranslation(item.pStdItem->tipKey,item.pStdItem->tip):item.pStdItem->tip);
+		Strcpy(pTip->pszText,pTip->cchTextMax,item.pStdItem->tipKey?FindTranslation(item.pStdItem->tipKey,item.pStdItem->tip):item.pStdItem->tip);
 		return 0;
 	}
 
@@ -2870,7 +2870,7 @@ LRESULT CMenuContainer::OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	if (FAILED(pQueryInfo->GetInfoTip(QITIPF_DEFAULT,&tip)) || !tip)
 		return 0;
 
-	wcscpy_s(pTip->pszText,pTip->cchTextMax,tip);
+	Strcpy(pTip->pszText,pTip->cchTextMax,tip);
 	CoTaskMemFree(tip);
 	return 0;
 }
@@ -3229,7 +3229,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	StartMenuSettings settings;
 	ReadSettings(settings);
 
-	if (!LoadMenuSkin(settings.SkinName,s_Skin,settings.SkinVariation,false))
+	if (!LoadMenuSkin(settings.SkinName,s_Skin,settings.SkinVariation,false) || s_Skin.version>MAX_SKIN_VERSION)
 		LoadDefaultMenuSkin(s_Skin,NULL,false);
 
 	s_bScrollMenus=(settings.ScrollMenus!=0);

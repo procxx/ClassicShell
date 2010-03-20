@@ -59,8 +59,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,2,0
- PRODUCTVERSION 1,0,2,0
+ FILEVERSION 1,0,3,0
+ PRODUCTVERSION 1,0,3,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -77,12 +77,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic Windows Explorer features"
-            VALUE "FileVersion", "1, 0, 2, 0"
+            VALUE "FileVersion", "1, 0, 3, 0"
             VALUE "InternalName", "ClassicExplorer.dll"
             VALUE "LegalCopyright", "Copyright (C) 2009-2010, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicExplorer.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "1, 0, 2, 0"
+            VALUE "ProductVersion", "1, 0, 3, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -101,6 +101,7 @@ IDR_CLASSICEXPLORER     REGISTRY                "ClassicExplorer.rgs"
 IDR_EXPLORERBAND        REGISTRY                "ExplorerBand.rgs"
 IDR_EXPLORERBHO         REGISTRY                "ExplorerBHO.rgs"
 IDR_CLASSICCOPYEXT      REGISTRY                "ClassicCopyExt.rgs"
+IDR_SHAREOVERLAY        REGISTRY                "ShareOverlay.rgs"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -154,6 +155,7 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | 
 CAPTION "Settings for Classic Explorer"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
+    ICON            "",IDC_SHIELD,34,157,21,20
     GROUPBOX        "Navigation pane tweaks:",IDC_STATIC,7,7,180,86
     LTEXT           "Navigation pane style:",IDC_STATIC,16,19,77,12,SS_CENTERIMAGE
     COMBOBOX        IDC_COMBOSTYLE,94,19,85,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
@@ -184,7 +186,12 @@ BEGIN
     CONTROL         "For folders too",IDC_CHECKCOPYFOLDER,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,305,102,63,10
     CONTROL         "Show free space and file size in status bar",IDC_CHECKSIZE,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,115,151,10
-    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,168,40,10
+    CONTROL         "Add icon overlay for shared folders",IDC_CHECKSHARED,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,128,129,10
+    CONTROL         "Show only in Explorer (improves performance)",IDC_CHECKSHAREDEXP,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,209,141,164,10
+    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,168,31,10
+    CONTROL         "<a>More Settings...</a>",IDC_LINKINI,"SysLink",WS_TABSTOP,58,168,62,10
     DEFPUSHBUTTON   "OK",IDOK,265,163,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,323,163,50,14
 END

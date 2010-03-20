@@ -9,6 +9,7 @@
 #include "dllmain.h"
 #include "GlobalSettings.h"
 #include "TranslationSettings.h"
+#include "ShareOverlay.h"
 
 CClassicExplorerModule _AtlModule;
 
@@ -17,6 +18,7 @@ void InitClassicCopyThread( void );
 void FreeClassicCopyThread( void );
 
 bool g_bHookCopyThreads;
+bool g_bExplorerExe;
 static FILETIME g_IniTimestamp;
 static CRITICAL_SECTION g_IniSection;
 
@@ -27,7 +29,7 @@ void ReadIniFile( bool bStartup )
 	wchar_t fname[_MAX_PATH];
 	GetModuleFileName(g_Instance,fname,_countof(fname));
 	*PathFindFileName(fname)=0;
-	wcscat_s(fname,_countof(fname),INI_PATH L"Explorer.ini");
+	Strcat(fname,_countof(fname),INI_PATH L"Explorer.ini");
 	WIN32_FILE_ATTRIBUTE_DATA data;
 	if (GetFileAttributesEx(fname,GetFileExInfoStandard,&data))
 	{
@@ -46,7 +48,7 @@ HICON LoadIcon( int iconSize, const wchar_t *path, int index, std::vector<HMODUL
 	if (!path)
 		return (HICON)LoadImage(hShell32,MAKEINTRESOURCE(index),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
 	wchar_t text[1024];
-	wcscpy_s(text,path);
+	Strcpy(text,_countof(text),path);
 	DoEnvironmentSubst(text,_countof(text));
 	wchar_t *c=wcsrchr(text,',');
 	if (c)
@@ -118,9 +120,20 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 {
 	if (dwReason==DLL_PROCESS_ATTACH)
 	{
+		DWORD EnableCopyUI=1;
+		DWORD SharedOverlay=0;
+		CRegKey regSettings;
+		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
+		{
+			regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI);
+			regSettings.QueryDWORDValue(L"SharedOverlay",SharedOverlay);
+		}
+
 		wchar_t path[_MAX_PATH];
 		GetModuleFileName(NULL,path,_countof(path));
-		if (_wcsicmp(PathFindFileName(path),L"iexplore.exe")==0) 
+		const wchar_t *exe=PathFindFileName(path);
+		g_bExplorerExe=(_wcsicmp(exe,L"explorer.exe")==0);
+		if (_wcsicmp(exe,L"regsvr32.exe")!=0 && _wcsicmp(exe,L"msiexec.exe")!=0 && !g_bExplorerExe && SharedOverlay!=2)
 			return FALSE;
 
 		g_Instance=hInstance;
@@ -131,17 +144,15 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 		wchar_t fname[_MAX_PATH];
 		GetModuleFileName(hInstance,fname,_countof(fname));
 		*PathFindFileName(fname)=0;
-		wcscat_s(fname,_countof(fname),INI_PATH L"ExplorerL10N.ini");
+		Strcat(fname,_countof(fname),INI_PATH L"ExplorerL10N.ini");
 		ParseTranslations(fname);
 
-		DWORD EnableCopyUI=1;
-		CRegKey regSettings;
-		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
-			regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI);
 		g_bHookCopyThreads=(EnableCopyUI==1 || EnableCopyUI==2);
-
 		if (g_bHookCopyThreads)
 			InitClassicCopyProcess();
+
+		if (SharedOverlay)
+			CShareOverlay::InitOverlay(FindSetting("ShareOverlayIcon"));
 	}
 
 	if (dwReason==DLL_THREAD_ATTACH)

@@ -500,7 +500,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 					wchar_t path[_MAX_PATH];
 					GetModuleFileName(g_Instance,path,_countof(path));
 					*PathFindFileName(path)=0;
-					wcscat_s(path,DOC_PATH L"ClassicStartMenu.html");
+					Strcat(path,_countof(path),DOC_PATH L"ClassicStartMenu.html");
 					ShellExecute(NULL,NULL,path,NULL,NULL,SW_SHOWNORMAL);
 				}
 				if (res==CMD_EXIT)

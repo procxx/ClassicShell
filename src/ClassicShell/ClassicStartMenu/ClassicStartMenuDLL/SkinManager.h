@@ -5,10 +5,13 @@
 
 #include <vector>
 
+const int MAX_SKIN_VERSION=1;
+
 struct MenuSkin
 {
 	CString About; // the text to show in the About box
 	HICON AboutIcon; // the icon to show in the About box
+	int version; // 1 - skin 1.0 (default), 2 - skin 2.0 (future skins)
 	bool ForceRTL;
 	std::vector<std::pair<int,CString>> Variations;
 

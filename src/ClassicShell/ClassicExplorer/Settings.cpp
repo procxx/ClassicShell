@@ -12,6 +12,7 @@
 // Dialog proc for the Settings dialog. Edits the settings and saves them to the registry
 INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
+	static HICON s_ShieldIcon;
 	if (uMsg==WM_INITDIALOG)
 	{
 		void *pRes=NULL;
@@ -25,10 +26,10 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (pRes)
 		{
 			VS_FIXEDFILEINFO *pVer=(VS_FIXEDFILEINFO*)((char*)pRes+40);
-			swprintf_s(title,L"Settings for Classic Explorer %d.%d.%d",HIWORD(pVer->dwProductVersionMS),LOWORD(pVer->dwProductVersionMS),HIWORD(pVer->dwProductVersionLS));
+			Sprintf(title,_countof(title),L"Settings for Classic Explorer %d.%d.%d",HIWORD(pVer->dwProductVersionMS),LOWORD(pVer->dwProductVersionMS),HIWORD(pVer->dwProductVersionLS));
 		}
 		else
-			swprintf_s(title,L"Settings for Classic Explorer");
+			Sprintf(title,_countof(title),L"Settings for Classic Explorer");
 		SetWindowText(hwndDlg,title);
 
 		HICON icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,GetSystemMetrics(SM_CXICON),GetSystemMetrics(SM_CYICON),LR_DEFAULTCOLOR);
@@ -40,7 +41,7 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
 			regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
 
-		DWORD EnableCopyUI, FreeSpace, FoldersSettings, BigButtons, ToolbarButtons, UpButton, AddressBar;
+		DWORD EnableCopyUI, FreeSpace, FoldersSettings, BigButtons, ToolbarButtons, UpButton, AddressBar, SharedOverlay;
 		if (regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI)!=ERROR_SUCCESS)
 			EnableCopyUI=1;
 		if (regSettings.QueryDWORDValue(L"FreeSpace",FreeSpace)!=ERROR_SUCCESS)
@@ -55,6 +56,8 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 			UpButton=1;
 		if (regSettings.QueryDWORDValue(L"AddressBar",AddressBar)!=ERROR_SUCCESS)
 			AddressBar=0;
+		if (regSettings.QueryDWORDValue(L"SharedOverlay",SharedOverlay)!=ERROR_SUCCESS)
+			SharedOverlay=0;
 
 		if (!(ToolbarButtons&0xFF000000)) ToolbarButtons|=0x07000002; // for backwards compatibility (when there were 7 buttons the the button count was not saved)
 		unsigned int mask1=(((2<<(ToolbarButtons>>24))-1)&~1); // bits to keep
@@ -94,6 +97,8 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		CheckDlgButton(hwndDlg,IDC_CHECKTITLE,(AddressBar&CExplorerBHO::ADDRESS_SHOWTITLE)?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKICON,(AddressBar&CExplorerBHO::ADDRESS_SHOWICON)?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKCRUMBS,(AddressBar&CExplorerBHO::ADDRESS_NOBREADCRUMBS)?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKSHARED,SharedOverlay?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKSHAREDEXP,SharedOverlay!=2?BST_CHECKED:BST_UNCHECKED);
 
 		CheckDlgButton(hwndDlg,IDC_CHECKBIG,BigButtons?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECK1,(ToolbarButtons&(1<<CBandWindow::ID_GOUP))?BST_CHECKED:BST_UNCHECKED);
@@ -116,6 +121,18 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 			EnableWindow(GetDlgItem(hwndDlg,IDC_CHECK7),FALSE);
 			EnableWindow(GetDlgItem(hwndDlg,IDC_CHECK8),FALSE);
 		}
+
+		SHSTOCKICONINFO sii={sizeof(sii)};
+		SHGetStockIconInfo(SIID_SHIELD,SHGSI_ICON|SHGSI_SMALLICON,&sii);
+		s_ShieldIcon=sii.hIcon;
+		HWND shield=GetDlgItem(hwndDlg,IDC_SHIELD);
+		RECT rc;
+		GetWindowRect(shield,&rc);
+		POINT pt={rc.right,rc.bottom};
+		ScreenToClient(hwndDlg,&pt);
+		int iconSize=GetSystemMetrics(SM_CXSMICON);
+		SetWindowPos(shield,NULL,pt.x-iconSize,pt.y-iconSize,iconSize,iconSize,SWP_NOZORDER);
+		SendMessage(shield,STM_SETICON,(WPARAM)sii.hIcon,0);
 	}
 	if (uMsg==WM_INITDIALOG || (uMsg==WM_COMMAND && wParam==MAKEWPARAM(IDC_COMBOSTYLE,CBN_SELENDOK)))
 	{
@@ -131,6 +148,12 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (uMsg==WM_COMMAND)
 			return TRUE;
 	}
+	if (uMsg==WM_INITDIALOG || (uMsg==WM_COMMAND && wParam==IDC_CHECKSHARED))
+	{
+		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKSHAREDEXP),IsDlgButtonChecked(hwndDlg,IDC_CHECKSHARED)==BST_CHECKED);
+		if (uMsg==WM_COMMAND)
+			return TRUE;
+	}
 	if (uMsg==WM_INITDIALOG)
 		return TRUE;
 	if (uMsg==WM_COMMAND && wParam==IDOK)
@@ -139,7 +162,7 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
 			regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
 
-		DWORD EnableCopyUI, FreeSpace, FoldersSettings, BigButtons, ToolbarButtons, UpButton, AddressBar;
+		DWORD EnableCopyUI, FreeSpace, FoldersSettings, BigButtons, ToolbarButtons, UpButton, AddressBar, SharedOverlay;
 		if (regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI)!=ERROR_SUCCESS)
 			EnableCopyUI=1;
 		if (regSettings.QueryDWORDValue(L"FreeSpace",FreeSpace)!=ERROR_SUCCESS)
@@ -152,6 +175,8 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 			UpButton=1;
 		if (regSettings.QueryDWORDValue(L"AddressBar",AddressBar)!=ERROR_SUCCESS)
 			AddressBar=0;
+		if (regSettings.QueryDWORDValue(L"SharedOverlay",SharedOverlay)!=ERROR_SUCCESS)
+			SharedOverlay=0;
 		if (regSettings.QueryDWORDValue(L"ToolbarButtons",ToolbarButtons)!=ERROR_SUCCESS)
 			ToolbarButtons=DEFAULT_BUTTONS|((CBandWindow::ID_LAST-1)<<24);
 		DWORD ToolbarButtons0=ToolbarButtons;
@@ -203,6 +228,10 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKCRUMBS)==BST_CHECKED)
 			AddressBar2|=CExplorerBHO::ADDRESS_NOBREADCRUMBS;
 
+		DWORD SharedOverlay2=0;
+		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKSHARED)==BST_CHECKED)
+			SharedOverlay2=IsDlgButtonChecked(hwndDlg,IDC_CHECKSHAREDEXP)==BST_CHECKED?1:2;
+
 		int res=0;
 		if (EnableCopyUI!=EnableCopyUI2)
 		{
@@ -244,6 +273,12 @@ extern bool g_bHookCopyThreads;
 				res|=1;
 		}
 
+		if (SharedOverlay!=SharedOverlay2)
+		{
+			regSettings.SetDWORDValue(L"SharedOverlay",SharedOverlay2);
+			res|=2;
+		}
+
 		EndDialog(hwndDlg,res);
 		return TRUE;
 	}
@@ -260,10 +295,25 @@ extern bool g_bHookCopyThreads;
 			wchar_t path[_MAX_PATH];
 			GetModuleFileName(g_Instance,path,_countof(path));
 			*PathFindFileName(path)=0;
-			wcscat_s(path,DOC_PATH L"ClassicExplorer.html");
-			ShellExecute(NULL,NULL,path,NULL,NULL,SW_SHOWNORMAL);
+			Strcat(path,_countof(path),DOC_PATH L"ClassicExplorer.html");
+			ShellExecute(hwndDlg,NULL,path,NULL,NULL,SW_SHOWNORMAL);
 			return TRUE;
 		}
+		if (pHdr->idFrom==IDC_LINKINI && (pHdr->code==NM_CLICK || pHdr->code==NM_RETURN))
+		{
+			// run Notepad as administrator (the ini file is most likely in a protected folder)
+			wchar_t path[_MAX_PATH];
+			GetModuleFileName(g_Instance,path,_countof(path));
+			*PathFindFileName(path)=0;
+			Strcat(path,_countof(path),INI_PATH L"Explorer.ini");
+			ShellExecute(hwndDlg,L"runas",L"notepad",path,NULL,SW_SHOWNORMAL);
+			return TRUE;
+		}
+	}
+	if (uMsg==WM_DESTROY)
+	{
+		if (s_ShieldIcon) DestroyIcon(s_ShieldIcon);
+		s_ShieldIcon=NULL;
 	}
 	return FALSE;
 }
@@ -272,7 +322,7 @@ void ShowSettings( HWND parent )
 {
 	INT_PTR res=DialogBox(g_Instance,MAKEINTRESOURCE(IDD_SETTINGS),parent,SettingsDlgProc);
 	if (res&2)
-		MessageBox(parent,L"You need to log off and back on for the new settings to take effect.",L"Classic Explorer",MB_OK);
+		MessageBox(parent,L"You need to log off and back on for the new settings to take effect.",L"Classic Explorer",MB_OK|MB_ICONWARNING);
 	else if (res&1)
 		MessageBox(parent,L"The new settings will take effect the next time you open an Explorer window.",L"Classic Explorer",MB_OK);
 }

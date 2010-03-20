@@ -131,7 +131,7 @@ static void InitSkinVariations( HWND hwndDlg, const wchar_t *var )
 	int idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETCURSEL,0,0);
 	SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETLBTEXT,idx,(LPARAM)skinName);
 	MenuSkin skin;
-	if (!LoadMenuSkin(skinName,skin,NULL,true))
+	if (!LoadMenuSkin(skinName,skin,NULL,true) || skin.version>MAX_SKIN_VERSION)
 		skin.Variations.clear();
 
 	HWND label=GetDlgItem(hwndDlg,IDC_STATICVAR);
@@ -155,6 +155,8 @@ static void InitSkinVariations( HWND hwndDlg, const wchar_t *var )
 		}
 		SendMessage(combo,CB_SETCURSEL,idx,0);
 	}
+
+	ShowWindow(GetDlgItem(hwndDlg,IDC_STATICVER),skin.version>MAX_SKIN_VERSION);
 }
 
 // Dialog proc for the settings dialog box. Edits and saves the settings.
@@ -178,10 +180,10 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		if (pRes)
 		{
 			VS_FIXEDFILEINFO *pVer=(VS_FIXEDFILEINFO*)((char*)pRes+40);
-			swprintf_s(title,L"Settings for Classic Start Menu %d.%d.%d",HIWORD(pVer->dwProductVersionMS),LOWORD(pVer->dwProductVersionMS),HIWORD(pVer->dwProductVersionLS));
+			Sprintf(title,_countof(title),L"Settings for Classic Start Menu %d.%d.%d",HIWORD(pVer->dwProductVersionMS),LOWORD(pVer->dwProductVersionMS),HIWORD(pVer->dwProductVersionLS));
 		}
 		else
-			swprintf_s(title,L"Settings for Classic Start Menu");
+			Sprintf(title,_countof(title),L"Settings for Classic Start Menu");
 		SetWindowText(hwndDlg,title);
 
 		HICON icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,GetSystemMetrics(SM_CXICON),GetSystemMetrics(SM_CYICON),LR_DEFAULTCOLOR);
@@ -231,7 +233,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_SETCURSEL,idx,0);
 		wchar_t find[_MAX_PATH];
 		GetSkinsPath(find);
-		wcscat_s(find,L"1.txt");
+		Strcat(find,_countof(find),L"1.txt");
 		if (GetFileAttributes(find)!=INVALID_FILE_ATTRIBUTES)
 		{
 			idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_ADDSTRING,0,(LPARAM)L"Custom");
@@ -240,7 +242,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		}
 
 		*PathFindFileName(find)=0;
-		wcscat_s(find,L"*.skin");
+		Strcat(find,_countof(find),L"*.skin");
 		WIN32_FIND_DATA data;
 		HANDLE h=FindFirstFile(find,&data);
 		while (h!=INVALID_HANDLE_VALUE)
@@ -277,7 +279,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETLBTEXT,idx,(LPARAM)name);
 		MenuSkin skin;
 		wchar_t caption[256];
-		swprintf_s(caption,L"About skin %s",name);
+		Sprintf(caption,_countof(caption),L"About skin %s",name);
 		if (!LoadMenuSkin(name,skin,NULL,true))
 		{
 			MessageBox(hwndDlg,L"Failed to load skin.",caption,MB_OK|MB_ICONERROR);
@@ -329,7 +331,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			wchar_t path[_MAX_PATH];
 			GetModuleFileName(g_Instance,path,_countof(path));
 			*PathFindFileName(path)=0;
-			wcscat_s(path,DOC_PATH L"ClassicStartMenu.html");
+			Strcat(path,_countof(path),DOC_PATH L"ClassicStartMenu.html");
 			ShellExecute(NULL,NULL,path,NULL,NULL,SW_SHOWNORMAL);
 			return TRUE;
 		}

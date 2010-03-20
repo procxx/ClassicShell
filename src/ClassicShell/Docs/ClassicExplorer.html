@@ -30,6 +30,10 @@
 
 
 
+
+
+
+
   <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Explorer</title>
   <style type="text/css">
 h1 {
@@ -41,7 +45,7 @@ body {
 }
 
   </style></head><body>
-<h1><a href="http://classicshell.sourceforge.net/"><img src="ClassicExplorer_files/ClassicShell.png" style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge"></a>&nbsp; Classic Explorer</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 1.0.2 &#8211; general release</span><br>
+<h1><a href="http://classicshell.sourceforge.net/"><img src="ClassicExplorer_files/ClassicShell.png" style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge"></a>&nbsp; Classic Explorer</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;">Version 1.0.3 &#8211; general release</span><br>
 <br>
 
 
@@ -60,8 +64,10 @@ buttons can be added manually</li>
 
   <li>Has options for customizing the folder panel to look more like the Windows XP version or to not fade the expand buttons</li>
   <li>Can show the free disk space and the total file size in the status bar</li>
-  <li>Can disable the breadcrumbs in the address bar<br>
+  <li>Can disable the breadcrumbs in the address bar</li>
+  <li>Can display an icon overlay for the shared folders in Windows 7<br>
   </li>
+
 
 
 
@@ -260,7 +266,13 @@ otherwise you won't be able to go to the parent folder with the mouse<br>
   </ul>
 </ul>
 <ul>
-<li><span style="font-weight: bold;">Show free space and file size</span> - shows the free disk space and the total size of the selected files in the status bar</li>
+<li><span style="font-weight: bold;">Show free space and file size</span> - shows the free disk space and the total size of the selected files in the status bar<br>
+    <br>
+</li>
+  <li><span style="font-weight: bold;">Add icon overlay for shared folders</span> - shows a small mark in the corner of folder icon to indicate that this folder is shared<br>
+    <br>
+  </li>
+
 
 </ul>
 
@@ -281,13 +293,17 @@ to update the status bar. This is a workaround for a bug in Windows 7<br>
 <span style="font-weight: bold;">FixFolderScroll</span> &#8211; when this is
 1, it enables a fix for a bug in Windows 7 that makes the current
 folder jump down in the navigation pane when expanded<br>
-<span style="font-weight: bold;">FixSearchResize</span> &#8211;<span style="font-weight: bold;"></span> when this is 1, it enables a fix for a bug in Windows 7 that breaks the resizing of the Search box when the Up button is added to the title bar<br>
+<span style="font-weight: bold;">FixSearchResize</span> &#8211;<span style="font-weight: bold;"></span>
+when this is 1, it enables a fix for a bug in Windows 7 that breaks the
+resizing of the Search box when the Up button is added to the title bar<br>
 
 <span style="font-weight: bold;">Search</span> &#8211;<span style="font-weight: bold;"></span> set this to <span style="font-weight: bold;">none</span> to hide the Search box in Explorer<br>
 
 
 <span style="font-weight: bold;">ToolbarSameSize</span> &#8211; set this to 1 to make all buttons the same size<br>
-<span style="font-weight: bold;">ToolbarListMode</span> &#8211; set this to 1 to show the button text next to the icon instead of under the icon<br><span style="font-weight: bold;">UpIconNormal, UpIconHot, UpIconPressed,UpIconDisabled, UpIconSize</span> &#8211; provide alternate icons for the Up button in the Explorer title bar<br><span style="font-weight: bold;">ToolbarItems</span> &#8211; lists the
+<span style="font-weight: bold;">ToolbarListMode</span> &#8211; set this to 1 to show the button text next to the icon instead of under the icon<br><span style="font-weight: bold;">UpIconNormal, UpIconHot, UpIconPressed,UpIconDisabled, UpIconSize</span> &#8211; provide alternate icons for the Up button in the Explorer title bar<br>
+<span style="font-weight: bold;">ShareOverlayIcon</span> - customize the icon overlay used to mark shared folders<br>
+<span style="font-weight: bold;">OverwriteAlertLevel</span> - set this to 1 or 2 to enable sound alerts when a system or read-only file is about to be overwritten<br><span style="font-weight: bold;">ToolbarItems</span> &#8211; lists the
 buttons of the toolbar. Use this setting to create your own toolbar
 with custom icons, order of buttons, and more. You can add commands
 like <span style="font-weight: bold;">Undo</span>, <span style="font-weight: bold;">Redo</span>, <span style="font-weight: bold;">Refresh</span>, <span style="font-weight: bold;">Select All</span>, etc<br>

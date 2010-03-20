@@ -322,7 +322,7 @@ int CIconManager::GetStdIcon( int id, bool bLarge )
 int CIconManager::GetCustomIcon( const wchar_t *path, bool bLarge )
 {
 	wchar_t text[1024];
-	wcscpy_s(text,path);
+	Strcpy(text,_countof(text),path);
 	DoEnvironmentSubst(text,_countof(text));
 	wchar_t *c=wcsrchr(text,',');
 	int index=0;

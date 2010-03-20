@@ -38,6 +38,16 @@ interface IClassicCopyExt : IDispatch{
 interface IExplorerBHO : IDispatch{
 };
 [
+	object,
+	uuid(2576496C-B58A-4995-8878-8B68F9E8D1FC),
+	dual,
+	nonextensible,
+	helpstring("IShareOverlay Interface"),
+	pointer_default(unique)
+]
+interface IShareOverlay : IDispatch{
+};
+[
 	uuid(BF8D124A-A4E0-402F-8152-4EF377E62586),
 	version(1.0),
 	helpstring("ClassicExplorer 1.0 Type Library")
@@ -68,5 +78,13 @@ library ClassicExplorerLib
 	coclass ExplorerBHO
 	{
 		[default] interface IExplorerBHO;
+	};
+	[
+		uuid(594D4122-1F87-41E2-96C7-825FB4796516),
+		helpstring("ShareOverlay Class")
+	]
+	coclass ShareOverlay
+	{
+		[default] interface IShareOverlay;
 	};
 };

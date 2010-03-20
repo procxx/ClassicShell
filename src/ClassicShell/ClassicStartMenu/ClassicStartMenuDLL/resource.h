@@ -36,6 +36,7 @@
 #define IDC_STATICVAR                   1022
 #define IDC_CHECK1                      1023
 #define IDC_CHECKSHIFT                  1023
+#define IDC_STATICVER                   1024
 #define IDC_LABEL                       65535
 
 // Next default values for new objects
@@ -44,7 +45,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        106
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1024
+#define _APS_NEXT_CONTROL_VALUE         1025
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

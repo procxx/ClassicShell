@@ -26,12 +26,12 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReser
 		wchar_t fname[_MAX_PATH];
 		GetModuleFileName(hModule,fname,_countof(fname));
 		*PathFindFileName(fname)=0;
-		wcscat_s(fname,_countof(fname),INI_PATH L"StartMenu.ini");
+		Strcat(fname,_countof(fname),INI_PATH L"StartMenu.ini");
 		ParseGlobalSettings(fname);
 
 		GetModuleFileName(hModule,fname,_countof(fname));
 		*PathFindFileName(fname)=0;
-		wcscat_s(fname,_countof(fname),INI_PATH L"StartMenuL10N.ini");
+		Strcat(fname,_countof(fname),INI_PATH L"StartMenuL10N.ini");
 		ParseTranslations(fname);
 		g_IconManager.Init();
 	}

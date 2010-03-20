@@ -3,6 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 10.00
 # Visual Studio 2008
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ClassicExplorer", "ClassicExplorer\ClassicExplorer.vcproj", "{9AF324B7-F786-4D85-B2E1-6E51720F874E}"
 	ProjectSection(ProjectDependencies) = postProject
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3} = {0D11287C-1349-4E18-BBAE-612A49AE4ED3}
 		{BA725EB1-0B0A-4D77-BBA7-C7EB519DB574} = {BA725EB1-0B0A-4D77-BBA7-C7EB519DB574}
 	EndProjectSection
 EndProject
@@ -17,6 +18,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ClassicStartMenu", "Classic
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ClassicStartMenuDLL", "ClassicStartMenu\ClassicStartMenuDLL\ClassicStartMenuDLL.vcproj", "{85DEECBB-1F9B-4983-9D54-3BF42182B7E7}"
 	ProjectSection(ProjectDependencies) = postProject
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3} = {0D11287C-1349-4E18-BBAE-612A49AE4ED3}
 		{BA725EB1-0B0A-4D77-BBA7-C7EB519DB574} = {BA725EB1-0B0A-4D77-BBA7-C7EB519DB574}
 	EndProjectSection
 EndProject
@@ -41,6 +43,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ClassicSkin", "Skins\ClassicSkin\ClassicSkin.vcproj", "{9EC23CA9-384A-4EEB-979E-69879DC1A78C}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ParseSettings", "ParseSettings\ParseSettings.vcproj", "{BA725EB1-0B0A-4D77-BBA7-C7EB519DB574}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "StringUtils", "StringUtils\StringUtils.vcproj", "{0D11287C-1349-4E18-BBAE-612A49AE4ED3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -171,6 +175,18 @@ Global
 		{BA725EB1-0B0A-4D77-BBA7-C7EB519DB574}.Setup|Win32.Build.0 = Release|Win32
 		{BA725EB1-0B0A-4D77-BBA7-C7EB519DB574}.Setup|x64.ActiveCfg = Release|x64
 		{BA725EB1-0B0A-4D77-BBA7-C7EB519DB574}.Setup|x64.Build.0 = Release|x64
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Debug|Win32.ActiveCfg = Debug|Win32
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Debug|Win32.Build.0 = Debug|Win32
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Debug|x64.ActiveCfg = Debug|x64
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Debug|x64.Build.0 = Debug|x64
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Release|Win32.ActiveCfg = Release|Win32
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Release|Win32.Build.0 = Release|Win32
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Release|x64.ActiveCfg = Release|x64
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Release|x64.Build.0 = Release|x64
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Setup|Win32.ActiveCfg = Release|Win32
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Setup|Win32.Build.0 = Release|Win32
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Setup|x64.ActiveCfg = Release|x64
+		{0D11287C-1349-4E18-BBAE-612A49AE4ED3}.Setup|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

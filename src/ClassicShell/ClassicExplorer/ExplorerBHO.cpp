@@ -12,6 +12,7 @@
 #include <uxtheme.h>
 #include <dwmapi.h>
 #include <Ntquery.h>
+#include <algorithm>
 
 // CExplorerBHO - a browser helper object that implements Alt+Enter for the folder tree
 
@@ -50,6 +51,11 @@ static LRESULT CALLBACK SubclassParentProc( HWND hWnd, UINT uMsg, WPARAM wParam,
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
+// Subclass the tree control to:
+//   - support Alt+Enter
+//   - navigate to the new folder when you go up/down with the keyboard
+//   - fix the random scrolling of the tree when a folder is expanded
+//   - change the tree styles to achieve different looks
 static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	if (uMsg==TVM_ENSUREVISIBLE && (dwRefData&1))
@@ -69,8 +75,11 @@ static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, L
 		return 0;
 	}
 
+	// ignore the Space character and Alt+Enter syscharacter (to stop the tree view from beeping)
 	if (uMsg==WM_CHAR && wParam==' ')
-		return 0; // ignore the Space character (to stop the tree view from beeping)
+		return 0;
+	if (uMsg==WM_SYSCHAR && wParam==VK_RETURN)
+		return 0;
 
 	if (uMsg==WM_SYSKEYDOWN && wParam==VK_RETURN)
 	{
@@ -84,6 +93,7 @@ static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, L
 		if ((FoldersSettings&CExplorerBHO::FOLDERS_ALTENTER) && ShowTreeProperties(hWnd))
 			return 0;
 	}
+
 	if (uMsg==TVM_SETEXTENDEDSTYLE && wParam==(TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000) && lParam==0)
 	{
 		wParam&=0x7FFFFFFF;
@@ -137,6 +147,31 @@ static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, L
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
+LRESULT CALLBACK CExplorerBHO::HookExplorer( int nCode, WPARAM wParam, LPARAM lParam )
+{
+	// wait for the tree control to be created and subclass it
+	if (nCode==HCBT_CREATEWND)
+	{
+		HWND hWnd=(HWND)wParam;
+		CBT_CREATEWND *create=(CBT_CREATEWND*)lParam;
+		if (create->lpcs->lpszClass>(LPTSTR)0xFFFF && _wcsicmp(create->lpcs->lpszClass,WC_TREEVIEW)==0)
+		{
+			DWORD_PTR settings=0;
+			if (LOWORD(GetVersion())==0x0106 && FindSettingBool("FixFolderScroll",true))
+				settings|=1;
+			SetWindowSubclass(hWnd,SubclassTreeProc,'CLSH',settings);
+			PostMessage(hWnd,TVM_SETEXTENDEDSTYLE,TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000,0);
+			UnhookWindowsHookEx(s_Hook);
+			s_Hook=NULL;
+			return 0;
+		}
+	}
+	return CallNextHookEx(NULL,nCode,wParam,lParam);
+}
+
+// Subclass the statusbar to:
+//   - show free disk space
+//   - show the total size of the selected files
 LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	wchar_t buf[1024];
@@ -172,17 +207,48 @@ LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM 
 				if (SendMessage(hWnd,SB_GETPARTS,0,0)>1)
 					((CExplorerBHO*)uIdSubclass)->m_bResetStatus=false;
 			}
+		}
+		IShellBrowser *pBrowser=((CExplorerBHO*)uIdSubclass)->m_pBrowser;
+		CComPtr<IShellView> pView;
+		if (pBrowser && SUCCEEDED(pBrowser->QueryActiveShellView(&pView)))
+		{
+			CComQIPtr<IFolderView> pView2=pView;
 
-			// find the current folder and show the free space of the drive containing the current folder
-			// also works for network locations
-			IShellBrowser *pBrowser=((CExplorerBHO*)uIdSubclass)->m_pBrowser;
-			CComPtr<IShellView> pView;
-			if (pBrowser && SUCCEEDED(pBrowser->QueryActiveShellView(&pView)))
+			CComPtr<IPersistFolder2> pFolder;
+			if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)))
 			{
-				CComQIPtr<IFolderView> pView2=pView;
-				CComPtr<IPersistFolder2> pFolder;
-				if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)))
+				bool bInfoTip=false;
+				int count;
+				if ((dwRefData&SPACE_INFOTIP) && SUCCEEDED(pView2->ItemCount(SVGIO_SELECTION,&count)) && count==1)
 				{
+					// if only one item is selected, show its info in the status bar
+					CComPtr<IEnumIDList> pEnum;
+					PITEMID_CHILD child;
+					if (SUCCEEDED(pView2->Items(SVGIO_SELECTION,IID_IEnumIDList,(void**)&pEnum)) && pEnum && pEnum->Next(1,&child,NULL)==S_OK)
+					{
+						CComQIPtr<IShellFolder> pFolder2=pFolder;
+						if (pFolder2)
+						{
+							CComPtr<IQueryInfo> pQueryInfo;
+							if (SUCCEEDED(pFolder2->GetUIObjectOf(NULL,1,(PCUITEMID_CHILD*)&child,IID_IQueryInfo,NULL,(void**)&pQueryInfo)))
+							{
+								wchar_t *tip;
+								if (SUCCEEDED(pQueryInfo->GetInfoTip(QITIPF_DEFAULT|QITIPF_SINGLELINE,&tip)) && tip)
+								{
+									Strcpy(buf,_countof(buf),tip);
+									CoTaskMemFree(tip);
+									bInfoTip=true;
+									lParam=(LPARAM)buf;
+								}
+							}
+						}
+					}
+				}
+
+				if (!bInfoTip && (dwRefData&SPACE_WIN7))
+				{
+					// show the free space of the drive containing the current folder
+					// also works for network locations
 					LPITEMIDLIST pidl;
 					if (SUCCEEDED(pFolder->GetCurFolder(&pidl)))
 					{
@@ -194,7 +260,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM 
 								const wchar_t *text=(wchar_t*)lParam;
 								wchar_t str[100];
 								StrFormatByteSize64(size.QuadPart,str,_countof(str));
-								swprintf_s(buf,FindTranslation("Status.FreeSpace",L"%s (Disk free space: %s)"),text,str);
+								Sprintf(buf,_countof(buf),FindTranslation("Status.FreeSpace",L"%s (Disk free space: %s)"),text,str);
 								lParam=(LPARAM)buf;
 							}
 						}
@@ -261,27 +327,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM 
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
-LRESULT CALLBACK CExplorerBHO::HookExplorer( int nCode, WPARAM wParam, LPARAM lParam )
-{
-	if (nCode==HCBT_CREATEWND)
-	{
-		HWND hWnd=(HWND)wParam;
-		CBT_CREATEWND *create=(CBT_CREATEWND*)lParam;
-		if (create->lpcs->lpszClass>(LPTSTR)0xFFFF && _wcsicmp(create->lpcs->lpszClass,WC_TREEVIEW)==0)
-		{
-			DWORD_PTR settings=0;
-			if (LOWORD(GetVersion())==0x0106 && FindSettingBool("FixFolderScroll",true))
-				settings|=1;
-			SetWindowSubclass(hWnd,SubclassTreeProc,'CLSH',settings);
-			PostMessage(hWnd,TVM_SETEXTENDEDSTYLE,TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000,0);
-			UnhookWindowsHookEx(s_Hook);
-			s_Hook=NULL;
-			return 0;
-		}
-	}
-	return CallNextHookEx(NULL,nCode,wParam,lParam);
-}
-
+// Subclass the rebar in the title bar to handle the title bar Up button
 LRESULT CALLBACK CExplorerBHO::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	if (uMsg==WM_NOTIFY && ((NMHDR*)lParam)->hwndFrom==(HWND)dwRefData && ((NMHDR*)lParam)->code==NM_CUSTOMDRAW)
@@ -336,7 +382,7 @@ LRESULT CALLBACK CExplorerBHO::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM w
 	{
 		// show the tip for the up button
 		NMTBGETINFOTIP *pTip=(NMTBGETINFOTIP*)lParam;
-		wcscpy_s(pTip->pszText,pTip->cchTextMax,FindTranslation("Toolbar.GoUp",L"Up One Level"));
+		Strcpy(pTip->pszText,pTip->cchTextMax,FindTranslation("Toolbar.GoUp",L"Up One Level"));
 		return 0;
 	}
 
@@ -363,6 +409,7 @@ LRESULT CALLBACK CExplorerBHO::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM w
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
+// Subclass the breadcrumbs to make them show the full path
 LRESULT CALLBACK CExplorerBHO::BreadcrumbSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	if (uMsg==WM_SETFOCUS)
@@ -451,6 +498,244 @@ LRESULT CALLBACK CExplorerBHO::BreadcrumbSubclassProc( HWND hWnd, UINT uMsg, WPA
 		EndPaint(hWnd,&ps);
 		return 0;
 	}
+	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+}
+
+// Subclass the progress bar behind the address bar to remove the history and replace it with a list of parent folders
+LRESULT CALLBACK CExplorerBHO::ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+{
+	CExplorerBHO *pThis=(CExplorerBHO*)uIdSubclass;
+
+	if (uMsg==WM_PARENTNOTIFY && LOWORD(wParam)==WM_CREATE && !pThis->m_ComboBox.m_hWnd)
+	{
+		// on Windows 7 the combobox is not created at startup. so listen for child windows being created and update pThis->m_ComboBox
+		HWND combo=(HWND)lParam;
+		wchar_t className[256];
+		GetClassName(combo,className,_countof(className));
+		if (_wcsicmp(className,WC_COMBOBOXEX)==0)
+			pThis->m_ComboBox=combo;
+	}
+
+	if (uMsg==WM_COMMAND && (HWND)lParam==pThis->m_ComboBox.m_hWnd)
+	{
+		if (HIWORD(wParam)==CBN_DROPDOWN)
+		{
+			// on drop down refresh the list
+			pThis->ClearComboItems();
+
+			CComPtr<IShellFolder> pDesktop;
+			SHGetDesktopFolder(&pDesktop);
+
+			{
+				// add desktop
+				ITEMIDLIST shEmpty={{0}};
+				wchar_t *pName;
+				if (SUCCEEDED(SHGetNameFromIDList(&shEmpty,SIGDN_DESKTOPABSOLUTEEDITING,&pName)))
+				{
+					ComboItem item={ILClone(&shEmpty),0,CString(pName)};
+					pThis->m_ComboItems.push_back(item);
+					CoTaskMemFree(pName);
+				}
+			}
+
+			if (dwRefData==2)
+			{
+				// enumerate all desktop items
+				CComPtr<IEnumIDList> pEnum;
+				if (SUCCEEDED(pDesktop->EnumObjects(NULL,SHCONTF_FOLDERS,&pEnum)) && pEnum)
+				{
+					PITEMID_CHILD child;
+					while (pEnum->Next(1,&child,NULL)==S_OK)
+					{
+						STRRET str;
+						if (SUCCEEDED(pDesktop->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_NORMAL,&str)))
+						{
+							wchar_t *pName;
+							StrRetToStr(&str,child,&pName);
+							ComboItem item={child,1,CString(pName)};
+							item.sortName=item.name;
+							pThis->m_ComboItems.push_back(item);
+							CoTaskMemFree(pName);
+						}
+						else
+							ILFree(child);
+					}
+				}
+
+				// sort desktop items
+				std::sort(pThis->m_ComboItems.begin()+1,pThis->m_ComboItems.end());
+			}
+
+			if (dwRefData==2)
+			{
+				// enumerate all computer items
+				PIDLIST_ABSOLUTE pidlComp;
+				SHGetKnownFolderIDList(FOLDERID_ComputerFolder,0,NULL,&pidlComp);
+				int index=1;
+				for (int i=1;i<(int)pThis->m_ComboItems.size();i++)
+					if (ILIsEqual(pidlComp,pThis->m_ComboItems[i].pidl))
+					{
+						index=i+1;
+						break;
+					}
+					int index0=index;
+					CComPtr<IShellFolder> pComputer;
+					pDesktop->BindToObject(pidlComp,NULL,IID_IShellFolder,(void**)&pComputer);
+
+					CComPtr<IEnumIDList> pEnum;
+					if (pComputer && SUCCEEDED(pComputer->EnumObjects(NULL,SHCONTF_FOLDERS,&pEnum)) && pEnum)
+					{
+						PITEMID_CHILD child;
+						while (pEnum->Next(1,&child,NULL)==S_OK)
+						{
+							STRRET str;
+							if (SUCCEEDED(pComputer->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_NORMAL,&str)))
+							{
+								wchar_t *pName;
+								StrRetToStr(&str,child,&pName);
+								ComboItem item={ILCombine(pidlComp,child),2,CString(pName)};
+								pThis->m_ComboItems.insert(pThis->m_ComboItems.begin()+index,1,item);
+								CoTaskMemFree(pName);
+								index++;
+							}
+							ILFree(child);
+						}
+					}
+					ILFree(pidlComp);
+
+					//sort computer items
+					std::sort(pThis->m_ComboItems.begin()+index0,pThis->m_ComboItems.begin()+index);
+			}
+
+			if (pThis->m_CurPidl)
+			{
+				// enumerate all parent items
+				LPITEMIDLIST pidl=ILCloneFull(pThis->m_CurPidl);
+				LPITEMIDLIST pidlStart=pidl;
+				int index=0;
+				for (int i=0;i<(int)pThis->m_ComboItems.size();i++)
+				{
+					LPITEMIDLIST p=ILFindChild(pThis->m_ComboItems[i].pidl,pidl);
+					if (p)
+					{
+						index=i;
+						pidlStart=p;
+					}
+				}
+				int n=0;
+				for (PUIDLIST_RELATIVE child=pidl;!ILIsEmpty(child);child=ILGetNext(child))
+					n++;
+
+				int start=n;
+				for (PUIDLIST_RELATIVE child=pidlStart;!ILIsEmpty(child);child=ILGetNext(child))
+					start--;
+
+				for (int i=start;i<n;i++)
+				{
+					wchar_t *pName=NULL;
+					CComPtr<IShellFolder> pFolder;
+					LPCITEMIDLIST child;
+					if (SUCCEEDED(SHBindToParent(pidl,IID_IShellFolder,(void**)&pFolder,&child)))
+					{
+						STRRET str;
+						if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_NORMAL,&str)))
+						{
+							wchar_t *pName;
+							StrRetToStr(&str,child,&pName);
+							ComboItem item={ILCloneFull(pidl),n-(i-start),CString(pName)};
+							pThis->m_ComboItems.insert(pThis->m_ComboItems.begin()+index+1,1,item);
+							CoTaskMemFree(pName);
+						}
+					}
+					ILRemoveLastID(pidl);
+				}
+				ILFree(pidl);
+			}
+
+			// add all sorted items to the combobox
+			COMBOBOXEXITEM item={CBEIF_TEXT|CBEIF_IMAGE|CBEIF_SELECTEDIMAGE|CBEIF_INDENT|CBEIF_LPARAM};
+			item.iItem=-1;
+			for (std::vector<ComboItem>::const_iterator it=pThis->m_ComboItems.begin();it!=pThis->m_ComboItems.end();++it)
+			{
+				item.iImage=item.iSelectedImage=-1;
+				item.pszText=(LPWSTR)(LPCWSTR)it->name;
+				item.iIndent=it->indent;
+				item.lParam=(LPARAM)it->pidl;
+				SHFILEINFO info;
+				if (SHGetFileInfo((LPCTSTR)it->pidl,0,&info,sizeof(info),SHGFI_PIDL|SHGFI_SYSICONINDEX|SHGFI_SMALLICON))
+					item.iImage=item.iSelectedImage=info.iIcon;
+				int idx=(int)pThis->m_ComboBox.SendMessage(CBEM_INSERTITEM,'CLSH',(LPARAM)&item);
+				if (ILIsEqual(it->pidl,pThis->m_CurPidl))
+					pThis->m_ComboBox.SendMessage(CB_SETCURSEL,idx);
+			}
+
+			return 0;
+		}
+		if (HIWORD(wParam)==CBN_CLOSEUP || HIWORD(wParam)==CBN_SELENDCANCEL)
+		{
+			// on close clear the list
+			if (!pThis->m_ComboItems.empty())
+			{
+				pThis->m_ComboBox.SetWindowText(pThis->m_CurPath);
+				pThis->ClearComboItems();
+			}
+			if (HIWORD(wParam)==CBN_SELENDCANCEL)
+				PostMessage(hWnd,pThis->m_NavigateMsg,1,0);
+			return 0;
+		}
+		if (HIWORD(wParam)==CBN_SELENDOK)
+		{
+			// when an item is selected, go to it and clear the list (selection with mouse)
+			int index=(int)pThis->m_ComboBox.SendMessage(CB_GETCURSEL);
+			if (index>=0)
+			{
+				COMBOBOXEXITEM item={CBEIF_LPARAM,index};
+				pThis->m_ComboBox.SendMessage(CBEM_GETITEM,0,(LPARAM)&item);
+				pThis->m_NavigatePidl=ILCloneFull((LPITEMIDLIST)item.lParam);
+				PostMessage(hWnd,pThis->m_NavigateMsg,0,0);
+			}
+			pThis->ClearComboItems();
+			return 0;
+		}
+	}
+
+	if (uMsg==WM_NOTIFY && ((NMHDR*)lParam)->code==CBEN_BEGINEDIT)
+	{
+		// ignore this, so Explorer doesn't add its history to the list
+		return 0;
+	}
+
+	if (uMsg==WM_NOTIFY && ((NMHDR*)lParam)->code==CBEN_ENDEDIT)
+	{
+		if (pThis->m_ComboBox.SendMessage(CB_GETDROPPEDSTATE))
+		{
+			// when an item is selected, go to it and clear the list (selection with keyboard)
+			NMCBEENDEDIT *pEdit=(NMCBEENDEDIT*)lParam;
+			int index=pEdit->iNewSelection;
+			if (index>=0)
+			{
+				COMBOBOXEXITEM item={CBEIF_LPARAM,index};
+				pThis->m_ComboBox.SendMessage(CBEM_GETITEM,0,(LPARAM)&item);
+				pThis->m_NavigatePidl=ILCloneFull((LPITEMIDLIST)item.lParam);
+				pThis->ClearComboItems();
+				PostMessage(hWnd,pThis->m_NavigateMsg,0,0);
+				pThis->m_ComboBox.SendMessage(CB_SHOWDROPDOWN,FALSE);
+			}
+			return 0;
+		}
+	}
+
+	if (uMsg==pThis->m_NavigateMsg)
+	{
+		// navigate to the selected item
+		if (wParam==0 && pThis->m_NavigatePidl && !ILIsEqual(pThis->m_NavigatePidl,pThis->m_CurPidl))
+			pThis->m_pBrowser->BrowseObject(pThis->m_NavigatePidl,SBSP_SAMEBROWSER|SBSP_ABSOLUTE);
+		else
+			SetFocus(hWnd);
+		if (pThis->m_NavigatePidl) ILFree(pThis->m_NavigatePidl);
+		pThis->m_NavigatePidl=NULL;
+	}
+
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
@@ -568,18 +853,41 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 					SendMessage(rebar,RB_INSERTBAND,1,(LPARAM)&info);
 					bRedrawRebar=true;
 				}
-				if (rebar && (AddressBar&ADDRESS_NOBREADCRUMBS))
+				if (rebar)
 				{
-					// "hide" the breadcrumbs. no, not really. instead of hiding the breadcrumbs we just make them show the full path as text
-					HWND breadcrumbs=FindChildWindow(rebar,L"Breadcrumb Parent");
-					if (breadcrumbs)
-						breadcrumbs=FindChildWindow(breadcrumbs,TOOLBARCLASSNAME);
-					if (breadcrumbs)
+					int AddressBarHistory=0;
+					HWND progress=NULL;
+					if (AddressBar&ADDRESS_NOBREADCRUMBS)
 					{
-						m_bNoBreadcrumbs=true;
-						SetWindowSubclass(breadcrumbs,BreadcrumbSubclassProc,(UINT_PTR)this,0);
+						AddressBarHistory=_wtol(FindSetting("AddressBarHistory",L"2"));
+						// "hide" the breadcrumbs. no, not really. instead of hiding the breadcrumbs we just make them show the full path as text
+						HWND breadcrumbs=FindChildWindow(rebar,L"Breadcrumb Parent");
+						if (breadcrumbs)
+						{
+							progress=GetParent(breadcrumbs);
+							breadcrumbs=FindWindowEx(breadcrumbs,NULL,TOOLBARCLASSNAME,NULL);
+						}
+						if (breadcrumbs)
+						{
+							m_bNoBreadcrumbs=true;
+							SetWindowSubclass(breadcrumbs,BreadcrumbSubclassProc,(UINT_PTR)this,0);
+						}
+					}
+					else
+					{
+						AddressBarHistory=_wtol(FindSetting("AddressBarHistory",L"0"));
+						HWND breadcrumbs=FindChildWindow(rebar,L"Breadcrumb Parent");
+						if (breadcrumbs)
+							progress=GetParent(breadcrumbs);
+					}
+					if (progress && AddressBarHistory)
+					{
+						m_ComboBox=FindWindowEx(progress,NULL,WC_COMBOBOXEX,NULL);
+						SetWindowSubclass(progress,ProgressSubclassProc,(UINT_PTR)this,AddressBarHistory);
+						m_NavigateMsg=RegisterWindowMessage(L"ClassicShell.Navigate");
 					}
 				}
+
 				const wchar_t *str=FindSetting("Search",NULL);
 				if (rebar && str && _wcsicmp(str,L"none")==0)
 				{
@@ -601,6 +909,8 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 					FreeSpace=SPACE_SHOW|SPACE_TOTAL; // always show total
 					if (bWin7)
 						FreeSpace|=SPACE_WIN7;
+					if (FindSettingBool("SingleFileInfo",true))
+						FreeSpace|=SPACE_INFOTIP;
 					SetWindowSubclass(status,SubclassStatusProc,(UINT_PTR)this,FreeSpace);
 					m_bForceRefresh=(bWin7 && FindSettingBool("ForceRefreshWin7",true));
 				}
@@ -623,10 +933,24 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 		if (m_IconPressed) DestroyIcon(m_IconPressed); m_IconPressed=NULL;
 		if (m_IconDisabled) DestroyIcon(m_IconDisabled); m_IconDisabled=NULL;
 		if (m_CurIcon) DestroyIcon(m_CurIcon); m_CurIcon=NULL;
+		if (m_CurPidl) ILFree(m_CurPidl); m_CurPidl=NULL;
+		if (m_NavigatePidl) ILFree(m_NavigatePidl); m_NavigatePidl=NULL;
 	}
+	ClearComboItems();
 	return S_OK;
 }
 
+void CExplorerBHO::ClearComboItems( void )
+{
+	for (std::vector<ComboItem>::iterator it=m_ComboItems.begin();it!=m_ComboItems.end();++it)
+		ILFree(it->pidl);
+	m_ComboItems.clear();
+	if (m_ComboBox.m_hWnd)
+	{
+		for (int i=(int)m_ComboBox.SendMessage(CB_GETCOUNT)-1;i>=0;i--)
+			m_ComboBox.SendMessage(CBEM_DELETEITEM,i);
+	}
+}
 
 STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 {
@@ -635,6 +959,8 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 	m_CurPath[0]=0;
 	if (m_CurIcon) DestroyIcon(m_CurIcon);
 	m_CurIcon=NULL;
+	if (m_CurPidl) ILFree(m_CurPidl);
+	m_CurPidl=NULL;
 	if (m_pBrowser)
 	{
 		CComPtr<IShellView> pView;
@@ -648,9 +974,8 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 				pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder);
 				if (pFolder)
 				{
-					LPITEMIDLIST pidl;
-					pFolder->GetCurFolder(&pidl);
-					if (ILIsEmpty(pidl))
+					pFolder->GetCurFolder(&m_CurPidl);
+					if (ILIsEmpty(m_CurPidl))
 						bDesktop=true; // only the top level has empty PIDL
 
 					// find path and icon
@@ -661,17 +986,16 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 					if (m_bNoBreadcrumbs)
 					{
 						wchar_t *pPath=NULL;
-						if (SUCCEEDED(SHGetNameFromIDList(pidl,SIGDN_DESKTOPABSOLUTEEDITING,&pPath)))
-							wcscpy_s(m_CurPath,pPath);
-						else if (SUCCEEDED(SHGetNameFromIDList(pidl,SIGDN_FILESYSPATH,&pPath)))
-							wcscpy_s(m_CurPath,pPath); // just in case DESKTOPABSOLUTE fails let's try the FILESYSPATH. probably not needed
+						if (SUCCEEDED(SHGetNameFromIDList(m_CurPidl,SIGDN_DESKTOPABSOLUTEEDITING,&pPath)))
+							Strcpy(m_CurPath,_countof(m_CurPath),pPath);
+						else if (SUCCEEDED(SHGetNameFromIDList(m_CurPidl,SIGDN_FILESYSPATH,&pPath)))
+							Strcpy(m_CurPath,_countof(m_CurPath),pPath); // just in case DESKTOPABSOLUTE fails let's try the FILESYSPATH. probably not needed
 						if (pPath) CoTaskMemFree(pPath);
 						SHFILEINFO info;
-						if (SUCCEEDED(SHGetFileInfo((LPCTSTR)pidl,0,&info,sizeof(info),SHGFI_ICON|SHGFI_SMALLICON|SHGFI_PIDL)))
+						if (SUCCEEDED(SHGetFileInfo((LPCTSTR)m_CurPidl,0,&info,sizeof(info),SHGFI_ICON|SHGFI_SMALLICON|SHGFI_PIDL)))
 							m_CurIcon=info.hIcon;
 					}
 
-					CoTaskMemFree(pidl);
 				}
 			}
 		}

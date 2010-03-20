@@ -14,10 +14,13 @@ STDAPI DllCanUnloadNow(void)
 	return _AtlModule.DllCanUnloadNow();
 }
 
+extern bool g_bExplorerExe;
 
 // Returns a class factory to create an object of the requested type
 STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv)
 {
+	if (!g_bExplorerExe && rclsid!=CLSID_ShareOverlay)
+		return CLASS_E_CLASSNOTAVAILABLE;
 	return _AtlModule.DllGetClassObject(rclsid, riid, ppv);
 }
 

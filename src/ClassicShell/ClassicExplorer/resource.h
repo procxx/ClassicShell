@@ -13,6 +13,7 @@
 #define IDR_CLASSICEXPLORER             101
 #define IDR_EXPLORERBAND                102
 #define IDR_EXPLORERBHO                 104
+#define IDR_SHAREOVERLAY                105
 #define IDD_FILEMULTI                   129
 #define IDD_FILE                        130
 #define IDC_LINKMORE                    204
@@ -51,10 +52,12 @@
 #define IDC_COMBOSTYLE                  224
 #define IDC_CHECKOFFSET                 225
 #define IDC_CHECKUP                     226
-#define IDC_CHECKPATH                   227
 #define IDC_CHECKTITLE                  227
 #define IDC_CHECKICON                   228
 #define IDC_CHECKCRUMBS                 229
+#define IDC_CHECKSHARED                 230
+#define IDC_CHECKSHAREDEXP              231
+#define IDC_SHIELD                      232
 #define IDC_STATICFNAME                 1003
 #define IDC_STATICSRCSIZE               1004
 #define IDC_STATICSRCTIME               1005
@@ -63,6 +66,7 @@
 #define IDC_STATICSRCICON               1008
 #define IDC_STATICDSTICON               1009
 #define IDC_LINKHELP                    1010
+#define IDC_LINKINI                     1011
 
 // Next default values for new objects
 // 
@@ -70,7 +74,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        224
 #define _APS_NEXT_COMMAND_VALUE         32769
-#define _APS_NEXT_CONTROL_VALUE         230
-#define _APS_NEXT_SYMED_VALUE           105
+#define _APS_NEXT_CONTROL_VALUE         233
+#define _APS_NEXT_SYMED_VALUE           106
 #endif
 #endif

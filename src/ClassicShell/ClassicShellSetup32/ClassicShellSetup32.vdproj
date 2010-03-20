@@ -816,14 +816,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Classic Shell"
-        "ProductCode" = "8:{540A47E4-1D10-40B2-A287-3F5640F14779}"
-        "PackageCode" = "8:{E1EA8C4E-9133-4D01-B8A5-58F0AC77F025}"
+        "ProductCode" = "8:{6FE3D179-C937-4FA7-8C47-1F08A21965A4}"
+        "PackageCode" = "8:{40828FDF-DDF9-41EA-8FF9-413C4F272347}"
         "UpgradeCode" = "8:{EB7DA1D9-44EA-43BF-8A08-0B103007D4F2}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:1.0.2"
+        "ProductVersion" = "8:1.0.3"
         "Manufacturer" = "8:IvoSoft"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -948,7 +948,7 @@
                                             "Condition" = "8:"
                                             "Transitive" = "11:FALSE"
                                             "ValueTypes" = "3:3"
-                                            "Value" = "3:10000"
+                                            "Value" = "3:10003"
                                             }
                                         }
                                     }

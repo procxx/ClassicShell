@@ -129,7 +129,7 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 	bool res=false;
 	wchar_t buf[1024];
 	const wchar_t *str;
-	swprintf_s(buf,L"%s.Link",name);
+	Sprintf(buf,_countof(buf),L"%s.Link",name);
 	str=g_CustomMenuParser.FindSetting(buf);
 	if (str)
 	{
@@ -139,30 +139,29 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 	}
 	else
 	{
-		swprintf_s(buf,L"%s.Command",name);
+		Sprintf(buf,_countof(buf),L"%s.Command",name);
 		str=g_CustomMenuParser.FindSetting(buf);
 		if (str)
 		{
 			// parse command
-			item.id=FindStdCommand(str);
-			if (item.id==MENU_NO)
+			TMenuID id=FindStdCommand(str);
+			if (id==MENU_NO)
 			{
-				item.id=MENU_CUSTOM;
-				item.command=str;
+				if (item.id==MENU_NO)
+					item.id=MENU_CUSTOM;
 			}
 			else
 			{
-				const StdMenuItem *pItem=FindStdMenuItem(item.id);
+				item.id=id;
+				const StdMenuItem *pItem=FindStdMenuItem(id);
 				if (pItem)
-				{
 					item=*pItem;
-					item.command=L"";
-				}
 			}
+			item.command=str;
 			res=true;
 		}
 	}
-	swprintf_s(buf,L"%s.Items",name);
+	Sprintf(buf,_countof(buf),L"%s.Items",name);
 	str=g_CustomMenuParser.FindSetting(buf);
 	if (str)
 	{
@@ -194,7 +193,7 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 		res=true;
 	}
 
-	swprintf_s(buf,L"%s.Name",name);
+	Sprintf(buf,_countof(buf),L"%s.Name",name);
 	str=g_CustomMenuParser.FindSetting(buf);
 	if (str)
 	{
@@ -206,7 +205,7 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 			item.name=str;
 	}
 
-	swprintf_s(buf,L"%s.Tip",name);
+	Sprintf(buf,_countof(buf),L"%s.Tip",name);
 	str=g_CustomMenuParser.FindSetting(buf);
 	if (str)
 	{
@@ -218,7 +217,7 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 			item.tip=str;
 	}
 
-	swprintf_s(buf,L"%s.Icon",name);
+	Sprintf(buf,_countof(buf),L"%s.Icon",name);
 	item.iconPath=g_CustomMenuParser.FindSetting(buf);
 
 	return res;
@@ -237,7 +236,7 @@ const StdMenuItem *ParseCustomMenu( void )
 	wchar_t fname[_MAX_PATH];
 	GetModuleFileName(g_Instance,fname,_countof(fname));
 	*PathFindFileName(fname)=0;
-	wcscat_s(fname,_countof(fname),INI_PATH L"StartMenuItems.ini");
+	Strcat(fname,_countof(fname),INI_PATH L"StartMenuItems.ini");
 	WIN32_FILE_ATTRIBUTE_DATA data;
 	if (GetFileAttributesEx(fname,GetFileExInfoStandard,&data))
 	{

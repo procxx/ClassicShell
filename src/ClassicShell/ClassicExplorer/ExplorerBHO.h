@@ -5,6 +5,7 @@
 
 #pragma once
 #include "resource.h"       // main symbols
+#include <vector>
 
 #include "ClassicExplorer_i.h"
 
@@ -32,6 +33,8 @@ public:
 		m_bFixSearchResize=false;
 		m_bNoBreadcrumbs=false;
 		m_CurIcon=NULL;
+		m_CurPidl=NULL;
+		m_NavigatePidl=NULL;
 		m_CurPath[0]=0;
 	}
 
@@ -83,6 +86,7 @@ public:
 		SPACE_SHOW=1, // show free space and selection size
 		SPACE_TOTAL=2, // show total size when nothing is selected
 		SPACE_WIN7=4, // running on Win7 (fix the status bar parts and show the disk free space)
+		SPACE_INFOTIP=8, // show the infotip in the status bar if a single item is selected
 
 		ADDRESS_NOBREADCRUMBS=1, // hide breadcrumbs bar
 		ADDRESS_SHOWTITLE=2, // show path on title bar
@@ -106,8 +110,24 @@ private:
 	bool m_bNoBreadcrumbs;
 	CWindow m_Toolbar;
 	HICON m_IconNormal, m_IconHot, m_IconPressed, m_IconDisabled;
-	wchar_t m_CurPath[1024]; // the current path
 	HICON m_CurIcon;
+	LPITEMIDLIST m_CurPidl;
+	wchar_t m_CurPath[1024]; // the current path
+	CWindow m_ComboBox;
+	LPITEMIDLIST m_NavigatePidl;
+	UINT m_NavigateMsg; // private message that is posted to the progress bar to navigate ti m_NavigatePidl
+
+	struct ComboItem
+	{
+		LPITEMIDLIST pidl;
+		int indent;
+		CString name;
+		CString sortName;
+
+		bool operator<( const ComboItem &item ) { return _wcsicmp(sortName,item.sortName)<0; }
+	};
+	std::vector<ComboItem> m_ComboItems;
+	void ClearComboItems( void );
 
 	static __declspec(thread) HHOOK s_Hook;
 
@@ -115,6 +135,7 @@ private:
 	static LRESULT CALLBACK SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK BreadcrumbSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+	static LRESULT CALLBACK ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(ExplorerBHO), CExplorerBHO)

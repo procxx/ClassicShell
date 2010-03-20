@@ -17,11 +17,11 @@ unsigned int CalcFNVHash( const void *buf, int len, unsigned int hash )
 // Calculate FNV hash for a string
 unsigned int CalcFNVHash( const char *text, unsigned int hash )
 {
-	return CalcFNVHash(text,(int)strlen(text),hash);
+	return CalcFNVHash(text,Strlen(text),hash);
 }
 
 // Calculate FNV hash for a wide string
 unsigned int CalcFNVHash( const wchar_t *text, unsigned int hash )
 {
-	return CalcFNVHash(text,(int)wcslen(text)*2,hash);
+	return CalcFNVHash(text,Strlen(text)*2,hash);
 }

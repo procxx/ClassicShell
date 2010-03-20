@@ -55,7 +55,7 @@ static struct
 bool CBandWindow::ParseToolbarItem( const wchar_t *name, StdToolbarItem &item )
 {
 	wchar_t text[256];
-	swprintf_s(text,L"%s.Command",name);
+	Sprintf(text,_countof(text),L"%s.Command",name);
 	const wchar_t *str=FindSetting(text);
 	if (!str) return false;
 
@@ -72,15 +72,15 @@ bool CBandWindow::ParseToolbarItem( const wchar_t *name, StdToolbarItem &item )
 		item.command=str;
 	}
 
-	swprintf_s(text,L"%s.Icon",name);
+	Sprintf(text,_countof(text),L"%s.Icon",name);
 	str=FindSetting(text);
 	if (!str) return false;
 	item.iconPath=str;
 
-	swprintf_s(text,L"%s.IconDisabled",name);
+	Sprintf(text,_countof(text),L"%s.IconDisabled",name);
 	item.iconPathD=FindSetting(text);
 
-	swprintf_s(text,L"%s.Tip",name);
+	Sprintf(text,_countof(text),L"%s.Tip",name);
 	str=FindSetting(text);
 	if (str)
 	{
@@ -90,7 +90,7 @@ bool CBandWindow::ParseToolbarItem( const wchar_t *name, StdToolbarItem &item )
 			item.tip=str;
 	}
 
-	swprintf_s(text,L"%s.Name",name);
+	Sprintf(text,_countof(text),L"%s.Name",name);
 	str=FindSetting(text);
 	if (str)
 	{
@@ -357,7 +357,7 @@ LRESULT CBandWindow::OnToolbarCommand( WORD wNotifyCode, WORD wID, HWND hWndCtl,
 	{
 		int idx=wID-ID_CUSTOM;
 		wchar_t buf[2048];
-		wcscpy_s(buf,m_Items[idx].command);
+		Strcpy(buf,_countof(buf),m_Items[idx].command);
 		DoEnvironmentSubst(buf,_countof(buf));
 		wchar_t *pBuf=buf;
 		bool bArg1=wcsstr(buf,L"%1")!=NULL;
@@ -406,7 +406,20 @@ LRESULT CBandWindow::OnToolbarCommand( WORD wNotifyCode, WORD wID, HWND hWndCtl,
 
 		wchar_t exe[_MAX_PATH];
 		const wchar_t *params=GetToken(pBuf,exe,_countof(exe),L" ");
-		ShellExecute(NULL,NULL,exe,params,path,SW_SHOWNORMAL);
+		if (_wcsicmp(exe,L"open")==0)
+		{
+			CComPtr<IShellFolder> pDesktop;
+			SHGetDesktopFolder(&pDesktop);
+			PIDLIST_RELATIVE pidl;
+			if (m_pBrowser && pDesktop && SUCCEEDED(pDesktop->ParseDisplayName(NULL,NULL,(LPWSTR)params,NULL,&pidl,NULL)))
+			{
+				UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
+				m_pBrowser->BrowseObject(pidl,flags|SBSP_ABSOLUTE);
+				ILFree(pidl);
+			}
+		}
+		else
+			ShellExecute(NULL,NULL,exe,params,path,SW_SHOWNORMAL);
 		if (pBuf!=buf)
 			LocalFree(pBuf);
 		return TRUE;
@@ -535,7 +548,7 @@ LRESULT CBandWindow::OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	if (item.tip)
 	{
 		// show the tip for the standard item
-		wcscpy_s(pTip->pszText,pTip->cchTextMax,item.tip);
+		Strcpy(pTip->pszText,pTip->cchTextMax,item.tip);
 	}
 	return 0;
 }

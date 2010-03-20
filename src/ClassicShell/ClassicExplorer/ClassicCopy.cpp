@@ -6,6 +6,7 @@
 #include <oleacc.h>
 #include <atlcomcli.h>
 #include <utility>
+#include "GlobalSettings.h"
 #include "TranslationSettings.h"
 
 static wchar_t g_TitleMove[256];
@@ -38,6 +39,8 @@ private:
 	void GetFileInfo( IAccessible *pAcc, bool bSrc );
 
 	CString m_FileName;
+	bool m_bSystem;
+	bool m_bReadOnly;
 	HICON m_Icon;
 
 	CString m_SrcSize;
@@ -77,6 +80,8 @@ bool CClassicCopyFile::Run( HWND hWnd, IAccessible *pAcc )
 		return false; // something is wrong, do nothing
 
 	// get the info for the source and the destination file (file name, icon, properties)
+	m_bReadOnly=false;
+	m_bSystem=false;
 	GetFileInfo(m_YesButton.first,true);
 	GetFileInfo(m_NoButton.first,false);
 
@@ -220,10 +225,10 @@ void CClassicCopyFile::GetFileInfo( IAccessible *pAcc, bool bSrc )
 		}
 		switch (i)
 		{
-		case 2: if (wcslen(name)<_countof(fname)) wcscpy_s(fname,name); break;
-		case 3: if (wcslen(name)<_countof(dir)) wcscpy_s(dir,name); break;
-		case 4: size=name; break;
-		case 5: date=name; break;
+			case 2: if (wcslen(name)<_countof(fname)) wcscpy_s(fname,name); break;
+			case 3: if (wcslen(name)<_countof(dir)) wcscpy_s(dir,name); break;
+			case 4: size=name; break;
+			case 5: date=name; break;
 		}
 	}
 
@@ -245,9 +250,9 @@ void CClassicCopyFile::GetFileInfo( IAccessible *pAcc, bool bSrc )
 	memcpy(fname2,fname,sizeof(fname2));
 	*PathFindExtension(fname2)=0;
 
-	int len1=(int)wcslen(fname2);
+	int len1=Strlen(fname2);
 	// the directory text is something like "filename (directory)". we need to parse out the real directory name
-	int len2=(int)wcslen(dir);
+	int len2=Strlen(dir);
 	if (dir[0]==0x202A) len1++; // for RTL languages the first character is some RTL marker. needs to be skipped
 	if (len1+1>=len2 || dir[len1]!=L' ' || dir[len1+1]!=L'(' || dir[len2-1]!=L')') return;
 	dir[len2-1]=0;
@@ -264,7 +269,15 @@ void CClassicCopyFile::GetFileInfo( IAccessible *pAcc, bool bSrc )
 	if (bSrc)
 		m_SrcIcon=info.hIcon;
 	else
+	{
 		m_DstIcon=info.hIcon;
+		DWORD attrib=GetFileAttributes(path);
+		if (attrib!=INVALID_FILE_ATTRIBUTES)
+		{
+			if (attrib&FILE_ATTRIBUTE_READONLY) m_bReadOnly=true;
+			if (attrib&FILE_ATTRIBUTE_SYSTEM) m_bSystem=true;
+		}
+	}
 }
 
 const int WM_BRINGFOREGROUND=WM_USER+11;
@@ -276,7 +289,20 @@ INT_PTR CALLBACK CClassicCopyFile::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM w
 		SetWindowText(hwndDlg,FindTranslation("Copy.Title",L"Confirm File Replace"));
 		CClassicCopyFile *pThis=(CClassicCopyFile*)lParam;
 		wchar_t text[_MAX_PATH*2];
-		swprintf_s(text,FindTranslation("Copy.Subtitle",L"This folder already contains a file called '%s'."),pThis->m_FileName);
+		if (pThis->m_bSystem)
+		{
+			Sprintf(text,_countof(text),FindTranslation("Copy.SubtitleSys",L"This folder already contains a system file named '%s'."),pThis->m_FileName);
+			if (_wtol(FindSetting("OverwriteAlertLevel",L""))>=1)
+				PlaySound(L".Default",NULL,SND_APPLICATION|SND_ALIAS|SND_ASYNC|SND_NODEFAULT|SND_SYSTEM);
+		}
+		else if (pThis->m_bReadOnly)
+		{
+			Sprintf(text,_countof(text),FindTranslation("Copy.SubtitleRO",L"This folder already contains a read-only file named '%s'."),pThis->m_FileName);
+			if (_wtol(FindSetting("OverwriteAlertLevel",L""))>=2)
+				PlaySound(L".Default",NULL,SND_APPLICATION|SND_ALIAS|SND_ASYNC|SND_NODEFAULT|SND_SYSTEM);
+		}
+		else
+			Sprintf(text,_countof(text),FindTranslation("Copy.Subtitle",L"This folder already contains a file named '%s'."),pThis->m_FileName);
 		SetDlgItemText(hwndDlg,IDC_STATICFNAME,text);
 
 		// load icon for file conflict (146) from Shell32.dll
@@ -300,7 +326,7 @@ INT_PTR CALLBACK CClassicCopyFile::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM w
 			SetDlgItemText(hwndDlg,IDYES,FindTranslation("Copy.YesAll",L"Yes to &All"));
 		if (GetDlgItem(hwndDlg,IDCANCEL))
 			SetDlgItemText(hwndDlg,IDCANCEL,FindTranslation("Copy.Cancel",L"Cancel"));
-		swprintf_s(text,L"<a>%s</a>",FindTranslation("Copy.More",L"&More..."));
+		Sprintf(text,_countof(text),L"<a>%s</a>",FindTranslation("Copy.More",L"&More..."));
 		SetDlgItemText(hwndDlg,IDC_LINKMORE,text);
 		PostMessage(hwndDlg,WM_BRINGFOREGROUND,0,0);
 		return TRUE;
@@ -421,8 +447,8 @@ INT_PTR CALLBACK CClassicCopyFolder::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM
 			GetWindowText(link,text,_countof(text));
 		else
 			text[0]=0;
-		wcscat_s(text,_countof(text),L"\r\n\r\n");
-		wcscat_s(text,_countof(text),FindTranslation("Folder.Prompt",L"Do you still want to move or copy the folder?"));
+		Strcat(text,_countof(text),L"\r\n\r\n");
+		Strcat(text,_countof(text),FindTranslation("Folder.Prompt",L"Do you still want to move or copy the folder?"));
 		SetDlgItemText(hwndDlg,IDC_STATICFNAME,text);
 
 		// load icon for file conflict (146) from Shell32.dll
@@ -438,7 +464,7 @@ INT_PTR CALLBACK CClassicCopyFolder::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM
 			SetDlgItemText(hwndDlg,IDYES,FindTranslation("Copy.YesAll",L"Yes to &All"));
 		if (GetDlgItem(hwndDlg,IDCANCEL))
 			SetDlgItemText(hwndDlg,IDCANCEL,FindTranslation("Copy.Cancel",L"Cancel"));
-		swprintf_s(text,L"<a>%s</a>",FindTranslation("Copy.More",L"&More..."));
+		Sprintf(text,_countof(text),L"<a>%s</a>",FindTranslation("Copy.More",L"&More..."));
 		SetDlgItemText(hwndDlg,IDC_LINKMORE,text);
 		PostMessage(hwndDlg,WM_BRINGFOREGROUND,0,0);
 		return TRUE;

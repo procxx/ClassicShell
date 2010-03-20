@@ -1,4 +1,19 @@
 ===============================================================================
+== Version 1.0.3 general release (Mar, 2010):
+
+- Added an overlay icon for shared folders
+
+- Added a setting for sound alerts when overwriting system or read-only files
+
+- The status bar shows the details of the currently selected file
+
+- The drop down of the address bar is replaced with a list of parent folders
+  like in Windows XP
+
+- Added translations for Traditional Chinese (Taiwan)
+
+
+===============================================================================
 == Version 1.0.2 general release (Mar, 2010):
 
 - Added a setting to disable the breadcrumbs

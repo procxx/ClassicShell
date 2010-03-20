@@ -57,7 +57,7 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::get_accName( VARIANT varChild, BSTR *
 	if (index<0 || index>=(int)m_pOwner->m_Items.size()) return S_FALSE;
 	if (m_pOwner->m_Items[index].id==MENU_SEPARATOR) return S_FALSE;
 	wchar_t text[256];
-	wcscpy_s(text,m_pOwner->m_Items[index].name);
+	Strcpy(text,_countof(text),m_pOwner->m_Items[index].name);
 	for (wchar_t *c1=text,*c2=text;;c1++)
 	{
 		if (*c1!='&')

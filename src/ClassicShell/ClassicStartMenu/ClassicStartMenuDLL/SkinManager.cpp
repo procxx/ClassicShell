@@ -98,7 +98,7 @@ static HICON LoadSkinIcon( HMODULE hMod, int index )
 		wchar_t path[_MAX_PATH];
 		GetSkinsPath(path);
 		wchar_t fname[_MAX_PATH];
-		swprintf_s(fname,L"%s%d.ico",path,index);
+		Sprintf(fname,_countof(fname),L"%s%d.ico",path,index);
 		return (HICON)LoadImage(NULL,fname,IMAGE_ICON,0,0,LR_DEFAULTSIZE|LR_LOADFROMFILE);
 	}
 }
@@ -113,7 +113,7 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, bool &b32 )
 		wchar_t path[_MAX_PATH];
 		GetSkinsPath(path);
 		wchar_t fname[_MAX_PATH];
-		swprintf_s(fname,L"%s%d.bmp",path,index);
+		Sprintf(fname,_countof(fname),L"%s%d.bmp",path,index);
 		src=(HBITMAP)LoadImage(NULL,fname,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION|LR_LOADFROMFILE);
 	}
 	if (!src) return NULL;
@@ -158,6 +158,7 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, bool &b32 )
 // Load the skin from the module. If hMod is NULL loads the "custom" skin from 1.txt
 static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, bool bNoResources )
 {
+	skin.version=1;
 	CSkinParser parser;
 	if (hMod)
 	{
@@ -169,7 +170,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, bo
 	{
 		wchar_t path[_MAX_PATH];
 		GetSkinsPath(path);
-		wcscat_s(path,L"1.txt");
+		Strcat(path,_countof(path),L"1.txt");
 		if (!parser.LoadText(path)) return false;
 	}
 	parser.ParseText();
@@ -179,7 +180,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, bo
 	for (int i=1;;i++)
 	{
 		char name[20];
-		sprintf_s(name,"Variation%d",i);
+		Sprintf(name,_countof(name),"Variation%d",i);
 		str=parser.FindSetting(name);
 		if (str)
 		{
@@ -209,8 +210,8 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, bo
 					wchar_t path[_MAX_PATH];
 					GetSkinsPath(path);
 					wchar_t name[20];
-					swprintf_s(name,L"%d.txt",it->first);
-					wcscat_s(path,name);
+					Sprintf(name,_countof(name),L"%d.txt",it->first);
+					Strcat(path,_countof(path),name);
 					if (!parser.LoadVariation(path)) break;
 				}
 
@@ -229,6 +230,10 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, bo
 
 	str=parser.FindSetting("AboutIcon");
 	if (str) skin.AboutIcon=LoadSkinIcon(hMod,_wtol(str));
+
+	str=parser.FindSetting("Version");
+	if (str)
+		skin.version=_wtol(str);
 
 	skin.ForceRTL=false;
 	if (!hMod)
@@ -499,8 +504,8 @@ bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variatio
 	}
 	else
 	{
-		wcscat_s(path,fname);
-		wcscat_s(path,L".skin");
+		Strcat(path,_countof(path),fname);
+		Strcat(path,_countof(path),L".skin");
 		HMODULE hMod=LoadLibraryEx(path,NULL,LOAD_LIBRARY_AS_DATAFILE);
 		if (!hMod)
 			return false;
@@ -532,8 +537,8 @@ void GetSkinsPath( wchar_t *path )
 	GetModuleFileName(g_Instance,path,_MAX_PATH);
 	*PathFindFileName(path)=0;
 #ifdef BUILD_SETUP
-	wcscat_s(path,_MAX_PATH,L"Skins\\");
+	Strcat(path,_MAX_PATH,L"Skins\\");
 #else
-	wcscat_s(path,_MAX_PATH,L"..\\Skins\\");
+	Strcat(path,_MAX_PATH,L"..\\Skins\\");
 #endif
 }
