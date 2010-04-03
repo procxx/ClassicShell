@@ -133,7 +133,7 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 		GetModuleFileName(NULL,path,_countof(path));
 		const wchar_t *exe=PathFindFileName(path);
 		g_bExplorerExe=(_wcsicmp(exe,L"explorer.exe")==0);
-		if (_wcsicmp(exe,L"regsvr32.exe")!=0 && _wcsicmp(exe,L"msiexec.exe")!=0 && !g_bExplorerExe && SharedOverlay!=2)
+		if (_wcsicmp(exe,L"regsvr32.exe")!=0 && _wcsicmp(exe,L"msiexec.exe")!=0 && !g_bExplorerExe && SharedOverlay!=2 && !(EnableCopyUI&4))
 			return FALSE;
 
 		g_Instance=hInstance;
@@ -147,11 +147,14 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 		Strcat(fname,_countof(fname),INI_PATH L"ExplorerL10N.ini");
 		ParseTranslations(fname);
 
-		g_bHookCopyThreads=(EnableCopyUI==1 || EnableCopyUI==2);
+		g_bHookCopyThreads=(((EnableCopyUI&4) || g_bExplorerExe) && ((EnableCopyUI&3)==1 || (EnableCopyUI&3)==2));
 		if (g_bHookCopyThreads)
+		{
 			InitClassicCopyProcess();
+			InitClassicCopyThread();
+		}
 
-		if (SharedOverlay)
+		if ((g_bExplorerExe && SharedOverlay) || SharedOverlay==2)
 			CShareOverlay::InitOverlay(FindSetting("ShareOverlayIcon"));
 	}
 

@@ -183,6 +183,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_E3A98A08B81D45EAA37A5946C953F666"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_E52913D28DA04F148D5A6788921883C5"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -827,14 +833,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Classic Shell"
-        "ProductCode" = "8:{F85FDC1A-D28A-483F-9273-5E76A58DE65D}"
-        "PackageCode" = "8:{95B0F151-18A3-44DF-80CE-C5E9F70EB9C4}"
+        "ProductCode" = "8:{B421E57C-B5CC-40BB-89F9-2A7F09720D9D}"
+        "PackageCode" = "8:{DAE82E2D-192E-4735-B6AA-CFE4DA0A9D48}"
         "UpgradeCode" = "8:{779A74EF-23DE-4C71-AC12-2EE5A542ED34}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:1.9.0"
+        "ProductVersion" = "8:1.9.1"
         "Manufacturer" = "8:IvoSoft"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -959,7 +965,7 @@
                                             "Condition" = "8:"
                                             "Transitive" = "11:FALSE"
                                             "ValueTypes" = "3:3"
-                                            "Value" = "3:10900"
+                                            "Value" = "3:10901"
                                             }
                                         }
                                     }
@@ -1986,6 +1992,34 @@
             "OutputConfiguration" = "8:"
             "OutputGroupCanonicalName" = "8:Built"
             "OutputProjectGuid" = "8:{9EC23CA9-384A-4EEB-979E-69879DC1A78C}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_E3A98A08B81D45EAA37A5946C953F666"
+            {
+            "SourcePath" = "8:..\\ClassicStartMenu\\Skins\\Windows XP Luna.skin"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_F9BB55954BD441C1B0A5FADD1DBEABC1"
+            "Condition" = "8:CHECK_STARTMENU AND CS_COMPONENT<>1"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{81EB6336-366C-47DD-82CF-FF6C36CCD2B5}"
             "ShowKeyOutput" = "11:TRUE"
                 "ExcludeFilters"
                 {

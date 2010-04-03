@@ -1,4 +1,20 @@
 ===============================================================================
+== Version 1.9.1 release candidate (Apr, 2010):
+
+- Some skins can support two-column main menu similar to Windows XP
+
+- Some skins can support showing the user picture in the main menu
+
+- Fixed a bug showing an extra "Empty" item in the start menu
+
+- Fixed a bug that broke most foreign translations
+
+- Fixed a bug with the share overlay in the Recycle Bin items
+
+- Added a new Luna skin that is similar to the Windows XP start menu
+
+
+===============================================================================
 == Version 1.9.0 beta (Mar, 2010) - new skin engine:
 
 - The sub-menus can be skinned like the main menu

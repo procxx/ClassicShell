@@ -16,7 +16,11 @@
 
 // CExplorerBHO - a browser helper object that implements Alt+Enter for the folder tree
 
+const UINT_PTR TIMER_NAVIGATE='CLSH';
+const int DEFAULT_NAV_DELAY=100;
+
 __declspec(thread) HHOOK CExplorerBHO::s_Hook; // one hook per thread
+int CExplorerBHO::s_AutoNavDelay;
 
 struct FindChild
 {
@@ -41,13 +45,11 @@ static HWND FindChildWindow( HWND hwnd, const wchar_t *className )
 	return find.hWnd;
 }
 
-const UINT_PTR TIMER_NAVIGATE='CLSH';
-
-static LRESULT CALLBACK SubclassParentProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+LRESULT CALLBACK CExplorerBHO::SubclassTreeParentProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	// when the tree selection changes start a timer to navigate to the new folder in 100ms
 	if (uMsg==WM_NOTIFY && ((NMHDR*)lParam)->code==TVN_SELCHANGED && ((NMTREEVIEW*)lParam)->action==TVC_BYKEYBOARD)
-		SetTimer(((NMHDR*)lParam)->hwndFrom,TIMER_NAVIGATE,100,NULL);
+		SetTimer(((NMHDR*)lParam)->hwndFrom,TIMER_NAVIGATE,s_AutoNavDelay,NULL);
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
@@ -56,7 +58,7 @@ static LRESULT CALLBACK SubclassParentProc( HWND hWnd, UINT uMsg, WPARAM wParam,
 //   - navigate to the new folder when you go up/down with the keyboard
 //   - fix the random scrolling of the tree when a folder is expanded
 //   - change the tree styles to achieve different looks
-static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	if (uMsg==TVM_ENSUREVISIBLE && (dwRefData&1))
 	{
@@ -104,7 +106,7 @@ static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, L
 			regSettings.QueryDWORDValue(L"FoldersSettings",FoldersSettings);
 
 		if (FoldersSettings&CExplorerBHO::FOLDERS_AUTONAVIGATE)
-			SetWindowSubclass(GetParent(hWnd),SubclassParentProc,'CLSH',0);
+			SetWindowSubclass(GetParent(hWnd),SubclassTreeParentProc,'CLSH',0);
 
 		if (!(FoldersSettings&CExplorerBHO::FOLDERS_NOFADE))
 			wParam&=~TVS_EX_FADEINOUTEXPANDOS;
@@ -236,6 +238,9 @@ LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM 
 								if (SUCCEEDED(pQueryInfo->GetInfoTip(QITIPF_DEFAULT|QITIPF_SINGLELINE,&tip)) && tip)
 								{
 									Strcpy(buf,_countof(buf),tip);
+									for (wchar_t *p=buf;*p;p++)
+										if (*p=='\t')
+											*p=' ';
 									CoTaskMemFree(tip);
 									bInfoTip=true;
 									lParam=(LPARAM)buf;
@@ -915,6 +920,10 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 					m_bForceRefresh=(bWin7 && FindSettingBool("ForceRefreshWin7",true));
 				}
 			}
+			s_AutoNavDelay=DEFAULT_NAV_DELAY;
+			const wchar_t *str=FindSetting("AutoNavDelay");
+			if (str)
+				s_AutoNavDelay=_wtol(str);
 		}
 	}
 	else

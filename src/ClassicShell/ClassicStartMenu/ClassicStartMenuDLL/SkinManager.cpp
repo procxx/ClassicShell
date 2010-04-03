@@ -5,30 +5,41 @@
 #include "SkinManager.h"
 #include "IconManager.h"
 #include "ParseSettings.h"
+#include "GlobalSettings.h"
 #include "TranslationSettings.h"
 #include "FNVHash.h"
 #include <dwmapi.h>
 
+wchar_t MenuSkin::s_SkinError[1024];
+
 const RECT DEFAULT_ICON_PADDING={3,3,3,3};
 const RECT DEFAULT_TEXT_PADDING={1,0,4,0};
+const int DEFAULT_ARROW_SIZE=4;
+const SIZE DEFAULT_ARROW_PADDING={8,4};
 
 MenuSkin::MenuSkin( void )
 {
 	AboutIcon=NULL;
 	Main_bitmap=NULL;
-	Submenu_bitmap=NULL;
 	Caption_font=NULL;
 	Main_font=NULL;
+	Main_font2=NULL;
 	Main_selectionColor=true;
+	Main_selectionColor2=true;
 	Main_separator=NULL;
+	Main_separator2=NULL;
+	Main_separatorV=NULL;
 	Main_arrow=NULL;
+	Main_arrow2=NULL;
+	Main_pager=NULL;
+	Main_pager_arrows=NULL;
+	User_bitmap=NULL;
+	Submenu_bitmap=NULL;
 	Submenu_font=NULL;
 	Submenu_selectionColor=true;
 	Submenu_separator=NULL;
 	Submenu_arrow=NULL;
 	Submenu_separatorV=NULL;
-	Main_pager=NULL;
-	Main_pager_arrows=NULL;
 	Submenu_pager=NULL;
 	Submenu_pager_arrows=NULL;
 }
@@ -42,12 +53,18 @@ void MenuSkin::Reset( void )
 {
 	if (AboutIcon) DestroyIcon(AboutIcon);
 	if (Main_bitmap) DeleteObject(Main_bitmap);
-	if (Submenu_bitmap) DeleteObject(Submenu_bitmap);
 	if (Caption_font) DeleteObject(Caption_font);
 	if (Main_font) DeleteObject(Main_font);
+	if (Main_font2 && Main_font2!=Main_font) DeleteObject(Main_font2);
 	if (!Main_selectionColor && Main_selection.bmp) DeleteObject(Main_selection.bmp);
+	if (!Main_selectionColor2 && Main_selection2.bmp && (Main_selectionColor || Main_selection2.bmp!=Main_selection.bmp)) DeleteObject(Main_selection2.bmp);
 	if (Main_separator) DeleteObject(Main_separator);
+	if (Main_separator2 && Main_separator2!=Main_separator) DeleteObject(Main_separator2);
+	if (Main_separatorV) DeleteObject(Main_separatorV);
 	if (Main_arrow) DeleteObject(Main_arrow);
+	if (Main_arrow2 && Main_arrow2!=Main_arrow) DeleteObject(Main_arrow2);
+	if (User_bitmap) DeleteObject(User_bitmap);
+	if (Submenu_bitmap) DeleteObject(Submenu_bitmap);
 	if (Submenu_font) DeleteObject(Submenu_font);
 	if (!Submenu_selectionColor && Submenu_selection.bmp) DeleteObject(Submenu_selection.bmp);
 	if (Submenu_separator) DeleteObject(Submenu_separator);
@@ -60,12 +77,18 @@ void MenuSkin::Reset( void )
 
 	AboutIcon=NULL;
 	Main_bitmap=NULL;
-	Submenu_bitmap=NULL;
 	Caption_font=NULL;
 	Main_font=NULL;
+	Main_font2=NULL;
 	Main_selectionColor=true;
+	Main_selectionColor2=true;
 	Main_separator=NULL;
+	Main_separator2=NULL;
+	Main_separatorV=NULL;
 	Main_arrow=NULL;
+	Main_arrow2=NULL;
+	User_bitmap=NULL;
+	Submenu_bitmap=NULL;
 	Submenu_font=NULL;
 	Submenu_selectionColor=true;
 	Submenu_separator=NULL;
@@ -75,6 +98,11 @@ void MenuSkin::Reset( void )
 	Main_pager_arrows=NULL;
 	Submenu_pager=NULL;
 	Submenu_pager_arrows=NULL;
+}
+
+static void GetErrorMessage( wchar_t *err, int size, DWORD code )
+{
+	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,NULL,code,0,err,size,NULL);
 }
 
 static void LoadSkinNumbers( const wchar_t *str, int *numbers, int count, bool bColors )
@@ -98,6 +126,14 @@ static void LoadSkinNumbers( const wchar_t *str, int *numbers, int count, bool b
 
 static HFONT LoadSkinFont( const wchar_t *str, const wchar_t *name, int weight, int size )
 {
+	DWORD quality=DEFAULT_QUALITY;
+	const wchar_t *str2=FindSetting("FontSmoothing");
+	if (str2 && _wcsicmp(str2,L"none")==0)
+		quality=NONANTIALIASED_QUALITY;
+	else if (str2 && _wcsicmp(str2,L"standard")==0)
+		quality=ANTIALIASED_QUALITY;
+	if (str2 && _wcsicmp(str2,L"cleartype")==0)
+		quality=CLEARTYPE_QUALITY;
 	wchar_t token[256];
 	if (str)
 	{
@@ -117,9 +153,10 @@ static HFONT LoadSkinFont( const wchar_t *str, const wchar_t *name, int weight, 
 		// get the default menu font
 		NONCLIENTMETRICS metrics={sizeof(metrics)};
 		SystemParametersInfo(SPI_GETNONCLIENTMETRICS,NULL,&metrics,0);
+		metrics.lfMenuFont.lfQuality=(BYTE)quality;
 		return CreateFontIndirect(&metrics.lfMenuFont);
 	}
-	return CreateFont(size*CIconManager::GetDPI()/72,0,0,0,weight,0,0,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,name);
+	return CreateFont(size*CIconManager::GetDPI()/72,0,0,0,weight,0,0,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,quality,DEFAULT_PITCH,name);
 }
 
 static HICON LoadSkinIcon( HMODULE hMod, int index )
@@ -140,9 +177,18 @@ static HICON LoadSkinIcon( HMODULE hMod, int index )
 
 static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32, COLORREF menuColor )
 {
+	wchar_t err[1024];
 	HBITMAP bmp;
 	if (hMod)
+	{
 		bmp=(HBITMAP)LoadImage(hMod,MAKEINTRESOURCE(index),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
+		if (!bmp)
+		{
+			GetErrorMessage(err,_countof(err),GetLastError());
+			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load bitmap resource with ID=%d.\r\n%s",index,err);
+			return NULL;
+		}
+	}
 	else
 	{
 		wchar_t path[_MAX_PATH];
@@ -150,15 +196,28 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 		wchar_t fname[_MAX_PATH];
 		Sprintf(fname,_countof(fname),L"%s%d.bmp",path,index);
 		bmp=(HBITMAP)LoadImage(NULL,fname,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION|LR_LOADFROMFILE);
+		if (!bmp)
+		{
+			GetErrorMessage(err,_countof(err),GetLastError());
+			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load bitmap file %s.\r\n%s",fname,err);
+			return NULL;
+		}
 	}
-	if (!bmp) return NULL;
+
 
 	HBITMAP bmpMask=NULL;
 	BITMAP infoMask;
 	if (maskIndex>0)
 	{
 		if (hMod)
+		{
 			bmpMask=(HBITMAP)LoadImage(hMod,MAKEINTRESOURCE(maskIndex),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
+			if (!bmpMask)
+			{
+				GetErrorMessage(err,_countof(err),GetLastError());
+				Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load mask bitmap resource with ID=%d.\r\n%s",maskIndex,err);
+			}
+		}
 		else
 		{
 			wchar_t path[_MAX_PATH];
@@ -166,6 +225,11 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 			wchar_t fname[_MAX_PATH];
 			Sprintf(fname,_countof(fname),L"%s%d.bmp",path,maskIndex);
 			bmpMask=(HBITMAP)LoadImage(NULL,fname,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION|LR_LOADFROMFILE);
+			if (!bmpMask)
+			{
+				GetErrorMessage(err,_countof(err),GetLastError());
+				Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load mask bitmap file %s.\r\n%s",fname,err);
+			}
 		}
 		if (bmpMask)
 			GetObject(bmpMask,sizeof(infoMask),&infoMask);
@@ -173,6 +237,11 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 
 	BITMAP info;
 	GetObject(bmp,sizeof(info),&info);
+
+	if (bmpMask && (info.bmWidth!=infoMask.bmWidth || info.bmHeight!=infoMask.bmHeight))
+	{
+		Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"The background bitmap %d and the mask bitmap %d have different sizes.\r\n",index,maskIndex);
+	}
 
 	if (bmpMask && info.bmWidth==infoMask.bmWidth && info.bmHeight==infoMask.bmHeight)
 	{
@@ -283,15 +352,27 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	if (hMod)
 	{
 		HRSRC hResInfo=FindResource(hMod,MAKEINTRESOURCE(1),L"SKIN");
-		if (!hResInfo) return false;
-		if (!parser.LoadText(hMod,hResInfo)) return false;
+		if (!hResInfo)
+		{
+			Strcpy(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Can't find the main \"SKIN\" resource with ID=1.\r\n");
+			return false;
+		}
+		if (!parser.LoadText(hMod,hResInfo))
+		{
+			Strcpy(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load the main \"SKIN\" resource with ID=1.\r\n");
+			return false;
+		}
 	}
 	else
 	{
 		wchar_t path[_MAX_PATH];
 		GetSkinsPath(path);
 		Strcat(path,_countof(path),L"1.txt");
-		if (!parser.LoadText(path)) return false;
+		if (!parser.LoadText(path))
+		{
+			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load the main skin file %s.\r\n",path);
+			return false;
+		}
 	}
 	parser.ParseText();
 
@@ -322,8 +403,16 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 				if (hMod)
 				{
 					HRSRC hResInfo=FindResource(hMod,MAKEINTRESOURCE(it->first),L"SKIN");
-					if (!hResInfo) break;
-					if (!parser.LoadVariation(hMod,hResInfo)) break;
+					if (!hResInfo)
+					{
+						Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Can't find the variation \"SKIN\" resource with ID=%d.\r\n",it->first);
+						break;
+					}
+					if (!parser.LoadVariation(hMod,hResInfo))
+					{
+						Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load the variation \"SKIN\" resource with ID=%d.\r\n",it->first);
+						break;
+					}
 				}
 				else
 				{
@@ -332,7 +421,11 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 					wchar_t name[20];
 					Sprintf(name,_countof(name),L"%d.txt",it->first);
 					Strcat(path,_countof(path),name);
-					if (!parser.LoadVariation(path)) break;
+					if (!parser.LoadVariation(path))
+					{
+						Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load the variation skin file %s.\r\n",path);
+						break;
+					}
 				}
 
 				break;
@@ -439,11 +532,14 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 			if (!skin.Main_bitmap) return false;
 		}
 	}
+	skin.bTwoColumns=false;
+	str=parser.FindSetting("Main_2columns");
+	if (str && _wtol(str))
+		skin.bTwoColumns=true;
 	str=parser.FindSetting("Main_bitmap_slices_X");
+	memset(skin.Main_bitmap_slices_X,0,sizeof(skin.Main_bitmap_slices_X));
 	if (str)
-		LoadSkinNumbers(str,skin.Main_bitmap_slices_X,_countof(skin.Main_bitmap_slices_X),false);
-	else
-		memset(skin.Main_bitmap_slices_X,0,sizeof(skin.Main_bitmap_slices_X));
+		LoadSkinNumbers(str,skin.Main_bitmap_slices_X+(skin.bTwoColumns?3:0),6,false);
 	str=parser.FindSetting("Main_bitmap_slices_Y");
 	if (str)
 		LoadSkinNumbers(str,skin.Main_bitmap_slices_Y,_countof(skin.Main_bitmap_slices_Y),false);
@@ -459,17 +555,44 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		if (_wcsicmp(str,L"fullalpha")==0) skin.Main_opacity=MenuSkin::OPACITY_FULLALPHA;
 		if (_wcsicmp(str,L"fullglass")==0) skin.Main_opacity=MenuSkin::OPACITY_FULLGLASS;
 	}
+	str=parser.FindSetting("Main_opacity2");
+	skin.Main_opacity2=skin.Main_opacity;
+	if (str)
+	{
+		if (skin.Main_opacity2==MenuSkin::OPACITY_ALPHA || skin.Main_opacity2==MenuSkin::OPACITY_FULLALPHA)
+		{
+			if (_wcsicmp(str,L"alpha")==0) skin.Main_opacity2=MenuSkin::OPACITY_ALPHA;
+			if (_wcsicmp(str,L"fullalpha")==0) skin.Main_opacity2=MenuSkin::OPACITY_FULLALPHA;
+		}
+		if (skin.Main_opacity2==MenuSkin::OPACITY_GLASS || skin.Main_opacity2==MenuSkin::OPACITY_FULLGLASS)
+		{
+			if (_wcsicmp(str,L"glass")==0) skin.Main_opacity2=MenuSkin::OPACITY_GLASS;
+			if (_wcsicmp(str,L"fullglass")==0) skin.Main_opacity2=MenuSkin::OPACITY_FULLGLASS;
+		}
+	}
 	str=parser.FindSetting("Main_large_icons");
 	skin.Main_large_icons=str && _wtol(str);
 
 	str=parser.FindSetting("Main_font");
 	skin.Main_font=LoadSkinFont(str,NULL,0,0);
 
+	str=parser.FindSetting("Main_font2");
+	if (str)
+		skin.Main_font2=LoadSkinFont(str,NULL,0,0);
+	else
+		skin.Main_font2=skin.Main_font;
+
 	str=parser.FindSetting("Main_glow_size");
 	if (str)
 		skin.Main_glow_size=_wtol(str);
 	else
 		skin.Main_glow_size=0;
+
+	str=parser.FindSetting("Main_glow_size2");
+	if (str)
+		skin.Main_glow_size2=_wtol(str);
+	else
+		skin.Main_glow_size2=skin.Main_glow_size;
 
 	str=parser.FindSetting("Main_text_color");
 	if (str)
@@ -481,6 +604,11 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		skin.Main_text_color[2]=GetSysColor(COLOR_GRAYTEXT);
 		skin.Main_text_color[3]=GetSysColor(COLOR_HIGHLIGHTTEXT);
 	}
+	str=parser.FindSetting("Main_text_color2");
+	if (str)
+		LoadSkinNumbers(str,(int*)skin.Main_text_color2,_countof(skin.Main_text_color2),true);
+	else
+		memcpy(skin.Main_text_color2,skin.Main_text_color,sizeof(skin.Main_text_color2));
 	str=parser.FindSetting("Main_arrow_color");
 	if (str)
 		LoadSkinNumbers(str,(int*)skin.Main_arrow_color,_countof(skin.Main_arrow_color),true);
@@ -489,12 +617,23 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		skin.Main_arrow_color[0]=skin.Main_text_color[0];
 		skin.Main_arrow_color[1]=skin.Main_text_color[1];
 	}
+	str=parser.FindSetting("Main_arrow_color2");
+	if (str)
+		LoadSkinNumbers(str,(int*)skin.Main_arrow_color2,_countof(skin.Main_arrow_color2),true);
+	else
+		memcpy(skin.Main_arrow_color2,skin.Main_arrow_color,sizeof(skin.Main_arrow_color2));
 
 	str=parser.FindSetting("Main_padding");
 	if (str)
 		LoadSkinNumbers(str,(int*)&skin.Main_padding,4,false);
 	else
 		memset(&skin.Main_padding,0,sizeof(skin.Main_padding));
+
+	str=parser.FindSetting("Main_padding2");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Main_padding2,4,false);
+	else
+		memset(&skin.Main_padding2,-1,sizeof(skin.Main_padding2));
 
 	str=parser.FindSetting("Main_selection");
 	if (str)
@@ -531,51 +670,194 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		skin.Main_selection.color=GetSysColor(COLOR_MENUHILIGHT);
 	}
 
+	str=parser.FindSetting("Main_selection2");
+	if (str)
+	{
+		if (str[0]=='#')
+			LoadSkinNumbers(str,(int*)&skin.Main_selection2.color,1,true);
+		else
+		{
+			skin.Main_selectionColor2=false;
+			if (!bNoResources)
+			{
+				int id=_wtol(str);
+				if (id)
+				{
+					skin.Main_selection2.bmp=LoadSkinBitmap(hMod,id,0,skin.Main_selection232,0);
+					if (!skin.Main_selection2.bmp) return false;
+				}
+			}
+
+			str=parser.FindSetting("Main_selection_slices_X2");
+			if (str)
+				LoadSkinNumbers(str,(int*)&skin.Main_selection_slices_X2,_countof(skin.Main_selection_slices_X2),false);
+			else
+				memset(skin.Main_selection_slices_X2,0,sizeof(skin.Main_selection_slices_X2));
+		}
+		str=parser.FindSetting("Main_selection_slices_Y2");
+		if (str)
+			LoadSkinNumbers(str,(int*)&skin.Main_selection_slices_Y2,_countof(skin.Main_selection_slices_Y2),false);
+		else
+			memset(skin.Main_selection_slices_Y2,0,sizeof(skin.Main_selection_slices_Y2));
+	}
+	else
+	{
+		skin.Main_selectionColor2=skin.Main_selectionColor;
+		if (skin.Main_selectionColor2)
+			skin.Main_selection2.color=skin.Main_selection.color;
+		else
+		{
+			skin.Main_selection2.bmp=skin.Main_selection.bmp;
+			skin.Main_selection232=skin.Main_selection32;
+			memcpy(skin.Main_selection_slices_X2,skin.Main_selection_slices_X,sizeof(skin.Main_selection_slices_X2));
+			memcpy(skin.Main_selection_slices_Y2,skin.Main_selection_slices_Y,sizeof(skin.Main_selection_slices_Y2));
+		}
+	}
+
 	if (bRTL && !skin.Main_selectionColor && skin.Main_selection.bmp)
 	{
 		MirrorBitmap(skin.Main_selection.bmp);
 		int q=skin.Main_selection_slices_X[0]; skin.Main_selection_slices_X[0]=skin.Main_selection_slices_X[2]; skin.Main_selection_slices_X[2]=q;
 	}
 
-	str=parser.FindSetting("Main_arrow");
-	if (str && !bNoResources)
+	if (bRTL && !skin.Main_selectionColor2 && (skin.Main_selectionColor || skin.Main_selection2.bmp!=skin.Main_selection.bmp))
 	{
-		int id=_wtol(str);
-		if (id)
+		MirrorBitmap(skin.Main_selection2.bmp);
+		int q=skin.Main_selection_slices_X2[0]; skin.Main_selection_slices_X2[0]=skin.Main_selection_slices_X2[2]; skin.Main_selection_slices_X2[2]=q;
+	}
+
+	skin.Main_arrow_Size.cx=skin.Main_arrow_Size2.cx=DEFAULT_ARROW_SIZE;
+	skin.Main_arrow_Size.cy=skin.Main_arrow_Size2.cy=0;
+	if (!bNoResources)
+	{
+		str=parser.FindSetting("Main_arrow");
+		if (str)
 		{
-			skin.Main_arrow=LoadSkinBitmap(hMod,id,0,skin.Main_arrow32,0);
-			if (!skin.Main_arrow) return false;
-			if (bRTL)
-				MirrorBitmap(skin.Main_arrow);
-			BITMAP info;
-			GetObject(skin.Main_arrow,sizeof(info),&info);
-			skin.Main_arrow_Size.cx=info.bmWidth;
-			skin.Main_arrow_Size.cy=info.bmHeight/2;
+			int id=_wtol(str);
+			if (id)
+			{
+				skin.Main_arrow=LoadSkinBitmap(hMod,id,0,skin.Main_arrow32,0);
+				if (!skin.Main_arrow) return false;
+				if (bRTL)
+					MirrorBitmap(skin.Main_arrow);
+				BITMAP info;
+				GetObject(skin.Main_arrow,sizeof(info),&info);
+				skin.Main_arrow_Size.cx=info.bmWidth;
+				skin.Main_arrow_Size.cy=info.bmHeight/2;
+			}
+		}
+
+		str=parser.FindSetting("Main_arrow2");
+		if (str)
+		{
+			int id=_wtol(str);
+			if (id)
+			{
+				skin.Main_arrow2=LoadSkinBitmap(hMod,id,0,skin.Main_arrow232,0);
+				if (!skin.Main_arrow2) return false;
+				if (bRTL)
+					MirrorBitmap(skin.Main_arrow2);
+				BITMAP info;
+				GetObject(skin.Main_arrow2,sizeof(info),&info);
+				skin.Main_arrow_Size2.cx=info.bmWidth;
+				skin.Main_arrow_Size2.cy=info.bmHeight/2;
+			}
+		}
+		else
+		{
+			skin.Main_arrow2=skin.Main_arrow;
+			skin.Main_arrow232=skin.Main_arrow32;
+			skin.Main_arrow_Size2=skin.Main_arrow_Size;
 		}
 	}
+	str=parser.FindSetting("Main_arrow_padding");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Main_arrow_padding,2,false);
+	else
+		skin.Main_arrow_padding=DEFAULT_ARROW_PADDING;
+
+	str=parser.FindSetting("Main_arrow_padding2");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Main_arrow_padding2,2,false);
+	else
+		skin.Main_arrow_padding2=skin.Main_arrow_padding;
 
 	str=parser.FindSetting("Main_thin_frame");
 	skin.Main_thin_frame=(str && _wtol(str));
-	str=parser.FindSetting("Main_separator");
-	if (str && !bNoResources)
+
+	skin.Main_separatorHeight=skin.Main_separatorHeight2=0;
+	if (!bNoResources)
 	{
-		int id=_wtol(str);
-		if (id)
+		str=parser.FindSetting("Main_separator");
+		if (str)
 		{
-			skin.Main_separator=LoadSkinBitmap(hMod,id,0,skin.Main_separator32,0);
-			if (!skin.Main_separator) return false;
-			BITMAP info;
-			GetObject(skin.Main_separator,sizeof(info),&info);
-			skin.Main_separatorHeight=info.bmHeight;
+			int id=_wtol(str);
+			if (id)
+			{
+				skin.Main_separator=LoadSkinBitmap(hMod,id,0,skin.Main_separator32,0);
+				if (!skin.Main_separator) return false;
+				BITMAP info;
+				GetObject(skin.Main_separator,sizeof(info),&info);
+				skin.Main_separatorHeight=info.bmHeight;
+				str=parser.FindSetting("Main_separator_slices_X");
+				if (str)
+				{
+					LoadSkinNumbers(str,skin.Main_separator_slices_X,_countof(skin.Main_separator_slices_X),false);
+				}
+				else
+					memset(skin.Main_separator_slices_X,0,sizeof(skin.Main_separator_slices_X));
+			}
+		}
+
+		str=parser.FindSetting("Main_separator2");
+		if (str)
+		{
+			int id=_wtol(str);
+			if (id)
+			{
+				skin.Main_separator2=LoadSkinBitmap(hMod,id,0,skin.Main_separator232,0);
+				if (!skin.Main_separator2) return false;
+				BITMAP info;
+				GetObject(skin.Main_separator2,sizeof(info),&info);
+				skin.Main_separatorHeight2=info.bmHeight;
+				str=parser.FindSetting("Main_separator_slices_X2");
+				if (str)
+				{
+					LoadSkinNumbers(str,skin.Main_separator_slices_X2,_countof(skin.Main_separator_slices_X2),false);
+				}
+				else
+					memset(skin.Main_separator_slices_X2,0,sizeof(skin.Main_separator_slices_X2));
+			}
+		}
+		else
+		{
+			skin.Main_separator2=skin.Main_separator;
+			skin.Main_separator232=skin.Main_separator32;
+			skin.Main_separatorHeight2=skin.Main_separatorHeight;
+			memcpy(skin.Main_separator_slices_X2,skin.Main_separator_slices_X,sizeof(skin.Main_separator_slices_X2));
+		}
+
+		str=parser.FindSetting("Main_separatorV");
+		if (str)
+		{
+			int id=_wtol(str);
+			if (id)
+			{
+				skin.Main_separatorV=LoadSkinBitmap(hMod,id,0,skin.Main_separatorV32,0);
+				if (!skin.Main_separatorV) return false;
+				BITMAP info;
+				GetObject(skin.Main_separatorV,sizeof(info),&info);
+				skin.Main_separatorWidth=info.bmWidth;
+				str=parser.FindSetting("Main_separator_slices_Y");
+				if (str)
+				{
+					LoadSkinNumbers(str,skin.Main_separator_slices_Y,_countof(skin.Main_separator_slices_Y),false);
+				}
+				else
+					memset(skin.Main_separator_slices_Y,0,sizeof(skin.Main_separator_slices_Y));
+			}
 		}
 	}
-	str=parser.FindSetting("Main_separator_slices_X");
-	if (str)
-	{
-		LoadSkinNumbers(str,skin.Main_separator_slices_X,_countof(skin.Main_separator_slices_X),false);
-	}
-	else
-		memset(skin.Main_separator_slices_X,0,sizeof(skin.Main_separator_slices_X));
 
 	str=parser.FindSetting("Main_icon_padding");
 	if (str)
@@ -587,6 +869,17 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		LoadSkinNumbers(str,(int*)&skin.Main_text_padding,4,false);
 	else
 		skin.Main_text_padding=DEFAULT_TEXT_PADDING;
+
+	str=parser.FindSetting("Main_icon_padding2");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Main_icon_padding2,4,false);
+	else
+		skin.Main_icon_padding2=skin.Main_icon_padding;
+	str=parser.FindSetting("Main_text_padding2");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Main_text_padding2,4,false);
+	else
+		skin.Main_text_padding2=skin.Main_text_padding;
 
 	str=parser.FindSetting("Main_pager");
 	if (str && !bNoResources)
@@ -626,6 +919,39 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	}
 	if (bRTL && skin.Main_pager_arrows)
 		MirrorBitmap(skin.Main_pager_arrows);
+
+	str=parser.FindSetting("User_bitmap");
+	if (str && !bNoResources)
+	{
+		int id=_wtol(str);
+		if (id)
+		{
+			bool b32;
+			skin.User_bitmap=LoadSkinBitmap(hMod,id,0,b32,0);
+			if (!skin.User_bitmap) return false;
+			if (bRTL)
+				MirrorBitmap(skin.User_bitmap);
+		}
+	}
+
+	str=parser.FindSetting("User_frame_position");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.User_frame_position,2,false);
+	else
+		memset(&skin.User_frame_position,0,sizeof(skin.User_frame_position));
+
+	str=parser.FindSetting("User_image_offset");
+	if (str && skin.User_bitmap)
+		LoadSkinNumbers(str,(int*)&skin.User_image_offset,2,false);
+	else
+		skin.User_image_offset.x=skin.User_image_offset.y=2;
+
+	str=parser.FindSetting("User_image_alpha");
+	if (str)
+		skin.User_image_alpha=_wtol(str)&255;
+	else
+		skin.User_image_alpha=255;
+
 
 	// SUB-MENU SECTION - describes the menu portion of the sub-menu
 	str=parser.FindSetting("Submenu_background");
@@ -749,6 +1075,8 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		int q=skin.Submenu_selection_slices_X[0]; skin.Submenu_selection_slices_X[0]=skin.Submenu_selection_slices_X[2]; skin.Submenu_selection_slices_X[2]=q;
 	}
 
+	skin.Submenu_arrow_Size.cx=DEFAULT_ARROW_SIZE;
+	skin.Submenu_arrow_Size.cy=0;
 	str=parser.FindSetting("Submenu_arrow");
 	if (str && !bNoResources)
 	{
@@ -765,6 +1093,12 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 			skin.Submenu_arrow_Size.cy=info.bmHeight/2;
 		}
 	}
+
+	str=parser.FindSetting("Submenu_arrow_padding");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Submenu_arrow_padding,2,false);
+	else
+		skin.Submenu_arrow_padding=DEFAULT_ARROW_PADDING;
 
 	str=parser.FindSetting("Submenu_thin_frame");
 	skin.Submenu_thin_frame=(str && _wtol(str));
@@ -870,10 +1204,11 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 
 bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variation, const std::vector<unsigned int> &options, bool bNoResources )
 {
+	MenuSkin::s_SkinError[0]=0;
 	wchar_t path[_MAX_PATH];
 	GetSkinsPath(path);
 
-	if (_wcsicmp(fname,L"<Default>")==0)
+	if (!*fname || _wcsicmp(fname,L"<Default>")==0)
 	{
 		LoadDefaultMenuSkin(skin,bNoResources);
 		return true;
@@ -892,7 +1227,12 @@ bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variatio
 		Strcat(path,_countof(path),L".skin");
 		HMODULE hMod=LoadLibraryEx(path,NULL,LOAD_LIBRARY_AS_DATAFILE);
 		if (!hMod)
+		{
+			wchar_t err[1024];
+			GetErrorMessage(err,_countof(err),GetLastError());
+			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Error loading %s\n%s",path,err);
 			return false;
+		}
 
 		if (!LoadSkin(hMod,skin,variation,options,bNoResources))
 		{
@@ -902,6 +1242,11 @@ bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variatio
 		}
 
 		FreeLibrary(hMod);
+	}
+	if (skin.version>MAX_SKIN_VERSION)
+	{
+		Strcpy(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"The selected skin is not compatible with this version of the start menu.\r\n");
+		return false;
 	}
 	return true;
 }

@@ -24,6 +24,8 @@ enum TMenuID
 	MENU_LAST=0,
 	MENU_SEPARATOR,
 	MENU_EMPTY,
+	MENU_COLUMN_PADDING,
+	MENU_COLUMN_BREAK,
 
 	// standard menu items
 	MENU_PROGRAMS,
@@ -127,6 +129,7 @@ public:
 		MESSAGE_HANDLER( WM_LBUTTONUP, OnLButtonUp )
 		MESSAGE_HANDLER( WM_RBUTTONDOWN, OnRButtonDown )
 		MESSAGE_HANDLER( WM_RBUTTONUP, OnRButtonUp )
+		MESSAGE_HANDLER( WM_SETCURSOR, OnSetCursor )
 		MESSAGE_HANDLER( WM_CONTEXTMENU, OnContextMenu )
 		MESSAGE_HANDLER( WM_KEYDOWN, OnKeyDown )
 		MESSAGE_HANDLER( WM_CHAR, OnChar )
@@ -142,7 +145,7 @@ public:
 	{
 		CONTAINER_LARGE        = 0x0001, // use large icons
 		CONTAINER_MULTICOLUMN  = 0x0002, // use multiple columns instead of a single scrolling column
-		CONTAINER_NOSUBFOLDERS = 0x0004, // don't go into subfolders (for control panel)
+		CONTAINER_CONTROLPANEL = 0x0004, // this is the control panel, don't go into subfolders
 		CONTAINER_PROGRAMS     = 0x0008, // this is a folder from the Start Menu hierarchy (drop operations prefer link over move)
 		CONTAINER_DOCUMENTS    = 0x0010, // sort by time, limit the count (for recent documents)
 		CONTAINER_LINK         = 0x0020, // this is an expanded link to a folder (always scrolling)
@@ -217,6 +220,7 @@ protected:
 	LRESULT OnLButtonUp( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnRButtonDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnRButtonUp( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnSetCursor( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnChar( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
@@ -238,9 +242,11 @@ private:
 		int column;
 		int row;
 		RECT itemRect;
-		bool bFolder; // this is a folder - draw arrow
-		bool bLink; // this is a link (if a link to a folder is expanded it is always single-column)
-		bool bPrograms; // this item is part of the Start Menu folder hierarchy
+		bool bFolder:1; // this is a folder - draw arrow
+		bool bLink:1; // this is a link (if a link to a folder is expanded it is always single-column)
+		bool bPrograms:1; // this item is part of the Start Menu folder hierarchy
+		bool bAlignBottom:1; // two-column menu: this item is aligned to the bottom
+		bool bBreak:1; // two-column menu: this item starts the second column
 
 		// pair of shell items. 2 items are used to combine a user folder with a common folder (I.E. user programs/common programs)
 		PIDLIST_ABSOLUTE pItem1;
@@ -294,21 +300,23 @@ private:
 	};
 
 	LONG m_RefCount;
+	bool m_bSubMenu;
 	bool m_bRefreshPosted;
 	bool m_bDestroyed; // the menu is destroyed but not yet deleted
 	bool m_bTrackMouse;
 	int m_Options;
 	const StdMenuItem *m_pStdItem; // the first item
 	CMenuContainer *m_pParent; // parent menu
+	int m_ParentIndex; // the index of this menu in the parent (usually matches m_pParent->m_Submenu)
 	int m_Submenu; // the item index of the opened submenu
 	int m_HotItem;
 	int m_InsertMark;
 	bool m_bInsertAfter;
-	int m_ParentIndex; // the index of this menu in the parent (usually matches m_pParent->m_Submenu)
 	CString m_RegName; // name of the registry key to store the item order
 	PIDLIST_ABSOLUTE m_Path1;
 	PIDLIST_ABSOLUTE m_Path2;
 	CComPtr<IShellFolder> m_pDropFolder; // the primary folder (used only as a drop target)
+	CMenuAccessible *m_pAccessible;
 	std::vector<int> m_ColumnOffsets;
 
 	std::vector<MenuItem> m_Items; // all items in the menu (including separators)
@@ -326,16 +334,18 @@ private:
 	int m_HoverItem; // item under the mouse (used for opening a submenu when the mouse hovers over an item)
 	int m_ContextItem; // force this to be the hot item while a context menu is up
 	HBITMAP m_Bitmap; // the background bitmap
-	HBITMAP m_ArrowsBitmap;
-	HBITMAP m_ArrowsBitmapSel;
-	HFONT m_Font;
+	HBITMAP m_ArrowsBitmap[4]; // normal, selected, normal2, selected2
+	HFONT m_Font[2];
 	HRGN m_Region; // the outline region
+	int m_MaxWidth;
+	bool m_bTwoColumns;
 	RECT m_rContent;
-	int m_ItemHeight;
-	int m_MaxItemWidth;
-	int m_IconTopOffset; // offset from the top of the item to the top of the icon
-	int m_TextTopOffset; // offset from the top of the item to the top of the text
-	CMenuAccessible *m_pAccessible;
+	RECT m_rContent2;
+	int m_ItemHeight[2];
+	int m_MaxItemWidth[2];
+	int m_IconTopOffset[2]; // offset from the top of the item to the top of the icon
+	int m_TextTopOffset[2]; // offset from the top of the item to the top of the text
+	RECT m_rUser; // the user image (0,0,0,0 if the user image is not shown)
 
 	int m_ScrollCount; // number of items to scroll in the pager
 	int m_ScrollHeight; // 0 - don't scroll
@@ -383,25 +393,27 @@ private:
 		TIMER_SCROLL=2,
 		TIMER_TOOLTIP_SHOW=3,
 		TIMER_TOOLTIP_HIDE=4,
+		TIMER_BALLOON_HIDE=5,
 
 		MCM_REFRESH=WM_USER+10, // posted to force the container to refresh its contents
 		MCM_SETCONTEXTITEM=WM_USER+11, // sets the item for the context menu. wParam is the nameHash of the item
 
 		// some constants
-		ARROW_SIZE=16, // 16 pixels for the sub-menu arrow
 		SEPARATOR_HEIGHT=8,
 		MIN_SCROLL_HEIGHT=13, // the scroll buttons are at least this tall
 		MAX_MENU_ITEMS=500,
 		MENU_ANIM_SPEED=200,
 		MENU_ANIM_SPEED_SUBMENU=100,
 		MENU_FADE_SPEED=400,
+		USER_PICTURE_SIZE=48,
 	};
 
 	// pPt - optional point in screen space (used only by ACTIVATE_EXECUTE and ACTIVATE_MENU)
 	void ActivateItem( int index, TActivateType type, const POINT *pPt );
+	void RunUserCommand( void );
 	void ShowKeyboardCues( void );
 	void SetActiveWindow( void );
-	void CreateBackground( int width, int height ); // width, height - the content area
+	void CreateBackground( int width1, int width2, int height1, int height2 ); // width1/2, height1/2 - the first and second content area
 	void CreateSubmenuRegion( int width, int height ); // width, height - the content area
 	void PostRefreshMessage( void );
 	void SaveItemOrder( const std::vector<SortMenuItem> &items );
@@ -421,7 +433,7 @@ private:
 	void PlayMenuSound( TMenuSound sound );
 
 	static int s_MaxRecentDocuments; // limit for the number of recent documents
-	static bool s_bScrollMenus; // global scroll menus setting
+	static int s_ScrollMenus; // global scroll menus setting
 	static bool s_bRTL; // RTL layout
 	static bool s_bKeyboardCues; // show keyboard cues
 	static bool s_bExpandRight; // prefer expanding submenus to the right
@@ -443,6 +455,7 @@ private:
 	static HTHEME s_Theme;
 	static HTHEME s_PagerTheme;
 	static CWindow s_Tooltip;
+	static CWindow s_TooltipBaloon;
 	static int s_TipShowTime;
 	static int s_TipHideTime;
 	static int s_TipShowTimeFolder;

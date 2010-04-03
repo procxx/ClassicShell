@@ -22,6 +22,7 @@ const DWORD DEFAULT_EXPAND_SHORTCUTS=1;
 const DWORD DEFAULT_SMALL_ICONS=0;
 const DWORD DEFAULT_THEME=1;
 const DWORD DEFAULT_SCROLL_MENUS=0;
+const DWORD DEFAULT_REPORT_ERRORS=0;
 const DWORD DEFAULT_CONTROLS=(StartMenuSettings::OPEN_CLASSIC*0x00010001)|(StartMenuSettings::OPEN_WINDOWS*0x01000100); // Click and Win open CSM, Shift+Click and Shift+Win open NSM
 
 static HWND g_SettingsDlg;
@@ -38,7 +39,8 @@ static void ReadSettings( HWND hwndDlg, StartMenuSettings &settings )
 	settings.ExpandNetwork=(IsDlgButtonChecked(hwndDlg,IDC_CHECKNETWORK)==BST_CHECKED)?1:0;
 	settings.ExpandPrinters=(IsDlgButtonChecked(hwndDlg,IDC_CHECKPRINTERS)==BST_CHECKED)?1:0;
 	settings.ExpandLinks=(IsDlgButtonChecked(hwndDlg,IDC_CHECKLINKS)==BST_CHECKED)?1:0;
-	settings.ScrollMenus=(IsDlgButtonChecked(hwndDlg,IDC_CHECKSCROLL)==BST_CHECKED)?1:0;
+	settings.ScrollMenus=(DWORD)SendDlgItemMessage(hwndDlg,IDC_COMBOSCROLL,CB_GETCURSEL,0,0);
+	settings.ReportErrors=(IsDlgButtonChecked(hwndDlg,IDC_CHECKERRORS)==BST_CHECKED)?1:0;
 	settings.HotkeyCSM=(DWORD)SendDlgItemMessage(hwndDlg,IDC_HOTKEY,HKM_GETHOTKEY,0,0);
 	settings.HotkeyNSM=(DWORD)SendDlgItemMessage(hwndDlg,IDC_HOTKEYW,HKM_GETHOTKEY,0,0);
 	settings.Controls=(DWORD)SendDlgItemMessage(hwndDlg,IDC_COMBOCLICK,CB_GETCURSEL,0,0);
@@ -104,6 +106,10 @@ void ReadSettings( StartMenuSettings &settings )
 		settings.ExpandLinks=DEFAULT_EXPAND_SHORTCUTS;
 	if (regSettings.QueryDWORDValue(L"ScrollMenus",settings.ScrollMenus)!=ERROR_SUCCESS)
 		settings.ScrollMenus=DEFAULT_SCROLL_MENUS;
+	if (settings.ScrollMenus<0) settings.ScrollMenus=0;
+	if (settings.ScrollMenus>2) settings.ScrollMenus=2;
+	if (regSettings.QueryDWORDValue(L"ReportErrors",settings.ReportErrors)!=ERROR_SUCCESS)
+		settings.ReportErrors=DEFAULT_REPORT_ERRORS;
 	if (regSettings.QueryDWORDValue(L"HotkeyCSM",settings.HotkeyCSM)!=ERROR_SUCCESS)
 		settings.HotkeyCSM=0;
 	if (regSettings.QueryDWORDValue(L"HotkeyNSM",settings.HotkeyNSM)!=ERROR_SUCCESS)
@@ -158,7 +164,7 @@ static void InitSkinVariations( HWND hwndDlg, const wchar_t *var, const std::vec
 	int idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETCURSEL,0,0);
 	SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETLBTEXT,idx,(LPARAM)skinName);
 	MenuSkin skin;
-	if (!LoadMenuSkin(skinName,skin,NULL,options,true) || skin.version>MAX_SKIN_VERSION)
+	if (!LoadMenuSkin(skinName,skin,NULL,options,true))
 	{
 		skin.Variations.clear();
 		skin.Options.clear();
@@ -305,6 +311,10 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 
 		g_SettingsDlg=hwndDlg; // must be after calling ReadSettings
 
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSCROLL,CB_ADDSTRING,0,(LPARAM)L"Don't scroll (use multiple columns)");
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSCROLL,CB_ADDSTRING,0,(LPARAM)L"Scroll (use single column)");
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSCROLL,CB_ADDSTRING,0,(LPARAM)L"Auto (multiple columns if they fit)");
+
 		CheckDlgButton(hwndDlg,IDC_CHECKFAVORITES,settings.ShowFavorites?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKDOCUMENTS,settings.ShowDocuments?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKLOGOFF,settings.ShowLogOff?BST_CHECKED:BST_UNCHECKED);
@@ -313,7 +323,8 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		CheckDlgButton(hwndDlg,IDC_CHECKNETWORK,settings.ExpandNetwork?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKPRINTERS,settings.ExpandPrinters?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKLINKS,settings.ExpandLinks?BST_CHECKED:BST_UNCHECKED);
-		CheckDlgButton(hwndDlg,IDC_CHECKSCROLL,settings.ScrollMenus?BST_CHECKED:BST_UNCHECKED);
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSCROLL,CB_SETCURSEL,settings.ScrollMenus,0);
+		CheckDlgButton(hwndDlg,IDC_CHECKERRORS,settings.ReportErrors?BST_CHECKED:BST_UNCHECKED);
 		SendDlgItemMessage(hwndDlg,IDC_HOTKEY,HKM_SETHOTKEY,settings.HotkeyCSM,0);
 		SendDlgItemMessage(hwndDlg,IDC_HOTKEYW,HKM_SETHOTKEY,settings.HotkeyNSM,0);
 		SendDlgItemMessage(hwndDlg,IDC_HOTKEY,HKM_SETRULES,HKCOMB_NONE|HKCOMB_S|HKCOMB_C,HOTKEYF_CONTROL|HOTKEYF_ALT);
@@ -456,6 +467,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		regSettings.SetDWORDValue(L"ExpandPrinters",settings.ExpandPrinters);
 		regSettings.SetDWORDValue(L"ExpandLinks",settings.ExpandLinks);
 		regSettings.SetDWORDValue(L"ScrollMenus",settings.ScrollMenus);
+		regSettings.SetDWORDValue(L"ReportErrors",settings.ReportErrors);
 		regSettings.SetDWORDValue(L"HotkeyCSM",settings.HotkeyCSM);
 		regSettings.SetDWORDValue(L"HotkeyNSM",settings.HotkeyNSM);
 		regSettings.SetDWORDValue(L"Controls",settings.Controls);

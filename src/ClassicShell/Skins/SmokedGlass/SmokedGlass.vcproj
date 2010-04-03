@@ -18,7 +18,7 @@
 	<Configurations>
 		<Configuration
 			Name="Resource|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			OutputDirectory="$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="2"
 			CharacterSet="1"
@@ -146,11 +146,19 @@
 				>
 			</File>
 			<File
+				RelativePath=".\separatorV.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\SkinDescription.txt"
 				>
 			</File>
 			<File
 				RelativePath=".\SmokedGlass.rc"
+				>
+			</File>
+			<File
+				RelativePath=".\user_bitmap.bmp"
 				>
 			</File>
 		</Filter>

@@ -76,6 +76,8 @@ END
 6                       BITMAP                  "pager_arrows.bmp"
 7                       BITMAP                  "separator.bmp"
 8                       BITMAP                  "separatorV.bmp"
+9                       BITMAP                  "user_bitmap.bmp"
+
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

@@ -58,6 +58,8 @@
 #define IDC_CHECKSHARED                 230
 #define IDC_CHECKSHAREDEXP              231
 #define IDC_SHIELD                      232
+#define IDC_CHECKSHAREDEXP2             233
+#define IDC_CHECKCOPYEXP                233
 #define IDC_STATICFNAME                 1003
 #define IDC_STATICSRCSIZE               1004
 #define IDC_STATICSRCTIME               1005

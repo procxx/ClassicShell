@@ -171,7 +171,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 		int options=CONTAINER_DRAG;
 		if (item.id==MENU_CONTROLPANEL)
-			options|=CONTAINER_NOSUBFOLDERS;
+			options|=CONTAINER_CONTROLPANEL;
 		if (item.id!=MENU_DOCUMENTS && item.id!=MENU_CONTROLPANEL && item.id!=MENU_NETWORK && item.id!=MENU_PRINTERS)
 			options|=CONTAINER_DROP;
 		if (item.id==MENU_DOCUMENTS)
@@ -208,6 +208,26 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		CMenuContainer *pMenu=new CMenuContainer(this,index,options,pSubMenu,item.pItem1,item.pItem2,m_RegName+L"\\"+item.name);
 		pMenu->InitItems();
 
+		RECT itemRect;
+		GetItemRect(index,itemRect);
+		ClientToScreen(&itemRect);
+		RECT border={-s_Skin.Submenu_padding.left+s_Skin.Submenu_offset,-s_Skin.Submenu_padding.top,s_Skin.Submenu_padding.right-s_Skin.Submenu_offset,s_Skin.Submenu_padding.bottom};
+		if (s_bRTL)
+		{
+			// swap and change signs
+			int q=border.left; border.left=-border.right; border.right=-q;
+			// rc.left and rc.right coming from GetItemRect are swapped
+			q=itemRect.left; itemRect.left=itemRect.right; itemRect.right=q;
+		}
+		AdjustWindowRect(&border,s_SubmenuStyle,FALSE);
+
+		if (m_bSubMenu)
+			pMenu->m_MaxWidth=s_MainRect.right-s_MainRect.left;
+		else if (s_bExpandRight)
+			pMenu->m_MaxWidth=s_MainRect.right-itemRect.right-border.left;
+		else
+			pMenu->m_MaxWidth=itemRect.left+border.right-s_MainRect.left;
+
 		DWORD animFlags;
 		{
 			const wchar_t *str=FindSetting("SubMenuAnimation");
@@ -240,40 +260,24 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		RECT rc2;
 		pMenu->GetWindowRect(&rc2);
 
-		RECT border={-s_Skin.Submenu_padding.left+s_Skin.Submenu_offset,-s_Skin.Submenu_padding.top,s_Skin.Submenu_padding.right-s_Skin.Submenu_offset,s_Skin.Submenu_padding.bottom};
-		if (s_bRTL)
-		{
-			int q=border.left; border.left=-border.right; border.right=-q;
-		}
-		AdjustWindowRect(&border,s_SubmenuStyle,FALSE);
-
 		// position new menu
 		int w=rc2.right-rc2.left;
 		int h=rc2.bottom-rc2.top;
 
-		RECT rc;
-		GetItemRect(index,rc);
-		ClientToScreen(&rc);
-		if (s_bRTL)
-		{
-			// rc.left and rc.right coming from TB_GETITEMRECT are swapped
-			int q=rc.left; rc.left=rc.right; rc.right=q;
-		}
-
 		if (s_bExpandRight)
 		{
-			if (rc.right+border.left+w<=s_MainRect.right)
+			if (itemRect.right+border.left+w<=s_MainRect.right)
 			{
 				// right
-				rc2.left=rc.right+border.left;
+				rc2.left=itemRect.right+border.left;
 				rc2.right=rc2.left+w;
 				animFlags|=AW_HOR_POSITIVE;
 				pMenu->m_Options|=CONTAINER_LEFT;
 			}
-			else if (rc.left+border.right-w>=s_MainRect.left)
+			else if (itemRect.left+border.right-w>=s_MainRect.left)
 			{
 				// left
-				rc2.right=rc.left+border.right;
+				rc2.right=itemRect.left+border.right;
 				rc2.left=rc2.right-w;
 				animFlags|=AW_HOR_NEGATIVE;
 			}
@@ -284,7 +288,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				rc2.left=rc2.right-w;
 				if (!s_bRTL)
 				{
-					int minx=m_pParent?s_MainRect.left:(rc.right+border.left);
+					int minx=m_bSubMenu?s_MainRect.left:(itemRect.right+border.left);
 					if (rc2.left<minx)
 					{
 						rc2.left=minx;
@@ -297,17 +301,17 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 		else
 		{
-			if (rc.left+border.right-w>=s_MainRect.left)
+			if (itemRect.left+border.right-w>=s_MainRect.left)
 			{
 				// left
-				rc2.right=rc.left+border.right;
+				rc2.right=itemRect.left+border.right;
 				rc2.left=rc2.right-w;
 				animFlags|=AW_HOR_NEGATIVE;
 			}
-			else if (rc.right+border.left+w<=s_MainRect.right)
+			else if (itemRect.right+border.left+w<=s_MainRect.right)
 			{
 				// right
-				rc2.left=rc.right+border.left;
+				rc2.left=itemRect.right+border.left;
 				rc2.right=rc2.left+w;
 				animFlags|=AW_HOR_POSITIVE;
 				pMenu->m_Options|=CONTAINER_LEFT;
@@ -319,7 +323,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				rc2.right=rc2.left+w;
 				if (s_bRTL)
 				{
-					int maxx=m_pParent?s_MainRect.right:(rc.left+border.right);
+					int maxx=m_bSubMenu?s_MainRect.right:(itemRect.left+border.right);
 					if (rc2.right>maxx)
 					{
 						rc2.left=maxx-w;
@@ -335,16 +339,16 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 		if (bOpenUp)
 		{
-			if (rc.bottom+border.bottom-h>=s_MainRect.top)
+			if (itemRect.bottom+border.bottom-h>=s_MainRect.top)
 			{
 				// up
-				rc2.bottom=rc.bottom+border.bottom;
+				rc2.bottom=itemRect.bottom+border.bottom;
 				rc2.top=rc2.bottom-h;
 			}
-			else if (rc.top+border.top+h<=s_MainRect.bottom)
+			else if (itemRect.top+border.top+h<=s_MainRect.bottom)
 			{
 				// down
-				rc2.top=rc.top+border.top;
+				rc2.top=itemRect.top+border.top;
 				rc2.bottom=rc2.top+h;
 				pMenu->m_Options|=CONTAINER_TOP;
 			}
@@ -357,17 +361,17 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 		else
 		{
-			if (rc.top+border.top+h<=s_MainRect.bottom)
+			if (itemRect.top+border.top+h<=s_MainRect.bottom)
 			{
 				// down
-				rc2.top=rc.top+border.top;
+				rc2.top=itemRect.top+border.top;
 				rc2.bottom=rc2.top+h;
 				pMenu->m_Options|=CONTAINER_TOP;
 			}
-			else if (rc.bottom+border.bottom-h>=s_MainRect.top)
+			else if (itemRect.bottom+border.bottom-h>=s_MainRect.top)
 			{
 				// up
-				rc2.bottom=rc.bottom+border.bottom;
+				rc2.bottom=itemRect.bottom+border.bottom;
 				rc2.top=rc2.bottom-h;
 			}
 			else
@@ -470,6 +474,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 #else
 			EditSettings(true);
 #endif
+			break;
+		case MENU_FEATURES:
+			if (SUCCEEDED(CoCreateInstance(CLSID_Shell,NULL,CLSCTX_SERVER,IID_IShellDispatch2,(void**)&pShellDisp)))
+				pShellDisp->ControlPanelItem(CComBSTR(L"appwiz.cpl"));
 			break;
 		case MENU_SEARCH_FILES: // show the search UI
 			{
@@ -1035,6 +1043,14 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	DestroyMenu(menu);
 }
 
+void CMenuContainer::RunUserCommand( void )
+{
+	wchar_t buf[1024];
+	Strcpy(buf,_countof(buf),FindSetting("UserPictureCommand",L"control nusrmgr.cpl"));
+	DoEnvironmentSubst(buf,_countof(buf));
+	ExecuteCommand(buf);
+}
+
 static DWORD WINAPI FaderThreadProc( void *param )
 {
 	((CMenuFader*)param)->Create();
@@ -1087,7 +1103,7 @@ void CMenuContainer::FadeOutItem( int index )
 	int *slicesX, *slicesY;
 	HBITMAP bmpSel=NULL;
 	bool b32=false;
-	if (m_pParent)
+	if (m_bSubMenu)
 	{
 		// sub-menu
 		if (!s_Skin.Submenu_selectionColor)

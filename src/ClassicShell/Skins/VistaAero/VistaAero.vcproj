@@ -119,7 +119,23 @@
 				>
 			</File>
 			<File
+				RelativePath=".\main_bitmap2.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\main_bitmap_mask.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\main_bitmap_mask2.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\main_bitmap_maskXP.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\main_bitmapXP.bmp"
 				>
 			</File>
 			<File
@@ -131,7 +147,19 @@
 				>
 			</File>
 			<File
+				RelativePath=".\selectionXP.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\separatorXP.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\SkinDescription.txt"
+				>
+			</File>
+			<File
+				RelativePath=".\user_bitmap.bmp"
 				>
 			</File>
 			<File

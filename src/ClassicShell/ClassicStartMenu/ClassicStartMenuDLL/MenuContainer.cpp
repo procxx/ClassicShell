@@ -78,7 +78,7 @@ struct Document
 ///////////////////////////////////////////////////////////////////////////////
 
 int CMenuContainer::s_MaxRecentDocuments=15;
-bool CMenuContainer::s_bScrollMenus=false;
+int CMenuContainer::s_ScrollMenus=0;
 bool CMenuContainer::s_bRTL=false;
 bool CMenuContainer::s_bKeyboardCues=false;
 bool CMenuContainer::s_bExpandRight=true;
@@ -97,6 +97,7 @@ HWND CMenuContainer::s_LastFGWindow;
 HTHEME CMenuContainer::s_Theme;
 HTHEME CMenuContainer::s_PagerTheme;
 CWindow CMenuContainer::s_Tooltip;
+CWindow CMenuContainer::s_TooltipBaloon;
 int CMenuContainer::s_TipShowTime;
 int CMenuContainer::s_TipHideTime;
 int CMenuContainer::s_TipShowTimeFolder;
@@ -116,17 +117,18 @@ std::vector<CMenuFader*> CMenuFader::s_Faders;
 CMenuContainer::CMenuContainer( CMenuContainer *pParent, int index, int options, const StdMenuItem *pStdItem, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName )
 {
 	m_RefCount=1;
+	m_bSubMenu=(index>=0); // this may be true even if pParent is NULL (in case you want to show only sub-menus somewhere, use index=0 and pParent=NULL)
 	m_pParent=pParent;
-	m_ParentIndex=index;
+	m_ParentIndex=pParent?index:-1;
 	m_Options=options;
 	m_pStdItem=pStdItem;
 	m_RegName=regName;
 	m_Bitmap=NULL;
-	m_ArrowsBitmap=NULL;
-	m_ArrowsBitmapSel=NULL;
+	m_ArrowsBitmap[0]=m_ArrowsBitmap[1]=m_ArrowsBitmap[2]=m_ArrowsBitmap[3]=NULL;
 	m_Region=NULL;
 	m_Path1=ILCloneFull(path1);
 	m_Path2=ILCloneFull(path2);
+	m_rUser.left=m_rUser.right=0;
 
 	ATLASSERT(path1 || !path2);
 	if (!s_pDesktop)
@@ -161,8 +163,8 @@ CMenuContainer::~CMenuContainer( void )
 		}
 	}
 	if (m_Bitmap) DeleteObject(m_Bitmap);
-	if (m_ArrowsBitmap) DeleteObject(m_ArrowsBitmap);
-	if (m_ArrowsBitmapSel) DeleteObject(m_ArrowsBitmapSel);
+	for (int i=0;i<_countof(m_ArrowsBitmap);i++)
+		if (m_ArrowsBitmap[i]) DeleteObject(m_ArrowsBitmap[i]);
 	if (m_Region) DeleteObject(m_Region);
 
 	// must be here and not in OnDestroy because during drag/drop a menu can close while still processing messages
@@ -302,7 +304,7 @@ void CMenuContainer::InitItems( void )
 				if (FAILED(pFolder->GetAttributesOf(1,&pidl,&flags)))
 					flags=0;
 				item.bLink=(flags&SFGAO_LINK)!=0;
-				item.bFolder=(!(m_Options&CONTAINER_NOSUBFOLDERS) && (flags&SFGAO_FOLDER) && (!(flags&(SFGAO_STREAM|SFGAO_LINK)) || (s_bExpandLinks && item.bLink)));
+				item.bFolder=(!(m_Options&CONTAINER_CONTROLPANEL) && (flags&SFGAO_FOLDER) && (!(flags&(SFGAO_STREAM|SFGAO_LINK)) || (s_bExpandLinks && item.bLink)));
 				item.bPrograms=(m_Options&CONTAINER_PROGRAMS)!=0;
 
 				m_Items.push_back(item);
@@ -371,7 +373,7 @@ void CMenuContainer::InitItems( void )
 					if (FAILED(pFolder->GetAttributesOf(1,&pidl,&flags)))
 						flags=0;
 					item.bLink=(flags&SFGAO_LINK)!=0;
-					item.bFolder=(!(m_Options&CONTAINER_NOSUBFOLDERS) && (flags&SFGAO_FOLDER) && (!(flags&(SFGAO_STREAM|SFGAO_LINK)) || (s_bExpandLinks && item.bLink)));
+					item.bFolder=(!(m_Options&CONTAINER_CONTROLPANEL) && (flags&SFGAO_FOLDER) && (!(flags&(SFGAO_STREAM|SFGAO_LINK)) || (s_bExpandLinks && item.bLink)));
 					item.bPrograms=(m_Options&CONTAINER_PROGRAMS)!=0;
 
 					m_Items.push_back(item);
@@ -389,7 +391,7 @@ void CMenuContainer::InitItems( void )
 		}
 	}
 
-	if (!m_pParent)
+	if (!m_bSubMenu)
 	{
 		// remove the Programs subfolder from the main menu. it will be added separately
 		PIDLIST_ABSOLUTE progs;
@@ -423,6 +425,18 @@ void CMenuContainer::InitItems( void )
 		m_Items.resize(MAX_MENU_ITEMS);
 	}
 
+	if (m_Options&CONTAINER_CONTROLPANEL)
+	{
+		// expand Administrative Tools. must be done after the sorting because we don't want the folder to jump to the top
+		unsigned int AdminToolsHash=CalcFNVHash(L"::{D20EA4E1-3957-11D2-A40B-0C5020524153}");
+		for (std::vector<MenuItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
+			if (it->nameHash==AdminToolsHash)
+			{
+				it->bFolder=true;
+				break;
+			}
+	}
+
 	m_ScrollCount=(int)m_Items.size();
 
 	if (m_Items.empty() && m_Path1 && m_pDropFolder)
@@ -440,12 +454,15 @@ void CMenuContainer::InitItems( void )
 		if (!m_Items.empty())
 		{
 			MenuItem item={MENU_SEPARATOR};
+			if (m_pStdItem->id==MENU_COLUMN_PADDING)
+				item.bAlignBottom=true;
 			if (m_Options&CONTAINER_ADDTOP)
 				m_Items.insert(m_Items.begin(),item);
 			else
 				m_Items.push_back(item);
 		}
 		size_t menuIdx=(m_Options&CONTAINER_ADDTOP)?0:m_Items.size();
+		bool bBreak=false, bAlignBottom=false;
 		for (const StdMenuItem *pItem=m_pStdItem;pItem->id!=MENU_LAST;pItem++)
 		{
 			int stdOptions=MENU_ENABLED|MENU_EXPANDED;
@@ -458,7 +475,22 @@ void CMenuContainer::InitItems( void )
 
 			if (!(stdOptions&MENU_ENABLED)) continue;
 
+			if (pItem->id==MENU_COLUMN_BREAK)
+			{
+				bBreak=true;
+				continue;
+			}
+			if (pItem->id==MENU_COLUMN_PADDING)
+			{
+				bAlignBottom=true;
+				continue;
+			}
+
 			MenuItem item={pItem->id,pItem};
+
+			item.bBreak=bBreak;
+			item.bAlignBottom=bAlignBottom;
+			bBreak=bAlignBottom=false;
 
 			ATLASSERT(pItem->folder1 || !pItem->folder2);
 			if (pItem->folder1)
@@ -542,7 +574,7 @@ void CMenuContainer::InitItems( void )
 	while (!m_Items.empty() && m_Items[m_Items.size()-1].id==MENU_SEPARATOR)
 		m_Items.pop_back();
 
-	if (m_pParent)
+	if (m_bSubMenu)
 		m_ScrollCount=(int)m_Items.size();
 
 	// find accelerators
@@ -572,49 +604,49 @@ void CMenuContainer::InitItems( void )
 // Calculate the size and create the background bitmaps
 void CMenuContainer::InitWindow( void )
 {
-	if (!m_pParent && !s_Theme && IsAppThemed())
+	m_bTwoColumns=(!m_bSubMenu && s_Skin.bTwoColumns);
+	if (!m_bSubMenu && !s_Theme && IsAppThemed())
 	{
 		s_Theme=OpenThemeData(m_hWnd,L"toolbar");
 		s_PagerTheme=OpenThemeData(m_hWnd,L"scrollbar");
 	}
-	if (!m_pParent && !s_Tooltip.m_hWnd)
+	if (!m_bSubMenu && !s_Tooltip.m_hWnd)
 	{
-		s_Tooltip=CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_TRANSPARENT|(s_bRTL?WS_EX_LAYOUTRTL:0),TOOLTIPS_CLASS,NULL,WS_POPUP,0,0,0,0,NULL,NULL,g_Instance,NULL);
+		s_Tooltip=CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_TRANSPARENT|(s_bRTL?WS_EX_LAYOUTRTL:0),TOOLTIPS_CLASS,NULL,WS_POPUP|TTS_NOPREFIX|TTS_ALWAYSTIP,0,0,0,0,NULL,NULL,g_Instance,NULL);
 		s_Tooltip.SendMessage(TTM_SETMAXTIPWIDTH,0,500);
 		TOOLINFO tool={sizeof(tool),TTF_ABSOLUTE|TTF_TRACK|TTF_TRANSPARENT|(s_bRTL?TTF_RTLREADING:0)};
 		tool.uId=1;
 		s_Tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
 	}
-	if (!m_ArrowsBitmap)
+
 	{
-		unsigned int color=m_pParent?s_Skin.Submenu_arrow_color[0]:s_Skin.Main_arrow_color[0];
-		color=0xFF000000|(color<<16)|(color&0xFF00)|((color>>16)&0xFF);
-		m_ArrowsBitmap=(HBITMAP)LoadImage(g_Instance,MAKEINTRESOURCE(IDB_ARROWS),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
-		BITMAP info;
-		GetObject(m_ArrowsBitmap,sizeof(info),&info);
-		int n=info.bmWidth*info.bmHeight;
-		for (int i=0;i<n;i++)
-			((unsigned int*)info.bmBits)[i]&=color;
-	}
-	if (!m_ArrowsBitmapSel)
-	{
-		unsigned int color=m_pParent?s_Skin.Submenu_arrow_color[1]:s_Skin.Main_arrow_color[1];
-		color=0xFF000000|(color<<16)|(color&0xFF00)|((color>>16)&0xFF);
-		m_ArrowsBitmapSel=(HBITMAP)LoadImage(g_Instance,MAKEINTRESOURCE(IDB_ARROWS),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
-		BITMAP info;
-		GetObject(m_ArrowsBitmapSel,sizeof(info),&info);
-		int n=info.bmWidth*info.bmHeight;
-		for (int i=0;i<n;i++)
-			((unsigned int*)info.bmBits)[i]&=color;
+		unsigned colors[4]={m_bSubMenu?s_Skin.Submenu_arrow_color[0]:s_Skin.Main_arrow_color[0],m_bSubMenu?s_Skin.Submenu_arrow_color[1]:s_Skin.Main_arrow_color[1],s_Skin.Main_arrow_color2[0],s_Skin.Main_arrow_color2[1]};
+		for (int i=0;i<4;i++)
+		{
+			if (!m_ArrowsBitmap[i])
+			{
+				unsigned int color=colors[i];
+				color=0xFF000000|(color<<16)|(color&0xFF00)|((color>>16)&0xFF);
+				m_ArrowsBitmap[i]=(HBITMAP)LoadImage(g_Instance,MAKEINTRESOURCE(IDB_ARROWS),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
+				BITMAP info;
+				GetObject(m_ArrowsBitmap[i],sizeof(info),&info);
+				int n=info.bmWidth*info.bmHeight;
+				for (int p=0;p<n;p++)
+					((unsigned int*)info.bmBits)[p]&=color;
+			}
+		}
 	}
 	// calculate maximum height
 	int maxHeight;
+	int maxWidth=m_MaxWidth;
 	{
 		maxHeight=(s_MainRect.bottom-s_MainRect.top);
 		// adjust for padding
 		RECT rc={0,0,0,0};
 		AdjustWindowRect(&rc,GetWindowLong(GWL_STYLE),FALSE);
-		if (m_pParent)
+		maxWidth-=rc.right-rc.left;
+		maxWidth-=s_Skin.Submenu_padding.left+s_Skin.Submenu_padding.right;
+		if (m_bSubMenu)
 		{
 			maxHeight-=rc.bottom-rc.top;
 			maxHeight-=s_Skin.Submenu_padding.top+s_Skin.Submenu_padding.bottom;
@@ -638,34 +670,67 @@ void CMenuContainer::InitWindow( void )
 	int iconSize=(m_Options&CONTAINER_LARGE)?CIconManager::LARGE_ICON_SIZE:CIconManager::SMALL_ICON_SIZE;
 
 	HDC hdc=CreateCompatibleDC(NULL);
-	m_Font=m_pParent?s_Skin.Submenu_font:s_Skin.Main_font;
-	HFONT font0=(HFONT)SelectObject(hdc,m_Font);
+	m_Font[0]=m_bSubMenu?s_Skin.Submenu_font:s_Skin.Main_font;
+	m_Font[1]=s_Skin.Main_font2;
+	const RECT iconPadding[2]={m_bSubMenu?s_Skin.Submenu_icon_padding:s_Skin.Main_icon_padding,s_Skin.Main_icon_padding2};
+	const RECT textPadding[2]={m_bSubMenu?s_Skin.Submenu_text_padding:s_Skin.Main_text_padding,s_Skin.Main_text_padding2};
+	int arrowSize[2];
+	if (m_bSubMenu)
+		arrowSize[0]=s_Skin.Submenu_arrow_padding.cx+s_Skin.Submenu_arrow_padding.cy+s_Skin.Submenu_arrow_Size.cx;
+	else
+		arrowSize[0]=s_Skin.Main_arrow_padding.cx+s_Skin.Main_arrow_padding.cy+s_Skin.Main_arrow_Size.cx;
+	arrowSize[1]=s_Skin.Main_arrow_padding2.cx+s_Skin.Main_arrow_padding2.cy+s_Skin.Main_arrow_Size2.cx;
+
+	HFONT font0=(HFONT)SelectObject(hdc,m_Font[m_bTwoColumns?1:0]);
 	TEXTMETRIC metrics;
 	GetTextMetrics(hdc,&metrics);
-	const RECT &iconPadding=m_pParent?s_Skin.Submenu_icon_padding:s_Skin.Main_icon_padding;
-	const RECT &textPadding=m_pParent?s_Skin.Submenu_text_padding:s_Skin.Main_text_padding;
-	int textHeight=metrics.tmHeight+textPadding.top+textPadding.bottom;
-	int itemHeight=iconSize+iconPadding.top+iconPadding.bottom;
-	if (itemHeight<textHeight)
+	if (m_bTwoColumns)
 	{
-		m_IconTopOffset=(textHeight-itemHeight)/2;
-		m_TextTopOffset=0;
-		itemHeight=textHeight;
+		int textHeight=metrics.tmHeight+textPadding[1].top+textPadding[1].bottom;
+		int itemHeight=iconSize+iconPadding[1].top+iconPadding[1].bottom;
+		if (itemHeight<textHeight)
+		{
+			m_IconTopOffset[1]=(textHeight-itemHeight)/2;
+			m_TextTopOffset[1]=0;
+			itemHeight=textHeight;
+		}
+		else
+		{
+			m_IconTopOffset[1]=0;
+			m_TextTopOffset[1]=(itemHeight-textHeight)/2;
+		}
+		m_ItemHeight[1]=itemHeight;
+
+		int numChar=_wtol(FindSetting("MaxMenuWidth",L"80"));
+		m_MaxItemWidth[1]=numChar?metrics.tmAveCharWidth*numChar:65536;
+		SelectObject(hdc,m_Font[0]);
+		GetTextMetrics(hdc,&metrics);
 	}
-	else
 	{
-		m_IconTopOffset=0;
-		m_TextTopOffset=(itemHeight-textHeight)/2;
+		int textHeight=metrics.tmHeight+textPadding[0].top+textPadding[0].bottom;
+		int itemHeight=iconSize+iconPadding[0].top+iconPadding[0].bottom;
+		if (itemHeight<textHeight)
+		{
+			m_IconTopOffset[0]=(textHeight-itemHeight)/2;
+			m_TextTopOffset[0]=0;
+			itemHeight=textHeight;
+		}
+		else
+		{
+			m_IconTopOffset[0]=0;
+			m_TextTopOffset[0]=(itemHeight-textHeight)/2;
+		}
+		m_ItemHeight[0]=itemHeight;
+
+		int numChar=_wtol(FindSetting("MaxMenuWidth",L"80"));
+		m_MaxItemWidth[0]=numChar?metrics.tmAveCharWidth*numChar:65536;
 	}
-	m_ItemHeight=itemHeight;
-	int numChar=_wtol(FindSetting("MaxMenuWidth",L"80"));
-	m_MaxItemWidth=numChar?metrics.tmAveCharWidth*numChar:65536;
-	m_ScrollButtonSize=itemHeight/2;
+	m_ScrollButtonSize=m_ItemHeight[0]/2;
 	if (m_ScrollButtonSize<MIN_SCROLL_HEIGHT) m_ScrollButtonSize=MIN_SCROLL_HEIGHT;
 
 	int sepHeight=SEPARATOR_HEIGHT;
 	
-	if (m_pParent)
+	if (m_bSubMenu)
 	{
 		if (s_Skin.Submenu_separator) sepHeight=s_Skin.Submenu_separatorHeight;
 	}
@@ -678,17 +743,32 @@ void CMenuContainer::InitWindow( void )
 	std::vector<int> columnWidths;
 	columnWidths.push_back(0);
 
-	bool bMultiColumn=!s_bScrollMenus && (m_Options&CONTAINER_MULTICOLUMN);
+	bool bMultiColumn=s_ScrollMenus!=1 && (m_Options&CONTAINER_MULTICOLUMN);
 
 	{
 		int row=0, column=0;
 		int y=0;
 		int maxw=0;
+		int index=0;
 		for (size_t i=0;i<m_Items.size();i++)
 		{
 			MenuItem &item=m_Items[i];
+			if (m_bTwoColumns && column==0 && i>0 && m_Items[i].bBreak)
+			{
+				// start a new column
+				column++;
+				columnWidths.push_back(0);
+				row=0;
+				y=0;
+				index=1;
+				SelectObject(hdc,m_Font[1]);
+			}
 			int w=0, h=0;
-			if (item.id==MENU_SEPARATOR)
+			if (!s_bShowTopEmpty && !m_bSubMenu && i==0 && m_Items[0].id==MENU_EMPTY)
+			{
+				h=0; // this is the first (Empty) item in the top menu. hide it for now
+			}
+			else if (item.id==MENU_SEPARATOR)
 			{
 				if (y==0)
 					h=0; // ignore separators at the top of the column
@@ -697,11 +777,11 @@ void CMenuContainer::InitWindow( void )
 			}
 			else
 			{
-				h=itemHeight;
+				h=m_ItemHeight[index];
 				SIZE size;
 				if (GetTextExtentPoint32(hdc,item.name,item.name.GetLength(),&size))
 					w=size.cx;
-				w+=iconSize+iconPadding.left+iconPadding.right+textPadding.left+textPadding.right+ARROW_SIZE;
+				w+=iconSize+iconPadding[index].left+iconPadding[index].right+textPadding[index].left+textPadding[index].right+arrowSize[index];
 			}
 			if (bMultiColumn && y>0 && y+h>maxHeight)
 			{
@@ -716,7 +796,7 @@ void CMenuContainer::InitWindow( void )
 					y=0;
 				}
 			}
-			if (w>m_MaxItemWidth) w=m_MaxItemWidth;
+			if (w>m_MaxItemWidth[index]) w=m_MaxItemWidth[index];
 			if (columnWidths[column]<w) columnWidths[column]=w;
 			item.row=row;
 			item.column=column;
@@ -732,8 +812,11 @@ void CMenuContainer::InitWindow( void )
 	SelectObject(hdc,font0);
 	DeleteDC(hdc);
 
+	if (columnWidths.size()==1)
+		m_bTwoColumns=false;
+
 	// calculate width of each column
-	if (FindSettingBool("SameSizeColumns",true))
+	if (!m_bTwoColumns && FindSettingBool("SameSizeColumns",true))
 	{
 		int maxw=0;
 		for (size_t i=0;i<columnWidths.size();i++)
@@ -742,6 +825,48 @@ void CMenuContainer::InitWindow( void )
 		for (size_t i=0;i<columnWidths.size();i++)
 			columnWidths[i]=maxw;
 	}
+
+	if (s_ScrollMenus==2 && columnWidths.size()>1 && m_bSubMenu)
+	{
+		// auto - determine if we should have 1 column or many
+		int width=0;
+		for (size_t i=0;i<columnWidths.size();i++)
+		{
+			if (i>0) width+=s_Skin.Submenu_separatorWidth;
+			width+=columnWidths[i];
+		}
+		if (width>maxWidth)
+		{
+			bMultiColumn=false;
+			// the columns don't fit on screen, switch to one scrollable column
+			int y=0;
+			columnWidths.resize(1);
+			columnWidths[0]=0;
+			for (size_t i=0;i<m_Items.size();i++)
+			{
+				MenuItem &item=m_Items[i];
+				int h=0;
+				if (item.id==MENU_SEPARATOR)
+				{
+					if (y==0)
+						h=0; // ignore separators at the top of the column
+					else
+						h=sepHeight;
+				}
+				else
+				{
+					h=m_ItemHeight[0];
+				}
+				if (columnWidths[0]<item.itemRect.right) columnWidths[0]=item.itemRect.right;
+				item.row=(int)i;
+				item.column=0;
+				item.itemRect.top=y;
+				item.itemRect.bottom=y+h;
+				y+=h;
+			}
+		}
+	}
+
 	// calculate the horizontal position of each item
 	int maxw=0;
 	int maxh=0;
@@ -776,14 +901,21 @@ void CMenuContainer::InitWindow( void )
 	}
 
 	int totalWidth, totalHeight;
+	memset(&m_rContent2,0,sizeof(m_rContent2));
 	{
-		int w=maxw;
-		int h=(maxh<maxHeight?maxh:maxHeight);
-		if (!m_pParent)
+		int w1=maxw, w2=0;
+		int h1=(maxh<maxHeight?maxh:maxHeight), h2=0;
+		if (m_bTwoColumns && columnWidths.size()>2)
 		{
-			if (s_Skin.Main_bitmap)
+			w1=columnWidths[0];
+			w2=columnWidths[1];
+			h2=m_Items[m_Items.size()-1].itemRect.bottom;
+		}
+		if (!m_bSubMenu)
+		{
+			if (s_Skin.Main_bitmap || s_Skin.User_frame_position.x || s_Skin.User_frame_position.y || m_bTwoColumns)
 			{
-				CreateBackground(w,h);
+				CreateBackground(w1,w2,h1,h2);
 				BITMAP info;
 				GetObject(m_Bitmap,sizeof(info),&info);
 				totalWidth=info.bmWidth;
@@ -793,27 +925,73 @@ void CMenuContainer::InitWindow( void )
 			{
 				m_rContent.left=s_Skin.Main_padding.left;
 				m_rContent.top=s_Skin.Main_padding.top;
-				m_rContent.right=s_Skin.Main_padding.left+w;
-				m_rContent.bottom=s_Skin.Main_padding.top+h;
-				totalWidth=s_Skin.Main_padding.left+s_Skin.Main_padding.right+w;
-				totalHeight=s_Skin.Main_padding.top+s_Skin.Main_padding.bottom+h;
+				m_rContent.right=s_Skin.Main_padding.left+w1;
+				m_rContent.bottom=s_Skin.Main_padding.top+h1;
+				totalWidth=s_Skin.Main_padding.left+s_Skin.Main_padding.right+w1;
+				totalHeight=s_Skin.Main_padding.top+s_Skin.Main_padding.bottom+h1;
 			}
 		}
 		else
 		{
 			if (s_Skin.Submenu_bitmap)
-				CreateSubmenuRegion(w,h);
+				CreateSubmenuRegion(w1,h1);
 
 			m_rContent.left=s_Skin.Submenu_padding.left;
 			m_rContent.top=s_Skin.Submenu_padding.top;
-			m_rContent.right=s_Skin.Submenu_padding.left+w;
-			m_rContent.bottom=s_Skin.Submenu_padding.top+h;
-			totalWidth=s_Skin.Submenu_padding.left+s_Skin.Submenu_padding.right+w;
-			totalHeight=s_Skin.Submenu_padding.top+s_Skin.Submenu_padding.bottom+h;
+			m_rContent.right=s_Skin.Submenu_padding.left+w1;
+			m_rContent.bottom=s_Skin.Submenu_padding.top+h1;
+			totalWidth=s_Skin.Submenu_padding.left+s_Skin.Submenu_padding.right+w1;
+			totalHeight=s_Skin.Submenu_padding.top+s_Skin.Submenu_padding.bottom+h1;
 		}
 		// offset the items
 		for (size_t i=0;i<m_Items.size();i++)
-			OffsetRect(&m_Items[i].itemRect,m_rContent.left,m_rContent.top);
+		{
+			int dx=m_rContent.left;
+			int dy=m_rContent.top;
+			if (m_bTwoColumns && m_Items[i].column==1)
+			{
+				dx=m_rContent2.left-m_Items[i].itemRect.left;
+				dy=m_rContent2.top;
+			}
+			OffsetRect(&m_Items[i].itemRect,dx,dy);
+		}
+
+		if (m_bTwoColumns && columnWidths.size()>2)
+		{
+			int dh1=0, dh2=0;
+			for (size_t i=0;i<m_Items.size();i++)
+			{
+				if (m_Items[i].column==0)
+					dh1=m_Items[i].itemRect.bottom;
+				else
+					dh2=m_Items[i].itemRect.bottom;
+			}
+			m_rContent.bottom=totalHeight-s_Skin.Main_padding.bottom;
+			m_rContent2.bottom=totalHeight-s_Skin.Main_padding2.bottom;
+			dh1=m_rContent.bottom-dh1;
+			if (dh1<0) dh1=0;
+			dh2=m_rContent2.bottom-dh2;
+			if (dh2<0) dh2=0;
+
+			bool bAlign1=false, bAlign2=false;
+			for (size_t i=0;i<m_Items.size();i++)
+			{
+				if (m_Items[i].column==0)
+				{
+					if (m_Items[i].bAlignBottom)
+						bAlign1=true;
+					if (bAlign1)
+						OffsetRect(&m_Items[i].itemRect,0,dh1);
+				}
+				else
+				{
+					if (m_Items[i].bAlignBottom)
+						bAlign2=true;
+					if (bAlign2)
+						OffsetRect(&m_Items[i].itemRect,0,dh2);
+				}
+			}
+		}
 	}
 
 	// create pager
@@ -821,7 +999,8 @@ void CMenuContainer::InitWindow( void )
 	{
 		int d=maxh-maxHeight;
 		for (size_t i=m_ScrollCount;i<m_Items.size();i++)
-			OffsetRect(&m_Items[i].itemRect,0,-d);
+			if (m_Items[i].column==0)
+				OffsetRect(&m_Items[i].itemRect,0,-d);
 
 		std::map<unsigned int,int>::iterator it=s_MenuScrolls.find(CalcFNVHash(m_RegName));
 		if (it!=s_MenuScrolls.end())
@@ -846,7 +1025,7 @@ void CMenuContainer::InitWindow( void )
 	SetWindowPos(NULL,&rc,SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOCOPYBITS|SWP_DEFERERASE);
 
 	// for some reason the region must be set after the call to SetWindowPos. otherwise it doesn't work for RTL windows
-	if (m_Region && (m_pParent?s_Skin.Submenu_opacity:s_Skin.Main_opacity)==MenuSkin::OPACITY_REGION)
+	if (m_Region && (m_bSubMenu?s_Skin.Submenu_opacity:s_Skin.Main_opacity)==MenuSkin::OPACITY_REGION)
 	{
 		if (SetWindowRgn(m_Region))
 			m_Region=NULL; // the OS takes ownership of the region, no need to free
@@ -858,6 +1037,32 @@ void CMenuContainer::InitWindow( void )
 	m_HotItem=-1;
 	m_Submenu=-1;
 	m_MouseWheel=0;
+
+	if (!m_bSubMenu)
+	{
+		TOOLINFO tool={sizeof(tool),TTF_SUBCLASS|TTF_TRANSPARENT|(s_bRTL?TTF_RTLREADING:0)};
+		tool.hwnd=m_hWnd;
+		tool.uId=2;
+		if (m_rUser.left<m_rUser.right)
+		{
+			tool.rect=m_rUser;
+
+			// construct the text Log Off <username>...
+			wchar_t user[256]={0};
+			ULONG size=_countof(user);
+			if (!GetUserNameEx(NameDisplay,user,&size))
+			{
+				// GetUserNameEx may fail (for example on Home editions). use the login name
+				DWORD size=_countof(user);
+				GetUserName(user,&size);
+			}
+			tool.lpszText=user;
+
+			s_Tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
+		}
+		else
+			s_Tooltip.SendMessage(TTM_DELTOOL,0,(LPARAM)&tool);
+	}
 }
 
 void CMenuContainer::UpdateScroll( void )
@@ -919,13 +1124,13 @@ void CMenuContainer::UpdateScroll( const POINT *pt )
 
 LRESULT CMenuContainer::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	MenuSkin::TOpacity opacity=(m_pParent?s_Skin.Submenu_opacity:s_Skin.Main_opacity);
+	MenuSkin::TOpacity opacity=(m_bSubMenu?s_Skin.Submenu_opacity:s_Skin.Main_opacity);
 	if (opacity==MenuSkin::OPACITY_ALPHA || opacity==MenuSkin::OPACITY_FULLALPHA)
 	{
 		MARGINS margins={-1};
 		DwmExtendFrameIntoClientArea(m_hWnd,&margins);
 	}
-	if (!m_pParent)
+	if (!m_bSubMenu)
 		BufferedPaintInit();
 	InitWindow();
 	m_HotPos=GetMessagePos();
@@ -937,7 +1142,7 @@ LRESULT CMenuContainer::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 	else
 		m_pAccessible=NULL;
 	RegisterDragDrop(m_hWnd,this);
-	PlayMenuSound(m_pParent?SOUND_POPUP:SOUND_MAIN);
+	PlayMenuSound(m_bSubMenu?SOUND_POPUP:SOUND_MAIN);
 	return 0;
 }
 
@@ -1100,7 +1305,7 @@ void CMenuContainer::SetActiveWindow( void )
 {
 	if (GetActiveWindow()!=m_hWnd)
 		::SetActiveWindow(m_hWnd);
-	if (!m_pParent && s_bBehindTaskbar)
+	if (!m_bSubMenu && s_bBehindTaskbar)
 		SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE); // make sure the top menu stays behind the taskbar
 }
 
@@ -1138,18 +1343,18 @@ LRESULT CMenuContainer::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 	}
 	if (wParam==TIMER_SCROLL)
 	{
-		int speed=_wtol(FindSetting(m_pParent?"SubMenuScrollSpeed":"MainMenuScrollSpeed",L"3"));
+		int speed=_wtol(FindSetting(m_bSubMenu?"SubMenuScrollSpeed":"MainMenuScrollSpeed",L"3"));
 		if (speed<1) speed=1;
 		if (speed>20) speed=20;
 		int scroll=m_ScrollOffset;
 		if (m_bScrollUp && m_bScrollUpHot)
 		{
-			scroll-=m_ItemHeight*speed/6;
+			scroll-=m_ItemHeight[0]*speed/6;
 			if (scroll<0) scroll=0;
 		}
 		else if (m_bScrollDown && m_bScrollDownHot)
 		{
-			scroll+=m_ItemHeight*speed/6;
+			scroll+=m_ItemHeight[0]*speed/6;
 			int total=m_Items[m_ScrollCount-1].itemRect.bottom-m_rContent.top-m_ScrollHeight;
 			if (scroll>total) scroll=total;
 		}
@@ -1229,7 +1434,16 @@ LRESULT CMenuContainer::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 		TOOLINFO tool={sizeof(tool),TTF_ABSOLUTE|TTF_TRACK|TTF_TRANSPARENT};
 		tool.uId=1;
 		s_Tooltip.SendMessage(TTM_TRACKACTIVATE,FALSE,(LPARAM)&tool);
+		KillTimer(TIMER_TOOLTIP_HIDE);
 		return 0;
+	}
+	if (wParam==TIMER_BALLOON_HIDE)
+	{
+		TOOLINFO tool={sizeof(tool)};
+		tool.uId=1;
+		if (s_TooltipBaloon.m_hWnd)
+			s_TooltipBaloon.SendMessage(TTM_TRACKACTIVATE,FALSE,(LPARAM)&tool);
+		KillTimer(TIMER_BALLOON_HIDE);
 	}
 	return 0;
 }
@@ -1269,26 +1483,41 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 	if (wParam==VK_UP)
 	{
 		// previous item
-		if (index<0) index=0;
+		if (index<0)
+		{
+			index=0;
+			if (m_bTwoColumns)
+			{
+				for (int i=0;i<(int)m_Items.size();i++)
+				{
+					if (m_Items[i].column==1)
+					{
+						index=i;
+						break;
+					}
+				}
+			}
+		}
 		// skip separators and the (Empty) item in the top menu if hidden
-		while (m_Items[index].id==MENU_SEPARATOR || (!m_pParent && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY))
+		while (m_Items[index].id==MENU_SEPARATOR || (!m_bSubMenu && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY))
 			index=(index+n-1)%n;
 		index=(index+n-1)%n;
-		while (m_Items[index].id==MENU_SEPARATOR || (!m_pParent && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY))
+		while (m_Items[index].id==MENU_SEPARATOR || (!m_bSubMenu && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY))
 			index=(index+n-1)%n;
 		ActivateItem(index,ACTIVATE_SELECT,NULL);
 	}
 	if (wParam==VK_DOWN)
 	{
 		// next item
-		while (index>=0 && (m_Items[index].id==MENU_SEPARATOR || (!m_pParent && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY)))
+		while (index>=0 && (m_Items[index].id==MENU_SEPARATOR || (!m_bSubMenu && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY)))
 			index=(index+1)%n;
 		index=(index+1)%n;
-		while (m_Items[index].id==MENU_SEPARATOR || (!m_pParent && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY))
+		while (m_Items[index].id==MENU_SEPARATOR || (!m_bSubMenu && !s_bShowTopEmpty && m_Items[index].id==MENU_EMPTY))
 			index=(index+1)%n;
 		ActivateItem(index,ACTIVATE_SELECT,NULL);
 	}
-	if (wParam==VK_ESCAPE || (wParam==VK_LEFT && !s_bRTL) || (wParam==VK_RIGHT && s_bRTL))
+	bool bBack=((wParam==VK_LEFT && !s_bRTL) || (wParam==VK_RIGHT && s_bRTL));
+	if (wParam==VK_ESCAPE || (bBack && s_Menus.size()>1))
 	{
 		// close top menu
 		if (!s_Menus[s_Menus.size()-1]->m_bDestroyed)
@@ -1301,7 +1530,31 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 			s_TaskbarState&=~ABS_AUTOHIDE;
 		}
 	}
-	if (wParam==VK_RETURN || (wParam==VK_RIGHT && !s_bRTL) || (wParam==VK_LEFT && s_bRTL))
+	else if (bBack && s_Menus.size()==1 && m_bTwoColumns && index>=0)
+	{
+		int column=m_Items[index].column?0:1;
+		int y0=(m_Items[index].itemRect.top+m_Items[index].itemRect.bottom)/2;
+		int dist=INT_MAX;
+		index=-1;
+		for (size_t i=0;i<m_Items.size();i++)
+		{
+			if (m_Items[i].id!=MENU_SEPARATOR && m_Items[i].column==column)
+			{
+				int y=(m_Items[i].itemRect.top+m_Items[i].itemRect.bottom)/2;
+				int d=abs(y-y0);
+				if (dist>d)
+				{
+					index=(int)i;
+					dist=d;
+				}
+			}
+		}
+		if (index>=0)
+			ActivateItem(index,ACTIVATE_SELECT,NULL);
+	}
+
+	bool bForward=((wParam==VK_RIGHT && !s_bRTL) || (wParam==VK_LEFT && s_bRTL));
+	if (wParam==VK_RETURN || bForward)
 	{
 		// open submenu
 		if (index>=0)
@@ -1310,6 +1563,27 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 				ActivateItem(index,ACTIVATE_OPEN_KBD,NULL);
 			else if (wParam==VK_RETURN)
 				ActivateItem(index,ACTIVATE_EXECUTE,NULL);
+			else if (bForward && m_bTwoColumns && m_Items[index].column==0)
+			{
+				int y0=(m_Items[index].itemRect.top+m_Items[index].itemRect.bottom)/2;
+				int dist=INT_MAX;
+				index=-1;
+				for (size_t i=0;i<m_Items.size();i++)
+				{
+					if (m_Items[i].id!=MENU_SEPARATOR && m_Items[i].column==1)
+					{
+						int y=(m_Items[i].itemRect.top+m_Items[i].itemRect.bottom)/2;
+						int d=abs(y-y0);
+						if (dist>d)
+						{
+							index=(int)i;
+							dist=d;
+						}
+					}
+				}
+				if (index>=0)
+					ActivateItem(index,ACTIVATE_SELECT,NULL);
+			}
 		}
 	}
 	return 0;
@@ -1382,7 +1656,7 @@ LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		s_HotItem=-1;
 	}
 	m_bDestroyed=true;
-	if (!m_pParent)
+	if (this==s_Menus[0])
 	{
 		// cleanup when the last menu is closed
 		if (s_Theme)
@@ -1394,6 +1668,7 @@ LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		if (s_Tooltip.m_hWnd)
 			s_Tooltip.DestroyWindow();
 		s_Tooltip.m_hWnd=NULL;
+		s_TooltipBaloon.m_hWnd=NULL; // the balloon tooltip is owned, no need to be destroyed
 		s_pHotMenu=NULL;
 		s_HotItem=-1;
 		EnableStartTooltip(true);
@@ -1547,7 +1822,7 @@ LRESULT CMenuContainer::OnMouseWheel( UINT uMsg, WPARAM wParam, LPARAM lParam, B
 	int n=m_MouseWheel/WHEEL_DELTA;
 	m_MouseWheel-=n*WHEEL_DELTA;
 	int scroll=m_ScrollOffset;
-	scroll-=n*m_ItemHeight;
+	scroll-=n*m_ItemHeight[0];
 	if (scroll<0) scroll=0;
 	int total=m_Items[m_ScrollCount-1].itemRect.bottom-m_rContent.top-m_ScrollHeight;
 	if (scroll>total) scroll=total;
@@ -1602,8 +1877,24 @@ LRESULT CMenuContainer::OnLButtonDown( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 			SetFocus();
 		POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
 		m_ClickIndex=-1;
+		if (m_rUser.left<m_rUser.right && PtInRect(&m_rUser,pt))
+		{
+			RunUserCommand();
+		}
 		int index=HitTest(pt);
-		if (index<0) return 0;
+		if (index<0)
+		{
+			if (m_Submenu>=0)
+			{
+				SetActiveWindow(); // must be done before the children are destroyed
+				// close all child menus
+				for (size_t i=s_Menus.size()-1;s_Menus[i]!=this;i--)
+					if (!s_Menus[i]->m_bDestroyed)
+						s_Menus[i]->DestroyWindow();
+				SetHotItem(-1); // must be done after the children are destroyed
+			}
+			return 0;
+		}
 		const MenuItem &item=m_Items[index];
 		if (item.id==MENU_SEPARATOR) return 0;
 		m_ClickIndex=index;
@@ -1638,6 +1929,7 @@ LRESULT CMenuContainer::OnLButtonUp( UINT uMsg, WPARAM wParam, LPARAM lParam, BO
 		SetHotItem(-1);
 		return 0;
 	}
+	if (index<0) return 0;
 	const MenuItem &item=m_Items[index];
 	ClientToScreen(&pt);
 	if (!item.bFolder)
@@ -1671,10 +1963,28 @@ LRESULT CMenuContainer::OnRButtonUp( UINT uMsg, WPARAM wParam, LPARAM lParam, BO
 	ReleaseCapture();
 	POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
 	int index=HitTest(pt);
+	if (index<0) return 0;
 	const MenuItem &item=m_Items[index];
 	if (item.id==MENU_SEPARATOR) return 0;
 	ClientToScreen(&pt);
 	ActivateItem(index,ACTIVATE_MENU,&pt);
+	return 0;
+}
+
+LRESULT CMenuContainer::OnSetCursor( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	if (m_rUser.left<m_rUser.right)
+	{
+		DWORD pos=GetMessagePos();
+		POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
+		ScreenToClient(&pt);
+		if (PtInRect(&m_rUser,pt))
+		{
+			SetCursor(LoadCursor(NULL,IDC_HAND));
+			return TRUE;
+		}
+	}
+	bHandled=FALSE;
 	return 0;
 }
 
@@ -1859,10 +2169,11 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	StartMenuSettings settings;
 	ReadSettings(settings);
 
-	if (!LoadMenuSkin(settings.SkinName,s_Skin,settings.SkinVariation,settings.SkinOptions,false) || s_Skin.version>MAX_SKIN_VERSION)
+	bool bErr=!LoadMenuSkin(settings.SkinName,s_Skin,settings.SkinVariation,settings.SkinOptions,false);
+	if (bErr)
 		LoadDefaultMenuSkin(s_Skin,false);
 
-	s_bScrollMenus=(settings.ScrollMenus!=0);
+	s_ScrollMenus=settings.ScrollMenus;
 	s_bExpandLinks=(settings.ExpandLinks!=0);
 	s_MaxRecentDocuments=_wtol(FindSetting("MaxRecentDocuments",L"15"));
 	s_ShellFormat=RegisterClipboardFormat(CFSTR_SHELLIDLIST);
@@ -2166,10 +2477,20 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	{
 		// no caption
 		s_Skin.Main_padding.left+=margin.left; if (s_Skin.Main_padding.left<0) s_Skin.Main_padding.left=0;
+		if (s_Skin.Main_padding2.left>=0)
+		{
+			s_Skin.Main_padding2.left+=margin.left; if (s_Skin.Main_padding2.left<0) s_Skin.Main_padding2.left=0;
+		}
 	}
 	s_Skin.Main_padding.right-=margin.right; if (s_Skin.Main_padding.right<0) s_Skin.Main_padding.right=0;
 	s_Skin.Main_padding.top+=margin.top; if (s_Skin.Main_padding.top<0) s_Skin.Main_padding.top=0;
 	s_Skin.Main_padding.bottom-=margin.bottom; if (s_Skin.Main_padding.bottom<0) s_Skin.Main_padding.bottom=0;
+	if (s_Skin.Main_padding2.left>=0)
+	{
+		s_Skin.Main_padding2.right-=margin.right; if (s_Skin.Main_padding2.right<0) s_Skin.Main_padding2.right=0;
+		s_Skin.Main_padding2.top+=margin.top; if (s_Skin.Main_padding2.top<0) s_Skin.Main_padding2.top=0;
+		s_Skin.Main_padding2.bottom-=margin.bottom; if (s_Skin.Main_padding2.bottom<0) s_Skin.Main_padding2.bottom=0;
+	}
 
 	if (!bTheme)
 		memset(&margin,0,sizeof(margin)); // in Classic mode don't offset the main menu by the border size
@@ -2245,6 +2566,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	if (rootSettings&StdMenuItem::MENU_SORTONCE) options|=CONTAINER_SORTONCE;
 	CMenuContainer *pStartMenu=new CMenuContainer(NULL,-1,options,pRoot,path1,path2,L"Software\\IvoSoft\\ClassicStartMenu\\Order");
 	pStartMenu->InitItems();
+	pStartMenu->m_MaxWidth=s_MainRect.right-s_MainRect.left;
 	ILFree(path1);
 	ILFree(path2);
 
@@ -2280,6 +2602,27 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard )
 	SetForegroundWindow(pStartMenu->m_hWnd);
 	if (s_bBehindTaskbar)
 		::SetWindowPos(startButton,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+
+	if (bErr && settings.ReportErrors && !*MenuSkin::s_SkinError)
+		Strcpy(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Unknown error.\r\n");
+	if (*MenuSkin::s_SkinError && settings.ReportErrors)
+	{
+		Strcat(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"\r\nYou can disable this popup from the settings.");
+		s_TooltipBaloon=CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|(s_bRTL?WS_EX_LAYOUTRTL:0),TOOLTIPS_CLASS,NULL,WS_POPUP|TTS_BALLOON|TTS_CLOSE|TTS_NOPREFIX,0,0,0,0,pStartMenu->m_hWnd,NULL,g_Instance,NULL);
+		s_TooltipBaloon.SendMessage(TTM_SETMAXTIPWIDTH,0,500);
+		TOOLINFO tool={sizeof(tool),TTF_TRANSPARENT|TTF_TRACK|(s_bRTL?TTF_RTLREADING:0)};
+		tool.uId=1;
+		tool.lpszText=MenuSkin::s_SkinError;
+		s_TooltipBaloon.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
+		if (bErr)
+			s_TooltipBaloon.SendMessage(TTM_SETTITLE,TTI_ERROR,(LPARAM)L"Skin Error");
+		else
+			s_TooltipBaloon.SendMessage(TTM_SETTITLE,TTI_WARNING,(LPARAM)L"Skin Warning");
+		::GetWindowRect(g_StartButton,&rc);
+		s_TooltipBaloon.SendMessage(TTM_TRACKPOSITION,0,MAKELONG((rc.left+rc.right)/2,(rc.top+rc.bottom)/2));
+		s_TooltipBaloon.SendMessage(TTM_TRACKACTIVATE,TRUE,(LPARAM)&tool);
+		pStartMenu->SetTimer(TIMER_BALLOON_HIDE,10000);
+	}
 
 	return pStartMenu->m_hWnd;
 }

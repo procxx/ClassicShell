@@ -61,16 +61,27 @@ HRESULT CShareOverlay::_InternalQueryInterface( REFIID iid, void** ppvObject )
 
 STDMETHODIMP CShareOverlay::IsMemberOf( LPCWSTR pwszPath, DWORD dwAttrib )
 {
-	// must use IShellFolder::ParseDisplayName instead of SHGetFileInfo because SHGetFileInfo gives the wrong result for some system folders
-	PIDLIST_RELATIVE pidl;
-	ULONG attrib=SFGAO_SHARE;
-	if (m_pDesktop && SUCCEEDED(m_pDesktop->ParseDisplayName(NULL,NULL,(LPWSTR)pwszPath,NULL,&pidl,&attrib)))
+	// must use IShellFolder::GetAttributesOf to get the correct attributes instead of SHGetFileInfo or IShellFolder::ParseDisplayName
+	// SHGetFileInfo gives the wrong result for some system folders like %userprofile%\Desktop (on Windows7 and Vista)
+	// IShellFolder::ParseDisplayName returns the wrong attributes for the contents of the Recycle Bin (on Windows7 only)
+	PIDLIST_RELATIVE pidl=NULL;
+	HRESULT res=S_FALSE;
+	if (m_pDesktop)
 	{
-		ILFree(pidl);
-		if (attrib&SFGAO_SHARE)
-			return S_OK;
+		if (SUCCEEDED(m_pDesktop->ParseDisplayName(NULL,NULL,(LPWSTR)pwszPath,NULL,&pidl,NULL)))
+		{
+			CComPtr<IShellFolder> pFolder;
+			PCUITEMID_CHILD child;
+			if (SUCCEEDED(SHBindToParent(pidl,IID_IShellFolder,(void**)&pFolder,&child)))
+			{
+				ULONG attrib=SFGAO_SHARE;
+				if (SUCCEEDED(pFolder->GetAttributesOf(1,&child,&attrib)) && (attrib&SFGAO_SHARE))
+					res=S_OK;
+			}
+			ILFree(pidl);
+		}
 	}
-	return S_FALSE;
+	return res;
 }
 
 STDMETHODIMP CShareOverlay::GetOverlayInfo( LPWSTR pwszIconFile, int cchMax, int * pIndex, DWORD * pdwFlags )

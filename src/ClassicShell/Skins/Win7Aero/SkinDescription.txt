@@ -113,6 +113,7 @@ Main_pager_arrows=5
 
 ; Main_arrows - bitmap for the sub-menu arrows. The top half of the image is the normal arrow and the bottom half is the selected arrow
 Main_arrow=6
+Main_arrow_color=#000000,#000000
 
 ;SUB-MENU SECTION - describes the look of the sub-menus
 
@@ -140,6 +141,8 @@ Submenu_arrow=7
 OPTION CAPTION="Caption",1
 OPTION SMALL_ICONS="Small Icons",0
 OPTION WHITE_SUBMENUS="White Sub-menus",0
+OPTION TWO_COLUMNS="Two Columns",0
+OPTION USER_IMAGE="Show User Picture",0
 
 [NOT CAPTION]
 Main_bitmap_slices_X=0,0,0,15,1,13
@@ -154,3 +157,52 @@ Main_arrow=7
 
 [WHITE_SUBMENUS]
 Submenu_background=#FFFFFF
+
+[TWO_COLUMNS]
+Main_2columns=1
+Main_bitmap=8
+Main_bitmap_mask=9
+Main_bitmap_slices_X=13,1,6,0,1,8
+Main_opacity2=fullglass
+Main_padding=10,10,3,8
+Main_text_color2=#FFFFFF,#FFFFFF,#7F7F7F,#7F7F7F
+Main_padding2=3,10,4,8
+Main_selection2=10
+Main_selection_slices_X2=4,63,4
+Main_selection_slices_Y2=4,20,4
+Main_arrow2=0
+Main_arrow_color2=#FFFFFF,#FFFFFF
+Main_separator2=11
+Main_separator_slices_X2=15,100,15
+Main_icon_padding2=4,4,3,4
+Main_arrow_padding2=8,6
+
+
+[USER_IMAGE]
+; User_frame_position - horizontal and vertical position of the user image frame in the main menu.
+; Positive numbers mean offset from the left and the top. Negative numbers mean offset from the bottom and the right
+User_frame_position=-10,6
+
+; User_bitmap - the frame around the user picture
+User_bitmap=12
+
+; User_image_offset - horizontal and vertical offset of the user image from its frame
+; If User_bitmap is missing, the frame is assumed to be 0 pixels and this offset is ignored
+User_image_offset=8,8
+
+
+[USER_IMAGE AND TWO_COLUMNS]
+Main_padding2=3,73,5,8
+
+
+[USER_IMAGE AND NOT TWO_COLUMNS]
+Main_bitmap=13
+Main_bitmap_mask=14
+Main_bitmap_slices_Y=76,267,10
+User_frame_position=-6,6
+
+[USER_IMAGE AND NOT TWO_COLUMNS AND CAPTION]
+Main_padding=3,73,10,8
+
+[USER_IMAGE AND NOT TWO_COLUMNS AND NOT CAPTION]
+Main_padding=12,73,10,8

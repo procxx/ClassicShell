@@ -169,7 +169,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragEnter( IDataObject *pDataObj, DWOR
 		POINT p={pt.x,pt.y};
 		m_pDropTargetHelper->DragEnter(m_hWnd,pDataObj,&p,*pdwEffect);
 	}
-	if (!m_pParent && m_Items[0].id==MENU_EMPTY && !s_bShowTopEmpty)
+	if (!m_bSubMenu && m_Items[0].id==MENU_EMPTY && !s_bShowTopEmpty)
 	{
 		// when dragging over the main menu, show an (Empty) item at the top so the user can drop items there
 		s_bShowTopEmpty=true;

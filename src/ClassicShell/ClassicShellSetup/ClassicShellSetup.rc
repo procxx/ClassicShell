@@ -62,8 +62,8 @@ IDI_ICON1               ICON                    "ClassicShell.ico"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,9,0,0
- PRODUCTVERSION 1,9,0,0
+ FILEVERSION 1,9,1,0
+ PRODUCTVERSION 1,9,1,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -80,12 +80,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic Windows Explorer features"
-            VALUE "FileVersion", "1, 9, 0, 0"
+            VALUE "FileVersion", "1, 9, 1, 0"
             VALUE "InternalName", "ClassicShellSetup"
             VALUE "LegalCopyright", "Copyright (C) 2009-2010, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicShellSetup.exe"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "1, 9, 0, 0"
+            VALUE "ProductVersion", "1, 9, 1, 0"
         END
     END
     BLOCK "VarFileInfo"

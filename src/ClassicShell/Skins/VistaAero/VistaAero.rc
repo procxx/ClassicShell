@@ -55,6 +55,13 @@ END
 1                       BITMAP                  "main_bitmap.bmp"
 2                       BITMAP                  "main_bitmap_mask.bmp"
 3                       BITMAP                  "selection.bmp"
+4                       BITMAP                  "main_bitmapXP.bmp"
+5                       BITMAP                  "main_bitmap_maskXP.bmp"
+6                       BITMAP                  "selectionXP.bmp"
+7                       BITMAP                  "separatorXP.bmp"
+8                       BITMAP                  "main_bitmap2.bmp"
+9                       BITMAP                  "main_bitmap_mask2.bmp"
+10                      BITMAP                  "user_bitmap.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //

@@ -78,13 +78,14 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 			RegCloseKey(hKey);
 		}
 	}
-
+/*
+	// warning about being beta
 	if (!bQuiet)
 	{
 		if (MessageBox(NULL,L"Warning!\nThis is a beta version of Classic Shell. It contains features that are not fully tested. Please report any problems in the Source Forge forum. If you prefer a stable build over the latest features, you can download one of the \"general release\" versions like 1.0.3.\nDo you want to continue with the installation?",L"Classic Shell Setup",MB_YESNO|MB_ICONWARNING)==IDNO)
 			return 99;
 	}
-
+*/
 	// extract the installer
 	void *pRes=NULL;
 	HRSRC hResInfo=FindResource(hInstance,MAKEINTRESOURCE(b64?IDR_MSI_FILE64:IDR_MSI_FILE32),L"MSI_FILE");

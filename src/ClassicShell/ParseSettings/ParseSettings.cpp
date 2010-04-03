@@ -2,6 +2,7 @@
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "ParseSettings.h"
+#include <algorithm>
 
 static int EvalCondition( const wchar_t *condition, const wchar_t **values, int count );
 
@@ -122,6 +123,7 @@ void CSettingsParser::FilterLanguages( const wchar_t *languages )
 			}
 		}
 	}
+	std::reverse(m_Lines.begin(),m_Lines.end());
 }
 
 // Returns a setting with the given name. If no setting is found, returns def

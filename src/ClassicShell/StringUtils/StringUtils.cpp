@@ -1,3 +1,9 @@
+// Classic Shell (c) 2009-2010, Ivo Beltchev
+// The sources for Classic Shell are distributed under the MIT open source license
+
+// StringUtils is also available under the CPOL license as part of the FormatString article
+// on CodeProject: http://www.codeproject.com/KB/string/FormatString.aspx
+
 #include "StringUtils.h"
 #include <stdio.h>
 #include <assert.h>

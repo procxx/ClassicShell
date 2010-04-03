@@ -74,8 +74,9 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		SetWindowPos(hwndDlg,NULL,rc1.left,rc1.top,rc1.right-rc1.left,rc1.bottom-rc1.top,SWP_NOZORDER);
 		SendMessage(hwndDlg,DM_REPOSITION,0,0);
 
-		CheckDlgButton(hwndDlg,IDC_CHECKCOPY,(EnableCopyUI==1 || EnableCopyUI==2)?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKCOPY,((EnableCopyUI&3)==1 || (EnableCopyUI&3)==2)?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKCOPYFOLDER,(EnableCopyUI&1)?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKCOPYEXP,(EnableCopyUI&4)?BST_UNCHECKED:BST_CHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKSIZE,FreeSpace?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKBHO,(FoldersSettings&CExplorerBHO::FOLDERS_ALTENTER)?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKAUTO,(FoldersSettings&CExplorerBHO::FOLDERS_AUTONAVIGATE)?BST_CHECKED:BST_UNCHECKED);
@@ -144,7 +145,9 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 	}
 	if (uMsg==WM_INITDIALOG || (uMsg==WM_COMMAND && wParam==IDC_CHECKCOPY))
 	{
-		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKCOPYFOLDER),IsDlgButtonChecked(hwndDlg,IDC_CHECKCOPY)==BST_CHECKED);
+		BOOL enable=IsDlgButtonChecked(hwndDlg,IDC_CHECKCOPY)==BST_CHECKED;
+		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKCOPYFOLDER),enable);
+		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKCOPYEXP),enable);
 		if (uMsg==WM_COMMAND)
 			return TRUE;
 	}
@@ -190,6 +193,8 @@ INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 		DWORD EnableCopyUI2=(IsDlgButtonChecked(hwndDlg,IDC_CHECKCOPY)==BST_CHECKED)?2:0;
 		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKCOPYFOLDER)==BST_CHECKED)
 			EnableCopyUI2=EnableCopyUI2?1:3;
+		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKCOPYEXP)!=BST_CHECKED)
+			EnableCopyUI2|=4;
 		DWORD FreeSpace2=(IsDlgButtonChecked(hwndDlg,IDC_CHECKSIZE)==BST_CHECKED)?CExplorerBHO::SPACE_SHOW:0;
 		DWORD FoldersSettings2=0;
 		if (IsDlgButtonChecked(hwndDlg,IDC_CHECKBHO)==BST_CHECKED)

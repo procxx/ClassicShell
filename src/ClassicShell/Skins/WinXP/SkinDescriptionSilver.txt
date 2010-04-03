@@ -1,0 +1,12 @@
+Main_bitmap=8
+Main_selection=#BBB7C7
+Main_text_color=#000000,#000000,#7F7F7F,#7F7F7F
+Main_separator=15
+Main_separator2=16
+
+Submenu_bitmap=10
+Submenu_selection=#6B6E73
+Submenu_text_color=#000000,#FFFFFF,#7F7F7F,#FFFFFF
+
+[USER_IMAGE]
+Main_bitmap=9

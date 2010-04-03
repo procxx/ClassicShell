@@ -12,13 +12,16 @@
 static StdMenuItem g_StdMenu[]=
 {
 	// Start menu
+	{MENU_COLUMN_PADDING},
 	{MENU_PROGRAMS,"Menu.Programs",L"&Programs",326,MENU_NO,&FOLDERID_Programs,&FOLDERID_CommonPrograms},
+	{MENU_COLUMN_BREAK},
 	{MENU_FAVORITES,"Menu.Favorites",L"F&avorites",322,MENU_NO,&FOLDERID_Favorites},
 	{MENU_DOCUMENTS,"Menu.Documents",L"&Documents",327,MENU_USERFILES,&FOLDERID_Recent},
 	{MENU_SETTINGS,"Menu.Settings",L"&Settings",330,MENU_CONTROLPANEL},
 	{MENU_SEARCH,"Menu.Search",L"Sear&ch",323,MENU_SEARCH_FILES},
 	{MENU_HELP,"Menu.Help",L"&Help and Support",324},
 	{MENU_RUN,"Menu.Run",L"&Run...",328},
+	{MENU_COLUMN_PADDING},
 	{MENU_SEPARATOR},
 	{MENU_LOGOFF,"Menu.Logoff",L"&Log Off %s...",325},
 	{MENU_UNDOCK,"Menu.Undock",L"Undock Comput&er",331},
@@ -38,7 +41,7 @@ static StdMenuItem g_StdMenu[]=
 	{MENU_NETWORK,"Menu.Network",L"&Network Connections",257,MENU_NO,&FOLDERID_ConnectionsFolder,NULL,"Menu.NetworkTip",L"Displays existing network connections on this computer and helps you create new ones"},
 	{MENU_PRINTERS,"Menu.Printers",L"&Printers",138,MENU_NO,&FOLDERID_PrintersFolder,NULL,"Menu.PrintersTip",L"Add, remove, and configure local and network printers."},
 	{MENU_TASKBAR,"Menu.Taskbar",L"&Taskbar and Start Menu",40,MENU_NO,NULL,NULL,"Menu.TaskbarTip",L"Customize the Start Menu and the taskbar, such as the types of items to be displayed and how they should appear."},
-	{MENU_FEATURES,"Menu.Features",L"Programs and &Features",271,MENU_NO,&FOLDERID_ChangeRemovePrograms,NULL,"Menu.FeaturesTip",L"Uninstall or change programs on your computer."},
+	{MENU_FEATURES,"Menu.Features",L"Programs and &Features",271,MENU_NO,NULL,NULL,"Menu.FeaturesTip",L"Uninstall or change programs on your computer."},
 	{MENU_SEPARATOR},
 	{MENU_CLASSIC_SETTINGS,"Menu.ClassicSettings",L"Classic Start &Menu",274,MENU_NO,NULL,NULL,"Menu.SettingsTip",L"Settings for Classic Start Menu",NULL,NULL,NULL,L"ClassicStartMenuDLL.dll,103"},
 	{MENU_LAST},
@@ -177,6 +180,18 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 				children.push_back(sep);
 				continue;
 			}
+			if (_wcsicmp(buf,L"COLUMN_PADDING")==0)
+			{
+				StdMenuItem sep={MENU_COLUMN_PADDING};
+				children.push_back(sep);
+				continue;
+			}
+			if (_wcsicmp(buf,L"COLUMN_BREAK")==0)
+			{
+				StdMenuItem sep={MENU_COLUMN_BREAK};
+				children.push_back(sep);
+				continue;
+			}
 			StdMenuItem child={MENU_CUSTOM};
 			const StdMenuItem *pItem=FindStdMenuItem(FindStdItem(buf));
 			if (pItem) child=*pItem;
@@ -269,6 +284,20 @@ const StdMenuItem *ParseCustomMenu( unsigned int &rootSettings )
 				StdMenuItem root={MENU_NO};
 				ParseCustomMenuRec(L"MAIN_MENU",root);
 				g_RootSettings=root.settings;
+				bool bBreak=false;
+				int after=-1;
+				for (int i=PtrToInt(root.submenu)-1;i>=0 && g_CustomMenu[i].id!=MENU_LAST;i++)
+				{
+					if (g_CustomMenu[i].id==MENU_COLUMN_BREAK)
+						bBreak=true;
+					if (g_CustomMenu[i].id==MENU_PROGRAMS)
+						after=i;
+				}
+				if (!bBreak && after>=0)
+				{
+					StdMenuItem br={MENU_COLUMN_BREAK};
+					g_CustomMenu.insert(g_CustomMenu.begin()+after+1,br);
+				}
 				for (std::vector<StdMenuItem>::iterator it=g_CustomMenu.begin();it!=g_CustomMenu.end();++it)
 					if (it->submenuID==MENU_NO)
 					{

@@ -1,0 +1,80 @@
+; Windows XP skin
+
+; About - text to use in the About box for this skin. use \n for new line
+About=Windows XP Luna skin\n\nA start menu similar to the one in Windows XP.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2010, Ivo Beltchev
+
+; AboutIcon - the ID of an icon resource to use in the About box
+AboutIcon=1
+
+; Version - version of the required skin engine. Set to 2 if the skin uses any of the new features introduced in Classic Shell 1.9.0 like full glass,
+; skinnable sub-menus, skinnable pager buttons, skinnable arrows, etc
+Version=2
+
+Variation1=1,"Blue"
+Variation2=2,"Olive Green"
+Variation3=3,"Silver"
+
+;MAIN BITMAP SECTION - describes the background of the main menu
+
+Main_bitmap=1
+Main_opacity=alpha
+
+Main_bitmap_slices_X=10,144,2,2,168,10
+Main_bitmap_slices_Y=15,1,8
+
+
+;MAIN MENU SECTION - describes the menu portion of the main menu
+
+Main_2columns=1
+Main_large_icons=1
+Main_font="Segoe UI",normal,-10
+Main_background=#FFFFFF
+Main_text_color=#000000,#FFFFFF,#7F7F7F,#7F7F7F
+Main_selection=#316AC5
+
+Main_padding=4,18,2,9
+Main_padding2=3,18,4,9
+
+Main_arrow=4
+Main_arrow2=0
+
+Main_separator=11
+Main_separator_slices_X=40,92,40
+Main_separator2=12
+Main_separator_slices_X2=30,74,30
+
+
+
+;SUB-MENU SECTION - describes the look of the sub-menus
+
+Submenu_bitmap=3
+Submenu_bitmap_slices_X=8,174,2
+Submenu_bitmap_slices_Y=2,18,2
+Submenu_opacity=region
+Submenu_padding=7,2,2,2
+Submenu_font="Segoe UI",normal,-9
+Submenu_text_color=#000000,#FFFFFF,#7F7F7F,#7F7F7F
+Submenu_selection=#1665CB
+Submenu_offset=5
+Submenu_separator=17
+Submenu_separator_slices_X=50,75,50
+
+
+; OPTIONS
+
+OPTION SMALL_ICONS="Small Icons",0
+OPTION USER_IMAGE="Show User Picture",0
+
+[SMALL_ICONS]
+Main_large_icons=0
+Main_font="Segoe UI",normal,-9
+Main_arrow=0
+
+[USER_IMAGE]
+Main_bitmap=2
+Main_bitmap_slices_Y=66,1,8
+User_frame_position=-10,8
+User_bitmap=18
+User_image_offset=2,2
+Main_padding=4,67,2,9
+Main_padding2=3,67,4,9

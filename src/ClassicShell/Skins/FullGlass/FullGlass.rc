@@ -84,6 +84,7 @@ END
 12                      BITMAP                  "separatorV.bmp"
 13                      BITMAP                  "menu_arrows.bmp"
 14                      BITMAP                  "menu_arrows2.bmp"
+15                      BITMAP                  "user_bitmap.bmp"
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

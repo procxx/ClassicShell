@@ -190,6 +190,10 @@
 				RelativePath=".\submenu_bitmap_mask.bmp"
 				>
 			</File>
+			<File
+				RelativePath=".\user_bitmap.bmp"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

@@ -59,6 +59,13 @@ END
 5                       BITMAP                  "pager_arrows.bmp"
 6                       BITMAP                  "menu_arrows.bmp"
 7                       BITMAP                  "menu_arrows2.bmp"
+8                       BITMAP                  "main_bitmapXP.bmp"
+9                       BITMAP                  "main_bitmap_maskXP.bmp"
+10                      BITMAP                  "selectionXP.bmp"
+11                      BITMAP                  "separatorXP.bmp"
+12                      BITMAP                  "user_bitmap.bmp"
+13                      BITMAP                  "main_bitmap2.bmp"
+14                      BITMAP                  "main_bitmap_mask2.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //

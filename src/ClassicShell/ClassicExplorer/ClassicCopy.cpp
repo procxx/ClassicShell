@@ -511,7 +511,7 @@ static LRESULT CALLBACK WindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
 					regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI);
 
-				if (EnableCopyUI==1 || EnableCopyUI==2)
+				if ((EnableCopyUI&3)==1 || (EnableCopyUI&3)==2)
 				{
 					CComPtr<IAccessible> pAcc;
 					HRESULT h=AccessibleObjectFromWindow(hWnd,OBJID_WINDOW,IID_IAccessible,(void**)&pAcc);
@@ -533,7 +533,7 @@ static LRESULT CALLBACK WindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
 					regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI);
 
-				if (EnableCopyUI==1)
+				if ((EnableCopyUI&3)==1)
 				{
 					CClassicCopyFolder copy;
 					if (copy.Run(hWnd))

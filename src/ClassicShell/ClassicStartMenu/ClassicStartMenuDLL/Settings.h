@@ -17,6 +17,7 @@ struct StartMenuSettings
 	DWORD ExpandPrinters;
 	DWORD ExpandLinks;
 	DWORD ScrollMenus;
+	DWORD ReportErrors;
 	DWORD HotkeyCSM;
 	DWORD HotkeyNSM;
 	CString SkinName;

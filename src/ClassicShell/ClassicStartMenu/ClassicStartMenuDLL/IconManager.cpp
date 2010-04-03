@@ -148,6 +148,17 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 
 		// extract the icon
 		hr=pExtract->Extract(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+		if (hr==E_INVALIDARG)
+		{
+			// HACK!!! There are 2 problems when extracting icons from the Games folder.
+			// 1) IExtractIcon::Extract fails if the small and the large icons are not both specified even though the docs say that they are optional.
+			// 2) With Microangelo On Display installed, even if both icons are specified, the function returns the default exe icon and no error code.
+			//    This is probably caused by the Games shell extension supporting only Unicode, and Microangelo supporting only ANSI.
+			// Fortunately because of the first problem we can detect when something is wrong (hr is E_INVALIDARG). In such case we give
+			// the location/index data to ExtractIconEx, hoping it will return the correct icon. Seems to be working.
+			// BTW, I have no idea how the shell doesn't have this problem. Probably because it uses IShellItems instead of PIDLs
+			hr=S_FALSE;
+		}
 		if (hr==S_FALSE)
 		{
 			// the IExtractIcon object didn't do anything - use ExtractIconEx instead
@@ -190,6 +201,11 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 
 		// extract the icon
 		hr=pExtractA->Extract(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+		if (hr==E_INVALIDARG)
+		{
+			// HACK!!! See the previous "HACK!!!" comment for details
+			hr=S_FALSE;
+		}
 		if (hr==S_FALSE)
 		{
 			// the IExtractIcon object didn't do anything - use ExtractIconEx instead
@@ -381,6 +397,11 @@ void CIconManager::LoadFolderIcons( IShellFolder *pFolder, int level )
 					// extract the icon
 					HICON hIcon;
 					HRESULT hr=pExtract->Extract(location,index,NULL,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+					if (hr==E_INVALIDARG)
+					{
+						// HACK!!! See the previous "HACK!!!" comment for details
+						hr=S_FALSE;
+					}
 					if (hr==S_FALSE)
 					{
 						// the IExtractIcon object didn't do anything - use ExtractIconEx instead
@@ -419,6 +440,11 @@ void CIconManager::LoadFolderIcons( IShellFolder *pFolder, int level )
 						// extract the icon
 						HICON hIcon;
 						HRESULT hr=pExtractA->Extract(location,index,NULL,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+						if (hr==E_INVALIDARG)
+						{
+							// HACK!!! See the previous "HACK!!!" comment for details
+							hr=S_FALSE;
+						}
 						if (hr==S_FALSE)
 						{
 							// the IExtractIcon object didn't do anything - use ExtractIconEx instead

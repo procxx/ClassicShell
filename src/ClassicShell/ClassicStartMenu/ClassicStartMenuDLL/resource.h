@@ -49,6 +49,9 @@
 #define IDC_COMBOSWIN                   1038
 #define IDC_COMBOSCLICK                 1039
 #define IDC_COMBOWIN                    1040
+#define IDC_CHECKERRORS                 1041
+#define IDC_COMBO2                      1043
+#define IDC_COMBOSCROLL                 1043
 #define IDC_LABEL                       65535
 
 // Next default values for new objects
@@ -57,7 +60,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        108
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1038
+#define _APS_NEXT_CONTROL_VALUE         1044
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
