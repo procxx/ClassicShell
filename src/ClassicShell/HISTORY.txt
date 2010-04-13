@@ -1,4 +1,10 @@
 ===============================================================================
+== Version 1.9.2 release candidate (Apr, 2010):
+
+- This build contains mostly minor bugfixes found in the previous version
+
+
+===============================================================================
 == Version 1.9.1 release candidate (Apr, 2010):
 
 - Some skins can support two-column main menu similar to Windows XP

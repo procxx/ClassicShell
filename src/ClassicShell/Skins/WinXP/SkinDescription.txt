@@ -71,6 +71,7 @@ Main_font="Segoe UI",normal,-9
 Main_arrow=0
 
 [USER_IMAGE]
+User_image_size=48
 Main_bitmap=2
 Main_bitmap_slices_Y=66,1,8
 User_frame_position=-10,8

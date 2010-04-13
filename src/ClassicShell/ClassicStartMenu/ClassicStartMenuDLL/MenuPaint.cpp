@@ -204,39 +204,6 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 			}
 		}
 
-		// calculate the window region
-		m_Region=NULL;
-		if (opacity==MenuSkin::OPACITY_REGION || opacity==MenuSkin::OPACITY_GLASS || opacity==MenuSkin::OPACITY_FULLGLASS)
-		{
-			for (int y=0;y<totalHeight;y++)
-			{
-				int minx=-1, maxx=-1;
-				int yw=y*totalWidth;
-				for (int x=0;x<totalWidth;x++)
-				{
-					if (bits[yw+x]&0xFF000000)
-					{
-						if (minx==-1) minx=x; // first non-transparent pixel
-						if (maxx<x) maxx=x; // last non-transparent pixel
-					}
-				}
-				if (minx>=0)
-				{
-					maxx++;
-					if (s_bRTL && opacity==MenuSkin::OPACITY_REGION)
-						minx=totalWidth-minx, maxx=totalWidth-maxx; // in "region" mode mirror the region (again)
-					HRGN r=CreateRectRgn(minx,y,maxx,y+1);
-					if (!m_Region)
-						m_Region=r;
-					else
-					{
-						CombineRgn(m_Region,m_Region,r,RGN_OR);
-						DeleteObject(r);
-					}
-				}
-			}
-		}
-
 		SelectObject(hdc,m_Bitmap);
 	}
 	else
@@ -391,7 +358,7 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 		DeleteObject(bmpText);
 	}
 
-	if (s_Skin.User_frame_position.x || s_Skin.User_frame_position.y)
+	if (s_Skin.User_image_size)
 	{
 		// draw user image
 		HBITMAP userPicture=NULL;
@@ -403,12 +370,37 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 			wchar_t path[_MAX_PATH];
 			path[0]=0;
 			SHGetUserPicturePath(NULL,0x80000000,path,_countof(path));
-			userPicture=(HBITMAP)LoadImage(NULL,path,IMAGE_BITMAP,USER_PICTURE_SIZE,USER_PICTURE_SIZE,LR_LOADFROMFILE);
+			userPicture=(HBITMAP)LoadImage(NULL,path,IMAGE_BITMAP,0,0,LR_LOADFROMFILE);
+			if (userPicture)
+			{
+				// resize the user bitmap to the required size using HALFTONE stretch mode. LoadImage uses COLORONCOLOR internally, which is not very good for the user image
+				BITMAP info;
+				GetObject(userPicture,sizeof(info),&info);
+
+				HDC hdc3=CreateCompatibleDC(hdcTemp);
+				BITMAPINFO dib2={sizeof(dib2)};
+				dib2.bmiHeader.biWidth=s_Skin.User_image_size;
+				dib2.bmiHeader.biHeight=s_Skin.User_image_size;
+				dib2.bmiHeader.biPlanes=1;
+				dib2.bmiHeader.biBitCount=24;
+				dib2.bmiHeader.biCompression=BI_RGB;
+				HBITMAP userPicture2=CreateDIBSection(hdc3,&dib2,DIB_RGB_COLORS,NULL,NULL,0);
+				HBITMAP bmp03=(HBITMAP)SelectObject(hdc3,userPicture2);
+
+				HBITMAP bmp02=(HBITMAP)SelectObject(hdcTemp,userPicture);
+				SetStretchBltMode(hdc3,HALFTONE);
+				StretchBlt(hdc3,0,0,s_Skin.User_image_size,s_Skin.User_image_size,hdcTemp,0,0,info.bmWidth,info.bmHeight,SRCCOPY);
+
+				SelectObject(hdc3,bmp03);
+				SelectObject(hdcTemp,bmp02);
+				DeleteDC(hdc3);
+				DeleteObject(userPicture);
+				userPicture=userPicture2;
+			}
 		}
 		if (userPicture)
 		{
 			// draw user picture
-			POINT pos=s_Skin.User_frame_position;
 			SIZE frameSize;
 			if (s_Skin.User_bitmap)
 			{
@@ -419,11 +411,25 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 			}
 			else
 			{
-				frameSize.cx=USER_PICTURE_SIZE+s_Skin.User_image_offset.x*2;
-				frameSize.cy=USER_PICTURE_SIZE+s_Skin.User_image_offset.y*2;
+				frameSize.cx=s_Skin.User_image_size+s_Skin.User_image_offset.x*2;
+				frameSize.cy=s_Skin.User_image_size+s_Skin.User_image_offset.y*2;
 			}
+			POINT pos=s_Skin.User_frame_position;
+			if (pos.x==MenuSkin::USER_CENTER)
+				pos.x=(totalWidth-frameSize.cx)/2;
+			else if (pos.x==MenuSkin::USER_CENTER1)
+				pos.x=(totalWidth1+textHeight-frameSize.cx)/2;
+			else if (pos.x==MenuSkin::USER_CENTER2)
+			{
+				if (totalWidth2>0)
+					pos.x=totalWidth1+(totalWidth2-frameSize.cx)/2;
+				else
+					pos.x=(totalWidth-frameSize.cx)/2;
+			}
+
 			if (pos.x<0) pos.x+=totalWidth-frameSize.cx;
 			if (pos.y<0) pos.y+=totalHeight-frameSize.cy;
+
 			if (s_bRTL)
 				pos.x=totalWidth-frameSize.cx-pos.x;
 			pos.x+=s_Skin.User_image_offset.x;
@@ -432,26 +438,26 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 			unsigned int alpha=s_Skin.User_image_alpha;
 			if (alpha==255)
 			{
-				BitBlt(hdc,pos.x,pos.y,USER_PICTURE_SIZE,USER_PICTURE_SIZE,hdcTemp,0,0,SRCCOPY);
+				BitBlt(hdc,pos.x,pos.y,s_Skin.User_image_size,s_Skin.User_image_size,hdcTemp,0,0,SRCCOPY);
 			}
 			else
 			{
 				BLENDFUNCTION func={AC_SRC_OVER,0,alpha,0};
-				AlphaBlend(hdc,pos.x,pos.y,USER_PICTURE_SIZE,USER_PICTURE_SIZE,hdcTemp,0,0,USER_PICTURE_SIZE,USER_PICTURE_SIZE,func);
+				AlphaBlend(hdc,pos.x,pos.y,s_Skin.User_image_size,s_Skin.User_image_size,hdcTemp,0,0,s_Skin.User_image_size,s_Skin.User_image_size,func);
 			}
 
 			if (s_bRTL)
 			{
-				m_rUser.left=totalWidth-pos.x-USER_PICTURE_SIZE;
-				m_rUser.right=m_rUser.left+USER_PICTURE_SIZE;
+				m_rUser.left=totalWidth-pos.x-s_Skin.User_image_size;
+				m_rUser.right=m_rUser.left+s_Skin.User_image_size;
 			}
 			else
 			{
 				m_rUser.left=pos.x;
-				m_rUser.right=m_rUser.left+USER_PICTURE_SIZE;
+				m_rUser.right=m_rUser.left+s_Skin.User_image_size;
 			}
 			m_rUser.top=pos.y;
-			m_rUser.bottom=pos.y+USER_PICTURE_SIZE;
+			m_rUser.bottom=pos.y+s_Skin.User_image_size;
 
 			if (opacity!=MenuSkin::OPACITY_SOLID)
 			{
@@ -459,8 +465,8 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 				SelectObject(hdc,bmp0); // deselect m_Bitmap so all the GDI operations get flushed
 				unsigned int *bits2=bits+pos.y*totalWidth+pos.x;
 				alpha<<=24;
-				for (int y=0;y<USER_PICTURE_SIZE;y++,bits2+=totalWidth)
-					for (int x=0;x<USER_PICTURE_SIZE;x++)
+				for (int y=0;y<s_Skin.User_image_size;y++,bits2+=totalWidth)
+					for (int x=0;x<s_Skin.User_image_size;x++)
 						bits2[x]=alpha|(bits2[x]&0xFFFFFF);
 				SelectObject(hdc,m_Bitmap);
 			}
@@ -489,6 +495,37 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 
 	SelectObject(hdc,bmp0);
 	DeleteDC(hdc);
+
+	// calculate the window region
+	m_Region=NULL;
+	if (opacity==MenuSkin::OPACITY_REGION || opacity==MenuSkin::OPACITY_GLASS || opacity==MenuSkin::OPACITY_FULLGLASS)
+	{
+		for (int y=0;y<totalHeight;y++)
+		{
+			int minx=-1, maxx=-1;
+			int yw=y*totalWidth;
+			for (int x=0;x<totalWidth;x++)
+			{
+				if (bits[yw+x]&0xFF000000)
+				{
+					if (minx==-1) minx=x; // first non-transparent pixel
+					if (maxx<x) maxx=x; // last non-transparent pixel
+				}
+			}
+			if (minx>=0)
+			{
+				maxx++;
+				HRGN r=CreateRectRgn(minx,y,maxx,y+1);
+				if (!m_Region)
+					m_Region=r;
+				else
+				{
+					CombineRgn(m_Region,m_Region,r,RGN_OR);
+					DeleteObject(r);
+				}
+			}
+		}
+	}
 
 	if (m_bSubMenu)
 	{
@@ -519,8 +556,6 @@ void CMenuContainer::CreateSubmenuRegion( int width, int height )
 	int totalHeight=s_Skin.Submenu_padding.top+s_Skin.Submenu_padding.bottom+height;
 	m_Region=NULL;
 	if (s_Skin.Submenu_opacity!=MenuSkin::OPACITY_REGION && s_Skin.Submenu_opacity!=MenuSkin::OPACITY_GLASS && s_Skin.Submenu_opacity!=MenuSkin::OPACITY_FULLGLASS)
-		return;
-	if (s_Skin.Submenu_opacity==MenuSkin::OPACITY_SOLID)
 		return;
 	if (!s_Skin.Submenu_bitmap || !s_Skin.Submenu_bitmap32)
 		return;
@@ -569,8 +604,6 @@ void CMenuContainer::CreateSubmenuRegion( int width, int height )
 					maxx=slicesX0+((maxx-slicesX0)*(totalWidth-slicesX0-slicesX2))/slicesX[1];
 
 				maxx++;
-				if (s_bRTL && s_Skin.Submenu_opacity==MenuSkin::OPACITY_REGION)
-					minx=totalWidth-minx, maxx=totalWidth-maxx; // in "region" mode mirror the region (again)
 				HRGN r=CreateRectRgn(minx,y,maxx,y+1);
 				if (!m_Region)
 					m_Region=r;

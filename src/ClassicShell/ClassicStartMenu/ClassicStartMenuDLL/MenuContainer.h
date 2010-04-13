@@ -81,11 +81,12 @@ struct StdMenuItem
 	// user settings
 	enum
 	{
-		MENU_OPENUP     = 0x0001, // prefer to open up
-		MENU_OPENUP_REC = 0x0002, // children prefer to open up
-		MENU_SORTZA     = 0x0004, // sort backwards
-		MENU_SORTZA_REC = 0x0008, // children sort backwards
-		MENU_SORTONCE   = 0x0010, // save the sort order the first time the menu is opened
+		MENU_OPENUP      = 0x0001, // prefer to open up
+		MENU_OPENUP_REC  = 0x0002, // children prefer to open up
+		MENU_SORTZA      = 0x0004, // sort backwards
+		MENU_SORTZA_REC  = 0x0008, // children sort backwards
+		MENU_SORTONCE    = 0x0010, // save the sort order the first time the menu is opened
+		MENU_ITEMS_FIRST = 0x0020, // place the custom items before the folder items
 	};
 	unsigned int settings;
 };
@@ -149,7 +150,7 @@ public:
 		CONTAINER_PROGRAMS     = 0x0008, // this is a folder from the Start Menu hierarchy (drop operations prefer link over move)
 		CONTAINER_DOCUMENTS    = 0x0010, // sort by time, limit the count (for recent documents)
 		CONTAINER_LINK         = 0x0020, // this is an expanded link to a folder (always scrolling)
-		CONTAINER_ADDTOP       = 0x0040, // put standard items at the top
+		CONTAINER_ITEMS_FIRST  = 0x0040, // put standard items at the top
 		CONTAINER_DRAG         = 0x0080, // allow items to be dragged out
 		CONTAINER_DROP         = 0x0100, // allow dropping of items
 		CONTAINER_LEFT         = 0x0200, // the window is aligned on the left
@@ -405,7 +406,6 @@ private:
 		MENU_ANIM_SPEED=200,
 		MENU_ANIM_SPEED_SUBMENU=100,
 		MENU_FADE_SPEED=400,
-		USER_PICTURE_SIZE=48,
 	};
 
 	// pPt - optional point in screen space (used only by ACTIVATE_EXECUTE and ACTIVATE_MENU)

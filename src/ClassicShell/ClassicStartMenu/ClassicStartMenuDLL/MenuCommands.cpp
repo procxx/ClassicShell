@@ -175,7 +175,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (item.id!=MENU_DOCUMENTS && item.id!=MENU_CONTROLPANEL && item.id!=MENU_NETWORK && item.id!=MENU_PRINTERS)
 			options|=CONTAINER_DROP;
 		if (item.id==MENU_DOCUMENTS)
-			options|=CONTAINER_DOCUMENTS|CONTAINER_ADDTOP;
+			options|=CONTAINER_DOCUMENTS|CONTAINER_ITEMS_FIRST;
 		if (item.bPrograms)
 			options|=CONTAINER_PROGRAMS;
 		if (item.bLink || (m_Options&CONTAINER_LINK))
@@ -201,6 +201,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				options|=CONTAINER_SORTZA_REC;
 			if (item.pStdItem->settings&StdMenuItem::MENU_SORTONCE)
 				options|=CONTAINER_SORTONCE;
+			if (item.pStdItem->settings&StdMenuItem::MENU_ITEMS_FIRST)
+				options|=CONTAINER_ITEMS_FIRST;
 		}
 
 		if (!(options&CONTAINER_LINK) && ((m_Options&CONTAINER_MULTICOLUMN) || item.id==MENU_PROGRAMS))

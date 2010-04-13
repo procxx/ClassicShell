@@ -141,30 +141,29 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 		item.link=str;
 		res=true;
 	}
-	else
+
+	Sprintf(buf,_countof(buf),L"%s.Command",name);
+	str=g_CustomMenuParser.FindSetting(buf);
+	if (str)
 	{
-		Sprintf(buf,_countof(buf),L"%s.Command",name);
-		str=g_CustomMenuParser.FindSetting(buf);
-		if (str)
+		// parse command
+		TMenuID id=FindStdCommand(str);
+		if (id==MENU_NO)
 		{
-			// parse command
-			TMenuID id=FindStdCommand(str);
-			if (id==MENU_NO)
-			{
-				if (item.id==MENU_NO)
-					item.id=MENU_CUSTOM;
-			}
-			else
-			{
-				item.id=id;
-				const StdMenuItem *pItem=FindStdMenuItem(id);
-				if (pItem)
-					item=*pItem;
-			}
-			item.command=str;
-			res=true;
+			if (item.id==MENU_NO)
+				item.id=MENU_CUSTOM;
 		}
+		else
+		{
+			item.id=id;
+			const StdMenuItem *pItem=FindStdMenuItem(id);
+			if (pItem)
+				item=*pItem;
+		}
+		item.command=str;
+		res=true;
 	}
+
 	Sprintf(buf,_countof(buf),L"%s.Items",name);
 	str=g_CustomMenuParser.FindSetting(buf);
 	if (str)
@@ -250,6 +249,7 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 			if (_wcsicmp(token,L"SORT_ZA")==0) item.settings|=StdMenuItem::MENU_SORTZA;
 			if (_wcsicmp(token,L"SORT_ZA_CHILDREN")==0) item.settings|=StdMenuItem::MENU_SORTZA_REC;
 			if (_wcsicmp(token,L"SORT_ONCE")==0) item.settings|=StdMenuItem::MENU_SORTONCE;
+			if (_wcsicmp(token,L"ITEMS_FIRST")==0) item.settings|=StdMenuItem::MENU_ITEMS_FIRST;
 		}
 	}
 

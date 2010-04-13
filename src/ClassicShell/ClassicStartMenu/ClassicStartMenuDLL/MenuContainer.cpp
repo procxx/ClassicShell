@@ -456,12 +456,12 @@ void CMenuContainer::InitItems( void )
 			MenuItem item={MENU_SEPARATOR};
 			if (m_pStdItem->id==MENU_COLUMN_PADDING)
 				item.bAlignBottom=true;
-			if (m_Options&CONTAINER_ADDTOP)
+			if (m_Options&CONTAINER_ITEMS_FIRST)
 				m_Items.insert(m_Items.begin(),item);
 			else
 				m_Items.push_back(item);
 		}
-		size_t menuIdx=(m_Options&CONTAINER_ADDTOP)?0:m_Items.size();
+		size_t menuIdx=(m_Options&CONTAINER_ITEMS_FIRST)?0:m_Items.size();
 		bool bBreak=false, bAlignBottom=false;
 		for (const StdMenuItem *pItem=m_pStdItem;pItem->id!=MENU_LAST;pItem++)
 		{
@@ -913,7 +913,7 @@ void CMenuContainer::InitWindow( void )
 		}
 		if (!m_bSubMenu)
 		{
-			if (s_Skin.Main_bitmap || s_Skin.User_frame_position.x || s_Skin.User_frame_position.y || m_bTwoColumns)
+			if (s_Skin.Main_bitmap || s_Skin.User_image_size || m_bTwoColumns)
 			{
 				CreateBackground(w1,w2,h1,h2);
 				BITMAP info;
@@ -1025,10 +1025,23 @@ void CMenuContainer::InitWindow( void )
 	SetWindowPos(NULL,&rc,SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOCOPYBITS|SWP_DEFERERASE);
 
 	// for some reason the region must be set after the call to SetWindowPos. otherwise it doesn't work for RTL windows
-	if (m_Region && (m_bSubMenu?s_Skin.Submenu_opacity:s_Skin.Main_opacity)==MenuSkin::OPACITY_REGION)
+	MenuSkin::TOpacity opacity=(m_bSubMenu?s_Skin.Submenu_opacity:s_Skin.Main_opacity);
+	if (m_Region && (opacity==MenuSkin::OPACITY_REGION || opacity==MenuSkin::OPACITY_GLASS || opacity==MenuSkin::OPACITY_FULLGLASS))
 	{
-		if (SetWindowRgn(m_Region))
-			m_Region=NULL; // the OS takes ownership of the region, no need to free
+		int size=GetRegionData(m_Region,0,NULL);
+		std::vector<char> buf(size);
+		GetRegionData(m_Region,size,(RGNDATA*)&buf[0]);
+		XFORM xform={1,0,0,1};
+		if (s_bRTL)
+		{
+			// mirror the region (again)
+			xform.eM11=-1;
+			xform.eDx=(float)(rc.right-rc.left);
+		}
+		HRGN rgn=ExtCreateRegion(&xform,size,(RGNDATA*)&buf[0]);
+
+		if (!SetWindowRgn(rgn))
+			DeleteObject(rgn); // otherwise the OS takes ownership of the region, no need to free
 	}
 
 	m_bTrackMouse=false;

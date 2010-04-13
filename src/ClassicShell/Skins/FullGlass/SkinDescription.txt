@@ -136,6 +136,7 @@ Main_separator_slices_Y=2,16,2
 
 
 [USER_IMAGE]
+User_image_size=48
 User_frame_position=-16,10
 User_bitmap=15
 User_image_offset=8,8

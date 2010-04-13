@@ -81,7 +81,7 @@ void CIconManager::Init( void )
 
 	InitializeCriticalSection(&s_PreloadSection);
 
-	if (_wcsicmp(PathFindFileName(path),L"explorer.exe")==0)
+	if (FindSettingBool("PreCacheIcons",true) && _wcsicmp(PathFindFileName(path),L"explorer.exe")==0)
 	{
 		// don't preload icons if running outside of the explorer
 		s_bStopLoading=false;

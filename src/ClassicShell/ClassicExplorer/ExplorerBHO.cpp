@@ -158,14 +158,24 @@ LRESULT CALLBACK CExplorerBHO::HookExplorer( int nCode, WPARAM wParam, LPARAM lP
 		CBT_CREATEWND *create=(CBT_CREATEWND*)lParam;
 		if (create->lpcs->lpszClass>(LPTSTR)0xFFFF && _wcsicmp(create->lpcs->lpszClass,WC_TREEVIEW)==0)
 		{
-			DWORD_PTR settings=0;
-			if (LOWORD(GetVersion())==0x0106 && FindSettingBool("FixFolderScroll",true))
-				settings|=1;
-			SetWindowSubclass(hWnd,SubclassTreeProc,'CLSH',settings);
-			PostMessage(hWnd,TVM_SETEXTENDEDSTYLE,TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000,0);
-			UnhookWindowsHookEx(s_Hook);
-			s_Hook=NULL;
-			return 0;
+			HWND parent=GetAncestor(create->lpcs->hwndParent,GA_ROOT);
+			wchar_t name[256];
+			if (GetClassName(parent,name,_countof(name)) && _wcsicmp(name,L"CabinetWClass")==0)
+			{
+				DWORD_PTR settings=0;
+				DWORD version=LOWORD(GetVersion());
+				if (version==0x0106 && FindSettingBool("FixFolderScroll",true))
+					settings|=1;
+				SetWindowSubclass(hWnd,SubclassTreeProc,'CLSH',settings);
+				PostMessage(hWnd,TVM_SETEXTENDEDSTYLE,TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000,0);
+				if (version==0x0006)
+				{
+					// on Vista we can unhook right now. on Win7 we keep the hook because sometimes the tree control can get destroyed and recreated
+					UnhookWindowsHookEx(s_Hook);
+					s_Hook=NULL;
+				}
+				return 0;
+			}
 		}
 	}
 	return CallNextHookEx(NULL,nCode,wParam,lParam);

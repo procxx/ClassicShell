@@ -934,9 +934,33 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		}
 	}
 
+	str=parser.FindSetting("User_image_size");
+	if (str)
+	{
+		skin.User_image_size=_wtol(str);
+		if (skin.User_image_size<0) skin.User_image_size=0;
+		if (skin.User_image_size>128) skin.User_image_size=128;
+	}
+	else
+		skin.User_image_size=0;
+
 	str=parser.FindSetting("User_frame_position");
 	if (str)
-		LoadSkinNumbers(str,(int*)&skin.User_frame_position,2,false);
+	{
+		wchar_t token[256];
+		str=GetToken(str,token,_countof(token),L", \t");
+		if (_wcsicmp(token,L"center")==0)
+			skin.User_frame_position.x=MenuSkin::USER_CENTER;
+		else if (_wcsicmp(token,L"center1")==0)
+			skin.User_frame_position.x=MenuSkin::USER_CENTER1;
+		else if (_wcsicmp(token,L"center2")==0)
+			skin.User_frame_position.x=MenuSkin::USER_CENTER2;
+		else
+			skin.User_frame_position.x=_wtol(token);
+
+		GetToken(str,token,_countof(token),L", \t");
+		skin.User_frame_position.y=_wtol(token);
+	}
 	else
 		memset(&skin.User_frame_position,0,sizeof(skin.User_frame_position));
 

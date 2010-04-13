@@ -33,6 +33,13 @@ struct MenuSkin
 		OPACITY_FULLGLASS,
 	};
 
+	enum
+	{
+		USER_CENTER=10000,
+		USER_CENTER1=10001,
+		USER_CENTER2=10002,
+	};
+
 	// CAPTION SECTION - describes the caption portion of the main menu
 	HFONT Caption_font;
 	COLORREF Caption_text_color;
@@ -111,6 +118,7 @@ struct MenuSkin
 	HBITMAP User_bitmap;
 	POINT User_frame_position;
 	POINT User_image_offset;
+	int User_image_size;
 	int User_image_alpha;
 
 	// SUB-MENU SECTION - describes the menu portion of the sub-menu
