@@ -1,4 +1,16 @@
 ===============================================================================
+== Version 1.9.6 release candidate (Jun, 2010):
+
+- Added a setting to track and display the recently used programs
+
+- The middle mouse button can be used to open the start menu
+
+- Fixed an incompatibility with X-Mouse and other mouse bugs
+
+- Fixed some problems with separators
+
+
+===============================================================================
 == Version 1.9.2 release candidate (Apr, 2010):
 
 - This build contains mostly minor bugfixes found in the previous version

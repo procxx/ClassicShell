@@ -24,6 +24,8 @@ enum TMenuID
 	MENU_LAST=0,
 	MENU_SEPARATOR,
 	MENU_EMPTY,
+	MENU_EMPTY_TOP,
+	MENU_RECENT,
 	MENU_COLUMN_PADDING,
 	MENU_COLUMN_BREAK,
 
@@ -60,6 +62,7 @@ enum TMenuID
 	MENU_RESTART,
 	MENU_SHUTDOWN,
 	MENU_SWITCHUSER,
+	MENU_RECENT_ITEMS,
 };
 
 struct StdMenuItem
@@ -87,6 +90,10 @@ struct StdMenuItem
 		MENU_SORTZA_REC  = 0x0008, // children sort backwards
 		MENU_SORTONCE    = 0x0010, // save the sort order the first time the menu is opened
 		MENU_ITEMS_FIRST = 0x0020, // place the custom items before the folder items
+		MENU_TRACK       = 0x0040, // track shortcuts from this menu
+		MENU_NOTRACK     = 0x0080, // don't track shortcuts from this menu
+
+		MENU_NORECENT    = 0x8000  // don't show recent items in the root menu (because a sub-menu uses MENU_RECENT_ITEMS)
 	};
 	unsigned int settings;
 };
@@ -144,22 +151,24 @@ public:
 	// options when creating a container
 	enum
 	{
-		CONTAINER_LARGE        = 0x0001, // use large icons
-		CONTAINER_MULTICOLUMN  = 0x0002, // use multiple columns instead of a single scrolling column
-		CONTAINER_CONTROLPANEL = 0x0004, // this is the control panel, don't go into subfolders
-		CONTAINER_PROGRAMS     = 0x0008, // this is a folder from the Start Menu hierarchy (drop operations prefer link over move)
-		CONTAINER_DOCUMENTS    = 0x0010, // sort by time, limit the count (for recent documents)
-		CONTAINER_LINK         = 0x0020, // this is an expanded link to a folder (always scrolling)
-		CONTAINER_ITEMS_FIRST  = 0x0040, // put standard items at the top
-		CONTAINER_DRAG         = 0x0080, // allow items to be dragged out
-		CONTAINER_DROP         = 0x0100, // allow dropping of items
-		CONTAINER_LEFT         = 0x0200, // the window is aligned on the left
-		CONTAINER_TOP          = 0x0400, // the window is aligned on the top
-		CONTAINER_AUTOSORT     = 0x0800, // the menu is always in alphabetical order
-		CONTAINER_OPENUP_REC   = 0x1000, // the container's children will prefer to open up instead of down
-		CONTAINER_SORTZA       = 0x2000, // the container will sort backwards by default
-		CONTAINER_SORTZA_REC   = 0x4000, // the container's children will sort backwards by default
-		CONTAINER_SORTONCE     = 0x8000, // the container will save the sort order the first time the menu is opened
+		CONTAINER_LARGE        = 0x00001, // use large icons
+		CONTAINER_MULTICOLUMN  = 0x00002, // use multiple columns instead of a single scrolling column
+		CONTAINER_CONTROLPANEL = 0x00004, // this is the control panel, don't go into subfolders
+		CONTAINER_PROGRAMS     = 0x00008, // this is a folder from the Start Menu hierarchy (drop operations prefer link over move)
+		CONTAINER_DOCUMENTS    = 0x00010, // sort by time, limit the count (for recent documents)
+		CONTAINER_RECENT       = 0x00020, // insert recent programs (sorted by time)
+		CONTAINER_LINK         = 0x00040, // this is an expanded link to a folder (always scrolling)
+		CONTAINER_ITEMS_FIRST  = 0x00080, // put standard items at the top
+		CONTAINER_DRAG         = 0x00100, // allow items to be dragged out
+		CONTAINER_DROP         = 0x00200, // allow dropping of items
+		CONTAINER_LEFT         = 0x00400, // the window is aligned on the left
+		CONTAINER_TOP          = 0x00800, // the window is aligned on the top
+		CONTAINER_AUTOSORT     = 0x01000, // the menu is always in alphabetical order
+		CONTAINER_OPENUP_REC   = 0x02000, // the container's children will prefer to open up instead of down
+		CONTAINER_SORTZA       = 0x04000, // the container will sort backwards by default
+		CONTAINER_SORTZA_REC   = 0x08000, // the container's children will sort backwards by default
+		CONTAINER_SORTONCE     = 0x10000, // the container will save the sort order the first time the menu is opened
+		CONTAINER_TRACK        = 0x20000, // track shortcuts from this menu
 	};
 
 	CMenuContainer( CMenuContainer *pParent, int index, int options, const StdMenuItem *pStdItem, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName );
@@ -235,7 +244,7 @@ private:
 	// description of a menu item
 	struct MenuItem
 	{
-		TMenuID id; // if pStdItem!=NULL, this is pStdItem->id. otherwise it can only be MENU_NO, MENU_SEPARATOR or MENU_EMPTY
+		TMenuID id; // if pStdItem!=NULL, this is pStdItem->id. otherwise it can only be MENU_NO, MENU_SEPARATOR, MENU_EMPTY or MENU_EMPTY_TOP
 		const StdMenuItem *pStdItem; // NULL if not a standard menu item
 		CString name;
 		unsigned int nameHash;
@@ -298,6 +307,15 @@ private:
 			}
 			return CompareString(LOCALE_USER_DEFAULT,LINGUISTIC_IGNORECASE,name,-1,x.name,-1)==CSTR_LESS_THAN;
 		}
+	};
+
+	// Recent document item (sorts by time, newer first)
+	struct Document
+	{
+		CString name;
+		FILETIME time;
+
+		bool operator<( const Document &x ) { return CompareFileTime(&time,&x.time)>0; }
 	};
 
 	LONG m_RefCount;
@@ -406,6 +424,8 @@ private:
 		MENU_ANIM_SPEED=200,
 		MENU_ANIM_SPEED_SUBMENU=100,
 		MENU_FADE_SPEED=400,
+		MRU_PROGRAMS_COUNT=20,
+		MRU_DEFAULT_COUNT=5,
 	};
 
 	// pPt - optional point in screen space (used only by ACTIVATE_EXECUTE and ACTIVATE_MENU)
@@ -418,6 +438,8 @@ private:
 	void PostRefreshMessage( void );
 	void SaveItemOrder( const std::vector<SortMenuItem> &items );
 	void LoadItemOrder( void );
+	void AddMRUShortcut( const wchar_t *path );
+	void LoadMRUShortcuts( void );
 	void FadeOutItem( int index );
 	bool GetItemRect( int index, RECT &rc );
 	int HitTest( const POINT &pt );
@@ -437,6 +459,7 @@ private:
 	static bool s_bRTL; // RTL layout
 	static bool s_bKeyboardCues; // show keyboard cues
 	static bool s_bExpandRight; // prefer expanding submenus to the right
+	static bool s_bRecentItems; // show and track recent items
 	static bool s_bBehindTaskbar; // the main menu is behind the taskbar (when the taskbar is horizontal)
 	static bool s_bShowTopEmpty; // shows the empty item on the top menu so the user can drag items there
 	static bool s_bNoDragDrop; // disables drag/drop
@@ -448,6 +471,7 @@ private:
 	static RECT s_MainRect; // area of the main monitor
 	static DWORD s_TaskbarState; // the state of the taskbar (ABS_AUTOHIDE and ABS_ALWAYSONTOP)
 	static DWORD s_HoverTime;
+	static DWORD s_XMouse;
 	static DWORD s_SubmenuStyle;
 	static CLIPFORMAT s_ShellFormat; // CFSTR_SHELLIDLIST
 	static CComPtr<IShellFolder> s_pDesktop; // cached pointer of the desktop object
@@ -467,6 +491,8 @@ private:
 
 	static std::vector<CMenuContainer*> s_Menus; // all menus, in cascading order
 	static std::map<unsigned int,int> s_MenuScrolls; // scroll offset for each sub menu
+
+	static CString s_MRUShortcuts[MRU_PROGRAMS_COUNT];
 
 	static MenuSkin s_Skin;
 

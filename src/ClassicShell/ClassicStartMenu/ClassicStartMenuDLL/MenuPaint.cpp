@@ -1009,7 +1009,7 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 
 		// draw text
 		COLORREF color;
-		if (item.id==MENU_EMPTY)
+		if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP)
 			color=textColors[index][bHot?3:2];
 		else
 			color=textColors[index][bHot?1:0];

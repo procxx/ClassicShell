@@ -16,6 +16,7 @@
 #define IDC_CHECKFAVORITES              1002
 #define IDC_CHECKUNDOCK                 1003
 #define IDC_CHECKSMALL                  1004
+#define IDC_CHECKRECENT                 1004
 #define IDC_CHECKCONTROLPANEL           1005
 #define IDC_CHECKPRINTERS               1006
 #define IDC_CHECKNETWORK                1007
@@ -50,6 +51,8 @@
 #define IDC_COMBOSCLICK                 1039
 #define IDC_COMBOWIN                    1040
 #define IDC_CHECKERRORS                 1041
+#define IDC_COMBOCLICK2                 1042
+#define IDC_COMBOMCLICK                 1042
 #define IDC_COMBO2                      1043
 #define IDC_COMBOSCROLL                 1043
 #define IDC_LABEL                       65535

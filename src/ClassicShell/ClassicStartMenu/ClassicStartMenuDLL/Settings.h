@@ -12,6 +12,7 @@ struct StartMenuSettings
 	DWORD ShowDocuments;
 	DWORD ShowLogOff;
 	DWORD ShowUndock;
+	DWORD ShowRecent;
 	DWORD ExpandControlPanel;
 	DWORD ExpandNetwork;
 	DWORD ExpandPrinters;
@@ -31,7 +32,7 @@ struct StartMenuSettings
 		OPEN_WINDOWS,
 	};
 
-	DWORD Controls; // LSB - Click, then Shift+Click, Win, Shift+Win
+	DWORD Controls; // 4 bits for each control: Click, Middle-click, Shift+Click, blank, Win, blank, Shift+Win, blank
 };
 
 // Read the settings from the registry

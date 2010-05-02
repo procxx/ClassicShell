@@ -167,7 +167,7 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::get_accDefaultAction( VARIANT varChil
 	if (index<0 || index>=(int)m_pOwner->m_Items.size())
 		return S_FALSE;
 	const CMenuContainer::MenuItem &item=m_pOwner->m_Items[index];
-	if (item.id!=MENU_SEPARATOR && item.id!=MENU_EMPTY)
+	if (item.id!=MENU_SEPARATOR && item.id!=MENU_EMPTY && item.id!=MENU_EMPTY_TOP)
 		*pszDefaultAction=SysAllocString(item.bFolder?FindTranslation("Menu.ActionOpen",L"Open"):FindTranslation("Menu.ActionExecute",L"Execute"));
 	return S_OK;
 }
@@ -320,7 +320,7 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::accDoDefaultAction( VARIANT varChild 
 		return S_FALSE;
 	// open or execute
 	const CMenuContainer::MenuItem &item=m_pOwner->m_Items[index];
-	if (item.id!=MENU_SEPARATOR && item.id!=MENU_EMPTY)
+	if (item.id!=MENU_SEPARATOR && item.id!=MENU_EMPTY && item.id!=MENU_EMPTY_TOP)
 		m_pOwner->ActivateItem(index,item.bFolder?CMenuContainer::ACTIVATE_OPEN:CMenuContainer::ACTIVATE_EXECUTE,NULL);
 	return S_OK;
 }

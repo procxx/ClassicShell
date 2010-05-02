@@ -62,7 +62,7 @@ static CSettingsParser g_CustomMenuParser;
 
 static const StdMenuItem *FindStdMenuItem( TMenuID id )
 {
-	if (id!=MENU_NO && id!=MENU_SEPARATOR && id!=MENU_EMPTY)
+	if (id!=MENU_NO && id!=MENU_SEPARATOR && id!=MENU_EMPTY && id!=MENU_EMPTY_TOP)
 	{
 		for (int i=0;i<_countof(g_StdMenu);i++)
 			if (g_StdMenu[i].id==id)
@@ -109,6 +109,7 @@ g_StdCommands[]={
 	{L"taskbar_settings",MENU_TASKBAR},
 	{L"programs_settings",MENU_FEATURES},
 	{L"menu_settings",MENU_CLASSIC_SETTINGS},
+	{L"recent_items",MENU_RECENT_ITEMS},
 };
 
 static TMenuID FindStdItem( const wchar_t *name )
@@ -250,6 +251,8 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 			if (_wcsicmp(token,L"SORT_ZA_CHILDREN")==0) item.settings|=StdMenuItem::MENU_SORTZA_REC;
 			if (_wcsicmp(token,L"SORT_ONCE")==0) item.settings|=StdMenuItem::MENU_SORTONCE;
 			if (_wcsicmp(token,L"ITEMS_FIRST")==0) item.settings|=StdMenuItem::MENU_ITEMS_FIRST;
+			if (_wcsicmp(token,L"TRACK_RECENT")==0) item.settings|=StdMenuItem::MENU_TRACK;
+			if (_wcsicmp(token,L"NOTRACK_RECENT")==0) item.settings|=StdMenuItem::MENU_NOTRACK;
 		}
 	}
 
@@ -306,6 +309,13 @@ const StdMenuItem *ParseCustomMenu( unsigned int &rootSettings )
 					}
 
 				g_CustomMenuRoot=PtrToInt(root.submenu)-1;
+
+				for (std::vector<StdMenuItem>::iterator it=g_CustomMenu.begin();it!=g_CustomMenu.end();++it)
+					if (it->id==MENU_RECENT_ITEMS)
+					{
+						g_RootSettings|=StdMenuItem::MENU_NORECENT;
+						break;
+					}
 			}
 		}
 	}

@@ -584,6 +584,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\LogManager.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\MenuCommands.cpp"
 				>
 			</File>
@@ -679,6 +683,10 @@
 			</File>
 			<File
 				RelativePath=".\IconManager.h"
+				>
+			</File>
+			<File
+				RelativePath=".\LogManager.h"
 				>
 			</File>
 			<File

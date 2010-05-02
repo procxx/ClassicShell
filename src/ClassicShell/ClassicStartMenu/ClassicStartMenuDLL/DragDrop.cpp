@@ -95,7 +95,7 @@ bool CMenuContainer::DragOut( int index )
 {
 	if (!(m_Options&CONTAINER_DRAG) || s_bNoDragDrop) return false;
 	const MenuItem &item=m_Items[index];
-	if (!item.pItem1 || item.id!=MENU_NO) return false;
+	if (!item.pItem1 || (item.id!=MENU_NO && item.id!=MENU_RECENT)) return false;
 
 	bool bLeft=(GetKeyState(VK_LBUTTON)<0);
 	bool bRight=(GetKeyState(VK_RBUTTON)<0);
@@ -169,11 +169,21 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragEnter( IDataObject *pDataObj, DWOR
 		POINT p={pt.x,pt.y};
 		m_pDropTargetHelper->DragEnter(m_hWnd,pDataObj,&p,*pdwEffect);
 	}
-	if (!m_bSubMenu && m_Items[0].id==MENU_EMPTY && !s_bShowTopEmpty)
+	if (!m_bSubMenu && !s_bShowTopEmpty)
 	{
 		// when dragging over the main menu, show an (Empty) item at the top so the user can drop items there
-		s_bShowTopEmpty=true;
-		InitWindow();
+		for (size_t i=0;i<m_Items.size();i++)
+			if (m_Items[i].id==MENU_EMPTY_TOP)
+			{
+				s_bShowTopEmpty=true;
+				unsigned int key=CalcFNVHash(m_RegName);
+				if (m_ScrollHeight>0)
+					s_MenuScrolls[key]=m_ScrollOffset;
+				else
+					s_MenuScrolls.erase(key);
+				InitWindow();
+				break;
+			}
 	}
 	m_DragHoverTime=GetMessageTime()-10000;
 	m_DragHoverItem=-1;
@@ -185,7 +195,9 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 {
 	s_bRightDrag=(grfKeyState&MK_RBUTTON)!=0;
 	grfKeyState&=MK_SHIFT|MK_CONTROL;
-	if (grfKeyState==MK_SHIFT)
+	if (s_pDragSource && s_pDragSource->m_Items[s_pDragSource->m_DragIndex].id==MENU_RECENT)
+		*pdwEffect&=DROPEFFECT_LINK;
+	else if (grfKeyState==MK_SHIFT)
 		*pdwEffect&=DROPEFFECT_MOVE;
 	else if (grfKeyState==MK_CONTROL)
 		*pdwEffect&=DROPEFFECT_COPY;
@@ -207,7 +219,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 
 	ScreenToClient(&p);
 	int index=HitTest(p);
-	if (index>=0)
+	if (index>=0 && m_Items[index].id!=MENU_RECENT)
 	{
 		// set the new insert mark
 		int mark=index;
@@ -218,14 +230,14 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 		if (p.y<y)
 		{
 			// insert above
-			if (m_Items[index].id!=MENU_NO && m_Items[index].id!=MENU_EMPTY && (index==0 || m_Items[index-1].id!=MENU_NO))
+			if (m_Items[index].id!=MENU_NO && m_Items[index].id!=MENU_EMPTY && m_Items[index].id!=MENU_EMPTY_TOP && (index==0 || m_Items[index-1].id!=MENU_NO))
 				mark=-1;
 		}
 		else
 		{
 			// insert below
 			bAfter=true;
-			if (m_Items[index].id!=MENU_NO && m_Items[index].id!=MENU_EMPTY && (index==m_Items.size()-1 || m_Items[index+1].id!=MENU_NO))
+			if (m_Items[index].id!=MENU_NO && m_Items[index].id!=MENU_EMPTY && m_Items[index].id!=MENU_EMPTY_TOP && (index==m_Items.size()-1 || m_Items[index+1].id!=MENU_NO))
 				mark=-1;
 		}
 		if (mark==-1 && m_Items[index].bFolder && (m_Items[index].bPrograms || m_Items[index].id==MENU_NO))
@@ -283,7 +295,9 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 	m_pDragObject.Release();
 
 	grfKeyState&=MK_SHIFT|MK_CONTROL;
-	if (!s_bRightDrag)
+	if (s_pDragSource && s_pDragSource->m_Items[s_pDragSource->m_DragIndex].id==MENU_RECENT)
+		*pdwEffect&=DROPEFFECT_LINK;
+	else if (!s_bRightDrag)
 	{
 		if (grfKeyState==MK_SHIFT)
 			*pdwEffect&=DROPEFFECT_MOVE;
@@ -312,7 +326,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 
 	int before=m_InsertMark;
 	if (before<0) return S_OK;
-	if (m_bInsertAfter && (before!=0 || m_Items[0].id!=MENU_EMPTY))
+	if (m_bInsertAfter && (before!=0 || (m_Items[0].id!=MENU_EMPTY && m_Items[0].id!=MENU_EMPTY_TOP)))
 		before++;
 
 	// clear the insert mark
@@ -327,17 +341,20 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 		if (!(m_Options&CONTAINER_AUTOSORT))
 		{
 			std::vector<SortMenuItem> items;
-			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
+			int skip=0, idx=0;
+			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it,idx++)
 				if (it->id==MENU_NO)
 				{
 					SortMenuItem item={it->name,it->nameHash,it->bFolder};
 					items.push_back(item);
 				}
-			SortMenuItem drag=items[m_DragIndex];
-			items.erase(items.begin()+m_DragIndex);
+				else if (idx<before)
+					skip++;
+			SortMenuItem drag=items[m_DragIndex-skip];
+			items.erase(items.begin()+(m_DragIndex-skip));
 			if (before>m_DragIndex)
 				before--;
-			items.insert(items.begin()+before,drag);
+			items.insert(items.begin()+(before-skip),drag);
 			SaveItemOrder(items);
 			PostRefreshMessage();
 		}
@@ -380,14 +397,17 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 		if (!(m_Options&CONTAINER_AUTOSORT))
 		{
 			std::vector<SortMenuItem> items;
-			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
+			int skip=0, idx=0;
+			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it,idx++)
 				if (it->id==MENU_NO)
 				{
 					SortMenuItem item={it->name,it->nameHash,it->bFolder};
 					items.push_back(item);
 				}
+				else if (idx<before)
+					skip++;
 			SortMenuItem ins={L"",CalcFNVHash(L""),false};
-			items.insert(items.begin()+before,ins);
+			items.insert(items.begin()+(before-skip),ins);
 			SaveItemOrder(items);
 		}
 		PostRefreshMessage();

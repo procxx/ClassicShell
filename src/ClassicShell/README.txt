@@ -1,5 +1,5 @@
 CLASSIC SHELL
-Version 1.0.0
+Version 1.9.6
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.
@@ -62,6 +62,11 @@ Classic Explorer is a plugin for Windows Explorer that:
   version or to not fade the expand buttons
 
 *	Can show the free disk space and the total file size in the status bar
+
+*	Can disable the breadcrumbs in the address bar
+
+*	Can display an icon overlay for the shared folders in Windows 7
+
 
 
 ///////////////////////////////////////////////////////////////////////////////

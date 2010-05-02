@@ -11,6 +11,7 @@
 #include "GlobalSettings.h"
 #include "ParseSettings.h"
 #include "TranslationSettings.h"
+#include "LogManager.h"
 #include "FNVHash.h"
 #include "resource.h"
 #include <WtsApi32.h>
@@ -110,6 +111,7 @@ static INT_PTR CALLBACK LogOffDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, L
 // ACTIVATE_MENU - shows the context menu for the item
 void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *pPt )
 {
+	LOG_MENU(LOG_EXECUTE,L"Activate Item, ptr=%p, index=%d, type=%d",this,index,type);
 	if (index<0)
 	{
 		if (type==ACTIVATE_SELECT)
@@ -121,6 +123,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	}
 
 	MenuItem &item=m_Items[index];
+
+	if (type==ACTIVATE_MENU && item.id==MENU_RECENT)
+		return; // no context menu for recent items (since they are not really in this folder)
+
 	if (type==ACTIVATE_SELECT)
 	{
 		// set the hot item
@@ -180,6 +186,11 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			options|=CONTAINER_PROGRAMS;
 		if (item.bLink || (m_Options&CONTAINER_LINK))
 			options|=CONTAINER_LINK;
+		if ((m_Options&CONTAINER_TRACK) || (item.id==MENU_PROGRAMS))
+			options|=CONTAINER_TRACK;
+
+		if (item.id==MENU_RECENT_ITEMS)
+			options|=CONTAINER_RECENT;
 
 		if (m_Options&CONTAINER_OPENUP_REC)
 		{
@@ -203,6 +214,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				options|=CONTAINER_SORTONCE;
 			if (item.pStdItem->settings&StdMenuItem::MENU_ITEMS_FIRST)
 				options|=CONTAINER_ITEMS_FIRST;
+			if (item.pStdItem->settings&StdMenuItem::MENU_TRACK)
+				options|=CONTAINER_TRACK;
+			if (item.pStdItem->settings&StdMenuItem::MENU_NOTRACK)
+				options&=~CONTAINER_TRACK;
 		}
 
 		if (!(options&CONTAINER_LINK) && ((m_Options&CONTAINER_MULTICOLUMN) || item.id==MENU_PROGRAMS))
@@ -412,7 +427,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 	if (type==ACTIVATE_EXECUTE)
 	{
-		if (item.id==MENU_EMPTY) return;
+		if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP) return;
 
 		if (!item.pItem1)
 		{
@@ -441,7 +456,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 	SetHotItem(index);
 
-	if ((!item.pItem1 || (type==ACTIVATE_EXECUTE && item.pStdItem && item.pStdItem->command && *item.pStdItem->command)) && !(item.id==MENU_EMPTY && type==ACTIVATE_MENU))
+	if ((!item.pItem1 || (type==ACTIVATE_EXECUTE && item.pStdItem && item.pStdItem->command && *item.pStdItem->command)) && !((item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP) && type==ACTIVATE_MENU))
 	{
 		// regular command item
 		if (type!=ACTIVATE_EXECUTE) return;
@@ -588,7 +603,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	CComPtr<IShellFolder> pFolder;
 	PCUITEMID_CHILD pidl;
 
-	if (item.id==MENU_EMPTY)
+	if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP)
 	{
 		s_pDesktop->BindToObject(m_Path1,NULL,IID_IShellFolder,(void**)&pFolder);
 	}
@@ -1027,7 +1042,17 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		GetWindowRect(&rc);
 		::SetWindowPos(g_OwnerWindow,HWND_TOPMOST,rc.left,rc.top,rc.right-rc.left,rc.bottom-rc.top,0);
 		HRESULT hr=pMenu->InvokeCommand((LPCMINVOKECOMMANDINFO)&info);
-
+		if (type==ACTIVATE_EXECUTE && SUCCEEDED(hr) && (item.id==MENU_RECENT || (m_Options&CONTAINER_TRACK)) && s_bRecentItems)
+		{
+			STRRET str;
+			if (SUCCEEDED(pFolder->GetDisplayNameOf(pidl,SHGDN_FORPARSING,&str)))
+			{
+				wchar_t *name;
+				StrRetToStr(&str,pidl,&name);
+				AddMRUShortcut(name);
+				CoTaskMemFree(name);
+			}
+		}
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			if (!(*it)->m_bDestroyed)
 				(*it)->EnableWindow(TRUE);

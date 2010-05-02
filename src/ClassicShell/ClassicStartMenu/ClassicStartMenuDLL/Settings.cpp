@@ -15,6 +15,7 @@ const DWORD DEFAULT_SHOW_FAVORITES=0;
 const DWORD DEFAULT_SHOW_DOCUMENTS=1;
 const DWORD DEFAULT_SHOW_LOGOFF=0;
 const DWORD DEFAULT_SHOW_UNDOCK=1;
+const DWORD DEFAULT_SHOW_RECENT=0;
 const DWORD DEFAULT_EXPAND_CONTROLPANEL=0;
 const DWORD DEFAULT_EXPAND_NETWORK=0;
 const DWORD DEFAULT_EXPAND_PRINTERS=0;
@@ -35,6 +36,7 @@ static void ReadSettings( HWND hwndDlg, StartMenuSettings &settings )
 	settings.ShowDocuments=(IsDlgButtonChecked(hwndDlg,IDC_CHECKDOCUMENTS)==BST_CHECKED)?1:0;
 	settings.ShowLogOff=(IsDlgButtonChecked(hwndDlg,IDC_CHECKLOGOFF)==BST_CHECKED)?1:0;
 	settings.ShowUndock=(IsDlgButtonChecked(hwndDlg,IDC_CHECKUNDOCK)==BST_CHECKED)?1:0;
+	settings.ShowRecent=(IsDlgButtonChecked(hwndDlg,IDC_CHECKRECENT)==BST_CHECKED)?1:0;
 	settings.ExpandControlPanel=(IsDlgButtonChecked(hwndDlg,IDC_CHECKCONTROLPANEL)==BST_CHECKED)?1:0;
 	settings.ExpandNetwork=(IsDlgButtonChecked(hwndDlg,IDC_CHECKNETWORK)==BST_CHECKED)?1:0;
 	settings.ExpandPrinters=(IsDlgButtonChecked(hwndDlg,IDC_CHECKPRINTERS)==BST_CHECKED)?1:0;
@@ -47,6 +49,7 @@ static void ReadSettings( HWND hwndDlg, StartMenuSettings &settings )
 	settings.Controls|=(DWORD)SendDlgItemMessage(hwndDlg,IDC_COMBOSCLICK,CB_GETCURSEL,0,0)<<8;
 	settings.Controls|=(DWORD)SendDlgItemMessage(hwndDlg,IDC_COMBOWIN,CB_GETCURSEL,0,0)<<16;
 	settings.Controls|=(DWORD)SendDlgItemMessage(hwndDlg,IDC_COMBOSWIN,CB_GETCURSEL,0,0)<<24;
+	settings.Controls|=(DWORD)SendDlgItemMessage(hwndDlg,IDC_COMBOMCLICK,CB_GETCURSEL,0,0)<<4;
 
 	wchar_t skinName[256];
 	int idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETCURSEL,0,0);
@@ -96,6 +99,8 @@ void ReadSettings( StartMenuSettings &settings )
 		settings.ShowLogOff=DEFAULT_SHOW_LOGOFF;
 	if (regSettings.QueryDWORDValue(L"ShowUndock",settings.ShowUndock)!=ERROR_SUCCESS)
 		settings.ShowUndock=DEFAULT_SHOW_UNDOCK;
+	if (regSettings.QueryDWORDValue(L"ShowRecent",settings.ShowRecent)!=ERROR_SUCCESS)
+		settings.ShowRecent=DEFAULT_SHOW_RECENT;
 	if (regSettings.QueryDWORDValue(L"ExpandControlPanel",settings.ExpandControlPanel)!=ERROR_SUCCESS)
 		settings.ExpandControlPanel=DEFAULT_EXPAND_CONTROLPANEL;
 	if (regSettings.QueryDWORDValue(L"ExpandNetwork",settings.ExpandNetwork)!=ERROR_SUCCESS)
@@ -319,6 +324,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		CheckDlgButton(hwndDlg,IDC_CHECKDOCUMENTS,settings.ShowDocuments?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKLOGOFF,settings.ShowLogOff?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKUNDOCK,settings.ShowUndock?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_CHECKRECENT,settings.ShowRecent?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKCONTROLPANEL,settings.ExpandControlPanel?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKNETWORK,settings.ExpandNetwork?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKPRINTERS,settings.ExpandPrinters?BST_CHECKED:BST_UNCHECKED);
@@ -336,11 +342,13 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			SendDlgItemMessage(hwndDlg,IDC_COMBOSCLICK,CB_ADDSTRING,0,(LPARAM)text[i]);
 			SendDlgItemMessage(hwndDlg,IDC_COMBOWIN,CB_ADDSTRING,0,(LPARAM)text[i]);
 			SendDlgItemMessage(hwndDlg,IDC_COMBOSWIN,CB_ADDSTRING,0,(LPARAM)text[i]);
+			SendDlgItemMessage(hwndDlg,IDC_COMBOMCLICK,CB_ADDSTRING,0,(LPARAM)text[i]);
 		}
-		SendDlgItemMessage(hwndDlg,IDC_COMBOCLICK,CB_SETCURSEL,settings.Controls&0xFF,0);
-		SendDlgItemMessage(hwndDlg,IDC_COMBOSCLICK,CB_SETCURSEL,(settings.Controls>>8)&0xFF,0);
-		SendDlgItemMessage(hwndDlg,IDC_COMBOWIN,CB_SETCURSEL,(settings.Controls>>16)&0xFF,0);
-		SendDlgItemMessage(hwndDlg,IDC_COMBOSWIN,CB_SETCURSEL,(settings.Controls>>24)&0xFF,0);
+		SendDlgItemMessage(hwndDlg,IDC_COMBOCLICK,CB_SETCURSEL,settings.Controls&15,0);
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSCLICK,CB_SETCURSEL,(settings.Controls>>8)&15,0);
+		SendDlgItemMessage(hwndDlg,IDC_COMBOWIN,CB_SETCURSEL,(settings.Controls>>16)&15,0);
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSWIN,CB_SETCURSEL,(settings.Controls>>24)&15,0);
+		SendDlgItemMessage(hwndDlg,IDC_COMBOMCLICK,CB_SETCURSEL,(settings.Controls>>4)&15,0);
 
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKFAVORITES),!SHRestricted(REST_NOFAVORITESMENU));
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKUNDOCK),!SHRestricted(REST_NOSMEJECTPC));
@@ -462,6 +470,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		regSettings.SetDWORDValue(L"ShowDocuments",settings.ShowDocuments);
 		regSettings.SetDWORDValue(L"ShowLogOff",settings.ShowLogOff);
 		regSettings.SetDWORDValue(L"ShowUndock",settings.ShowUndock);
+		regSettings.SetDWORDValue(L"ShowRecent",settings.ShowRecent);
 		regSettings.SetDWORDValue(L"ExpandControlPanel",settings.ExpandControlPanel);
 		regSettings.SetDWORDValue(L"ExpandNetwork",settings.ExpandNetwork);
 		regSettings.SetDWORDValue(L"ExpandPrinters",settings.ExpandPrinters);
@@ -480,6 +489,9 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			regSettings.SetBinaryValue(L"SkinOptions",NULL,0);
 		else
 			regSettings.SetBinaryValue(L"SkinOptions",&settings.SkinOptions[0],(int)settings.SkinOptions.size()*4);
+
+		if (!settings.ShowRecent)
+			regSettings.DeleteSubKey(L"MRU");
 
 		DestroyWindow(hwndDlg);
 		return TRUE;
