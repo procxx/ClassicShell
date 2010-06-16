@@ -246,6 +246,32 @@ void UnhookDropTarget( void )
 #endif
 }
 
+// Toggle the start menu. bKeyboard - set to true to show the keyboard cues
+STARTMENUAPI HWND ToggleStartMenu( HWND startButton, bool bKeyboard )
+{
+	return CMenuContainer::ToggleStartMenu(startButton,bKeyboard);
+}
+
+static LRESULT CALLBACK HookKeyboardLL( int code, WPARAM wParam, LPARAM lParam )
+{
+	static bool s_bLWinPressed, s_bRWinPressed;
+	if (wParam==WM_KEYDOWN)
+	{
+		KBDLLHOOKSTRUCT *pKbd=(KBDLLHOOKSTRUCT*)lParam;
+		s_bLWinPressed=(pKbd->vkCode==VK_LWIN);
+		s_bRWinPressed=(pKbd->vkCode==VK_RWIN);
+	}
+	if (wParam==WM_KEYUP)
+	{
+		KBDLLHOOKSTRUCT *pKbd=(KBDLLHOOKSTRUCT*)lParam;
+		if (((pKbd->vkCode==VK_LWIN && s_bLWinPressed) || (pKbd->vkCode==VK_RWIN && s_bRWinPressed)) && GetAsyncKeyState(VK_SHIFT)<0)
+		{
+			PostMessage(g_StartButton,g_StartMenuMsg,2,0);
+		}
+	}
+	return CallNextHookEx(NULL,code,wParam,lParam);
+}
+
 // Set the hotkeys and controls for the start menu
 void SetControls( DWORD hotkeyCSM, DWORD hotkeyNSM, DWORD controls )
 {
@@ -274,32 +300,18 @@ void SetControls( DWORD hotkeyCSM, DWORD hotkeyNSM, DWORD controls )
 	}
 
 	g_Controls=controls;
-}
 
-// Toggle the start menu. bKeyboard - set to true to show the keyboard cues
-STARTMENUAPI HWND ToggleStartMenu( HWND startButton, bool bKeyboard )
-{
-	return CMenuContainer::ToggleStartMenu(startButton,bKeyboard);
-}
-
-static LRESULT CALLBACK HookKeyboardLL( int code, WPARAM wParam, LPARAM lParam )
-{
-	static bool s_bLWinPressed, s_bRWinPressed;
-	if (wParam==WM_KEYDOWN)
+	if (g_Controls&0x0F000000)
 	{
-		KBDLLHOOKSTRUCT *pKbd=(KBDLLHOOKSTRUCT*)lParam;
-		s_bLWinPressed=(pKbd->vkCode==VK_LWIN);
-		s_bRWinPressed=(pKbd->vkCode==VK_RWIN);
+		if (!g_KeyboardHook)
+			g_KeyboardHook=SetWindowsHookEx(WH_KEYBOARD_LL,HookKeyboardLL,g_Instance,NULL);
 	}
-	if (wParam==WM_KEYUP)
+	else
 	{
-		KBDLLHOOKSTRUCT *pKbd=(KBDLLHOOKSTRUCT*)lParam;
-		if (((pKbd->vkCode==VK_LWIN && s_bLWinPressed) || (pKbd->vkCode==VK_RWIN && s_bRWinPressed)) && GetAsyncKeyState(VK_SHIFT)<0)
-		{
-			PostMessage(g_StartButton,g_StartMenuMsg,2,0);
-		}
+		if (g_KeyboardHook)
+			UnhookWindowsHookEx(g_KeyboardHook);
+		g_KeyboardHook=NULL;
 	}
-	return CallNextHookEx(NULL,code,wParam,lParam);
 }
 
 static BOOL CALLBACK FindWindowsMenuProc( HWND hwnd, LPARAM lParam )
@@ -357,7 +369,6 @@ static void InitStartMenuDLL( void )
 	HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
 	LoadLibrary(L"ClassicStartMenuDLL.dll"); // keep the DLL from unloading
 	if (hwnd) PostMessage(hwnd,WM_CLEAR,0,0); // tell the exe to unhook this hook
-	g_KeyboardHook=SetWindowsHookEx(WH_KEYBOARD_LL,HookKeyboardLL,g_Instance,NULL);
 	SetWindowSubclass(g_TaskBar,SubclassTaskBarProc,'CLSH',0);
 }
 
@@ -382,7 +393,6 @@ static void CleanStartMenuDLL( void )
 	if (hwnd) PostMessage(hwnd,WM_CLOSE,0,0);
 	UnhookWindowsHookEx(g_ProgHook);
 	UnhookWindowsHookEx(g_StartHook);
-	UnhookWindowsHookEx(g_KeyboardHook);
 	RemoveWindowSubclass(g_TaskBar,SubclassTaskBarProc,'CLSH');
 
 	// we need to unload the DLL here. but we can't just call FreeLibrary because it will unload the code
@@ -435,8 +445,11 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			// wParam=0 - toggle
 			// wParam=1 - open
 			// wParam=2 - Shift+Win was pressed
+			// wParam=3 - settings
 			msg->message=WM_NULL;
-			if (msg->wParam==2)
+			if (msg->wParam==3)
+				EditSettings(false);
+			else if (msg->wParam==2)
 			{
 				int control=(g_Controls>>24)&15;
 				if (control==StartMenuSettings::OPEN_CLASSIC)

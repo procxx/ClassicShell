@@ -124,9 +124,6 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 	MenuItem &item=m_Items[index];
 
-	if (type==ACTIVATE_MENU && item.id==MENU_RECENT)
-		return; // no context menu for recent items (since they are not really in this folder)
-
 	if (type==ACTIVATE_SELECT)
 	{
 		// set the hot item
@@ -425,6 +422,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		return;
 	}
 
+	bool bShift=GetKeyState(VK_SHIFT)<0;
+	bool bCtrl=GetKeyState(VK_CONTROL)<0;
+	bool bKeepOpen=(type==ACTIVATE_EXECUTE) && bShift && !bCtrl;
+
 	if (type==ACTIVATE_EXECUTE)
 	{
 		if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP) return;
@@ -437,7 +438,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 
 		// when executing an item close the whole menu
-		if (GetKeyState(VK_SHIFT)>=0)
+		if (!bKeepOpen)
 		{
 			for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
 				if (!(*it)->m_bDestroyed)
@@ -461,7 +462,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		// regular command item
 		if (type!=ACTIVATE_EXECUTE) return;
 
-		if (GetKeyState(VK_SHIFT)<0)
+		if (bKeepOpen)
 			LockSetForegroundWindow(LSFW_LOCK);
 		else
 		{
@@ -620,7 +621,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (type==ACTIVATE_MENU)
 		{
 			flags=CMF_NORMAL|CMF_CANRENAME;
-			if (GetKeyState(VK_SHIFT)<0) flags|=CMF_EXTENDEDVERBS;
+			if (bShift) flags|=CMF_EXTENDEDVERBS;
 		}
 		if (FAILED(pMenu->QueryContextMenu(menu,0,CMD_LAST,32767,flags)))
 		{
@@ -660,6 +661,29 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				n--;
 			}
 		}
+		else if (type==ACTIVATE_MENU && item.id==MENU_RECENT)
+		{
+			// context menu for a recent item - leave just open and runas
+			int n=GetMenuItemCount(menu);
+			for (int i=0;i<n;i++)
+			{
+				int id=GetMenuItemID(menu,i);
+				if (id>0)
+				{
+					char command[256];
+					if (FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+						command[0]=0;
+					if (_stricmp(command,"open")==0 || _stricmp(command,"runas")==0 || _stricmp(command,"properties")==0 || _stricmp(command,"opencontaining")==0)
+						continue;
+				}
+				DeleteMenu(menu,i,MF_BYPOSITION);
+				i--;
+				n--;
+			}
+			if (n>0)
+				AppendMenu(menu,MF_SEPARATOR,0,0);
+			AppendMenu(menu,MF_STRING,CMD_DELETEMRU,FindTranslation("Menu.RemoveList",L"Remove &from this list"));
+		}
 	}
 
 	int res=0;
@@ -667,6 +691,24 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	{
 		// just pick the default item
 		res=GetMenuDefaultItem(menu,FALSE,0);
+		if (bShift && bCtrl)
+		{
+			// find the runas verb if available
+			char command[256];
+			int n=GetMenuItemCount(menu);
+			for (int i=0;i<n;i++)
+			{
+				int id=GetMenuItemID(menu,i);
+				if (id>=CMD_LAST && SUCCEEDED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+				{
+					if (_stricmp(command,"runas")==0)
+					{
+						res=id;
+						break;
+					}
+				}
+			}
+		}
 		if (res<0) res=0;
 	}
 	else
@@ -784,7 +826,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 	if (type==ACTIVATE_EXECUTE)
 	{
-		if (GetKeyState(VK_SHIFT)<0)
+		if (bKeepOpen)
 			LockSetForegroundWindow(LSFW_LOCK);
 		else
 			FadeOutItem(index);
@@ -938,6 +980,20 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		return;
 	}
 
+	if (res==CMD_DELETEMRU && item.id==MENU_RECENT && s_bRecentItems)
+	{
+		STRRET str;
+		if (SUCCEEDED(pFolder->GetDisplayNameOf(pidl,SHGDN_FORPARSING,&str)))
+		{
+			wchar_t *name;
+			StrRetToStr(&str,pidl,&name);
+			DeleteMRUShortcut(name);
+			CoTaskMemFree(name);
+		}
+		PostRefreshMessage();
+		return;
+	}
+
 	// handle the shell commands
 	if (res>=CMD_LAST)
 	{
@@ -1063,6 +1119,14 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			SetFocus();
 		}
 		s_pDragSource=NULL;
+
+		if (!bKeepOpen && GetActiveWindow()!=m_hWnd)
+		{
+			// if after all the window is not active, then another application was launched - close all menus
+			for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
+				if (!(*it)->m_bDestroyed)
+					(*it)->PostMessage(WM_CLOSE);
+		}
 
 		if (bRefresh)
 			PostRefreshMessage(); // refresh the menu after an item was deleted or created
@@ -1245,7 +1309,7 @@ void CMenuFader::Create( void )
 		m_Region=NULL;
 	}
 	SetTimer(1,20);
-	m_Time0=GetMessageTime();
+	m_Time0=0;
 	m_LastTime=0;
 	PostMessage(WM_TIMER,0,0);
 	SetLayeredWindowAttributes(m_hWnd,0,255,LWA_ALPHA);
@@ -1268,6 +1332,8 @@ LRESULT CMenuFader::OnEraseBkgnd( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 
 LRESULT CMenuFader::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
+	if (m_Time0==0)
+		m_Time0=GetMessageTime();
 	int t=GetMessageTime()-m_Time0;
 	const int MAX_DELTA=80; // allow at most 80ms between redraws. if more, slow down time
 	if (t>MAX_DELTA+m_LastTime)

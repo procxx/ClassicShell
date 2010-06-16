@@ -306,6 +306,24 @@ extern bool g_bHookCopyThreads;
 		}
 		if (pHdr->idFrom==IDC_LINKINI && (pHdr->code==NM_CLICK || pHdr->code==NM_RETURN))
 		{
+			CRegKey regSettings;
+			if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
+				regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
+
+			DWORD show;
+			if (regSettings.QueryDWORDValue(L"IgnoreIniWarning",show)!=ERROR_SUCCESS)
+			{
+				TASKDIALOGCONFIG task={sizeof(task),hwndDlg,NULL,TDF_ALLOW_DIALOG_CANCELLATION,TDCBF_OK_BUTTON};
+				task.pszMainIcon=TD_INFORMATION_ICON;
+				task.pszWindowTitle=L"Classic Explorer";
+				task.pszMainInstruction=L"After modifying the ini file you have to open a new Explorer window to use the new settings.\n\nRemember: All lines starting with a semicolon are ignored. Remove the semicolon from the settings you want to use.";
+				task.pszVerificationText=L"Don't show this message again";
+				BOOL bIgnore=FALSE;
+				TaskDialogIndirect(&task,NULL,NULL,&bIgnore);
+				if (bIgnore)
+					regSettings.SetDWORDValue(L"IgnoreIniWarning",1);
+			}
+
 			// run Notepad as administrator (the ini file is most likely in a protected folder)
 			wchar_t path[_MAX_PATH];
 			GetModuleFileName(g_Instance,path,_countof(path));

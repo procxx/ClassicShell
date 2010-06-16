@@ -1,5 +1,24 @@
 ===============================================================================
-== Version 1.9.6 release candidate (Jun, 2010):
+== Version 1.9.7 release candidate (Jun, 2010):
+
+- Ctrl+Shift+Click in the start menu runs the program as administrator
+
+- The uninstaller offers to back up the ini files
+
+- Some improvements to the settings
+
+- Fixed a bug that was blocking the toolbar on Windows Vista
+
+- Fixed an incompatibility problem with QTTabBar
+
+- Fixed a start menu bug that was causing a flicker when Windows was running
+  for too long
+
+- Fixed a hovering bug in the start menu
+
+
+===============================================================================
+== Version 1.9.6 release candidate (May, 2010):
 
 - Added a setting to track and display the recently used programs
 

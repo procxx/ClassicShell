@@ -34,6 +34,7 @@ public:
 		ID_UNDO,
 		ID_REDO,
 		ID_SELECTALL,
+		ID_DESELECT,
 		ID_INVERT,
 		ID_GOBACK,
 		ID_GOFORWARD,
@@ -175,6 +176,7 @@ protected:
 	bool m_bSubclassRebar; // the rebar needs subclassing
 	bool m_bSubclassedRebar; // the rebar is subclassed
 	bool m_bBandNewLine; // our band is on a new line (has RBBS_BREAK style)
+	bool m_bHandleSetInfo; // mess with the RB_SETBANDINFO message
 	CBandWindow m_BandWindow;
 	CComPtr<IWebBrowser2> m_pWebBrowser;
 

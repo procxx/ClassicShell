@@ -132,7 +132,7 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 		wchar_t path[_MAX_PATH];
 		GetModuleFileName(NULL,path,_countof(path));
 		const wchar_t *exe=PathFindFileName(path);
-		g_bExplorerExe=(_wcsicmp(exe,L"explorer.exe")==0);
+		g_bExplorerExe=(_wcsicmp(exe,L"explorer.exe")==0 || _wcsicmp(exe,L"verclsid.exe")==0);
 		if (_wcsicmp(exe,L"regsvr32.exe")!=0 && _wcsicmp(exe,L"msiexec.exe")!=0 && !g_bExplorerExe && SharedOverlay!=2 && !(EnableCopyUI&4))
 			return FALSE;
 

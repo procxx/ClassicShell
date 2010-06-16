@@ -113,6 +113,7 @@ CMenuContainer::CMenuContainer( CMenuContainer *pParent, int index, int options,
 {
 	m_RefCount=1;
 	m_bSubMenu=(index>=0); // this may be true even if pParent is NULL (in case you want to show only sub-menus somewhere, use index=0 and pParent=NULL)
+	m_HoverItem=-1;
 	m_pParent=pParent;
 	m_ParentIndex=pParent?index:-1;
 	m_Options=options;
@@ -448,10 +449,15 @@ void CMenuContainer::InitItems( void )
 	{
 		int nRecent=MRU_DEFAULT_COUNT;
 		const wchar_t *str=FindSetting("MaxRecentItems");
+		bool bReverse=false;
 		if (str)
 		{
 			nRecent=_wtol(str);
-			if (nRecent<0) nRecent=0;
+			if (nRecent<0)
+			{
+				nRecent=-nRecent;
+				bReverse=true;
+			}
 			if (nRecent>MRU_PROGRAMS_COUNT) nRecent=MRU_PROGRAMS_COUNT;
 		}
 		if (nRecent>0)
@@ -507,10 +513,20 @@ void CMenuContainer::InitItems( void )
 
 			if (!items.empty())
 			{
+				if (bReverse)
+					std::reverse(items.begin(),items.end());
 				MenuItem item={MENU_SEPARATOR};
-				items.push_back(item);
+				if (FindSettingBool("RecentItemsTop",true))
+				{
+					items.push_back(item);
+					m_Items.insert(m_Items.begin(),items.begin(),items.end());
+				}
+				else
+				{
+					m_Items.push_back(item);
+					m_Items.insert(m_Items.end(),items.begin(),items.end());
+				}
 			}
-			m_Items.insert(m_Items.begin(),items.begin(),items.end());
 		}
 	}
 
@@ -769,7 +785,7 @@ void CMenuContainer::InitWindow( void )
 		}
 		m_ItemHeight[1]=itemHeight;
 
-		int numChar=_wtol(FindSetting("MaxMenuWidth",L"80"));
+		int numChar=_wtol(FindSetting("MaxMainMenuWidth",L"60"));
 		m_MaxItemWidth[1]=numChar?metrics.tmAveCharWidth*numChar:65536;
 		SelectObject(hdc,m_Font[0]);
 		GetTextMetrics(hdc,&metrics);
@@ -790,7 +806,7 @@ void CMenuContainer::InitWindow( void )
 		}
 		m_ItemHeight[0]=itemHeight;
 
-		int numChar=_wtol(FindSetting("MaxMenuWidth",L"80"));
+		int numChar=_wtol(FindSetting(m_bSubMenu?"MaxMenuWidth":"MaxMainMenuWidth",L"60"));
 		m_MaxItemWidth[0]=numChar?metrics.tmAveCharWidth*numChar:65536;
 	}
 	m_ScrollButtonSize=m_ItemHeight[0]/2;
@@ -850,6 +866,7 @@ void CMenuContainer::InitWindow( void )
 				SIZE size;
 				if (GetTextExtentPoint32(hdc,item.name,item.name.GetLength(),&size))
 					w=size.cx;
+				if (w>m_MaxItemWidth[index]) w=m_MaxItemWidth[index];
 				w+=iconSize+iconPadding[index].left+iconPadding[index].right+textPadding[index].left+textPadding[index].right+arrowSize[index];
 			}
 			if (bMultiColumn && y>0 && y+h>maxHeight)
@@ -867,7 +884,6 @@ void CMenuContainer::InitWindow( void )
 			}
 			else if (item.id==MENU_SEPARATOR && m_bTwoColumns && column==0 && i+1<m_Items.size() && m_Items[i+1].bBreak)
 				h=0;
-			if (w>m_MaxItemWidth[index]) w=m_MaxItemWidth[index];
 			if (columnWidths[column]<w) columnWidths[column]=w;
 			item.row=row;
 			item.column=column;
@@ -1247,24 +1263,24 @@ bool CMenuContainer::GetItemRect( int index, RECT &rc )
 	return true;
 }
 
-int CMenuContainer::HitTest( const POINT &pt )
+int CMenuContainer::HitTest( const POINT &pt, bool bDrop )
 {
-	RECT rc;
 	if (m_bScrollUp && pt.y<m_rContent.top+m_ScrollButtonSize)
 		return -1;
 	int start=0;
 	if (m_bScrollDown && pt.y>=m_rContent.top+m_ScrollHeight-m_ScrollButtonSize)
 		start=m_ScrollCount;
-	for (int i=start;i<(int)m_Items.size();i++)
+	int n=(int)m_Items.size();
+	for (int i=start;i<n;i++)
 	{
-		RECT *pRc=&m_Items[i].itemRect;
+		RECT rc=m_Items[i].itemRect;
 		if (m_ScrollHeight>0 && i<m_ScrollCount)
 		{
-			rc=*pRc;
-			pRc=&rc;
-			OffsetRect(pRc,0,-m_ScrollOffset);
+			OffsetRect(&rc,0,-m_ScrollOffset);
 		}
-		if (PtInRect(pRc,pt))
+		else if (bDrop && m_bTwoColumns && i<n-1 && m_Items[i+1].column==0 && m_Items[i+1].bAlignBottom)
+			rc.bottom=m_Items[i+1].itemRect.top; // when dropping on the padding of the first column, assume the item above the padding was hit
+		if (PtInRect(&rc,pt))
 			return i;
 	}
 	return -1;
@@ -1885,6 +1901,11 @@ LRESULT CMenuContainer::OnMouseLeave( UINT uMsg, WPARAM wParam, LPARAM lParam, B
 	UpdateScroll(NULL);
 	SetHotItem(-1);
 	m_bTrackMouse=false;
+	if (m_HoverItem!=-1)
+	{
+		KillTimer(TIMER_HOVER);
+		m_HoverItem=-1;
+	}
 	return 0;
 }
 
@@ -2236,17 +2257,47 @@ void CMenuContainer::AddMRUShortcut( const wchar_t *path )
 		s_MRUShortcuts[0]=path;
 	}
 
+	SaveMRUShortcuts();
+}
+
+void CMenuContainer::DeleteMRUShortcut( const wchar_t *path )
+{
+	for (int i=0;i<MRU_PROGRAMS_COUNT;i++)
+	{
+		if (_wcsicmp(s_MRUShortcuts[i],path)==0)
+		{
+			for (;i<MRU_PROGRAMS_COUNT-1;i++)
+				s_MRUShortcuts[i]=s_MRUShortcuts[i+1];
+			break;
+		}
+	}
+
+	SaveMRUShortcuts();
+}
+
+void CMenuContainer::SaveMRUShortcuts( void )
+{
 	CRegKey regMRU;
 	if (regMRU.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu\\MRU")!=ERROR_SUCCESS)
-		regMRU.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu\\MRU");
+	regMRU.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu\\MRU");
 
+	bool bDelete=false;
 	for (int i=0;i<MRU_PROGRAMS_COUNT;i++)
 	{
 		wchar_t name[10];
 		Sprintf(name,_countof(name),L"%d",i);
 		if (s_MRUShortcuts[i].IsEmpty())
-			break;
-		regMRU.SetStringValue(name,s_MRUShortcuts[i]);
+			bDelete=true; // delete the rest!
+		if (bDelete)
+		{
+			wchar_t path[256];
+			ULONG size=_countof(path);
+			if (regMRU.QueryStringValue(name,path,&size)!=ERROR_SUCCESS)
+				break;
+			regMRU.DeleteValue(name);
+		}
+		else
+			regMRU.SetStringValue(name,s_MRUShortcuts[i]);
 	}
 }
 

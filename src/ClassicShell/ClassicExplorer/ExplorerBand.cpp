@@ -46,6 +46,7 @@ static struct
 	{L"undo",CBandWindow::ID_UNDO},
 	{L"redo",CBandWindow::ID_REDO},
 	{L"selectall",CBandWindow::ID_SELECTALL},
+	{L"deselect",CBandWindow::ID_DESELECT},
 	{L"invertselection",CBandWindow::ID_INVERT},
 	{L"back",CBandWindow::ID_GOBACK},
 	{L"forward",CBandWindow::ID_GOFORWARD},
@@ -477,6 +478,11 @@ LRESULT CBandWindow::OnToolbarCommand( WORD wNotifyCode, WORD wID, HWND hWndCtl,
 		SendShellTabCommand(28705);
 	if (wID==ID_INVERT)
 		SendShellTabCommand(28706);
+	if (wID==ID_DESELECT)
+	{
+		SendShellTabCommand(28705);
+		SendShellTabCommand(28706);
+	}
 	if (wID==ID_REFRESH)
 		SendShellTabCommand(41504);
 
@@ -596,7 +602,7 @@ CExplorerBand::CExplorerBand( void )
 // that forces RBBS_BREAK for every rebar band
 LRESULT CALLBACK CExplorerBand::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
-	if (uMsg==RB_SETBANDINFO || uMsg==RB_INSERTBAND)
+	if (uMsg==RB_SETBANDINFO && ((CExplorerBand*)uIdSubclass)->m_bHandleSetInfo)
 	{
 		REBARBANDINFO *pInfo=(REBARBANDINFO*)lParam;
 		if ((pInfo->hwndChild==(HWND)dwRefData) && (pInfo->fMask&RBBIM_STYLE))
@@ -607,6 +613,34 @@ LRESULT CALLBACK CExplorerBand::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM 
 				pInfo->fStyle&=~RBBS_BREAK;
 		}
 	}
+
+	if (uMsg==WM_CLEAR)
+		((CExplorerBand*)uIdSubclass)->m_bHandleSetInfo=false;
+
+	if (uMsg==RB_DELETEBAND)
+	{
+		int n=(int)SendMessage(hWnd,RB_GETBANDCOUNT,0,0);
+		CExplorerBand *pThis=(CExplorerBand*)uIdSubclass;
+		for (int i=0;i<n;i++)
+		{
+			// when ANY band but ours is being deleted, make sure we preserve OUR break style (on Win7 all bands get a break style when any band is deleted)
+			REBARBANDINFO info={sizeof(info),RBBIM_STYLE|RBBIM_CHILD};
+			SendMessage(hWnd,RB_GETBANDINFO,i,(LPARAM)&info);
+			if (info.hwndChild==(HWND)dwRefData)
+			{
+				LRESULT res=DefSubclassProc(hWnd,uMsg,wParam,lParam);
+				if (i!=(int)wParam)
+				{
+					bool old=pThis->m_bHandleSetInfo;
+					pThis->m_bHandleSetInfo=false;
+					SendMessage(hWnd,RB_SETBANDINFO,i,(LPARAM)&info);
+					pThis->m_bHandleSetInfo=old;
+				}
+				return res;
+			}
+		}
+	}
+
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
@@ -705,25 +739,32 @@ STDMETHODIMP CExplorerBand::ShowDW( BOOL fShow )
 	if (m_bSubclassedRebar)
 	{
 		// on Windows 7 get the current RBBS_BREAK state and save it in the registry to be restored later
-		HWND parent=GetParent(m_BandWindow.GetToolbar());
-		int n=(int)SendMessage(parent,RB_GETBANDCOUNT,0,0);
-		for (int i=0;i<n;i++)
+		HWND rebar=GetParent(m_BandWindow.GetToolbar());
+		m_bHandleSetInfo=true;
+		if (!fShow)
 		{
-			REBARBANDINFO info={sizeof(info),RBBIM_STYLE|RBBIM_CHILD};
-			SendMessage(parent,RB_GETBANDINFO,i,(LPARAM)&info);
-			if (info.hwndChild==m_BandWindow.GetToolbar())
+			int n=(int)SendMessage(rebar,RB_GETBANDCOUNT,0,0);
+			for (int i=0;i<n;i++)
 			{
-				m_bBandNewLine=(info.fStyle&RBBS_BREAK)!=0;
-				CRegKey regSettings;
-				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
-					regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
+				REBARBANDINFO info={sizeof(info),RBBIM_STYLE|RBBIM_CHILD};
+				SendMessage(rebar,RB_GETBANDINFO,i,(LPARAM)&info);
+				if (info.hwndChild==m_BandWindow.GetToolbar())
+				{
+					m_bBandNewLine=(info.fStyle&RBBS_BREAK)!=0;
+					CRegKey regSettings;
+					if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
+						regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
 
-				regSettings.SetDWORDValue(L"NewLine",m_bBandNewLine?1:0);
-				break;
+					regSettings.SetDWORDValue(L"NewLine",m_bBandNewLine?1:0);
+					break;
+				}
 			}
 		}
+		ShowWindow(m_BandWindow.GetToolbar(),fShow?SW_SHOW:SW_HIDE);
+		PostMessage(rebar,WM_CLEAR,0,0);
 	}
-	ShowWindow(m_BandWindow.GetToolbar(),fShow?SW_SHOW:SW_HIDE);
+	else
+		ShowWindow(m_BandWindow.GetToolbar(),fShow?SW_SHOW:SW_HIDE);
 	return S_OK;
 }
 
@@ -738,6 +779,7 @@ STDMETHODIMP CExplorerBand::SetSite( IUnknown* pUnkSite )
 	if (m_bSubclassedRebar)
 		RemoveWindowSubclass(GetParent(m_BandWindow.GetToolbar()),RebarSubclassProc,(UINT_PTR)this);
 	m_bSubclassedRebar=false;
+	m_bHandleSetInfo=true;
 
 	if (m_pWebBrowser && m_dwEventCookie!=0xFEFEFEFE)
 		DispEventUnadvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);

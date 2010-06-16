@@ -382,6 +382,7 @@ private:
 		CMD_SORT,
 		CMD_AUTOSORT,
 		CMD_NEWFOLDER,
+		CMD_DELETEMRU,
 
 		CMD_LAST
 	};
@@ -439,10 +440,12 @@ private:
 	void SaveItemOrder( const std::vector<SortMenuItem> &items );
 	void LoadItemOrder( void );
 	void AddMRUShortcut( const wchar_t *path );
+	void DeleteMRUShortcut( const wchar_t *path );
+	void SaveMRUShortcuts( void );
 	void LoadMRUShortcuts( void );
 	void FadeOutItem( int index );
 	bool GetItemRect( int index, RECT &rc );
-	int HitTest( const POINT &pt );
+	int HitTest( const POINT &pt, bool bDrop=false );
 	bool DragOut( int index );
 	void InvalidateItem( int index );
 	void SetHotItem( int index );

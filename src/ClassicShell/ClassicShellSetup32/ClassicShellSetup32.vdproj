@@ -195,6 +195,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_F0C0D0DFB37545BEB71C0568027E76C8"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_F127B5A8C1504EA581309121D91AA04A"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -256,6 +262,20 @@
     {
         "CustomAction"
         {
+            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_41E6B1666C59443784007CA19F9E02FC"
+            {
+            "Name" = "8:BackupInis.vbs"
+            "Condition" = "8:"
+            "Object" = "8:_F0C0D0DFB37545BEB71C0568027E76C8"
+            "FileType" = "3:4"
+            "InstallAction" = "3:4"
+            "Arguments" = "8:"
+            "EntryPoint" = "8:"
+            "Sequence" = "3:1"
+            "Identifier" = "8:_C6150B52_530C_4C71_9180_C18378B0F6C5"
+            "InstallerClass" = "11:FALSE"
+            "CustomActionData" = "8:"
+            }
         }
         "DefaultFeature"
         {
@@ -691,6 +711,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_F0C0D0DFB37545BEB71C0568027E76C8"
+            {
+            "SourcePath" = "8:..\\ClassicShellSetup\\BackupInis.vbs"
+            "TargetName" = "8:BackupInis.vbs"
+            "Tag" = "8:"
+            "Folder" = "8:_D30139B817584B0FB9780699379B96F5"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:TRUE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_F127B5A8C1504EA581309121D91AA04A"
             {
             "SourcePath" = "8:..\\Docs\\ClassicExplorer.html"
@@ -834,14 +874,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Classic Shell"
-        "ProductCode" = "8:{D783B495-F455-4AC3-A0F6-19D96E51C592}"
-        "PackageCode" = "8:{C0A701D2-4503-4586-8C5C-4021E1B4BFDB}"
+        "ProductCode" = "8:{63FF2718-3D8A-4D3F-84C3-089833108981}"
+        "PackageCode" = "8:{79874B5A-D097-4707-986E-55D8916AC337}"
         "UpgradeCode" = "8:{EB7DA1D9-44EA-43BF-8A08-0B103007D4F2}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:1.9.6"
+        "ProductVersion" = "8:1.9.7"
         "Manufacturer" = "8:IvoSoft"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -960,13 +1000,21 @@
                                         }
                                         "Values"
                                         {
+                                            "{ADCFDA98-8FDD-45E4-90BC-E3D20B029870}:_15E2D667D2E8417EA3C4F0BEB7D45BE1"
+                                            {
+                                            "Name" = "8:Path"
+                                            "Condition" = "8:"
+                                            "Transitive" = "11:FALSE"
+                                            "ValueTypes" = "3:1"
+                                            "Value" = "8:[TARGETDIR]"
+                                            }
                                             "{ADCFDA98-8FDD-45E4-90BC-E3D20B029870}:_A30438D38D90455FA858DC909D82ECE1"
                                             {
                                             "Name" = "8:Version"
                                             "Condition" = "8:"
                                             "Transitive" = "11:FALSE"
                                             "ValueTypes" = "3:3"
-                                            "Value" = "3:10906"
+                                            "Value" = "3:10907"
                                             }
                                         }
                                     }
@@ -1012,6 +1060,20 @@
         }
         "Shortcut"
         {
+            "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_627E7773739345C289FBBC6DD26FA2DB"
+            {
+            "Name" = "8:Start Menu Settings"
+            "Arguments" = "8:-settings"
+            "Description" = "8:Edit the start menu settings"
+            "ShowCmd" = "3:1"
+            "IconIndex" = "3:101"
+            "Transitive" = "11:FALSE"
+            "Target" = "8:_0F2B564B53BC40F5A5321F1071DCBAC4"
+            "Folder" = "8:_D30139B817584B0FB9780699379B96F5"
+            "WorkingFolder" = "8:_D30139B817584B0FB9780699379B96F5"
+            "Icon" = "8:_0F2B564B53BC40F5A5321F1071DCBAC4"
+            "Feature" = "8:"
+            }
         }
         "UserInterface"
         {

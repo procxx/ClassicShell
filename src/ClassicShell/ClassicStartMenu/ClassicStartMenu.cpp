@@ -195,8 +195,17 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	if (wcsstr(lpstrCmdLine,L"-togglenew")!=NULL) open=-2;
 	else if (wcsstr(lpstrCmdLine,L"-toggle")!=NULL) open=0;
 	else if (wcsstr(lpstrCmdLine,L"-open")!=NULL) open=1;
+	else if (wcsstr(lpstrCmdLine,L"-settings")!=NULL) open=3;
 
-	bool bHookExplorer=!wcsstr(lpstrCmdLine,L"-nohook");
+	const wchar_t *pNoHook=wcsstr(lpstrCmdLine,L"-nohook");
+	bool bHookExplorer=!pNoHook;
+	if (pNoHook)
+	{
+		pNoHook+=7;
+		if (*pNoHook=='1') MiniDumpType=MiniDumpNormal;
+		if (*pNoHook=='2') MiniDumpType=MiniDumpWithDataSegs;
+		if (*pNoHook=='3') MiniDumpType=MiniDumpWithFullMemory;
+	}
 
 	if (!bHookExplorer)
 		SetUnhandledExceptionFilter(TopLevelFilter);

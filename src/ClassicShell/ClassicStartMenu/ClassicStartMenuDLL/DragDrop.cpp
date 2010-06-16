@@ -218,7 +218,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 	}
 
 	ScreenToClient(&p);
-	int index=HitTest(p);
+	int index=HitTest(p,true);
 	if (index>=0 && m_Items[index].id!=MENU_RECENT)
 	{
 		// set the new insert mark

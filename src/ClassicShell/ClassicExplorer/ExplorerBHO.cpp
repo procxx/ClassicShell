@@ -415,7 +415,7 @@ LRESULT CALLBACK CExplorerBHO::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM w
 		UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
 		((CExplorerBHO*)uIdSubclass)->m_pBrowser->BrowseObject(NULL,flags|SBSP_PARENT);
 	}
-	if (uMsg==RB_GETRECT && wParam==1 && GetCapture()==hWnd && ((CExplorerBHO*)uIdSubclass)->m_bFixSearchResize)
+	if (uMsg==RB_GETRECT && wParam==1 && ((CExplorerBHO*)uIdSubclass)->m_bFixSearchResize)
 	{
 		// HACK! there is a bug in Win7 so when the user is resizing the Search box Explorer asks for the rect of band with
 		// index=1 instead of ID=1. So here we find the correct band index.
