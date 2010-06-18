@@ -21,12 +21,6 @@
         }
         "Entry"
         {
-        "MsmKey" = "8:_11837877AFF34D59994C2AD4DF2BADB4"
-        "OwnerKey" = "8:_UNDEFINED"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
         "MsmKey" = "8:_156BF316260C4B9D85681CB7863DB224"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -34,6 +28,12 @@
         "Entry"
         {
         "MsmKey" = "8:_21C94CED1B83438F88B815F66A8FFA5C"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_26362A76F3CC465BAA452D0772C06BD5"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -268,17 +268,17 @@
     {
         "CustomAction"
         {
-            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_CE25002D2459428188F9096BBE668BEC"
+            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_A89D853209334CB08FE8ABA7BD35C302"
             {
-            "Name" = "8:BackupInis.vbs"
-            "Condition" = "8:"
-            "Object" = "8:_11837877AFF34D59994C2AD4DF2BADB4"
-            "FileType" = "3:4"
+            "Name" = "8:BackupInis"
+            "Condition" = "8:UILevel>=3"
+            "Object" = "8:_26362A76F3CC465BAA452D0772C06BD5"
+            "FileType" = "3:2"
             "InstallAction" = "3:4"
             "Arguments" = "8:"
             "EntryPoint" = "8:"
             "Sequence" = "3:1"
-            "Identifier" = "8:_3BECFB0C_7DCE_45DE_BF2B_ADCD59F78364"
+            "Identifier" = "8:_16D34C00_8ADA_4A60_9337_3F5DE1E44459"
             "InstallerClass" = "11:FALSE"
             "CustomActionData" = "8:"
             }
@@ -314,26 +314,6 @@
             "PackageAs" = "3:1"
             "Register" = "3:1"
             "Exclude" = "11:FALSE"
-            "IsDependency" = "11:FALSE"
-            "IsolateTo" = "8:"
-            }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_11837877AFF34D59994C2AD4DF2BADB4"
-            {
-            "SourcePath" = "8:..\\ClassicShellSetup\\BackupInis.vbs"
-            "TargetName" = "8:BackupInis.vbs"
-            "Tag" = "8:"
-            "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:TRUE"
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
@@ -873,14 +853,14 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Classic Shell"
-        "ProductCode" = "8:{4C605E7D-2FA5-4E96-9B0B-ACF235E9F098}"
-        "PackageCode" = "8:{C7F59A41-B5FC-40D7-B5D6-B20091356DE1}"
+        "ProductCode" = "8:{7B1BB2B9-5384-48F0-A485-A5A97BB33D85}"
+        "PackageCode" = "8:{0C16397C-C8CD-446B-847F-B3AE3CBEE1BD}"
         "UpgradeCode" = "8:{779A74EF-23DE-4C71-AC12-2EE5A542ED34}"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:1.9.7"
+        "ProductVersion" = "8:1.9.8"
         "Manufacturer" = "8:IvoSoft"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -1005,7 +985,7 @@
                                             "Condition" = "8:"
                                             "Transitive" = "11:FALSE"
                                             "ValueTypes" = "3:3"
-                                            "Value" = "3:10907"
+                                            "Value" = "3:10908"
                                             }
                                             "{ADCFDA98-8FDD-45E4-90BC-E3D20B029870}:_6C1415B3557D41E49F144BF062D5FB72"
                                             {
@@ -1835,6 +1815,34 @@
         }
         "ProjectOutput"
         {
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_26362A76F3CC465BAA452D0772C06BD5"
+            {
+            "SourcePath" = "8:..\\ClassicShellSetup\\BackupInis\\Release\\BackupInis.exe"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_94717CD20A59445E826C4EA5A1B328E9"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:TRUE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:Release|Win32"
+            "OutputGroupCanonicalName" = "8:Built"
+            "OutputProjectGuid" = "8:{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_54E4D2D11D41474E87E04BD28178CD54"
             {
             "SourcePath" = "8:..\\ClassicExplorer\\Setup64\\ClassicExplorer64.dll"

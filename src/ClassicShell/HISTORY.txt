@@ -1,4 +1,13 @@
 ===============================================================================
+== Version 1.9.8 release candidate (Jun, 2010):
+
+- Fixed a compatibility bug with older applications (you see the message "The
+  ordinal 345 could not be located in the dynamic link library COMCTL32.dll")
+
+- Fixed a problem with the backing up of the ini files during uninstall
+
+
+===============================================================================
 == Version 1.9.7 release candidate (Jun, 2010):
 
 - Ctrl+Shift+Click in the start menu runs the program as administrator

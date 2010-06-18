@@ -86,6 +86,25 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 			return 99;
 	}
 */
+
+	// the 64-bit version of Classic Shell 1.9.7 has a bug in the uninstaller that fails to back up the ini files. if that version is detected,
+	// warn the user to skip the backup step.
+	if (b64)
+	{
+		HKEY hKey;
+		if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,L"SOFTWARE\\IvoSoft\\ClassicShell",0,KEY_READ|KEY_WOW64_64KEY,&hKey)==ERROR_SUCCESS)
+		{
+			DWORD version;
+			DWORD size=sizeof(version);
+			if (RegQueryValueEx(hKey,L"Version",0,NULL,(BYTE*)&version,&size)==ERROR_SUCCESS && version==10907)
+			{
+				RegCloseKey(hKey);
+				MessageBox(NULL,L"Warning!\nYou are about to upgrade from version 1.9.7 of Classic Shell. There is a known problem with that version on 64-bit systems. When asked if you want to back up the ini files, respond with 'No'. Otherwise the installation will abort.",L"Classic Shell Setup",MB_OK|MB_ICONWARNING);
+			}
+		}
+	}
+
+
 	// extract the installer
 	void *pRes=NULL;
 	HRSRC hResInfo=FindResource(hInstance,MAKEINTRESOURCE(b64?IDR_MSI_FILE64:IDR_MSI_FILE32),L"MSI_FILE");

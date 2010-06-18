@@ -56,6 +56,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SmokedGlass", "Skins\Smoked
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WinXP", "Skins\WinXP\WinXP.vcproj", "{81EB6336-366C-47DD-82CF-FF6C36CCD2B5}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BackupInis", "ClassicShellSetup\BackupInis\BackupInis.vcproj", "{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -233,6 +235,16 @@ Global
 		{81EB6336-366C-47DD-82CF-FF6C36CCD2B5}.Setup|Win32.Build.0 = Resource|Win32
 		{81EB6336-366C-47DD-82CF-FF6C36CCD2B5}.Setup|x64.ActiveCfg = Resource|Win32
 		{81EB6336-366C-47DD-82CF-FF6C36CCD2B5}.Setup|x64.Build.0 = Resource|Win32
+		{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}.Debug|Win32.Build.0 = Debug|Win32
+		{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}.Debug|x64.ActiveCfg = Debug|Win32
+		{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}.Release|Win32.ActiveCfg = Release|Win32
+		{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}.Release|Win32.Build.0 = Release|Win32
+		{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}.Release|x64.ActiveCfg = Release|Win32
+		{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}.Setup|Win32.ActiveCfg = Release|Win32
+		{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}.Setup|Win32.Build.0 = Release|Win32
+		{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}.Setup|x64.ActiveCfg = Release|Win32
+		{8E93C520-8F2E-4DD4-B1A2-F93EBC486609}.Setup|x64.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

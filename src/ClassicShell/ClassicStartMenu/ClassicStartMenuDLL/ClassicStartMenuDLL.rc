@@ -206,8 +206,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,9,7,0
- PRODUCTVERSION 1,9,7,0
+ FILEVERSION 1,9,8,0
+ PRODUCTVERSION 1,9,8,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -224,12 +224,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic start menu to Windows"
-            VALUE "FileVersion", "1, 9, 7, 0"
+            VALUE "FileVersion", "1, 9, 8, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009-2010, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "1, 9, 7, 0"
+            VALUE "ProductVersion", "1, 9, 8, 0"
         END
     END
     BLOCK "VarFileInfo"

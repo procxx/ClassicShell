@@ -319,9 +319,16 @@ extern bool g_bHookCopyThreads;
 				task.pszMainInstruction=L"After modifying the ini file you have to open a new Explorer window to use the new settings.\n\nRemember: All lines starting with a semicolon are ignored. Remove the semicolon from the settings you want to use.";
 				task.pszVerificationText=L"Don't show this message again";
 				BOOL bIgnore=FALSE;
-				TaskDialogIndirect(&task,NULL,NULL,&bIgnore);
-				if (bIgnore)
-					regSettings.SetDWORDValue(L"IgnoreIniWarning",1);
+				// call TaskDialogIndirect indirectly because we don't want our DLL to depend on that function. the DLL is loaded even in processes
+				// that use the older comctl32.dll, and that dependency causes an error
+typedef HRESULT (__stdcall *FTaskDialogIndirect)(const TASKDIALOGCONFIG *pTaskConfig, __out_opt int *pnButton, __out_opt int *pnRadioButton, __out_opt BOOL *pfVerificationFlagChecked);
+				FTaskDialogIndirect pTaskDialogIndirect=(FTaskDialogIndirect)GetProcAddress(GetModuleHandle(L"comctl32.dll"),"TaskDialogIndirect");
+				if (pTaskDialogIndirect)
+				{
+					pTaskDialogIndirect(&task,NULL,NULL,&bIgnore);
+					if (bIgnore)
+						regSettings.SetDWORDValue(L"IgnoreIniWarning",1);
+				}
 			}
 
 			// run Notepad as administrator (the ini file is most likely in a protected folder)
