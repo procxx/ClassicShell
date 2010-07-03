@@ -770,7 +770,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 						FillRect(hdc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
 						DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
 						SelectObject(hdc,bmp0);
-						DeleteObject(icon);
+						DestroyIcon(icon);
 
 						MENUITEMINFO mii={sizeof(mii)};
 						mii.fMask=MIIM_BITMAP;
@@ -790,7 +790,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 						FillRect(hdc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
 						DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
 						SelectObject(hdc,bmp0);
-						DeleteObject(icon);
+						DestroyIcon(icon);
 
 						MENUITEMINFO mii={sizeof(mii)};
 						mii.fMask=MIIM_BITMAP;

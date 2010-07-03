@@ -5,7 +5,6 @@
 
 #include "stdafx.h"
 #include "resource.h"
-#include "ClassicExplorer_i.h"
 #include "dllmain.h"
 #include "GlobalSettings.h"
 #include "TranslationSettings.h"
@@ -24,7 +23,7 @@ static CRITICAL_SECTION g_IniSection;
 
 void ReadIniFile( bool bStartup )
 {
-	if (bStartup)
+	if (!bStartup)
 		EnterCriticalSection(&g_IniSection);
 	wchar_t fname[_MAX_PATH];
 	GetModuleFileName(g_Instance,fname,_countof(fname));
@@ -39,7 +38,7 @@ void ReadIniFile( bool bStartup )
 			ParseGlobalSettings(fname);
 		}
 	}
-	if (bStartup)
+	if (!bStartup)
 		LeaveCriticalSection(&g_IniSection);
 }
 
@@ -115,6 +114,19 @@ HICON CreateDisabledIcon( HICON icon, int size )
 	return icon;
 }
 
+static DWORD g_TlsIndex;
+
+TlsData *GetTlsData( void )
+{
+	void *pData=TlsGetValue(g_TlsIndex);
+	if (!pData)
+	{
+		pData=(void*)LocalAlloc(LPTR,sizeof(TlsData));
+		TlsSetValue(g_TlsIndex,pData);
+	}
+	return (TlsData*)pData;
+}
+
 // DLL Entry Point
 extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved )
 {
@@ -128,6 +140,10 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 			regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI);
 			regSettings.QueryDWORDValue(L"SharedOverlay",SharedOverlay);
 		}
+
+		g_TlsIndex=TlsAlloc();
+		if (g_TlsIndex==TLS_OUT_OF_INDEXES) 
+			return FALSE; // TLS failure
 
 		wchar_t path[_MAX_PATH];
 		GetModuleFileName(NULL,path,_countof(path));
@@ -166,14 +182,23 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 
 	if (dwReason==DLL_THREAD_DETACH)
 	{
+		void *pData=TlsGetValue(g_TlsIndex);
+		if (pData)
+			LocalFree((HLOCAL)pData);
+		TlsSetValue(g_TlsIndex,NULL);
 		if (g_bHookCopyThreads)
 			FreeClassicCopyThread();
 	}
 
 	if (dwReason==DLL_PROCESS_DETACH)
 	{
+		void *pData=TlsGetValue(g_TlsIndex);
+		if (pData)
+			LocalFree((HLOCAL)pData);
+		TlsSetValue(g_TlsIndex,NULL);
+		TlsFree(g_TlsIndex);
 		DeleteCriticalSection(&g_IniSection);
 	}
 
-	return _AtlModule.DllMain(dwReason, lpReserved); 
+	return _AtlModule.DllMain(dwReason, lpReserved);
 }

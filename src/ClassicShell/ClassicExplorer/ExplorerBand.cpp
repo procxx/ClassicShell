@@ -788,7 +788,6 @@ STDMETHODIMP CExplorerBand::SetSite( IUnknown* pUnkSite )
 	//If punkSite is not NULL, a new site is being set.
 	if (pUnkSite)
 	{
-extern void ReadIniFile( bool bStartup );
 		ReadIniFile(false);
 
 		//Get the parent window.

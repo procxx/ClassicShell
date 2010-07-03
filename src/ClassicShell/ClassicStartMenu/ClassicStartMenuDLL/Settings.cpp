@@ -407,7 +407,11 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 				if (_wcsicmp(settings.SkinName,data.cFileName)==0)
 					SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_SETCURSEL,idx,0);
 			}
-			if (!FindNextFile(h,&data)) break;
+			if (!FindNextFile(h,&data))
+			{
+				FindClose(h);
+				break;
+			}
 		}
 		InitSkinVariations(hwndDlg,settings.SkinVariation,settings.SkinOptions);
 

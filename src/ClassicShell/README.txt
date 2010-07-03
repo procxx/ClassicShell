@@ -1,5 +1,5 @@
 CLASSIC SHELL
-Version 1.9.8
+Version 2.0.0
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.

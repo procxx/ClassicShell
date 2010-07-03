@@ -19,7 +19,6 @@
 const UINT_PTR TIMER_NAVIGATE='CLSH';
 const int DEFAULT_NAV_DELAY=100;
 
-__declspec(thread) HHOOK CExplorerBHO::s_Hook; // one hook per thread
 int CExplorerBHO::s_AutoNavDelay;
 
 struct FindChild
@@ -171,8 +170,9 @@ LRESULT CALLBACK CExplorerBHO::HookExplorer( int nCode, WPARAM wParam, LPARAM lP
 				if (version==0x0006)
 				{
 					// on Vista we can unhook right now. on Win7 we keep the hook because sometimes the tree control can get destroyed and recreated
-					UnhookWindowsHookEx(s_Hook);
-					s_Hook=NULL;
+					TlsData *pTlsData=GetTlsData();
+					UnhookWindowsHookEx(pTlsData->bhoHook);
+					pTlsData->bhoHook=NULL;
 				}
 				return 0;
 			}
@@ -763,9 +763,10 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 		ReadIniFile(false);
 
 		// hook
-		if (!s_Hook)
+		TlsData *pTlsData=GetTlsData();
+		if (!pTlsData->bhoHook)
 		{
-			s_Hook=SetWindowsHookEx(WH_CBT,HookExplorer,NULL,GetCurrentThreadId());
+			pTlsData->bhoHook=SetWindowsHookEx(WH_CBT,HookExplorer,NULL,GetCurrentThreadId());
 		}
 		CComQIPtr<IServiceProvider> pProvider=pUnkSite;
 
@@ -939,9 +940,10 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 	else
 	{
 		// unhook
-		if (s_Hook)
-			UnhookWindowsHookEx(s_Hook);
-		s_Hook=NULL;
+		TlsData *pTlsData=GetTlsData();
+		if (pTlsData->bhoHook)
+			UnhookWindowsHookEx(pTlsData->bhoHook);
+		pTlsData->bhoHook=NULL;
 		m_pBrowser=NULL;
 		if (m_pWebBrowser && m_dwEventCookie!=0xFEFEFEFE)
 			DispEventUnadvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
@@ -1019,7 +1021,8 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 			}
 		}
 	}
-	m_Toolbar.SendMessage(TB_ENABLEBUTTON,1,bDesktop?0:1);
+	if (m_Toolbar.m_hWnd)
+		m_Toolbar.SendMessage(TB_ENABLEBUTTON,1,bDesktop?0:1);
 	return S_OK;
 }
 

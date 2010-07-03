@@ -201,7 +201,11 @@ void CMenuContainer::InitItems( void )
 			doc.name.Format(L"%s\\%s",recentPath,data.cFileName);
 			doc.time=data.ftLastWriteTime;
 			docs.push_back(doc);
-			if (!FindNextFile(h,&data)) break;
+			if (!FindNextFile(h,&data))
+			{
+				FindClose(h);
+				break;
+			}
 		}
 
 		// sort by time
@@ -2073,6 +2077,7 @@ LRESULT CMenuContainer::OnRButtonUp( UINT uMsg, WPARAM wParam, LPARAM lParam, BO
 	if (GetCapture()!=m_hWnd)
 		return 0;
 	ReleaseCapture();
+	if (s_bNoContextMenu) return 0;
 	POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
 	int index=HitTest(pt);
 	if (index<0) return 0;

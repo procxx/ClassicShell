@@ -8,6 +8,7 @@
 #include <utility>
 #include "GlobalSettings.h"
 #include "TranslationSettings.h"
+#include "dllmain.h"
 
 static wchar_t g_TitleMove[256];
 static wchar_t g_TitleCopy[256];
@@ -17,11 +18,6 @@ static wchar_t g_ButtonDontMove[256];
 static wchar_t g_ButtonCopy[256];
 static wchar_t g_ButtonDontCopy[256];
 static wchar_t g_ButtonCancel[256];
-
-// g_bCopyMultiFile is true if the first dialog in this thread is multi-file (IDD_FILEMULTI)
-// if so, all the rest are multi-file. this makes the UI consistent (like the position of the Yes button doesn't change)
-static __declspec(thread) bool g_bCopyMultiFile=false;
-static __declspec(thread) HHOOK g_Hook; // one hook per thread
 
 // CClassicCopyFile - this is the implementation of the Copy UI dialog box for files
 
@@ -85,13 +81,14 @@ bool CClassicCopyFile::Run( HWND hWnd, IAccessible *pAcc )
 	GetFileInfo(m_YesButton.first,true);
 	GetFileInfo(m_NoButton.first,false);
 
+	TlsData *pTlsData=GetTlsData();
 	if (m_CheckBox.first)
-		g_bCopyMultiFile=true;
-	else if (g_bCopyMultiFile)
+		pTlsData->bCopyMultiFile=true;
+	else if (pTlsData->bCopyMultiFile)
 		m_bCopyMultiLast=true;
 
 	// pick the correct dialog template (for single and multiple files, for LTR and RTL)
-	int dlg=g_bCopyMultiFile?(IsLanguageRTL()?IDD_FILEMULTIR:IDD_FILEMULTI):(IsLanguageRTL()?IDD_FILER:IDD_FILE);
+	int dlg=pTlsData->bCopyMultiFile?(IsLanguageRTL()?IDD_FILEMULTIR:IDD_FILEMULTI):(IsLanguageRTL()?IDD_FILER:IDD_FILE);
 
 	HWND parent=GetWindow(GetAncestor(hWnd,GA_ROOT),GW_OWNER);
 
@@ -564,7 +561,8 @@ LRESULT CALLBACK ClassicCopyHook( int nCode, WPARAM wParam, LPARAM lParam )
 			SetWindowSubclass(hWnd,WindowProc,i,0);
 		}
 	}
-	return CallNextHookEx(g_Hook,nCode,wParam,lParam);
+	TlsData *pTlsData=GetTlsData();
+	return CallNextHookEx(pTlsData->copyHook,nCode,wParam,lParam);
 }
 
 void InitClassicCopyProcess( void )
@@ -584,15 +582,17 @@ void InitClassicCopyProcess( void )
 
 void InitClassicCopyThread( void )
 {
-	if (!g_Hook)
-		g_Hook=SetWindowsHookEx(WH_CBT,ClassicCopyHook,g_Instance,GetCurrentThreadId());
+	TlsData *pTlsData=GetTlsData();
+	if (!pTlsData->copyHook)
+		pTlsData->copyHook=SetWindowsHookEx(WH_CBT,ClassicCopyHook,g_Instance,GetCurrentThreadId());
 }
 
 void FreeClassicCopyThread( void )
 {
-	if (g_Hook)
+	TlsData *pTlsData=GetTlsData();
+	if (pTlsData->copyHook)
 	{
-		UnhookWindowsHookEx(g_Hook);
-		g_Hook=NULL;
+		UnhookWindowsHookEx(pTlsData->copyHook);
+		pTlsData->copyHook=NULL;
 	}
 }

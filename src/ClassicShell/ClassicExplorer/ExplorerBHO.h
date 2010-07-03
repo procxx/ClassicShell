@@ -129,7 +129,6 @@ private:
 	std::vector<ComboItem> m_ComboItems;
 	void ClearComboItems( void );
 
-	static __declspec(thread) HHOOK s_Hook;
 	static int s_AutoNavDelay;
 
 	static LRESULT CALLBACK HookExplorer( int code, WPARAM wParam, LPARAM lParam );

@@ -1,4 +1,12 @@
 ===============================================================================
+== Version 2.0.0 general release (Jul, 2010):
+
+- Fixed a bug in the "EnableContextMenu" setting
+
+- Fixed a compatibility bug with Restorator
+
+
+===============================================================================
 == Version 1.9.8 release candidate (Jun, 2010):
 
 - Fixed a compatibility bug with older applications (you see the message "The

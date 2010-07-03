@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "SkinManager.h"
 #include "IconManager.h"
+#include "LogManager.h"
 #include "ParseSettings.h"
 #include "GlobalSettings.h"
 #include "TranslationSettings.h"
@@ -385,11 +386,13 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		str=parser.FindSetting(name);
 		if (str)
 		{
+			LOG_MENU(LOG_OPEN,L"Variation setting: '%s'",str);
 			wchar_t token[256];
 			str=GetToken(str,token,_countof(token),L", \t");
 			int  res=_wtol(token);
 			str=GetToken(str,token,_countof(token),L", \t");
 			skin.Variations.push_back(std::pair<int,CString>(res,token));
+			LOG_MENU(LOG_OPEN,L"Variation found: name=%s, id=%d",token,res);
 		}
 		else
 			break;
@@ -400,6 +403,8 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		for (std::vector<std::pair<int,CString>>::const_iterator it=skin.Variations.begin();it!=skin.Variations.end();++it)
 			if (wcscmp(variation,it->second)==0)
 			{
+				if (it->first==1) break;
+				LOG_MENU(LOG_OPEN,L"Loading variation: name=%s, id=%d",it->second,it->first);
 				if (hMod)
 				{
 					HRSRC hResInfo=FindResource(hMod,MAKEINTRESOURCE(it->first),L"SKIN");

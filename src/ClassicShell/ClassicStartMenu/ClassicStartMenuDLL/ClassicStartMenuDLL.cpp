@@ -556,7 +556,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 					}
 				}
 				ScreenToClient(g_TaskBar,&pt);
-				HWND child=ChildWindowFromPoint(g_TaskBar,pt);
+				HWND child=ChildWindowFromPointEx(g_TaskBar,pt,CWP_SKIPINVISIBLE|CWP_SKIPTRANSPARENT);
 				if (child!=NULL && child!=g_TaskBar)
 				{
 					// ignore the click if it is on a child window (like the rebar or the tray area)

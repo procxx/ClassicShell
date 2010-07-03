@@ -3,6 +3,7 @@
 
 // dllmain.h : Declaration of module class.
 
+#include "ClassicExplorer_i.h"
 #include <vector>
 
 class CClassicExplorerModule : public CAtlDllModuleT< CClassicExplorerModule >
@@ -18,3 +19,18 @@ extern class CClassicExplorerModule _AtlModule;
 void ReadIniFile( bool bStartup );
 HICON LoadIcon( int iconSize, const wchar_t *path, int index, std::vector<HMODULE> &modules, HMODULE hShell32 );
 HICON CreateDisabledIcon( HICON icon, int size );
+
+struct TlsData
+{
+	// one hook for each BHO thread
+	HHOOK bhoHook;
+
+	// one hook for each copy thread
+	HHOOK copyHook;
+
+	// bCopyMultiFile is true if the first dialog in this thread is multi-file (IDD_FILEMULTI)
+	// if so, all the rest are multi-file. this makes the UI consistent (like the position of the Yes button doesn't change)
+	bool bCopyMultiFile;
+};
+
+TlsData *GetTlsData( void );
