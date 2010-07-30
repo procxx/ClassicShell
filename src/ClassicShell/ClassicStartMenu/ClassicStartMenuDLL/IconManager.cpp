@@ -12,7 +12,7 @@ const int MAX_FOLDER_LEVEL=10; // don't go more than 10 levels deep
 int CIconManager::s_DPI;
 int CIconManager::LARGE_ICON_SIZE;
 int CIconManager::SMALL_ICON_SIZE;
-bool CIconManager::s_bStopLoading;
+CIconManager::TLoadingStage CIconManager::s_LoadingStage;
 std::map<unsigned int,HICON> CIconManager::s_PreloadedIcons;
 CRITICAL_SECTION CIconManager::s_PreloadSection;
 
@@ -79,27 +79,30 @@ void CIconManager::Init( void )
 		DestroyIcon(info.hIcon);
 	}
 
-	InitializeCriticalSection(&s_PreloadSection);
-
 	if (FindSettingBool("PreCacheIcons",true) && _wcsicmp(PathFindFileName(path),L"explorer.exe")==0)
 	{
 		// don't preload icons if running outside of the explorer
-		s_bStopLoading=false;
+		InitializeCriticalSection(&s_PreloadSection);
+		s_LoadingStage=LOAD_LOADING;
 		m_PreloadThread=CreateThread(NULL,0,PreloadThread,NULL,0,NULL);
 	}
 	else
 		m_PreloadThread=INVALID_HANDLE_VALUE;
+
+	if (!FindSettingBool("FixGameIcons",false) || FAILED(SHGetKnownFolderIDList(FOLDERID_Games,0,NULL,&m_GamesPath)))
+		m_GamesPath=NULL;
 }
 
 void CIconManager::StopPreloading( bool bWait )
 {
 	if (m_PreloadThread!=INVALID_HANDLE_VALUE)
 	{
-		s_bStopLoading=true;
+		s_LoadingStage=LOAD_STOPPING;
 		WaitForSingleObject(m_PreloadThread,bWait?INFINITE:0);
 		CloseHandle(m_PreloadThread);
 		DeleteCriticalSection(&s_PreloadSection);
 		m_PreloadThread=INVALID_HANDLE_VALUE;
+		s_LoadingStage=LOAD_STOPPED;
 	}
 }
 
@@ -107,11 +110,16 @@ CIconManager::~CIconManager( void )
 {
 	if (m_LargeIcons) ImageList_Destroy(m_LargeIcons);
 	if (m_SmallIcons) ImageList_Destroy(m_SmallIcons);
+	if (m_GamesPath) ILFree(m_GamesPath);
 }
 
 // Retrieves an icon from a shell folder and child ID
-int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLarge )
+// HACK! path can be the path of pFolder, or the path of the item inside pFolder, or NULL
+// Its only purpose is to determine if pFolder is the Games folder or its subfolder
+int CIconManager::GetIcon( IShellFolder *pFolder, PIDLIST_ABSOLUTE path, PCUITEMID_CHILD item, bool bLarge )
 {
+	bool bGamesFix=(path && m_GamesPath && (ILIsEqual(path,m_GamesPath) || ILIsParent(m_GamesPath,path,FALSE)));
+
 	ProcessPreloadedIcons();
 
 	// get the IExtractIcon object
@@ -138,26 +146,32 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 		}
 		else
 		{
-			EnterCriticalSection(&s_PreloadSection);
+			if (s_LoadingStage!=LOAD_STOPPED)
+				EnterCriticalSection(&s_PreloadSection);
 			int res=-1;
 			if (m_SmallCache.find(key)!=m_SmallCache.end())
 				res=m_SmallCache[key];
-			LeaveCriticalSection(&s_PreloadSection);
+			if (s_LoadingStage!=LOAD_STOPPED)
+				LeaveCriticalSection(&s_PreloadSection);
 			if (res>=0) return res;
 		}
 
 		// extract the icon
-		hr=pExtract->Extract(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
-		if (hr==E_INVALIDARG)
+		hr=S_FALSE;
+		if (bGamesFix)
 		{
-			// HACK!!! There are 2 problems when extracting icons from the Games folder.
-			// 1) IExtractIcon::Extract fails if the small and the large icons are not both specified even though the docs say that they are optional.
-			// 2) With Microangelo On Display installed, even if both icons are specified, the function returns the default exe icon and no error code.
-			//    This is probably caused by the Games shell extension supporting only Unicode, and Microangelo supporting only ANSI.
-			// Fortunately because of the first problem we can detect when something is wrong (hr is E_INVALIDARG). In such case we give
-			// the location/index data to ExtractIconEx, hoping it will return the correct icon. Seems to be working.
-			// BTW, I have no idea how the shell doesn't have this problem. Probably because it uses IShellItems instead of PIDLs
-			hr=S_FALSE;
+			// HACK!!! The Games folder doesn't quite work when Microangelo is installed. Most likely because Games only implements IExtractIconW
+			// and Microangelo only supports IExtractIconA. So we bet that location/index is indeed a DLL + resource ID, and we try ExtractIconEx
+			// first
+			if (ExtractIconEx(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)==1)
+				hr=S_OK;
+		}
+
+		if (hr==S_FALSE)
+		{
+			HICON hIcon2=NULL;
+			hr=pExtract->Extract(location,index,bLarge?&hIcon:&hIcon2,bLarge?&hIcon2:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+			if (hIcon2) DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
 		}
 		if (hr==S_FALSE)
 		{
@@ -191,21 +205,20 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 		}
 		else
 		{
-			EnterCriticalSection(&s_PreloadSection);
+			if (s_LoadingStage!=LOAD_STOPPED)
+				EnterCriticalSection(&s_PreloadSection);
 			int res=-1;
 			if (m_SmallCache.find(key)!=m_SmallCache.end())
 				res=m_SmallCache[key];
-			LeaveCriticalSection(&s_PreloadSection);
+			if (s_LoadingStage!=LOAD_STOPPED)
+				LeaveCriticalSection(&s_PreloadSection);
 			if (res>=0) return res;
 		}
 
 		// extract the icon
-		hr=pExtractA->Extract(location,index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
-		if (hr==E_INVALIDARG)
-		{
-			// HACK!!! See the previous "HACK!!!" comment for details
-			hr=S_FALSE;
-		}
+		HICON hIcon2=NULL;
+		hr=pExtractA->Extract(location,index,bLarge?&hIcon:&hIcon2,bLarge?&hIcon2:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+		if (hIcon2) DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
 		if (hr==S_FALSE)
 		{
 			// the IExtractIcon object didn't do anything - use ExtractIconEx instead
@@ -227,9 +240,11 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 		m_LargeCache[key]=index;
 	else
 	{
-		EnterCriticalSection(&s_PreloadSection);
+		if (s_LoadingStage!=LOAD_STOPPED)
+			EnterCriticalSection(&s_PreloadSection);
 		m_SmallCache[key]=index;
-		LeaveCriticalSection(&s_PreloadSection);
+		if (s_LoadingStage!=LOAD_STOPPED)
+			LeaveCriticalSection(&s_PreloadSection);
 	}
 
 	return index;
@@ -249,11 +264,13 @@ int CIconManager::GetIcon( const wchar_t *location, int index, bool bLarge )
 	}
 	else
 	{
-		EnterCriticalSection(&s_PreloadSection);
+		if (s_LoadingStage!=LOAD_STOPPED)
+			EnterCriticalSection(&s_PreloadSection);
 		int res=-1;
 		if (m_SmallCache.find(key)!=m_SmallCache.end())
 			res=m_SmallCache[key];
-		LeaveCriticalSection(&s_PreloadSection);
+		if (s_LoadingStage!=LOAD_STOPPED)
+			LeaveCriticalSection(&s_PreloadSection);
 		if (res>=0) return res;
 	}
 
@@ -282,9 +299,11 @@ int CIconManager::GetIcon( const wchar_t *location, int index, bool bLarge )
 		m_LargeCache[key]=index;
 	else
 	{
-		EnterCriticalSection(&s_PreloadSection);
+		if (s_LoadingStage!=LOAD_STOPPED)
+			EnterCriticalSection(&s_PreloadSection);
 		m_SmallCache[key]=index;
-		LeaveCriticalSection(&s_PreloadSection);
+		if (s_LoadingStage!=LOAD_STOPPED)
+			LeaveCriticalSection(&s_PreloadSection);
 	}
 
 	return index;
@@ -302,11 +321,13 @@ int CIconManager::GetStdIcon( int id, bool bLarge )
 	}
 	else
 	{
-		EnterCriticalSection(&s_PreloadSection);
+		if (s_LoadingStage!=LOAD_STOPPED)
+			EnterCriticalSection(&s_PreloadSection);
 		int res=-1;
 		if (m_SmallCache.find(key)!=m_SmallCache.end())
 			res=m_SmallCache[key];
-		LeaveCriticalSection(&s_PreloadSection);
+		if (s_LoadingStage!=LOAD_STOPPED)
+			LeaveCriticalSection(&s_PreloadSection);
 		if (res>=0) return res;
 	}
 
@@ -327,9 +348,11 @@ int CIconManager::GetStdIcon( int id, bool bLarge )
 		m_LargeCache[key]=index;
 	else
 	{
-		EnterCriticalSection(&s_PreloadSection);
+		if (s_LoadingStage!=LOAD_STOPPED)
+			EnterCriticalSection(&s_PreloadSection);
 		m_SmallCache[key]=index;
-		LeaveCriticalSection(&s_PreloadSection);
+		if (s_LoadingStage!=LOAD_STOPPED)
+			LeaveCriticalSection(&s_PreloadSection);
 	}
 
 	return index;
@@ -352,7 +375,8 @@ int CIconManager::GetCustomIcon( const wchar_t *path, bool bLarge )
 
 void CIconManager::ProcessPreloadedIcons( void )
 {
-	EnterCriticalSection(&s_PreloadSection);
+	if (s_LoadingStage!=LOAD_STOPPED)
+		EnterCriticalSection(&s_PreloadSection);
 	for (std::map<unsigned int,HICON>::const_iterator it=s_PreloadedIcons.begin();it!=s_PreloadedIcons.end();++it)
 	{
 		unsigned int key=it->first;
@@ -365,7 +389,8 @@ void CIconManager::ProcessPreloadedIcons( void )
 		DestroyIcon(hIcon);
 	}
 	s_PreloadedIcons.clear();
-	LeaveCriticalSection(&s_PreloadSection);
+	if (s_LoadingStage!=LOAD_STOPPED)
+		LeaveCriticalSection(&s_PreloadSection);
 }
 
 // Recursive function to preload the icons for a folder
@@ -395,13 +420,9 @@ void CIconManager::LoadFolderIcons( IShellFolder *pFolder, int level )
 				if (!bLoaded)
 				{
 					// extract the icon
-					HICON hIcon;
-					HRESULT hr=pExtract->Extract(location,index,NULL,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
-					if (hr==E_INVALIDARG)
-					{
-						// HACK!!! See the previous "HACK!!!" comment for details
-						hr=S_FALSE;
-					}
+					HICON hIcon, hIcon2=NULL;
+					HRESULT hr=pExtract->Extract(location,index,&hIcon2,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+					if (hIcon2) DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
 					if (hr==S_FALSE)
 					{
 						// the IExtractIcon object didn't do anything - use ExtractIconEx instead
@@ -438,13 +459,9 @@ void CIconManager::LoadFolderIcons( IShellFolder *pFolder, int level )
 					if (!bLoaded)
 					{
 						// extract the icon
-						HICON hIcon;
-						HRESULT hr=pExtractA->Extract(location,index,NULL,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
-						if (hr==E_INVALIDARG)
-						{
-							// HACK!!! See the previous "HACK!!!" comment for details
-							hr=S_FALSE;
-						}
+						HICON hIcon, hIcon2=NULL;
+						HRESULT hr=pExtractA->Extract(location,index,&hIcon2,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+						if (hIcon2) DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
 						if (hr==S_FALSE)
 						{
 							// the IExtractIcon object didn't do anything - use ExtractIconEx instead
@@ -475,7 +492,7 @@ void CIconManager::LoadFolderIcons( IShellFolder *pFolder, int level )
 			}
 		}
 		ILFree(pidl);
-		if (s_bStopLoading) break;
+		if (s_LoadingStage!=LOAD_LOADING) break;
 	}
 }
 
@@ -493,7 +510,7 @@ DWORD CALLBACK CIconManager::PreloadThread( void *param )
 	// so we don't interfere with the other boot-time processes
 	for (int i=0;i<50;i++)
 	{
-		if (s_bStopLoading) return 0;
+		if (s_LoadingStage!=LOAD_LOADING) return 0;
 		Sleep(100);
 	}
 
@@ -507,12 +524,12 @@ DWORD CALLBACK CIconManager::PreloadThread( void *param )
 	for (int i=0;i<_countof(g_CacheFolders);i++)
 	{
 		PIDLIST_ABSOLUTE path;
-		SHGetKnownFolderIDList(g_CacheFolders[i],0,NULL,&path);
+		if (FAILED(SHGetKnownFolderIDList(g_CacheFolders[i],0,NULL,&path)) || !path) continue;
 		CComPtr<IShellFolder> pFolder;
-		pDesktop->BindToObject(path,NULL,IID_IShellFolder,(void**)&pFolder);
-		LoadFolderIcons(pFolder,g_CacheFolders[i]==FOLDERID_ControlPanelFolder?MAX_FOLDER_LEVEL:0);
+		if (SUCCEEDED(pDesktop->BindToObject(path,NULL,IID_IShellFolder,(void**)&pFolder)) && pFolder)
+			LoadFolderIcons(pFolder,g_CacheFolders[i]==FOLDERID_ControlPanelFolder?MAX_FOLDER_LEVEL:0);
 		ILFree(path);
-		if (s_bStopLoading) break;
+		if (s_LoadingStage!=LOAD_LOADING) break;
 	}
 	CoUninitialize();
 	FreeLibraryAndExitThread(g_Instance,0); // release the DLL

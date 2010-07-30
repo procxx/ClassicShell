@@ -6,6 +6,7 @@
 
 #include "stdafx.h"
 #include "MenuContainer.h"
+#include "ClassicStartMenuDLL.h"
 #include "FNVHash.h"
 #include <algorithm>
 
@@ -208,7 +209,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 
 	// only accept CFSTR_SHELLIDLIST data
 	FORMATETC format={s_ShellFormat,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-	if (s_bNoDragDrop || !m_pDropFolder || !(m_Options&CONTAINER_DROP) || m_pDragObject->QueryGetData(&format)!=S_OK)
+	if (s_bNoDragDrop || !m_pDropFoldera[0] || !(m_Options&CONTAINER_DROP) || m_pDragObject->QueryGetData(&format)!=S_OK)
 		*pdwEffect=DROPEFFECT_NONE;
 
 	POINT p={pt.x,pt.y};
@@ -332,7 +333,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 	// clear the insert mark
 	SetInsertMark(-1,false);
 
-	if (s_pDragSource==this && (*pdwEffect&DROPEFFECT_MOVE))
+	if (s_pDragSource==this && (*pdwEffect&DROPEFFECT_MOVE) && m_Items[m_DragIndex].priority==(m_Items[min(before,(int)m_Items.size()-1)].priority&2))
 	{
 		if (before==m_DragIndex || before==m_DragIndex+1)
 			return S_OK;
@@ -341,30 +342,33 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 		if (!(m_Options&CONTAINER_AUTOSORT))
 		{
 			std::vector<SortMenuItem> items;
-			int skip=0, idx=0;
+			int skip1=0, skip2=0, idx=0;
 			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it,idx++)
 				if (it->id==MENU_NO)
 				{
 					SortMenuItem item={it->name,it->nameHash,it->bFolder};
 					items.push_back(item);
 				}
-				else if (idx<before)
-					skip++;
-			SortMenuItem drag=items[m_DragIndex-skip];
-			items.erase(items.begin()+(m_DragIndex-skip));
-			if (before>m_DragIndex)
+				else
+				{
+					if (idx<m_DragIndex) skip1++;
+					if (idx<before) skip2++;
+				}
+			SortMenuItem drag=items[m_DragIndex-skip1];
+			items.erase(items.begin()+(m_DragIndex-skip1));
+			if (before-skip2>m_DragIndex-skip1)
 				before--;
-			items.insert(items.begin()+(before-skip),drag);
+			items.insert(items.begin()+(before-skip2),drag);
 			SaveItemOrder(items);
 			PostRefreshMessage();
 		}
 	}
-	else if (m_pDropFolder)
+	else if (m_pDropFoldera[m_Items[min(before,(int)m_Items.size()-1)].priority>1?1:0])
 	{
 		// simulate dropping the object into the original folder
 		PlayMenuSound(SOUND_DROP);
 		CComPtr<IDropTarget> pTarget;
-		if (FAILED(m_pDropFolder->CreateViewObject(m_hWnd,IID_IDropTarget,(void**)&pTarget)))
+		if (FAILED(m_pDropFoldera[m_Items[min(before,(int)m_Items.size()-1)].priority>1?1:0]->CreateViewObject(m_hWnd,IID_IDropTarget,(void**)&pTarget)))
 			return S_OK;
 		DWORD dwEffect=*pdwEffect;
 		if (FAILED(pTarget->DragEnter(pDataObj,grfKeyState,pt,&dwEffect)))
@@ -383,6 +387,8 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			if (!(*it)->m_bDestroyed)
 				(*it)->EnableWindow(FALSE); // disable all menus
+		bool bAllPrograms=s_bAllPrograms;
+		if (bAllPrograms) ::EnableWindow(g_TopMenu,FALSE);
 		CMenuContainer *pOld=s_pDragSource;
 		if (!s_pDragSource) s_pDragSource=this; // HACK: ensure s_pDragSource is not NULL even if dragging from external source (prevents the menu from closing)
 		pTarget->Drop(pDataObj,grfKeyState,pt,pdwEffect);
@@ -390,6 +396,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			if (!(*it)->m_bDestroyed)
 				(*it)->EnableWindow(TRUE); // enable all menus
+		if (bAllPrograms) ::EnableWindow(g_TopMenu,TRUE);
 		SetForegroundWindow(m_hWnd);
 		SetActiveWindow();
 		SetFocus();

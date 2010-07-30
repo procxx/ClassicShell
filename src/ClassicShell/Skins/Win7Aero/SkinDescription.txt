@@ -138,11 +138,13 @@ Submenu_arrow=7
 
 ; OPTIONS
 
-OPTION CAPTION="Caption",1
+OPTION TWO_COLUMNS="Two Columns",0
+OPTION CAPTION="Caption",1, NOT TWO_COLUMNS, 0
+OPTION USER_IMAGE="Show User Picture",0
+OPTION USER_NAME="Show User Name",0
+OPTION CENTER_NAME="Center User Name",0, USER_NAME, 0
 OPTION SMALL_ICONS="Small Icons",0
 OPTION WHITE_SUBMENUS="White Sub-menus",0
-OPTION TWO_COLUMNS="Two Columns",0
-OPTION USER_IMAGE="Show User Picture",0
 
 [NOT CAPTION]
 Main_bitmap_slices_X=0,0,0,15,1,13
@@ -157,6 +159,7 @@ Main_arrow=7
 
 [WHITE_SUBMENUS]
 Submenu_background=#FFFFFF
+
 
 [TWO_COLUMNS]
 Main_2columns=1
@@ -199,15 +202,49 @@ User_image_offset=8,8
 [USER_IMAGE AND TWO_COLUMNS]
 Main_padding2=3,73,5,8
 
-
-[USER_IMAGE AND NOT TWO_COLUMNS]
+[(USER_IMAGE OR USER_NAME) AND NOT TWO_COLUMNS]
 Main_bitmap=13
 Main_bitmap_mask=14
 Main_bitmap_slices_Y=76,267,10
+
+[USER_IMAGE AND NOT TWO_COLUMNS]
 User_frame_position=-6,6
 
-[USER_IMAGE AND NOT TWO_COLUMNS AND CAPTION]
+[USER_NAME]
+User_name_position=10,8,-75,68
+User_name_align=right
+User_font="Segoe UI",bold,22
+User_text_color=#FFFFFF
+User_glow_color=#000000
+User_glow_size=10
+
+[USER_NAME AND NOT USER_IMAGE]
+User_name_position=10,8,-10,68
+
+[USER_NAME AND TWO_COLUMNS]
+User_name_position=5,8,-75,68
+User_name_align=right2
+
+[USER_NAME AND TWO_COLUMNS AND NOT USER_IMAGE]
+User_name_position=5,8,-10,68
+Main_padding2=3,55,5,8
+
+[USER_NAME AND TWO_COLUMNS AND NOT USER_IMAGE AND SMALL_ICONS]
+User_name_position=5,5,-10,50
+Main_padding2=3,46,5,8
+
+[SMALL_ICONS]
+User_font="Segoe UI",bold,16
+
+
+[(USER_IMAGE OR USER_NAME) AND NOT TWO_COLUMNS AND CAPTION]
 Main_padding=3,73,10,8
 
-[USER_IMAGE AND NOT TWO_COLUMNS AND NOT CAPTION]
+[(USER_IMAGE OR USER_NAME) AND NOT TWO_COLUMNS AND NOT CAPTION]
 Main_padding=12,73,10,8
+
+[CENTER_NAME]
+User_name_align=center
+
+[CENTER_NAME AND TWO_COLUMNS]
+User_name_align=center2

@@ -83,10 +83,13 @@ public:
 
 	enum
 	{
+		// from registry
 		SPACE_SHOW=1, // show free space and selection size
-		SPACE_TOTAL=2, // show total size when nothing is selected
-		SPACE_WIN7=4, // running on Win7 (fix the status bar parts and show the disk free space)
-		SPACE_INFOTIP=8, // show the infotip in the status bar if a single item is selected
+		SPACE_INFOTIP=2, // show the infotip in the status bar if a single item is selected
+
+		// from code
+		SPACE_TOTAL=4, // show total size when nothing is selected
+		SPACE_WIN7=8, // running on Win7 (fix the status bar parts and show the disk free space)
 
 		ADDRESS_NOBREADCRUMBS=1, // hide breadcrumbs bar
 		ADDRESS_SHOWTITLE=2, // show path on title bar

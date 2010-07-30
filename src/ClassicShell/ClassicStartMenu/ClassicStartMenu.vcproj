@@ -59,6 +59,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
@@ -136,6 +137,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
@@ -213,6 +215,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
@@ -293,6 +296,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
@@ -372,6 +376,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
@@ -452,6 +457,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"

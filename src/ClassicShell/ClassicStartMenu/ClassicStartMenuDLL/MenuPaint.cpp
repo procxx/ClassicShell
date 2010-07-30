@@ -11,6 +11,8 @@
 #include "GlobalSettings.h"
 #include <vsstyle.h>
 #include <dwmapi.h>
+#define SECURITY_WIN32
+#include <Security.h>
 #include <algorithm>
 
 void CMenuContainer::MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins, bool bAlpha, bool bRtlOffset )
@@ -242,7 +244,6 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 		dib.bmiHeader.biBitCount=32;
 		dib.bmiHeader.biCompression=BI_RGB;
 
-		HDC hdc=CreateCompatibleDC(NULL);
 		unsigned int *bits2;
 		HBITMAP bmpText=CreateDIBSection(hdcTemp,&dib,DIB_RGB_COLORS,(void**)&bits2,NULL,0);
 		HBITMAP bmp02=(HBITMAP)SelectObject(hdcTemp,bmpText);
@@ -279,7 +280,7 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 					pixel=(a1<<24)|(r1<<16)|(g1<<8)|b1;
 				}
 
-				SelectObject(hdcTemp,bmpText);
+			SelectObject(hdcTemp,bmpText);
 		}
 
 		// draw the text
@@ -322,7 +323,6 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 		else
 		{
 			// draw white text on black background
-			FillRect(hdcTemp,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
 			SetTextColor(hdcTemp,0xFFFFFF);
 			SetBkMode(hdcTemp,TRANSPARENT);
 			DrawText(hdcTemp,title,-1,&rc,DT_VCENTER|DT_NOPREFIX|DT_SINGLELINE);
@@ -356,6 +356,7 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 		}
 
 		DeleteObject(bmpText);
+		SelectObject(hdcTemp,font0);
 	}
 
 	if (s_Skin.User_image_size)
@@ -447,17 +448,12 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 			}
 
 			if (s_bRTL)
-			{
-				m_rUser.left=totalWidth-pos.x-s_Skin.User_image_size;
-				m_rUser.right=m_rUser.left+s_Skin.User_image_size;
-			}
+				m_rUser1.left=totalWidth-pos.x-s_Skin.User_image_size;
 			else
-			{
-				m_rUser.left=pos.x;
-				m_rUser.right=m_rUser.left+s_Skin.User_image_size;
-			}
-			m_rUser.top=pos.y;
-			m_rUser.bottom=pos.y+s_Skin.User_image_size;
+				m_rUser1.left=pos.x;
+			m_rUser1.right=m_rUser1.left+s_Skin.User_image_size;
+			m_rUser1.top=pos.y;
+			m_rUser1.bottom=pos.y+s_Skin.User_image_size;
 
 			if (opacity!=MenuSkin::OPACITY_SOLID)
 			{
@@ -490,7 +486,184 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 		}
 	}
 
-	SelectObject(hdcTemp,font0);
+	if (s_Skin.User_name_position.left!=s_Skin.User_name_position.right)
+	{
+		RECT rc0;
+		int x0=0, x1=totalWidth;
+		if (s_Skin.User_name_align==MenuSkin::NAME_CENTER1 || s_Skin.User_name_align==MenuSkin::NAME_LEFT1 || s_Skin.User_name_align==MenuSkin::NAME_RIGHT1)
+			x1=totalWidth1;
+		else if (s_Skin.User_name_align==MenuSkin::NAME_CENTER2 || s_Skin.User_name_align==MenuSkin::NAME_LEFT2 || s_Skin.User_name_align==MenuSkin::NAME_RIGHT2)
+			x0=totalWidth1;
+
+		if (s_Skin.User_name_position.left<0)
+			rc0.left=x1+s_Skin.User_name_position.left;
+		else
+			rc0.left=x0+s_Skin.User_name_position.left;
+
+		if (s_Skin.User_name_position.right<0)
+			rc0.right=x1+s_Skin.User_name_position.right;
+		else
+			rc0.right=x0+s_Skin.User_name_position.right;
+
+		rc0.top=s_Skin.User_name_position.top;
+		if (rc0.top<0) rc0.top+=totalHeight;
+		rc0.bottom=s_Skin.User_name_position.bottom;
+		if (rc0.bottom<0) rc0.bottom+=totalHeight;
+
+		m_rUser2=rc0;
+
+		wchar_t name[256];
+		const wchar_t *str=FindSetting("MenuUsername");
+		if (str)
+		{
+			Strcpy(name,_countof(name),str);
+			DoEnvironmentSubst(name,_countof(name));
+		}
+		else
+		{
+			ULONG size=_countof(name);
+			if (!GetUserNameEx(NameDisplay,name,&size))
+			{
+				// GetUserNameEx may fail (for example on Home editions). use the login name
+				size=_countof(name);
+				GetUserName(name,&size);
+			}
+		}
+
+		if (Strlen(name)>0)
+		{
+			int nameWidth=rc0.right-rc0.left;
+			int nameHeight=rc0.bottom-rc0.top;
+			RECT rc={0,0,nameWidth,nameHeight};
+
+			// draw the title
+			BITMAPINFO dib={sizeof(dib)};
+			dib.bmiHeader.biWidth=nameWidth;
+			dib.bmiHeader.biHeight=-nameHeight;
+			dib.bmiHeader.biPlanes=1;
+			dib.bmiHeader.biBitCount=32;
+			dib.bmiHeader.biCompression=BI_RGB;
+
+			font0=(HFONT)SelectObject(hdcTemp,s_Skin.User_font);
+
+			unsigned int *bits2;
+			HBITMAP bmpText=CreateDIBSection(hdcTemp,&dib,DIB_RGB_COLORS,(void**)&bits2,NULL,0);
+			HBITMAP bmp02=(HBITMAP)SelectObject(hdcTemp,bmpText);
+			FillRect(hdcTemp,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
+
+			DWORD align=DT_CENTER;
+			if (s_Skin.User_name_align==MenuSkin::NAME_LEFT || s_Skin.User_name_align==MenuSkin::NAME_LEFT1 || s_Skin.User_name_align==MenuSkin::NAME_LEFT2)
+				align=s_bRTL?DT_RIGHT:DT_LEFT;
+			else if (s_Skin.User_name_align==MenuSkin::NAME_RIGHT || s_Skin.User_name_align==MenuSkin::NAME_RIGHT1 || s_Skin.User_name_align==MenuSkin::NAME_RIGHT2)
+				align=s_bRTL?DT_LEFT:DT_RIGHT;
+			if (s_Theme && s_Skin.User_glow_size>0)
+			{
+				InflateRect(&rc,-s_Skin.User_glow_size,-s_Skin.User_glow_size);
+				// draw the glow
+				opts.dwFlags=DTT_COMPOSITED|DTT_TEXTCOLOR|DTT_GLOWSIZE;
+				opts.crText=0xFFFFFF;
+				opts.iGlowSize=s_Skin.User_glow_size;
+				DrawThemeTextEx(s_Theme,hdcTemp,0,0,name,-1,align|DT_VCENTER|DT_NOPREFIX|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOCLIP,&rc,&opts);
+				SelectObject(hdcTemp,bmp02); // deselect bmpText so all the GDI operations get flushed
+
+				// change the glow color
+				int gr=(s_Skin.User_glow_color)&255;
+				int gg=(s_Skin.User_glow_color>>8)&255;
+				int gb=(s_Skin.User_glow_color>>16)&255;
+				for (int y=0;y<nameHeight;y++)
+					for (int x=0;x<nameWidth;x++)
+					{
+						unsigned int &pixel=bits2[y*nameWidth+x];
+						int a1=(pixel>>24);
+						int r1=(pixel>>16)&255;
+						int g1=(pixel>>8)&255;
+						int b1=(pixel)&255;
+						r1=(r1*gr)/255;
+						g1=(g1*gg)/255;
+						b1=(b1*gb)/255;
+						pixel=(a1<<24)|(r1<<16)|(g1<<8)|b1;
+					}
+
+					SelectObject(hdcTemp,bmpText);
+			}
+
+			// draw the text
+			int offset=rc0.top*totalWidth+rc0.left;
+			if (s_bRTL)
+				offset=rc0.top*totalWidth+totalWidth-rc0.right;
+
+			if (s_Theme)
+			{
+				opts.dwFlags=DTT_COMPOSITED|DTT_TEXTCOLOR;
+				opts.crText=s_Skin.User_text_color;
+				DrawThemeTextEx(s_Theme,hdcTemp,0,0,name,-1,align|DT_VCENTER|DT_NOPREFIX|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOCLIP,&rc,&opts);
+				SelectObject(hdcTemp,bmp02);
+
+				// copy the text onto the final bitmap. Combine the alpha channels
+				for (int y=0;y<nameHeight;y++)
+					for (int x=0;x<nameWidth;x++)
+					{
+						unsigned int src=bits2[y*nameWidth+x];
+						int a1=(src>>24);
+						int r1=(src>>16)&255;
+						int g1=(src>>8)&255;
+						int b1=(src)&255;
+
+						unsigned int &dst=bits[y*totalWidth+x+offset];
+
+						int a2=(dst>>24);
+						int r2=(dst>>16)&255;
+						int g2=(dst>>8)&255;
+						int b2=(dst)&255;
+
+						r2=(r2*(255-a1))/255+r1;
+						g2=(g2*(255-a1))/255+g1;
+						b2=(b2*(255-a1))/255+b1;
+						a2=a1+a2-(a1*a2)/255;
+
+						dst=(a2<<24)|(r2<<16)|(g2<<8)|b2;
+					}
+			}
+			else
+			{
+				// draw white text on black background
+				SetTextColor(hdcTemp,0xFFFFFF);
+				SetBkMode(hdcTemp,TRANSPARENT);
+				DrawText(hdcTemp,name,-1,&rc,align|DT_VCENTER|DT_NOPREFIX|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOCLIP);
+				SelectObject(hdcTemp,bmp02);
+
+				// copy the text onto the final bitmap
+				// change the text color
+				int tr=(s_Skin.User_text_color>>16)&255;
+				int tg=(s_Skin.User_text_color>>8)&255;
+				int tb=(s_Skin.User_text_color)&255;
+				for (int y=0;y<nameHeight;y++)
+					for (int x=0;x<nameWidth;x++)
+					{
+						unsigned int src=bits2[y*nameWidth+x];
+						int a1=(src)&255;
+
+						unsigned int &dst=bits[y*totalWidth+x+offset];
+
+						int a2=(dst>>24);
+						int r2=(dst>>16)&255;
+						int g2=(dst>>8)&255;
+						int b2=(dst)&255;
+
+						r2=(r2*(255-a1)+tr*a1)/255;
+						g2=(g2*(255-a1)+tg*a1)/255;
+						b2=(b2*(255-a1)+tb*a1)/255;
+						a2=a1+a2-(a1*a2)/255;
+
+						dst=(a2<<24)|(r2<<16)|(g2<<8)|b2;
+					}
+			}
+
+			DeleteObject(bmpText);
+			SelectObject(hdcTemp,font0);
+		}
+	}
+
 	DeleteDC(hdcTemp);
 
 	SelectObject(hdc,bmp0);
@@ -883,7 +1056,7 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 					}
 				}
 
-				// drow down button
+				// draw down button
 				RECT rc=m_rContent;
 				rc.bottom=m_rContent.top+m_ScrollHeight;
 				rc.top=clipBottom;

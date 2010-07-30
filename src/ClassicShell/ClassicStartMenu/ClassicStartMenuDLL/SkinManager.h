@@ -19,7 +19,9 @@ struct MenuSkin
 	{
 		CString name;
 		CString label;
+		CString condition;
 		bool value;
+		bool value2; // the value when the condition is false
 	};
 	std::vector<Option> Options;
 
@@ -38,6 +40,19 @@ struct MenuSkin
 		USER_CENTER=10000,
 		USER_CENTER1=10001,
 		USER_CENTER2=10002,
+	};
+
+	enum TNameAlign
+	{
+		NAME_CENTER,
+		NAME_CENTER1,
+		NAME_CENTER2,
+		NAME_LEFT,
+		NAME_LEFT1,
+		NAME_LEFT2,
+		NAME_RIGHT,
+		NAME_RIGHT1,
+		NAME_RIGHT2,
 	};
 
 	// CAPTION SECTION - describes the caption portion of the main menu
@@ -121,6 +136,13 @@ struct MenuSkin
 	int User_image_size;
 	int User_image_alpha;
 
+	RECT User_name_position;
+	TNameAlign User_name_align;
+	HFONT User_font;
+	COLORREF User_text_color;
+	COLORREF User_glow_color;
+	int User_glow_size;
+
 	// SUB-MENU SECTION - describes the menu portion of the sub-menu
 	HBITMAP Submenu_bitmap;
 	bool Submenu_bitmap32; // 32-bit bitmap
@@ -135,6 +157,7 @@ struct MenuSkin
 	COLORREF Submenu_arrow_color[2]; // normal, selected
 	RECT Submenu_padding;
 	int Submenu_offset;
+	int AllPrograms_offset;
 	bool Submenu_selectionColor;
 	bool Submenu_selection32; // 32-bit bitmap
 	union
@@ -176,8 +199,15 @@ struct MenuSkin
 	static wchar_t s_SkinError[1024]; // parsing error. must end on \r\n
 };
 
-bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variation, const std::vector<unsigned int> &options, bool bNoResources );
-void LoadDefaultMenuSkin( MenuSkin &skin, bool bNoResources );
+enum TResLevel
+{
+	RES_LEVEL_NONE, // don't load resources (used by the Settings dialog)
+	RES_LEVEL_ALLPROGRAMS, // load only sub-menus (used by All Programs)
+	RES_LEVEL_FULL, // load all resources
+};
+
+bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variation, const std::vector<unsigned int> &options, TResLevel level );
+void LoadDefaultMenuSkin( MenuSkin &skin, TResLevel level );
 void FreeMenuSkin( MenuSkin &skin );
 
 // Returns the path to the skin files. path must be _MAX_PATH characters

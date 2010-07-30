@@ -38,6 +38,7 @@ static StdMenuItem g_StdMenu[]=
 	// Settings
 	{MENU_CONTROLPANEL,"Menu.ControlPanel",L"&Control Panel",137,MENU_NO,&FOLDERID_ControlPanelFolder},
 	{MENU_SEPARATOR},
+	{MENU_SECURITY,"Menu.Security",L"Windows Security",48},
 	{MENU_NETWORK,"Menu.Network",L"&Network Connections",257,MENU_NO,&FOLDERID_ConnectionsFolder,NULL,"Menu.NetworkTip",L"Displays existing network connections on this computer and helps you create new ones"},
 	{MENU_PRINTERS,"Menu.Printers",L"&Printers",138,MENU_NO,&FOLDERID_PrintersFolder,NULL,"Menu.PrintersTip",L"Add, remove, and configure local and network printers."},
 	{MENU_TASKBAR,"Menu.Taskbar",L"&Taskbar and Start Menu",40,MENU_NO,NULL,NULL,"Menu.TaskbarTip",L"Customize the Start Menu and the taskbar, such as the types of items to be displayed and how they should appear."},
@@ -86,6 +87,7 @@ g_StdItems[]={
 	{L"USER_DOCUMENTS",MENU_USERDOCUMENTS},
 	{L"USER_PICTURES",MENU_USERPICTURES},
 	{L"CONTROL_PANEL",MENU_CONTROLPANEL},
+	{L"SECURITY",MENU_SECURITY},
 	{L"NETWORK",MENU_NETWORK},
 	{L"PRINTERS",MENU_PRINTERS},
 },
@@ -102,6 +104,7 @@ g_StdCommands[]={
 	{L"undock",MENU_UNDOCK},
 	{L"disconnect",MENU_DISCONNECT},
 	{L"shutdown_box",MENU_SHUTDOWN_BOX},
+	{L"security",MENU_SECURITY},
 	{L"search_files",MENU_SEARCH_FILES},
 	{L"search_printer",MENU_SEARCH_PRINTER},
 	{L"search_computers",MENU_SEARCH_COMPUTERS},
@@ -128,10 +131,35 @@ static TMenuID FindStdCommand( const wchar_t *name )
 	return MENU_NO;
 }
 
-// Returns true if Items, Link or Command is found
-static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
+static unsigned int ParseItemSettings( const wchar_t *name )
 {
-	bool res=false;
+	wchar_t buf[256];
+	Sprintf(buf,_countof(buf),L"%s.Settings",name);
+	const wchar_t *str=g_CustomMenuParser.FindSetting(buf);
+	if (!str) return 0;
+
+	unsigned int settings=0;
+	while(*str)
+	{
+		wchar_t token[256];
+		str=GetToken(str,token,_countof(token),L", \t|;");
+		if (_wcsicmp(token,L"OPEN_UP")==0) settings|=StdMenuItem::MENU_OPENUP;
+		if (_wcsicmp(token,L"OPEN_UP_CHILDREN")==0) settings|=StdMenuItem::MENU_OPENUP_REC;
+		if (_wcsicmp(token,L"SORT_ZA")==0) settings|=StdMenuItem::MENU_SORTZA;
+		if (_wcsicmp(token,L"SORT_ZA_CHILDREN")==0) settings|=StdMenuItem::MENU_SORTZA_REC;
+		if (_wcsicmp(token,L"SORT_ONCE")==0) settings|=StdMenuItem::MENU_SORTONCE;
+		if (_wcsicmp(token,L"ITEMS_FIRST")==0) settings|=StdMenuItem::MENU_ITEMS_FIRST;
+		if (_wcsicmp(token,L"TRACK_RECENT")==0) settings|=StdMenuItem::MENU_TRACK;
+		if (_wcsicmp(token,L"NOTRACK_RECENT")==0) settings|=StdMenuItem::MENU_NOTRACK;
+	}
+	return settings;
+}
+
+static void ParseMenuItem( StdMenuItem &item, const wchar_t *name )
+{
+	const StdMenuItem *pItem=FindStdMenuItem(FindStdItem(name));
+	if (pItem) item=*pItem;
+
 	wchar_t buf[1024];
 	const wchar_t *str;
 	Sprintf(buf,_countof(buf),L"%s.Link",name);
@@ -140,7 +168,6 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 	{
 		// parse link
 		item.link=str;
-		res=true;
 	}
 
 	Sprintf(buf,_countof(buf),L"%s.Command",name);
@@ -162,51 +189,6 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 				item=*pItem;
 		}
 		item.command=str;
-		res=true;
-	}
-
-	Sprintf(buf,_countof(buf),L"%s.Items",name);
-	str=g_CustomMenuParser.FindSetting(buf);
-	if (str)
-	{
-		// parse items (recursively)
-		std::vector<StdMenuItem> children;
-		while (*str)
-		{
-			str=GetToken(str,buf,_countof(buf),L", \t");
-			if (_wcsicmp(buf,L"SEPARATOR")==0)
-			{
-				StdMenuItem sep={MENU_SEPARATOR};
-				children.push_back(sep);
-				continue;
-			}
-			if (_wcsicmp(buf,L"COLUMN_PADDING")==0)
-			{
-				StdMenuItem sep={MENU_COLUMN_PADDING};
-				children.push_back(sep);
-				continue;
-			}
-			if (_wcsicmp(buf,L"COLUMN_BREAK")==0)
-			{
-				StdMenuItem sep={MENU_COLUMN_BREAK};
-				children.push_back(sep);
-				continue;
-			}
-			StdMenuItem child={MENU_CUSTOM};
-			const StdMenuItem *pItem=FindStdMenuItem(FindStdItem(buf));
-			if (pItem) child=*pItem;
-			if (ParseCustomMenuRec(buf,child) || pItem)
-				children.push_back(child);
-		}
-		if (!children.empty())
-		{
-			StdMenuItem child={MENU_LAST};
-			children.push_back(child);
-			item.submenu=(StdMenuItem*)IntToPtr((int)g_CustomMenu.size()+1);
-			item.submenuID=MENU_NO;
-			g_CustomMenu.insert(g_CustomMenu.end(),children.begin(),children.end());
-		}
-		res=true;
 	}
 
 	Sprintf(buf,_countof(buf),L"%s.Name",name);
@@ -236,27 +218,7 @@ static bool ParseCustomMenuRec( const wchar_t *name, StdMenuItem &item )
 	Sprintf(buf,_countof(buf),L"%s.Icon",name);
 	item.iconPath=g_CustomMenuParser.FindSetting(buf);
 
-	Sprintf(buf,_countof(buf),L"%s.Settings",name);
-	str=g_CustomMenuParser.FindSetting(buf);
-	if (str)
-	{
-		// parse settings
-		while(*str)
-		{
-			wchar_t token[256];
-			str=GetToken(str,token,_countof(token),L", \t|;");
-			if (_wcsicmp(token,L"OPEN_UP")==0) item.settings|=StdMenuItem::MENU_OPENUP;
-			if (_wcsicmp(token,L"OPEN_UP_CHILDREN")==0) item.settings|=StdMenuItem::MENU_OPENUP_REC;
-			if (_wcsicmp(token,L"SORT_ZA")==0) item.settings|=StdMenuItem::MENU_SORTZA;
-			if (_wcsicmp(token,L"SORT_ZA_CHILDREN")==0) item.settings|=StdMenuItem::MENU_SORTZA_REC;
-			if (_wcsicmp(token,L"SORT_ONCE")==0) item.settings|=StdMenuItem::MENU_SORTONCE;
-			if (_wcsicmp(token,L"ITEMS_FIRST")==0) item.settings|=StdMenuItem::MENU_ITEMS_FIRST;
-			if (_wcsicmp(token,L"TRACK_RECENT")==0) item.settings|=StdMenuItem::MENU_TRACK;
-			if (_wcsicmp(token,L"NOTRACK_RECENT")==0) item.settings|=StdMenuItem::MENU_NOTRACK;
-		}
-	}
-
-	return res;
+	item.settings=ParseItemSettings(name);
 }
 
 const StdMenuItem *ParseCustomMenu( unsigned int &rootSettings )
@@ -281,41 +243,95 @@ const StdMenuItem *ParseCustomMenu( unsigned int &rootSettings )
 			g_IniTimestamp=data.ftLastWriteTime;
 			g_CustomMenu.clear();
 			g_CustomMenuParser.Reset();
+			g_RootSettings=0;
 			if (g_CustomMenuParser.LoadText(fname))
 			{
 				g_CustomMenuParser.ParseText();
-				StdMenuItem root={MENU_NO};
-				ParseCustomMenuRec(L"MAIN_MENU",root);
-				g_RootSettings=root.settings;
-				bool bBreak=false;
-				int after=-1;
-				for (int i=PtrToInt(root.submenu)-1;i>=0 && g_CustomMenu[i].id!=MENU_LAST;i++)
+				g_RootSettings=ParseItemSettings(L"MAIN_MENU");
+
+				const wchar_t *str=g_CustomMenuParser.FindSetting("EnableCustomMenu");
+				if (str && _wtol(str))
 				{
-					if (g_CustomMenu[i].id==MENU_COLUMN_BREAK)
-						bBreak=true;
-					if (g_CustomMenu[i].id==MENU_PROGRAMS)
-						after=i;
-				}
-				if (!bBreak && after>=0)
-				{
-					StdMenuItem br={MENU_COLUMN_BREAK};
-					g_CustomMenu.insert(g_CustomMenu.begin()+after+1,br);
-				}
-				for (std::vector<StdMenuItem>::iterator it=g_CustomMenu.begin();it!=g_CustomMenu.end();++it)
-					if (it->submenuID==MENU_NO)
+					std::vector<CSettingsParser::TreeItem> items;
+					g_CustomMenuParser.ParseTree(L"MAIN_MENU.Items",items);
+					g_CustomMenu.resize(items.size());
+					for (size_t i=0;i<items.size();i++)
 					{
-						int i=PtrToInt(it->submenu);
-						it->submenu=(i>0)?&g_CustomMenu[i-1]:NULL;
+						const wchar_t *name=items[i].name;
+						StdMenuItem &item=g_CustomMenu[i];
+						memset(&item,0,sizeof(item));
+
+						// handle special names
+						if (!*name)
+						{
+							item.id=MENU_LAST;
+							continue;
+						}
+						if (_wcsicmp(name,L"SEPARATOR")==0)
+						{
+							item.id=MENU_SEPARATOR;
+							continue;
+						}
+						if (_wcsicmp(name,L"COLUMN_PADDING")==0)
+						{
+							item.id=MENU_COLUMN_PADDING;
+							continue;
+						}
+						if (_wcsicmp(name,L"COLUMN_BREAK")==0)
+						{
+							item.id=MENU_COLUMN_BREAK;
+							continue;
+						}
+
+						// handle custom items
+						item.id=MENU_CUSTOM;
+						ParseMenuItem(item,name);
+						if (item.id==MENU_RECENT_ITEMS)
+							g_RootSettings|=StdMenuItem::MENU_NORECENT;
+						int idx=items[i].children;
+						if (idx>=0)
+							item.submenu=&g_CustomMenu[idx];
 					}
 
-				g_CustomMenuRoot=PtrToInt(root.submenu)-1;
+					for (std::vector<StdMenuItem>::iterator it=g_CustomMenu.begin();it!=g_CustomMenu.end();++it)
+						if (it->id==MENU_RECENT_ITEMS)
+						{
+							g_RootSettings|=StdMenuItem::MENU_NORECENT;
+							break;
+						}
 
-				for (std::vector<StdMenuItem>::iterator it=g_CustomMenu.begin();it!=g_CustomMenu.end();++it)
-					if (it->id==MENU_RECENT_ITEMS)
+					// if there is no break, add one after Programs
+					if (!g_CustomMenu.empty())
 					{
-						g_RootSettings|=StdMenuItem::MENU_NORECENT;
-						break;
+						bool bBreak=false;
+						int after=-1;
+						for (int i=0;g_CustomMenu[i].id!=MENU_LAST;i++)
+						{
+							if (g_CustomMenu[i].id==MENU_COLUMN_BREAK)
+								bBreak=true;
+							if (g_CustomMenu[i].id==MENU_PROGRAMS)
+								after=i;
+						}
+						if (!bBreak && after>=0)
+						{
+							// add break
+							StdMenuItem br={MENU_COLUMN_BREAK};
+							const StdMenuItem *pBase=&g_CustomMenu[0];
+							g_CustomMenu.insert(g_CustomMenu.begin()+after+1,br);
+
+							// fix submenu pointers
+							for (std::vector<StdMenuItem>::iterator it=g_CustomMenu.begin();it!=g_CustomMenu.end();++it)
+								if (it->submenu)
+								{
+									int idx=(int)(it->submenu-pBase);
+									if (idx>after+1)
+										idx++;
+									it->submenu=&g_CustomMenu[idx];
+								}
+
+						}
 					}
+				}
 			}
 		}
 	}
@@ -330,6 +346,6 @@ const StdMenuItem *ParseCustomMenu( unsigned int &rootSettings )
 	else
 	{
 		rootSettings=g_RootSettings;
-		return &g_CustomMenu[g_CustomMenuRoot];
+		return &g_CustomMenu[0];
 	}
 }

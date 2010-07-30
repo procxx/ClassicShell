@@ -54,7 +54,7 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_ICON1               ICON                    "ClassicShell.ico"
+IDI_APPICON             ICON                    "ClassicShell.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -62,8 +62,8 @@ IDI_ICON1               ICON                    "ClassicShell.ico"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,0,0,0
- PRODUCTVERSION 2,0,0,0
+ FILEVERSION 2,8,3,0
+ PRODUCTVERSION 2,8,3,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -79,13 +79,13 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "IvoSoft"
-            VALUE "FileDescription", "Adds classic Windows Explorer features"
-            VALUE "FileVersion", "2, 0, 0, 0"
+            VALUE "FileDescription", "Adds classic shell features to Vista and Windows 7"
+            VALUE "FileVersion", "2, 8, 3, 0"
             VALUE "InternalName", "ClassicShellSetup"
             VALUE "LegalCopyright", "Copyright (C) 2009-2010, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicShellSetup.exe"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "2, 0, 0, 0"
+            VALUE "ProductVersion", "2, 8, 3, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -100,8 +100,72 @@ END
 // MSI_FILE
 //
 
-IDR_MSI_FILE64          MSI_FILE                "..\\ClassicShellSetup64\\Setup64\\ClassicShellSetup64.msi"
-IDR_MSI_FILE32          MSI_FILE                "..\\ClassicShellSetup32\\Setup32\\ClassicShellSetup32.msi"
+IDR_MSI_FILE32          MSI_FILE                "Temp\\ClassicShellSetup32.msi"
+IDR_MSI_FILE64          MSI_FILE                "Temp\\ClassicShellSetup64.msi"
+IDR_MSI_CHECKSUM        MSI_FILE                "msichecksum.bin"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_DIALOGPWD DIALOGEX 0, 0, 154, 75
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Classic Shell 2.8.0 (closed beta)"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "This beta version is password-protected. Please enter the password:",IDC_STATIC,7,7,140,17
+    EDITTEXT        IDC_EDITPWD,7,32,140,14,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,43,54,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,97,54,50,14
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_DIALOGPWD, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 147
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 68
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE 
+BEGIN
+    IDS_APP_TITLE           "Classic Shell Setup"
+    IDS_OLDSTARTMENU        "Warning!\nAn old version of the classic start menu is still running. Please close it before installing the new version to avoid crashing Explorer. Right click on the start button and select ""Exit""."
+    IDS_ERR_CORRUPTED       "Failed to extract setup file '%s'. The MSI resource is corrupted."
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_ERR_INTERNAL        "Internal Setup Error"
+    IDS_ERR_EXTRACT         "Failed to extract setup file '%s'."
+    IDS_ERR_VISTA           "Classic Shell requires Windows Vista or later."
+    IDS_ERR_MSIEXEC         "Failed to run msiexec.exe."
+    IDS_ERR_VER197          "Warning!\nYou are about to upgrade from version 1.9.7 of Classic Shell. There is a known problem with that version on 64-bit systems. When asked if you want to back up the ini files, respond with 'No'. Otherwise the installation will abort."
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_HELP                "Classic Shell Setup will install Classic Shell on  your computer. Possible command lines:\n    <no command line> - runs the installer normally\n    extract32 - extracts the 32-bit MSI\n    extract64 - extracts the 64-bit MSI\n    help - shows the command line help\n    <some msiexec options> - the options are passed to msiexec\n        * if the options contain %MSI% (all caps) the token is replaced by the name of the extracted MSI file\n        * if %MSI% is not found, the setup runs ""msiexec /i <MSI file> <some msiexec options>""\n\nExamples:\n    /qn - runs the installer in quiet mode\n    /x %MSI% /qb - uninstalls the product in basic UI level\n    /f %MSI% - repairs the product\n    /l* log.txt - runs the installer and logs the process in the log.txt file\n    /qn ADDLOCAL=ClassicExplorer - installs only Classic Explorer in quiet mode\n    /qn ADDLOCAL=ClassicStartMenu - installs only Classic Start Menu in quiet mode"
+END
+
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

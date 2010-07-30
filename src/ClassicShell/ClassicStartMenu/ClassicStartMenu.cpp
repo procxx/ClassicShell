@@ -16,75 +16,6 @@
 static HHOOK g_StartHook;
 static HWND g_StartButton;
 
-// MiniDumpNormal - minimal information
-// MiniDumpWithDataSegs - include global variables
-// MiniDumpWithFullMemory - include heap
-static MINIDUMP_TYPE MiniDumpType=MiniDumpNormal;
-
-static DWORD WINAPI SaveCrashDump( void *pExceptionInfo )
-{
-	HMODULE dbghelp=NULL;
-	{
-		wchar_t path[_MAX_PATH];
-
-		if (GetModuleFileName(NULL,path,_MAX_PATH))
-		{
-			dbghelp=LoadLibrary(L"dbghelp.dll");
-
-			LPCTSTR szResult = NULL;
-
-			typedef BOOL (WINAPI *MINIDUMPWRITEDUMP)(HANDLE hProcess, DWORD dwPid, HANDLE hFile, MINIDUMP_TYPE DumpType,
-				CONST PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
-				CONST PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
-				CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam
-				);
-			MINIDUMPWRITEDUMP dump=NULL;
-			if (dbghelp)
-				dump=(MINIDUMPWRITEDUMP)GetProcAddress(dbghelp,"MiniDumpWriteDump");
-			if (dump)
-			{
-				HANDLE file;
-				for (int i=1;;i++)
-				{
-					wchar_t fname[_MAX_FNAME];
-					Sprintf(fname,_countof(fname),L"CSM_Crash%d.dmp",i);
-					*PathFindFileName(path)=0;
-					Strcat(path,_countof(path),fname);
-					file=CreateFile(path,GENERIC_WRITE,FILE_SHARE_WRITE,NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);
-					if (file!=INVALID_HANDLE_VALUE || GetLastError()!=ERROR_FILE_EXISTS) break;
-				}
-				if (file!=INVALID_HANDLE_VALUE)
-				{
-					_MINIDUMP_EXCEPTION_INFORMATION ExInfo;
-					ExInfo.ThreadId = GetCurrentThreadId();
-					ExInfo.ExceptionPointers = (_EXCEPTION_POINTERS*)pExceptionInfo;
-					ExInfo.ClientPointers = NULL;
-
-					dump(GetCurrentProcess(),GetCurrentProcessId(),file,MiniDumpType,&ExInfo,NULL,NULL);
-					CloseHandle(file);
-				}
-			}
-		}
-	}
-	if (dbghelp) FreeLibrary(dbghelp);
-	TerminateProcess(GetCurrentProcess(),10);
-	return 0;
-}
-
-static LONG _stdcall TopLevelFilter( _EXCEPTION_POINTERS *pExceptionInfo )
-{
-	if (pExceptionInfo->ExceptionRecord->ExceptionCode==EXCEPTION_STACK_OVERFLOW)
-	{
-		// start a new thread to get a fresh stack (hoping there is enough stack left for CreateThread)
-		HANDLE thread=CreateThread(NULL,0,SaveCrashDump,pExceptionInfo,0,NULL);
-		WaitForSingleObject(thread,INFINITE);
-		CloseHandle(thread);
-	}
-	else
-		SaveCrashDump(pExceptionInfo);
-	return EXCEPTION_CONTINUE_SEARCH;
-}
-
 static void UnhookStartMenu( void )
 {
 	if (g_StartHook)
@@ -161,6 +92,7 @@ LRESULT CStartHookWindow::OnOpen( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 LRESULT CStartHookWindow::OnClose( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
 	UnhookStartMenu();
+	Sleep(100);
 	PostQuitMessage(0);
 	return 0;
 }
@@ -189,13 +121,24 @@ LRESULT CStartHookWindow::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 	return 0;
 }
 
+enum
+{
+	CMD_NONE=-1,
+	CMD_TOGGLE_NEW=-2,
+};
+
 int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrCmdLine, int nCmdShow )
 {
-	int open=-1;
-	if (wcsstr(lpstrCmdLine,L"-togglenew")!=NULL) open=-2;
-	else if (wcsstr(lpstrCmdLine,L"-toggle")!=NULL) open=0;
-	else if (wcsstr(lpstrCmdLine,L"-open")!=NULL) open=1;
-	else if (wcsstr(lpstrCmdLine,L"-settings")!=NULL) open=3;
+	wchar_t path[_MAX_PATH];
+	GetModuleFileName(NULL,path,_countof(path));
+	*PathFindFileName(path)=0;
+	SetCurrentDirectory(path);
+	int open=CMD_NONE;
+	if (wcsstr(lpstrCmdLine,L"-togglenew")!=NULL) open=CMD_TOGGLE_NEW;
+	else if (wcsstr(lpstrCmdLine,L"-toggle")!=NULL) open=MSG_TOGGLE;
+	else if (wcsstr(lpstrCmdLine,L"-open")!=NULL) open=MSG_OPEN;
+	else if (wcsstr(lpstrCmdLine,L"-settings")!=NULL) open=MSG_SETTINGS;
+	else if (wcsstr(lpstrCmdLine,L"-exit")!=NULL) open=MSG_EXIT;
 
 	const wchar_t *pNoHook=wcsstr(lpstrCmdLine,L"-nohook");
 	bool bHookExplorer=!pNoHook;
@@ -210,31 +153,55 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	if (!bHookExplorer)
 		SetUnhandledExceptionFilter(TopLevelFilter);
 
-	// prevent multiple instances from hooking the same explorer process
+	// prevent multiple instances from running on the same desktop
+	// the assumption is that multiple desktops for the same user will have different name (but may repeat across users)
+	wchar_t userName[256];
+	DWORD len=_countof(userName);
+	GetUserName(userName,&len);
+	len=0;
+	HANDLE desktop=GetThreadDesktop(GetCurrentThreadId());
+	GetUserObjectInformation(desktop,UOI_NAME,NULL,0,&len);
+	wchar_t *deskName=(wchar_t*)malloc(len);
+	GetUserObjectInformation(desktop,UOI_NAME,deskName,len,&len);
+
+	wchar_t mutexName[1024];
+	Sprintf(mutexName,_countof(mutexName),L"ClassicStartMenu.Mutex.%s.%s",userName,deskName);
+	free(deskName);
+
 	HWND progWin=FindWindowEx(NULL,NULL,L"Progman",NULL);
 	DWORD process;
-	DWORD thread=GetWindowThreadProcessId(progWin,&process);
+	if (progWin)
+		GetWindowThreadProcessId(progWin,&process);
 
+	HANDLE hMutex=NULL;
 	if (bHookExplorer)
 	{
-		wchar_t mutexName[256];
-		Sprintf(mutexName,_countof(mutexName),L"ClassicStartMenu.Mutex.%08x",process);
-		HANDLE hMutex=CreateMutex(NULL,FALSE,mutexName);
+		hMutex=CreateMutex(NULL,TRUE,mutexName);
 		if (GetLastError()==ERROR_ALREADY_EXISTS || GetLastError()==ERROR_ACCESS_DENIED)
 		{
-			if (open>=0)
+			if (open==CMD_TOGGLE_NEW)
+			{
+				if (progWin)
+				{
+					AllowSetForegroundWindow(process);
+					PostMessage(progWin,WM_SYSCOMMAND,SC_TASKLIST,'CLSM');
+				}
+			}
+			else if (open!=CMD_NONE)
 			{
 				AllowSetForegroundWindow(process);
 				HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
 				if (hwnd) PostMessage(hwnd,WM_OPEN,open,0);
 			}
-			if (open==-2 && progWin)
-			{
-				AllowSetForegroundWindow(process);
-				PostMessage(progWin,WM_SYSCOMMAND,SC_TASKLIST,'CLSM');
-			}
+			if (open==MSG_EXIT && hMutex && WaitForSingleObject(hMutex,2000)==WAIT_OBJECT_0)
+				ReleaseMutex(hMutex);
 			return 0;
 		}
+	}
+	if (open!=CMD_NONE && open!=MSG_OPEN && open!=MSG_SETTINGS)
+	{
+		if (hMutex) ReleaseMutex(hMutex);
+		return 0;
 	}
 
 	OleInitialize(NULL);
@@ -246,7 +213,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	MSG msg;
 	HWND menu=HookStartMenu(bHookExplorer);
 	if (bHookExplorer && open>=0)
-		window.PostMessage(WM_OPEN,open,0);
+		window.PostMessage(WM_OPEN,open,MSG_OPEN);
 	while ((bHookExplorer || IsWindow(menu)) && GetMessage(&msg,0,0,0))
 	{
 		TranslateMessage(&msg);
@@ -254,5 +221,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	}
 	window.DestroyWindow();
 	OleUninitialize();
+
+	if (hMutex) ReleaseMutex(hMutex);
 	return 0;
 }

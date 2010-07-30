@@ -4,7 +4,7 @@
 #include "ParseSettings.h"
 #include <algorithm>
 
-static int EvalCondition( const wchar_t *condition, const wchar_t **values, int count );
+const int MAX_TREE_LEVEL=10;
 
 // Reads a file into m_Text
 bool CSettingsParser::LoadText( const wchar_t *fname )
@@ -100,7 +100,7 @@ void CSettingsParser::ParseText( void )
 }
 
 // Filters the settings that belong to the given language
-// lanugages is a 00-terminated list of language names ordered by priority
+// languages is a 00-terminated list of language names ordered by priority
 void CSettingsParser::FilterLanguages( const wchar_t *languages )
 {
 	std::vector<const wchar_t*> lines;
@@ -173,6 +173,67 @@ void CSettingsParser::Reset( void )
 	m_Text.clear();
 }
 
+// Parses a tree structure of items. The rootName setting must be a list of item names.
+void CSettingsParser::ParseTree( const wchar_t *rootName, std::vector<TreeItem> &items )
+{
+	const wchar_t *str=FindSetting(rootName);
+	if (str)
+	{
+		CString names[MAX_TREE_LEVEL];
+		ParseTreeRec(str,items,names,0);
+	}
+}
+
+int CSettingsParser::ParseTreeRec( const wchar_t *str, std::vector<TreeItem> &items, CString *names, int level )
+{
+	size_t start=items.size();
+	while (*str)
+	{
+		wchar_t token[256];
+		str=GetToken(str,token,_countof(token),L", \t");
+		if (token[0])
+		{
+			// 
+			bool bFound=false;
+			for (int i=0;i<level;i++)
+				if (_wcsicmp(token,names[i])==0)
+				{
+					bFound=true;
+					break;
+				}
+			if (!bFound)
+			{
+				TreeItem item={token,-1};
+				items.push_back(item);
+			}
+		}
+	}
+	size_t end=items.size();
+	if (start==end) return -1;
+
+	TreeItem item={L"",-1};
+	items.push_back(item);
+
+	if (level<MAX_TREE_LEVEL-1)
+	{
+		for (size_t i=start;i<end;i++)
+		{
+			wchar_t buf[266];
+			swprintf_s(buf,L"%s.Items",items[i].name);
+			const wchar_t *str2=FindSetting(buf);
+			if (str2)
+			{
+				names[level]=items[i].name;
+				// these two statements must be on separate lines. otherwise items[i] is evaluated before ParseTreeRec, but
+				// the items vector can be reallocated inside ParseTreeRec, causing the address to be invalidated -> crash!
+				int idx=ParseTreeRec(str2,items,names,level+1);
+				items[i].children=idx;
+			}
+		}
+	}
+	return (int)start;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 bool CSkinParser::LoadVariation( const wchar_t *fname )
@@ -213,7 +274,7 @@ void CSkinParser::Reset( void )
 }
 
 // Parses the option from m_Lines[index]. Returns false if index is out of bounds
-bool CSkinParser::ParseOption( CString &name, CString &label, bool &value, int index )
+bool CSkinParser::ParseOption( CString &name, CString &label, bool &value, CString &condition, bool &value2, int index )
 {
 	if (index<0 || index>=(int)m_Lines.size())
 		return false;
@@ -233,6 +294,13 @@ bool CSkinParser::ParseOption( CString &name, CString &label, bool &value, int i
 		name.Empty();
 	line=GetToken(line,buf,_countof(buf),L" \t,");
 	value=_wtol(buf)!=0;
+	line=GetToken(line,buf,_countof(buf),L",");
+	condition=buf;
+	line=GetToken(line,buf,_countof(buf),L" \t,");
+	if (buf[0])
+		value2=_wtol(buf)!=0;
+	else
+		value2=value;
 	return true;
 }
 
@@ -332,7 +400,7 @@ static bool ApplyOperator( bool *valStack, int &vsp, TType op )
 
 // Evaluates a boolean condition. vars/count - a list of variable names that are TRUE. The rest are assumed FALSE
 // Returns: 0 - false, 1 - true, -1 - error
-static int EvalCondition( const wchar_t *condition, const wchar_t **values, int count )
+int EvalCondition( const wchar_t *condition, const wchar_t *const *values, int count )
 {
 	wchar_t token[256];
 	TType opStack[16];

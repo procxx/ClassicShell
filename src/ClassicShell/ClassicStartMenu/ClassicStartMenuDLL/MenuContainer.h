@@ -39,6 +39,7 @@ enum TMenuID
 	MENU_SETTINGS,
 		MENU_CONTROLPANEL,
 		MENU_NETWORK,
+		MENU_SECURITY,
 		MENU_PRINTERS,
 		MENU_TASKBAR,
 		MENU_FEATURES,
@@ -156,19 +157,20 @@ public:
 		CONTAINER_CONTROLPANEL = 0x00004, // this is the control panel, don't go into subfolders
 		CONTAINER_PROGRAMS     = 0x00008, // this is a folder from the Start Menu hierarchy (drop operations prefer link over move)
 		CONTAINER_DOCUMENTS    = 0x00010, // sort by time, limit the count (for recent documents)
-		CONTAINER_RECENT       = 0x00020, // insert recent programs (sorted by time)
-		CONTAINER_LINK         = 0x00040, // this is an expanded link to a folder (always scrolling)
-		CONTAINER_ITEMS_FIRST  = 0x00080, // put standard items at the top
-		CONTAINER_DRAG         = 0x00100, // allow items to be dragged out
-		CONTAINER_DROP         = 0x00200, // allow dropping of items
-		CONTAINER_LEFT         = 0x00400, // the window is aligned on the left
-		CONTAINER_TOP          = 0x00800, // the window is aligned on the top
-		CONTAINER_AUTOSORT     = 0x01000, // the menu is always in alphabetical order
-		CONTAINER_OPENUP_REC   = 0x02000, // the container's children will prefer to open up instead of down
-		CONTAINER_SORTZA       = 0x04000, // the container will sort backwards by default
-		CONTAINER_SORTZA_REC   = 0x08000, // the container's children will sort backwards by default
-		CONTAINER_SORTONCE     = 0x10000, // the container will save the sort order the first time the menu is opened
-		CONTAINER_TRACK        = 0x20000, // track shortcuts from this menu
+		CONTAINER_ALLPROGRAMS  = 0x00020, // this is the main menu of All Programs (combines the Start Menu and Programs folders)
+		CONTAINER_RECENT       = 0x00040, // insert recent programs (sorted by time)
+		CONTAINER_LINK         = 0x00080, // this is an expanded link to a folder (always scrolling)
+		CONTAINER_ITEMS_FIRST  = 0x00100, // put standard items at the top
+		CONTAINER_DRAG         = 0x00200, // allow items to be dragged out
+		CONTAINER_DROP         = 0x00400, // allow dropping of items
+		CONTAINER_LEFT         = 0x00800, // the window is aligned on the left
+		CONTAINER_TOP          = 0x01000, // the window is aligned on the top
+		CONTAINER_AUTOSORT     = 0x02000, // the menu is always in alphabetical order
+		CONTAINER_OPENUP_REC   = 0x04000, // the container's children will prefer to open up instead of down
+		CONTAINER_SORTZA       = 0x08000, // the container will sort backwards by default
+		CONTAINER_SORTZA_REC   = 0x10000, // the container's children will sort backwards by default
+		CONTAINER_SORTONCE     = 0x20000, // the container will save the sort order the first time the menu is opened
+		CONTAINER_TRACK        = 0x40000, // track shortcuts from this menu
 	};
 
 	CMenuContainer( CMenuContainer *pParent, int index, int options, const StdMenuItem *pStdItem, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName );
@@ -178,10 +180,12 @@ public:
 	void InitWindow( void );
 
 	static bool CloseStartMenu( void );
+	static bool CloseProgramsMenu( void );
 	static void HideStartMenu( void );
 	static bool IsMenuOpened( void ) { return !s_Menus.empty(); }
 	static bool IgnoreTaskbarTimers( void ) { return !s_Menus.empty() && (s_TaskbarState&ABS_AUTOHIDE); }
-	static HWND ToggleStartMenu( HWND startButton, bool bKeyboard );
+	static HWND ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAllPrograms );
+	static bool ProcessMouseMessage( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 
 	// IUnknown
 	virtual STDMETHODIMP QueryInterface( REFIID riid, void **ppvObject )
@@ -257,6 +261,7 @@ private:
 		bool bPrograms:1; // this item is part of the Start Menu folder hierarchy
 		bool bAlignBottom:1; // two-column menu: this item is aligned to the bottom
 		bool bBreak:1; // two-column menu: this item starts the second column
+		char priority; // used for sorting of the All Programs menu
 
 		// pair of shell items. 2 items are used to combine a user folder with a common folder (I.E. user programs/common programs)
 		PIDLIST_ABSOLUTE pItem1;
@@ -269,6 +274,8 @@ private:
 
 		bool operator<( const MenuItem &x ) const
 		{
+			if (priority<x.priority) return true;
+			if (priority>x.priority) return false;
 			if (row<x.row) return true;
 			if (row>x.row) return false;
 			if (bFolder && !x.bFolder) return true;
@@ -282,7 +289,7 @@ private:
 				if (drive1)
 					return drive1[-1]<drive2[-1];
 			}
-			return CompareString(LOCALE_USER_DEFAULT,LINGUISTIC_IGNORECASE,name,-1,x.name,-1)==CSTR_LESS_THAN;
+			return CompareMenuString(name,x.name)<0;
 		}
 	};
 
@@ -305,7 +312,7 @@ private:
 				if (drive1)
 					return drive1[-1]<drive2[-1];
 			}
-			return CompareString(LOCALE_USER_DEFAULT,LINGUISTIC_IGNORECASE,name,-1,x.name,-1)==CSTR_LESS_THAN;
+			return CompareMenuString(name,x.name)<0;
 		}
 	};
 
@@ -332,9 +339,9 @@ private:
 	int m_InsertMark;
 	bool m_bInsertAfter;
 	CString m_RegName; // name of the registry key to store the item order
-	PIDLIST_ABSOLUTE m_Path1;
-	PIDLIST_ABSOLUTE m_Path2;
-	CComPtr<IShellFolder> m_pDropFolder; // the primary folder (used only as a drop target)
+	PIDLIST_ABSOLUTE m_Path1a[2];
+	PIDLIST_ABSOLUTE m_Path2a[2];
+	CComPtr<IShellFolder> m_pDropFoldera[2]; // the primary folder (used only as a drop target)
 	CMenuAccessible *m_pAccessible;
 	std::vector<int> m_ColumnOffsets;
 
@@ -364,7 +371,8 @@ private:
 	int m_MaxItemWidth[2];
 	int m_IconTopOffset[2]; // offset from the top of the item to the top of the icon
 	int m_TextTopOffset[2]; // offset from the top of the item to the top of the text
-	RECT m_rUser; // the user image (0,0,0,0 if the user image is not shown)
+	RECT m_rUser1; // the user image (0,0,0,0 if the user image is not shown)
+	RECT m_rUser2; // the user name (0,0,0,0 if the user name is not shown)
 
 	int m_ScrollCount; // number of items to scroll in the pager
 	int m_ScrollHeight; // 0 - don't scroll
@@ -468,6 +476,8 @@ private:
 	static bool s_bNoDragDrop; // disables drag/drop
 	static bool s_bNoContextMenu; // disables the context menu
 	static bool s_bExpandLinks; // expand links to folders
+	static bool s_bLogicalSort; // use StrCmpLogical instead of CompareString
+	static bool s_bAllPrograms; // this is the All Programs menu of the Windows start menu
 	static char s_bActiveDirectory; // the Active Directory services are available (-1 - uninitialized)
 	static CMenuContainer *s_pDragSource; // the source of the current drag operation
 	static bool s_bRightDrag; // dragging with the right mouse button
@@ -501,8 +511,12 @@ private:
 
 	friend class COwnerWindow;
 	friend class CMenuAccessible;
+	friend LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 
+	static int CompareMenuString( const wchar_t *str1, const wchar_t *str2 );
 	static void MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins, bool bAlpha, bool bRtlOffset=false );
+	static void AddFirstFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSOLUTE path, std::vector<MenuItem> &items, int options, unsigned int hash0 );
+	static void AddSecondFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSOLUTE path, std::vector<MenuItem> &items, int options, unsigned int hash0 );
 };
 
 class CMenuFader: public CWindowImpl<CMenuFader>

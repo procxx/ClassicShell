@@ -24,6 +24,7 @@ struct StartMenuSettings
 	CString SkinName;
 	CString SkinVariation;
 	std::vector<unsigned int> SkinOptions; // high 31 bits FNV of the name, 1 bit for the value
+	CString SkinName2; // for All Programs
 
 	enum
 	{
@@ -32,7 +33,7 @@ struct StartMenuSettings
 		OPEN_WINDOWS,
 	};
 
-	DWORD Controls; // 4 bits for each control: Click, Middle-click, Shift+Click, blank, Win, blank, Shift+Win, blank
+	DWORD Controls; // 4 bits for each control: Click, Middle-click, Shift+Click, Hover, Win, blank, Shift+Win, All Programs
 };
 
 // Read the settings from the registry

@@ -4,7 +4,8 @@
 #pragma once
 
 // Parses the settings from an ini file. Supports UTF16, UTF8 or ANSI files
-void ParseTranslations( const wchar_t *fname );
+// Use forceLang for force a specific language
+void ParseTranslations( const wchar_t *fname, const wchar_t *forceLang );
 
 // Returns a setting with the given name. If no setting is found, returns def
 const wchar_t *FindTranslation( const char *name, const wchar_t *def );

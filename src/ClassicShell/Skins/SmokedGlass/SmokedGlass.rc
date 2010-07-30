@@ -77,6 +77,7 @@ END
 7                       BITMAP                  "separator.bmp"
 8                       BITMAP                  "separatorV.bmp"
 9                       BITMAP                  "user_bitmap.bmp"
+10                      BITMAP                  "user_bitmap32.bmp"
 
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////

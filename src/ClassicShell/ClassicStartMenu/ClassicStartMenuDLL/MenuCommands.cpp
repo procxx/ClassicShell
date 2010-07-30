@@ -270,7 +270,13 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				s_Menus[i]->DestroyWindow();
 
 		// open submenu
-		pMenu->Create(NULL,NULL,NULL,s_SubmenuStyle,WS_EX_TOOLWINDOW|WS_EX_TOPMOST|(s_bRTL?WS_EX_LAYOUTRTL:0));
+		HWND parent=GetParent();
+		pMenu->Create(parent,NULL,NULL,s_SubmenuStyle,WS_EX_TOOLWINDOW|WS_EX_TOPMOST|(s_bRTL?WS_EX_LAYOUTRTL:0));
+		if (!parent)
+		{
+			// place sub-menus in front of the taskbar
+			pMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE);
+		}
 		RECT rc2;
 		pMenu->GetWindowRect(&rc2);
 
@@ -351,6 +357,15 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (s_bRTL)
 			animFlags^=(AW_HOR_POSITIVE|AW_HOR_NEGATIVE); // RTL flips the animation
 
+		int padTop=0, padBottom=0;
+		if (pMenu->m_ScrollHeight)
+		{
+			RECT rcc=pMenu->m_rContent;
+			pMenu->ClientToScreen(&rcc);
+			padTop=rcc.top-rc2.top;
+			padBottom=rc2.bottom-rcc.bottom;
+		}
+
 		if (bOpenUp)
 		{
 			if (itemRect.bottom+border.bottom-h>=s_MainRect.top)
@@ -369,7 +384,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			else
 			{
 				// up again
-				rc2.top=s_MainRect.top;
+				rc2.top=s_MainRect.top-padTop;
 				rc2.bottom=rc2.top+h;
 			}
 		}
@@ -391,7 +406,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			else
 			{
 				// down again
-				rc2.bottom=s_MainRect.bottom;
+				rc2.bottom=s_MainRect.bottom+padBottom;
 				rc2.top=rc2.bottom-h;
 				pMenu->m_Options|=CONTAINER_TOP;
 			}
@@ -408,7 +423,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			int speed=_wtol(FindSetting("SubMenuAnimationSpeed",L""));
 			if (speed<=0) speed=MENU_ANIM_SPEED_SUBMENU;
 			else if (speed>=10000) speed=10000;
-			AnimateWindow(pMenu->m_hWnd,speed,animFlags);
+			if (!AnimateWindow(pMenu->m_hWnd,speed,animFlags))
+				pMenu->ShowWindow(SW_SHOW); // show the menu anyway if AnimateWindow fails
 		}
 		else
 			pMenu->SetWindowPos(HWND_TOPMOST,&rc2,SWP_SHOWWINDOW);
@@ -440,9 +456,17 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		// when executing an item close the whole menu
 		if (!bKeepOpen)
 		{
-			for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
-				if (!(*it)->m_bDestroyed)
-					(*it)->PostMessage(WM_CLOSE);
+			if (g_TopMenu && s_bAllPrograms)
+			{
+				// send, don't post. the top menu must be closed immediately. otherwise its closing may interfere with launching the command
+				::SendMessage(g_TopMenu,WM_CLOSE,0,0);
+			}
+			else
+			{
+				for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
+					if (!(*it)->m_bDestroyed)
+						(*it)->PostMessage(WM_CLOSE);
+			}
 		}
 	}
 
@@ -466,6 +490,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			LockSetForegroundWindow(LSFW_LOCK);
 		else
 		{
+			LockSetForegroundWindow(LSFW_UNLOCK);
 			FadeOutItem(index);
 			// flush all messages to close the menus
 			// m_hWnd is not valid after this point
@@ -496,6 +521,13 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		case MENU_FEATURES:
 			if (SUCCEEDED(CoCreateInstance(CLSID_Shell,NULL,CLSCTX_SERVER,IID_IShellDispatch2,(void**)&pShellDisp)))
 				pShellDisp->ControlPanelItem(CComBSTR(L"appwiz.cpl"));
+			break;
+		case MENU_SECURITY:
+			{
+				CComPtr<IShellDispatch4> pShellDisp4;
+				if (SUCCEEDED(CoCreateInstance(CLSID_Shell,NULL,CLSCTX_SERVER,IID_IShellDispatch4,(void**)&pShellDisp4)))
+					pShellDisp4->WindowsSecurity();
+			}
 			break;
 		case MENU_SEARCH_FILES: // show the search UI
 			{
@@ -606,7 +638,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 	if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP)
 	{
-		s_pDesktop->BindToObject(m_Path1,NULL,IID_IShellFolder,(void**)&pFolder);
+		s_pDesktop->BindToObject(m_Path1a[0],NULL,IID_IShellFolder,(void**)&pFolder);
 	}
 	else
 	{
@@ -732,7 +764,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			if (n>1)
 				bSort=true; // more than 1 movable items
 			wchar_t path[_MAX_PATH];
-			if (pFolder && FindSettingBool("ShowNewFolder",true) && SHGetPathFromIDList(m_Path1,path))
+			if (pFolder && FindSettingBool("ShowNewFolder",true) && SHGetPathFromIDList(m_Path1a[item.priority==2?1:0],path))
 				bNew=true;
 
 			if (bSort)
@@ -829,7 +861,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (bKeepOpen)
 			LockSetForegroundWindow(LSFW_LOCK);
 		else
+		{
+			LockSetForegroundWindow(LSFW_UNLOCK);
 			FadeOutItem(index);
+		}
 		PlayMenuSound(SOUND_COMMAND);
 	}
 
@@ -879,8 +914,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		s_pDragSource=this; // HACK - prevent the menu from closing
 		g_RenameText=item.name;
 		g_RenamePos=pPt;
+		bool bAllPrograms=s_bAllPrograms;
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			(*it)->EnableWindow(FALSE); // disable all menus
+		if (bAllPrograms) ::EnableWindow(g_TopMenu,FALSE);
 
 		CComPtr<IContextMenu> pMenu2;
 		HMENU menu2=CreatePopupMenu();
@@ -948,7 +985,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 						else
 							g_RenameText=name;
 						CharUpper(name);
-						newHash=CalcFNVHash(name);
+						newHash=CalcFNVHash(name,item.priority==2?CalcFNVHash(L"\\"):FNV_HASH0);
 						CoTaskMemFree(name);
 						newPidl=pidl;
 						break;
@@ -969,6 +1006,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			(*it)->EnableWindow(TRUE); // enable all menus
+		if (bAllPrograms) ::EnableWindow(g_TopMenu,TRUE);
 		SetForegroundWindow(m_hWnd);
 		SetActiveWindow();
 		SetFocus();
@@ -1019,6 +1057,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			g_RenamePos=pPt;
 			for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 				(*it)->EnableWindow(FALSE); // disable all menus
+			bool bAllPrograms=s_bAllPrograms;
+			if (bAllPrograms) ::EnableWindow(g_TopMenu,FALSE);
 
 			m_ContextItem=index;
 			InvalidateItem(index);
@@ -1060,6 +1100,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			}
 			for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 				(*it)->EnableWindow(TRUE); // enable all menus
+			if (bAllPrograms) ::EnableWindow(g_TopMenu,TRUE);
 			SetForegroundWindow(m_hWnd);
 			SetActiveWindow();
 			SetFocus();
@@ -1090,7 +1131,9 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 		s_pDragSource=this; // prevent the menu from closing. the command may need a HWND to show its UI
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
-			(*it)->EnableWindow(FALSE);
+			(*it)->EnableWindow(FALSE); // disable all menus
+		bool bAllPrograms=s_bAllPrograms;
+		if (bAllPrograms) ::EnableWindow(g_TopMenu,FALSE);
 		info.hwnd=g_OwnerWindow;
 
 		::SetForegroundWindow(g_OwnerWindow);
@@ -1111,7 +1154,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			if (!(*it)->m_bDestroyed)
-				(*it)->EnableWindow(TRUE);
+				(*it)->EnableWindow(TRUE); // enable all menus
+		if (bAllPrograms) ::EnableWindow(g_TopMenu,TRUE);
 		if (bRefresh && !m_bDestroyed)
 		{
 			SetForegroundWindow(m_hWnd);
@@ -1126,6 +1170,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
 				if (!(*it)->m_bDestroyed)
 					(*it)->PostMessage(WM_CLOSE);
+			if (g_TopMenu && s_bAllPrograms) ::PostMessage(g_TopMenu,WM_CLOSE,0,0);
 		}
 
 		if (bRefresh)

@@ -108,10 +108,12 @@ Submenu_separator_slices_Y=2,16,2
 
 ; OPTIONS
 
-OPTION CAPTION="Caption",1
-OPTION SMALL_ICONS="Small Icons",0
 OPTION TWO_COLUMNS="Two Columns",0
+OPTION CAPTION="Caption",1, NOT TWO_COLUMNS, 0
 OPTION USER_IMAGE="Show User Picture",0
+OPTION USER_NAME="Show User Name",0
+OPTION CENTER_NAME="Center User Name",0, USER_NAME, 0
+OPTION SMALL_ICONS="Small Icons",0
 
 [NOT CAPTION]
 Main_bitmap_slices_X=0,0,0,15,1,13
@@ -142,12 +144,88 @@ User_bitmap=15
 User_image_offset=8,8
 User_image_alpha=200
 
+[USER_IMAGE AND SMALL_ICONS]
+User_frame_position=-10,10
+User_image_size=32
+User_bitmap=16
 
-[USER_IMAGE AND TWO_COLUMNS]
+[USER_NAME]
+User_font="Segoe UI",bold,22
+User_text_color=#FFFFFF
+User_glow_color=#000000
+User_glow_size=5
+User_name_align=right
+
+
+[USER_NAME AND TWO_COLUMNS]
+User_name_align=right2
+
+[USER_NAME AND SMALL_ICONS]
+User_font="Segoe UI",bold,16
+
+[USER_NAME AND NOT USER_IMAGE]
+User_name_position=10,18,-10,58
+
+
+; TWO_COLUMNS
+[USER_IMAGE AND TWO_COLUMNS AND NOT SMALL_ICONS]
 Main_padding2=4,73,10,8
+User_name_position=8,20,-80,60
 
-[USER_IMAGE AND NOT TWO_COLUMNS AND CAPTION]
+[USER_NAME AND NOT USER_IMAGE AND TWO_COLUMNS AND NOT SMALL_ICONS]
+Main_padding2=4,53,10,8
+User_name_position=8,10,-13,50
+
+[USER_IMAGE AND TWO_COLUMNS AND SMALL_ICONS]
+Main_padding2=4,57,10,8
+User_name_position=8,14,-58,49
+
+[USER_NAME AND NOT USER_IMAGE AND TWO_COLUMNS AND SMALL_ICONS]
+Main_padding2=4,47,10,8
+User_name_position=8,10,-13,45
+
+
+; CAPTION
+[USER_IMAGE AND CAPTION AND NOT SMALL_ICONS]
 Main_padding=3,73,10,8
+User_name_position=35,20,-80,60
 
-[USER_IMAGE AND NOT TWO_COLUMNS AND NOT CAPTION]
+[USER_NAME AND NOT USER_IMAGE AND CAPTION AND NOT SMALL_ICONS]
+Main_padding=3,53,10,8
+User_name_position=35,10,-13,50
+
+[USER_IMAGE AND CAPTION AND SMALL_ICONS]
+Main_padding=3,57,10,8
+User_name_position=35,14,-58,49
+
+[USER_NAME AND NOT USER_IMAGE AND CAPTION AND SMALL_ICONS]
+Main_padding=3,47,10,8
+User_name_position=35,10,-13,45
+
+
+; NO CAPTION
+[USER_IMAGE AND NOT TWO_COLUMNS AND NOT CAPTION AND NOT SMALL_ICONS]
 Main_padding=12,73,10,8
+User_name_position=15,20,-80,60
+
+[USER_NAME AND NOT USER_IMAGE AND NOT TWO_COLUMNS AND NOT CAPTION AND NOT SMALL_ICONS]
+Main_padding=12,53,10,8
+User_name_position=15,10,-13,50
+
+[USER_IMAGE AND NOT TWO_COLUMNS AND NOT CAPTION AND SMALL_ICONS]
+Main_padding=12,57,10,8
+User_name_position=15,14,-58,49
+
+[USER_NAME AND NOT USER_IMAGE AND NOT TWO_COLUMNS AND NOT CAPTION AND SMALL_ICONS]
+Main_padding=12,47,10,8
+User_name_position=15,10,-13,45
+
+
+[CENTER_NAME]
+User_name_align=center
+
+[CENTER_NAME AND TWO_COLUMNS]
+User_name_align=center2
+
+[NOT USER_NAME]
+User_name_position=0,0,0,0

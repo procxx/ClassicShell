@@ -2,6 +2,7 @@
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // dllmain.h : Declaration of module class.
+#pragma once
 
 #include "ClassicExplorer_i.h"
 #include <vector>
@@ -15,10 +16,15 @@ public :
 
 extern class CClassicExplorerModule _AtlModule;
 
-// Some utulity functions used by various modules
+// Some utility functions used by various modules
 void ReadIniFile( bool bStartup );
 HICON LoadIcon( int iconSize, const wchar_t *path, int index, std::vector<HMODULE> &modules, HMODULE hShell32 );
-HICON CreateDisabledIcon( HICON icon, int size );
+HBITMAP BitmapFromIcon( HICON icon, int iconSize, unsigned int **pBits, bool bDestroyIcon );
+HICON CreateDisabledIcon( HICON icon, int iconSize );
+HWND FindChildWindow( HWND hwnd, const wchar_t *className );
+CString LoadStringEx( int stringID );
+INT_PTR RunSettingsDialog( HWND hWndParent, DLGPROC lpDialogFunc );
+DWORD GetVersionEx( HINSTANCE hInstance );
 
 struct TlsData
 {
@@ -34,3 +40,14 @@ struct TlsData
 };
 
 TlsData *GetTlsData( void );
+
+enum
+{
+	FILEUI_FILE=1,
+	FILEUI_FOLDER=2,
+	FILEUI_MORE=4,
+	FILEUI_OTHERAPPS=256, // not only for Explorer
+
+	FILEUI_ALL=FILEUI_FILE|FILEUI_FOLDER|FILEUI_MORE,
+	FILEUI_DEFAULT=FILEUI_FILE|FILEUI_FOLDER
+};

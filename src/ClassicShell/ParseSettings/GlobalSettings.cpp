@@ -32,3 +32,8 @@ bool FindSettingBool( const char *name, bool def )
 	if (str) return _wtol(str)!=0;
 	return def;
 }
+
+void ParseGlobalTree( const wchar_t *rootName, std::vector<CSettingsParser::TreeItem> &items )
+{
+	g_Settings.ParseTree(rootName,items);
+}

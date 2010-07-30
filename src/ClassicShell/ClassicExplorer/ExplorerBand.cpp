@@ -12,20 +12,21 @@
 #include "TranslationSettings.h"
 #include "Settings.h"
 #include "dllmain.h"
+#include <shdeprecated.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 
 // CBandWindow - the parent window of the toolbar
 
 const CBandWindow::StdToolbarItem CBandWindow::s_StdItems[]={
-	{ID_GOUP,"Toolbar.GoUp",L"Up One Level",46,NULL,NULL,L",2",L",3"},
+	{ID_GOUP,"Toolbar.GoUp",L"Up One Level",46,NULL,NULL,NULL,L",2",L",3"},
 	{ID_CUT,"Toolbar.Cut",L"Cut",16762},
 	{ID_COPY,"Toolbar.Copy",L"Copy",243},
 	{ID_PASTE,"Toolbar.Paste",L"Paste",16763},
 	{ID_DELETE,"Toolbar.Delete",L"Delete",240},
 	{ID_PROPERTIES,"Toolbar.Properties",L"Properties",253},
 	{ID_EMAIL,"Toolbar.Email",L"E-mail the selected items",265},
-	{ID_SETTINGS,"Toolbar.Settings",L"Classic Explorer Settings",210,NULL,NULL,L",1"},
+	{ID_SETTINGS,"Toolbar.Settings",L"Classic Explorer Settings",210,NULL,NULL,NULL,L",1"},
 };
 
 static struct
@@ -51,32 +52,45 @@ static struct
 	{L"back",CBandWindow::ID_GOBACK},
 	{L"forward",CBandWindow::ID_GOFORWARD},
 	{L"refresh",CBandWindow::ID_REFRESH},
+	{L"rename",CBandWindow::ID_RENAME},
+	{L"viewtiles",CBandWindow::ID_VIEW_TILES},
+	{L"viewdetails",CBandWindow::ID_VIEW_DETAILS},
+	{L"viewlist",CBandWindow::ID_VIEW_LIST},
+	{L"viewcontent",CBandWindow::ID_VIEW_CONTENT},
+	{L"viewicons1",CBandWindow::ID_VIEW_ICONS1},
+	{L"viewicons2",CBandWindow::ID_VIEW_ICONS2},
+	{L"viewicons3",CBandWindow::ID_VIEW_ICONS3},
+	{L"viewicons4",CBandWindow::ID_VIEW_ICONS4},
 };
 
-bool CBandWindow::ParseToolbarItem( const wchar_t *name, StdToolbarItem &item )
+void CBandWindow::ParseToolbarItem( const wchar_t *name, StdToolbarItem &item )
 {
 	wchar_t text[256];
 	Sprintf(text,_countof(text),L"%s.Command",name);
 	const wchar_t *str=FindSetting(text);
-	if (!str) return false;
 
 	item.id=ID_SEPARATOR;
-	for (int i=0;i<_countof(g_StdCommands);i++)
-		if (_wcsicmp(str,g_StdCommands[i].name)==0)
-		{
-			item.id=g_StdCommands[i].id;
-			break;
-		}
+	if (str)
+	{
+		for (int i=0;i<_countof(g_StdCommands);i++)
+			if (_wcsicmp(str,g_StdCommands[i].name)==0)
+			{
+				item.id=g_StdCommands[i].id;
+				break;
+			}
+	}
+
 	if (item.id==ID_SEPARATOR)
 	{
 		item.id=ID_CUSTOM;
 		item.command=str;
 	}
 
+	Sprintf(text,_countof(text),L"%s.Link",name);
+	item.link=FindSetting(text);
+
 	Sprintf(text,_countof(text),L"%s.Icon",name);
-	str=FindSetting(text);
-	if (!str) return false;
-	item.iconPath=str;
+	item.iconPath=FindSetting(text);
 
 	Sprintf(text,_countof(text),L"%s.IconDisabled",name);
 	item.iconPathD=FindSetting(text);
@@ -100,53 +114,85 @@ bool CBandWindow::ParseToolbarItem( const wchar_t *name, StdToolbarItem &item )
 		else
 			item.name=str;
 	}
-
-	return true;
 }
 
-void CBandWindow::ParseToolbar( DWORD enabled )
+void CBandWindow::ParseToolbar( DWORD stdEnabled )
 {
 	m_Items.clear();
-	const wchar_t *str=FindSetting("ToolbarItems");
-	if (str)
+	if (!stdEnabled)
 	{
 		// custom toolbar
-		while (*str)
+		std::vector<CSettingsParser::TreeItem> items;
+		ParseGlobalTree(L"ToolbarItems",items);
+		m_Items.resize(items.size());
+		for (int i=0;i<(int)items.size();i++)
 		{
-			wchar_t token[256];
-			str=GetToken(str,token,_countof(token),L", \t");
-			StdToolbarItem item={ID_SEPARATOR};
-			if (_wcsicmp(token,L"SEPARATOR")!=0)
+			const wchar_t *name=items[i].name;
+			StdToolbarItem &item=m_Items[i];
 			{
-				if (!ParseToolbarItem(token,item))
-					continue;
-				if (item.id==ID_CUSTOM)
-				{
-					item.id=ID_CUSTOM+(int)m_Items.size();
-					item.regName=token;
-				}
+				// can't use memset here because item is not a POD (there is a CString inside)
+				item.id=0;
+				item.tipKey=NULL;
+				item.tip=NULL;
+				item.icon=0;
+
+				item.name=NULL;
+				item.command=NULL;
+				item.link=NULL;
+				item.iconPath=NULL;
+				item.iconPathD=NULL;
+				item.submenu=NULL;
+				item.menuIcon=NULL;
+				item.menuIconD=NULL;
+				item.bIconLoaded=false;
+				item.bDisabled=false;
+				item.bChecked=false;
 			}
-			m_Items.push_back(item);
+
+			// handle special names
+			if (!*name)
+			{
+				item.id=ID_LAST;
+				continue;
+			}
+			if (_wcsicmp(name,L"SEPARATOR")==0)
+			{
+				item.id=ID_SEPARATOR;
+				continue;
+			}
+
+			ParseToolbarItem(name,item);
+			if (item.id==ID_CUSTOM)
+			{
+				item.id=ID_CUSTOM+i;
+				item.regName=name;
+			}
+			int idx=items[i].children;
+			if (idx>=0)
+				item.submenu=&m_Items[idx];
 		}
 	}
-	else
+
+	if (m_Items.empty())
 	{
 		// standard toolbar
 		for (int i=0;i<_countof(s_StdItems);i++)
 		{
-			if (enabled&(1<<s_StdItems[i].id))
+			if (stdEnabled&(1<<s_StdItems[i].id))
 			{
 				m_Items.push_back(s_StdItems[i]);
 				StdToolbarItem &item=m_Items[m_Items.size()-1];
 				item.tip=FindTranslation(item.tipKey,item.tip);
 			}
 		}
-	}
-	if (m_Items.empty())
-	{
-		// make sure there is at least one button
-		m_Items.push_back(s_StdItems[_countof(s_StdItems)-1]);
-		m_Items[0].tip=FindTranslation(m_Items[0].tipKey,m_Items[0].tip);
+		if (m_Items.empty())
+		{
+			// make sure there is at least one button
+			m_Items.push_back(s_StdItems[_countof(s_StdItems)-1]);
+			m_Items[0].tip=FindTranslation(m_Items[0].tipKey,m_Items[0].tip);
+		}
+		StdToolbarItem end={ID_LAST};
+		m_Items.push_back(end);
 	}
 }
 
@@ -160,7 +206,7 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	if (regSettings.QueryDWORDValue(L"BigButtons",BigButtons)!=ERROR_SUCCESS)
 		BigButtons=0;
 
-	if (FindSetting("ToolbarItems"))
+	if (FindSettingBool("EnableCustomToolbar",false))
 	{
 		ParseToolbar(0);
 	}
@@ -168,11 +214,11 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	{
 		DWORD ToolbarButtons=0;
 		if (regSettings.QueryDWORDValue(L"ToolbarButtons",ToolbarButtons)!=ERROR_SUCCESS)
-			ToolbarButtons=DEFAULT_BUTTONS|((ID_LAST-1)<<24);
+			ToolbarButtons=DEFAULT_BUTTONS|((ID_LAST_STD-1)<<24);
 		if (!(ToolbarButtons&0xFF000000)) ToolbarButtons|=0x07000002; // for backwards compatibility (when there were 7 buttons the button count was not saved)
 		unsigned int mask1=(((2<<(ToolbarButtons>>24))-1)&~1); // bits to keep
-		unsigned int mask2=(((2<<ID_LAST)-1)&~1)&~mask1; // bits to replace with defaults
-		ToolbarButtons=(ToolbarButtons&mask1)|(DEFAULT_BUTTONS&mask2)|((ID_LAST-1)<<24);
+		unsigned int mask2=(((2<<ID_LAST_STD)-1)&~1)&~mask1; // bits to replace with defaults
+		ToolbarButtons=(ToolbarButtons&mask1)|(DEFAULT_BUTTONS&mask2)|((ID_LAST_STD-1)<<24);
 		if ((ToolbarButtons&0xFFFFFF)==0)
 			ToolbarButtons|=1<<DEFAULT_ONLY_BUTTON;
 		ParseToolbar(ToolbarButtons);
@@ -180,12 +226,10 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 
 	bool bName=false;
 	bool bList=FindSettingBool("ToolbarListMode",false);
-	for (std::vector<StdToolbarItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
+	int mainCount=0; // number of the main items
+	for (std::vector<StdToolbarItem>::const_iterator it=m_Items.begin();it->id!=ID_LAST;++it,mainCount++)
 		if (it->name)
-		{
 			bName=true;
-			break;
-		}
 
 	// create the toolbar
 	if (bName && !bList)
@@ -193,7 +237,7 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	else
 		m_Toolbar=CreateWindow(TOOLBARCLASSNAME,L"",WS_CHILD|TBSTYLE_TOOLTIPS|TBSTYLE_FLAT|TBSTYLE_LIST|CCS_NODIVIDER|CCS_NOPARENTALIGN|CCS_NORESIZE,0,0,10,10,m_hWnd,(HMENU)101,g_Instance,NULL);
 
-	m_Toolbar.SendMessage(TB_SETEXTENDEDSTYLE,0,TBSTYLE_EX_MIXEDBUTTONS);
+	m_Toolbar.SendMessage(TB_SETEXTENDEDSTYLE,0,TBSTYLE_EX_MIXEDBUTTONS|TBSTYLE_EX_DRAWDDARROWS|TBSTYLE_EX_HIDECLIPPEDBUTTONS);
 	m_Toolbar.SendMessage(TB_BUTTONSTRUCTSIZE,sizeof(TBBUTTON));
 	m_Toolbar.SendMessage(TB_SETMAXTEXTROWS,1);
 
@@ -223,8 +267,15 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	else if (iconSize<8) iconSize=8;
 	else if (iconSize>128) iconSize=128;
 
-	m_Enabled=ImageList_Create(iconSize,iconSize,ILC_COLOR32|ILC_MASK|(IsLanguageRTL()?ILC_MIRROR:0),(int)m_Items.size(),2);
-	m_Disabled=ImageList_Create(iconSize,iconSize,ILC_COLOR32|ILC_MASK|(IsLanguageRTL()?ILC_MIRROR:0),(int)m_Items.size(),2);
+	m_MenuIconSize=16;
+	const wchar_t *str=FindSetting("MenuIconSize");
+	if (str) m_MenuIconSize=_wtol(str);
+	if (m_MenuIconSize<=0) m_MenuIconSize=0;
+	else if (m_MenuIconSize<8) m_MenuIconSize=8;
+	if (m_MenuIconSize>32) m_MenuIconSize=32;
+
+	m_ImgEnabled=ImageList_Create(iconSize,iconSize,ILC_COLOR32|ILC_MASK|(IsLanguageRTL()?ILC_MIRROR:0),0,mainCount);
+	m_ImgDisabled=ImageList_Create(iconSize,iconSize,ILC_COLOR32|ILC_MASK|(IsLanguageRTL()?ILC_MIRROR:0),0,mainCount);
 
 	HMODULE hShell32=GetModuleHandle(L"Shell32.dll");
 	std::vector<HMODULE> modules;
@@ -232,8 +283,8 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	bool bSame=FindSettingBool("ToolbarSameSize",false);
 
 	// create buttons
-	std::vector<TBBUTTON> buttons(m_Items.size());
-	for (int i=0;i<(int)m_Items.size();i++)
+	std::vector<TBBUTTON> buttons(mainCount);
+	for (int i=0;i<mainCount;i++)
 	{
 		const StdToolbarItem &item=m_Items[i];
 		TBBUTTON &button=buttons[i];
@@ -253,11 +304,11 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 					hIcon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(1),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
 				if (hIcon)
 				{
-					button.iBitmap=ImageList_AddIcon(m_Enabled,hIcon);
+					button.iBitmap=ImageList_AddIcon(m_ImgEnabled,hIcon);
 					HICON hIcon2=item.iconPathD?LoadIcon(iconSize,item.iconPathD,0,modules,hShell32):NULL;
 					if (!hIcon2)
 						hIcon2=CreateDisabledIcon(hIcon,iconSize);
-					int idx=ImageList_AddIcon(m_Disabled,hIcon2);
+					int idx=ImageList_AddIcon(m_ImgDisabled,hIcon2);
 					ATLASSERT(button.iBitmap==idx);
 					DestroyIcon(hIcon);
 					DestroyIcon(hIcon2);
@@ -273,6 +324,8 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 				button.fsStyle|=BTNS_SHOWTEXT;
 				button.iString=(INT_PTR)item.name;
 			}
+			if (item.submenu || item.link)
+				button.fsStyle|=(item.id>=ID_CUSTOM && !item.command)?BTNS_WHOLEDROPDOWN:BTNS_DROPDOWN;
 		}
 	}
 
@@ -280,9 +333,9 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 		FreeLibrary(*it);
 
 	// add buttons
-	HIMAGELIST old=(HIMAGELIST)m_Toolbar.SendMessage(TB_SETIMAGELIST,0,(LPARAM)m_Enabled);
+	HIMAGELIST old=(HIMAGELIST)m_Toolbar.SendMessage(TB_SETIMAGELIST,0,(LPARAM)m_ImgEnabled);
 	if (old) ImageList_Destroy(old);
-	old=(HIMAGELIST)m_Toolbar.SendMessage(TB_SETDISABLEDIMAGELIST,0,(LPARAM)m_Disabled);
+	old=(HIMAGELIST)m_Toolbar.SendMessage(TB_SETDISABLEDIMAGELIST,0,(LPARAM)m_ImgDisabled);
 	if (old) ImageList_Destroy(old);
 	m_Toolbar.SendMessage(TB_ADDBUTTONS,buttons.size(),(LPARAM)&buttons[0]);
 	SendMessage(WM_CLEAR);
@@ -291,8 +344,14 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 
 LRESULT CBandWindow::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	ImageList_Destroy(m_Enabled);
-	ImageList_Destroy(m_Disabled);
+	if (m_ImgEnabled) ImageList_Destroy(m_ImgEnabled); m_ImgEnabled=NULL;
+	if (m_ImgDisabled) ImageList_Destroy(m_ImgDisabled); m_ImgDisabled=NULL;
+	for (std::vector<StdToolbarItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
+	{
+		if (it->menuIcon) DeleteObject(it->menuIcon);
+		if (it->menuIconD) DeleteObject(it->menuIconD);
+	}
+	m_Items.clear();
 	bHandled=FALSE;
 	return 0;
 }
@@ -303,15 +362,25 @@ LRESULT CBandWindow::OnUpdateUI( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 	CRegKey regSettings;
 	if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
 	{
-		for (std::vector<StdToolbarItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
+		bool bMain=true;
+		for (std::vector<StdToolbarItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
 		{
-			if (!it->regName.empty())
+			if (it->id==ID_LAST)
+				bMain=false;
+			if (!it->regName.IsEmpty())
 			{
 				DWORD val;
-				if (regSettings.QueryDWORDValue(it->regName.c_str(),val)!=ERROR_SUCCESS)
+				if (regSettings.QueryDWORDValue(it->regName,val)!=ERROR_SUCCESS)
 					val=0;
-				m_Toolbar.SendMessage(TB_ENABLEBUTTON,it->id,(val&1)?0:1);
-				m_Toolbar.SendMessage(TB_CHECKBUTTON,it->id,(val&2)?1:0);
+				bool bDisabled=(val&1)!=0;
+				bool bChecked=(val&2)!=0;
+				if (bMain)
+				{
+					if (bDisabled!=it->bDisabled) m_Toolbar.SendMessage(TB_ENABLEBUTTON,it->id,bDisabled?0:1);
+					if (bChecked!=it->bChecked) m_Toolbar.SendMessage(TB_CHECKBUTTON,it->id,bChecked?1:0);
+				}
+				it->bDisabled=bDisabled;
+				it->bChecked=bChecked;
 			}
 		}
 	}
@@ -357,6 +426,7 @@ LRESULT CBandWindow::OnToolbarCommand( WORD wNotifyCode, WORD wID, HWND hWndCtl,
 	if (wID>=ID_CUSTOM)
 	{
 		int idx=wID-ID_CUSTOM;
+		if (!m_Items[idx].command) return TRUE;
 		wchar_t buf[2048];
 		Strcpy(buf,_countof(buf),m_Items[idx].command);
 		DoEnvironmentSubst(buf,_countof(buf));
@@ -474,14 +544,70 @@ LRESULT CBandWindow::OnToolbarCommand( WORD wNotifyCode, WORD wID, HWND hWndCtl,
 		SendShellTabCommand(28699);
 	if (wID==ID_REDO)
 		SendShellTabCommand(28704);
-	if (wID==ID_SELECTALL)
-		SendShellTabCommand(28705);
-	if (wID==ID_INVERT)
-		SendShellTabCommand(28706);
-	if (wID==ID_DESELECT)
+
+	if (wID==ID_VIEW_TILES)
+		SendShellTabCommand(28748);
+	if (wID==ID_VIEW_DETAILS)
+		SendShellTabCommand(28747);
+	if (wID==ID_VIEW_LIST)
+		SendShellTabCommand(28753);
+	if (wID==ID_VIEW_CONTENT)
+		SendShellTabCommand(28754);
+	if (wID==ID_VIEW_ICONS1)
+		SendShellTabCommand(28752);
+	if (wID==ID_VIEW_ICONS2)
+		SendShellTabCommand(28750);
+	if (wID==ID_VIEW_ICONS3)
+		SendShellTabCommand(28751);
+	if (wID==ID_VIEW_ICONS4)
+		SendShellTabCommand(28749);
+
+	if (wID==ID_SELECTALL || wID==ID_INVERT || wID==ID_DESELECT)
 	{
-		SendShellTabCommand(28705);
-		SendShellTabCommand(28706);
+		// handle selection commands the hard way (instead of sending commands with SendShellTabCommand).
+		// some folders don't support selection and they crash if they get selection commands
+		CComPtr<IShellView> pView;
+		if (FAILED(m_pBrowser->QueryActiveShellView(&pView)))
+			return TRUE;
+
+		CComQIPtr<IFolderView2> pView2=pView;
+		if (!pView2) return TRUE;
+
+		// ID_DESELECT
+		if (wID==ID_DESELECT)
+		{
+			pView2->SelectItem(-1,SVSI_DESELECTOTHERS);
+			return TRUE;
+		}
+
+		int count;
+		if (FAILED(pView2->ItemCount(SVGIO_ALLVIEW,&count)))
+			return TRUE;
+
+		// ID_SELECTALL
+		if (wID==ID_SELECTALL)
+		{
+			for (int i=0;i<count;i++)
+				pView2->SelectItem(i,SVSI_SELECT);
+			return TRUE;
+		}
+
+		// ID_INVERT
+		// we can't use IFolderView2::GetSelectedItem to enumerate the selected items. there is a bug in it on Windows 7. when called
+		// with 0 or 1 it returns 0 for the next item, causing an infinite loop. we have to use Item + GetSelectionState instead.
+		// it allocates a PIDLs, so it is not ideal, but what can you do. stupid bugs
+		for (int i=0;i<count;i++)
+		{
+			PITEMID_CHILD child;
+			if (SUCCEEDED(pView2->Item(i,&child)) && child)
+			{
+				DWORD state;
+				if (SUCCEEDED(pView2->GetSelectionState(child,&state)))
+					pView2->SelectItem(i,(state&SVSI_SELECT)?SVSI_DESELECT:SVSI_SELECT);
+				ILFree(child);
+			}
+		}
+		return TRUE;
 	}
 	if (wID==ID_REFRESH)
 		SendShellTabCommand(41504);
@@ -517,6 +643,17 @@ LRESULT CBandWindow::OnEmail( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bH
 		pDropTarget->DragEnter(pDataObj,MK_LBUTTON,pt,&dwEffect);
 		pDropTarget->Drop(pDataObj,0,pt,&dwEffect);
 	}
+	return TRUE;
+}
+
+LRESULT CBandWindow::OnRename( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
+{
+	CComPtr<IShellView> pView;
+	if (FAILED(m_pBrowser->QueryActiveShellView(&pView))) return TRUE;
+
+	CComQIPtr<IFolderView2> pView2=pView;
+	if (pView2) pView2->DoRename();
+
 	return TRUE;
 }
 
@@ -559,6 +696,341 @@ LRESULT CBandWindow::OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	return 0;
 }
 
+// Callback for IShellMenu. Executes the selected command
+class CMenuCallback: public IShellMenuCallback
+{
+public:
+	CMenuCallback( IShellBrowser *pBrowser ) { m_bExecuted=false; m_pBrowser=pBrowser; }
+
+	virtual HRESULT STDMETHODCALLTYPE QueryInterface( REFIID riid, void **ppvObject );
+	virtual ULONG STDMETHODCALLTYPE AddRef( void ) { return 1; }
+	virtual ULONG STDMETHODCALLTYPE Release( void ) { return 1; }
+	STDMETHOD(CallbackSM)(LPSMDATA psmd,UINT uMsg,WPARAM wParam,LPARAM lParam);
+
+private:
+	bool m_bExecuted;
+	IShellBrowser *m_pBrowser;
+};
+
+HRESULT STDMETHODCALLTYPE CMenuCallback::QueryInterface( REFIID riid, void **ppvObject )
+{
+	if (riid==IID_IUnknown || riid==IID_IShellMenuCallback)
+	{
+		*ppvObject=this;
+		return S_OK;
+	}
+	else
+	{
+		*ppvObject=NULL;
+		return E_NOINTERFACE;
+	}
+}
+
+HRESULT STDMETHODCALLTYPE CMenuCallback::CallbackSM( LPSMDATA psmd,UINT uMsg,WPARAM wParam,LPARAM lParam )
+{
+	switch(uMsg)
+	{
+		case SMC_GETINFO:
+			{
+				SMINFO *pSmInfo=(SMINFO*)lParam;
+
+				if (pSmInfo->dwMask&SMIM_FLAGS)
+					pSmInfo->dwFlags|=SMIF_DROPCASCADE|SMIF_TRACKPOPUP;
+
+				if (pSmInfo->dwMask&SMIM_ICON)
+					pSmInfo->iIcon=-1;
+			}
+			return S_OK;
+
+		case SMC_SFEXEC:
+			{
+				if (m_bExecuted)
+					return S_OK;
+				m_bExecuted=true;
+				SFGAOF flags=SFGAO_FOLDER|SFGAO_LINK;
+
+				if (SUCCEEDED(psmd->psf->GetAttributesOf(1,(LPCITEMIDLIST*)&psmd->pidlItem,&flags)))
+				{
+					PIDLIST_ABSOLUTE pidl=NULL;
+					if (flags&SFGAO_LINK)
+					{
+						flags=0;
+						// resolve link
+						CComPtr<IShellLink> pLink;
+						if (SUCCEEDED(psmd->psf->GetUIObjectOf(NULL,1,(LPCITEMIDLIST*)&psmd->pidlItem,IID_IShellLink,NULL,(void**)&pLink)) && pLink)
+							pLink->GetIDList(&pidl);
+						if (pidl)
+						{
+							CComPtr<IShellFolder> pFolder;
+							PCUITEMID_CHILD child;
+							SHBindToParent(pidl,IID_IShellFolder,(void**)&pFolder,&child);
+							SFGAOF flags2=SFGAO_FOLDER;
+							if (pFolder && SUCCEEDED(pFolder->GetAttributesOf(1,&child,&flags2)) && (flags2&SFGAO_FOLDER))
+								flags=SFGAO_FOLDER;
+							else
+							{
+								ILFree(pidl);
+								pidl=NULL;
+							}
+						}
+					}
+
+					if (!pidl)
+						pidl=ILCombine(psmd->pidlFolder,psmd->pidlItem);
+
+					if (flags&SFGAO_FOLDER)
+					{
+						// navigate to folder
+						if (m_pBrowser)
+						{
+							UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
+							m_pBrowser->BrowseObject(pidl,flags);
+						}
+					}
+					else
+					{
+						// execute file
+						SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_IDLIST};
+						execute.lpIDList=pidl;
+						execute.nShow=SW_SHOWNORMAL;
+						ShellExecuteEx(&execute);
+					}
+					ILFree(pidl);
+				}
+				return S_OK;
+			}
+
+		case SMC_PROMOTE:
+		case SMC_EXITMENU:
+		case SMC_GETSFINFO:
+		case SMC_SFSELECTITEM:
+		case SMC_REFRESH:
+		case SMC_DEMOTE:
+		case SMC_DEFAULTICON:
+		case SMC_NEWITEM:
+		case SMC_CHEVRONEXPAND:
+		case SMC_DISPLAYCHEVRONTIP:
+		case SMC_SETSFOBJECT:
+		case SMC_SHCHANGENOTIFY:
+		case SMC_CHEVRONGETTIP:
+		case SMC_SFDDRESTRICTED:
+			return S_OK;
+
+		default:
+			return S_FALSE;
+	}
+}
+
+LRESULT CBandWindow::OnDropDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
+{
+	NMTOOLBAR *pButton=(NMTOOLBAR*)pnmh;
+	int idx=0;
+	const StdToolbarItem *pItem=NULL;
+	for (std::vector<StdToolbarItem>::const_iterator it=m_Items.begin();it->id!=ID_LAST;++it,idx++)
+	{
+		RECT rc;
+		if (m_Toolbar.SendMessage(TB_GETITEMRECT,idx,(LPARAM)&rc) && memcmp(&rc,&pButton->rcButton,sizeof(RECT))==0)
+		{
+			pItem=&*it;
+			break;
+		}
+	}
+	if (pItem && (pItem->submenu || pItem->link))
+	{
+		if (pItem->submenu)
+		{
+			TPMPARAMS params={sizeof(params),pButton->rcButton};
+			m_Toolbar.ClientToScreen(&params.rcExclude); // must not use MapWindowPoints because it produces wrong results in RTL cases
+			HMENU menu=CreateDropMenu(pItem->submenu);
+			int res=TrackPopupMenuEx(menu,TPM_RETURNCMD,params.rcExclude.left,params.rcExclude.bottom,m_hWnd,&params);
+			DestroyMenu(menu);
+			if (res>0)
+			{
+				res=m_Items[res-1].id;
+				if (res) PostMessage(WM_COMMAND,res);
+			}
+		}
+		else if (pItem->link)
+		{
+			TPMPARAMS params={sizeof(params),pButton->rcButton};
+			m_Toolbar.MapWindowPoints(NULL,&params.rcExclude); // must use MapWindowPoints to handle RTL correctly
+			CMenuCallback callback(m_pBrowser);
+			CComPtr<IShellFolder> pDesktop;
+			SHGetDesktopFolder(&pDesktop);
+
+			LPITEMIDLIST pidl;
+			CComPtr<IShellFolder> pFolder;
+			wchar_t buf[1024];
+			Strcpy(buf,_countof(buf),pItem->link);
+			DoEnvironmentSubst(buf,_countof(buf));
+			SFGAOF flags=SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK;
+			if (SUCCEEDED(pDesktop->ParseDisplayName(NULL,NULL,buf,NULL,&pidl,&flags)))
+				pDesktop->BindToObject(pidl,NULL,IID_IShellFolder,(void **)&pFolder);
+			if (pFolder)
+			{
+				HRESULT hr;
+				CComPtr<ITrackShellMenu> pMenu;
+
+				CoCreateInstance(CLSID_TrackShellMenu,NULL,CLSCTX_INPROC_SERVER,IID_ITrackShellMenu,(void**)&pMenu);
+
+				if(pMenu)
+				{
+					CMenuCallback callback(m_pBrowser);
+					hr=pMenu->Initialize(&callback,-1,ANCESTORDEFAULT,SMINIT_TOPLEVEL|SMINIT_VERTICAL|SMINIT_RESTRICT_DRAGDROP);
+					if (SUCCEEDED(hr))
+					{
+						CRegKey cRegOrder;
+
+						wchar_t *pFavs;
+						if (FAILED(SHGetKnownFolderPath(FOLDERID_Favorites,0,NULL,&pFavs)))
+							pFavs=NULL;
+						if (pFavs && SUCCEEDED(SHGetPathFromIDList(pidl,buf)))
+						{
+							// must compare strings and not pidls. sometimes pidls can be different but point to the same folder
+							CharUpper(pFavs);
+							CharUpper(buf);
+							if (wcscmp(pFavs,buf)==0)
+								cRegOrder.Open(HKEY_CURRENT_USER,_T("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MenuOrder\\Favorites"));
+						}
+						if (pFavs) CoTaskMemFree(pFavs);
+
+						hr=pMenu->SetShellFolder(pFolder,pidl,cRegOrder.m_hKey,SMSET_BOTTOM|0x00000008); // SMSET_USEBKICONEXTRACTION=0x00000008
+						if (SUCCEEDED(hr))
+						{
+							cRegOrder.Detach();
+							POINTL ptl={params.rcExclude.left,params.rcExclude.bottom};
+							RECTL rcl={params.rcExclude.left,params.rcExclude.top,params.rcExclude.right,params.rcExclude.bottom};
+							pMenu->Popup(NULL,&ptl,&rcl,MPPF_FORCEZORDER|MPPF_BOTTOM);
+						}
+					}
+				}
+				ILFree(pidl);
+			}
+		}
+
+		// remove the next mouse click if it is on the same button
+		MSG msg;
+		RECT rc=pButton->rcButton;
+		m_Toolbar.ClientToScreen(&rc);
+		if(PeekMessage(&msg,NULL,WM_LBUTTONDOWN,WM_LBUTTONDBLCLK,PM_NOREMOVE) && PtInRect(&rc,msg.pt))
+			PeekMessage(&msg,NULL,WM_LBUTTONDOWN,WM_LBUTTONDBLCLK,PM_REMOVE);
+	}
+	return TBDDRET_DEFAULT;
+}
+
+LRESULT CBandWindow::OnChevron( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
+{
+	NMREBARCHEVRON *pChevron=(NMREBARCHEVRON*)pnmh;
+	REBARBANDINFO info={sizeof(info),RBBIM_CHILD};
+	if (::SendMessage(pnmh->hwndFrom,RB_GETBANDINFO,pChevron->uBand,(LPARAM)&info) && info.hwndChild==m_Toolbar.m_hWnd)
+	{
+		RECT clientRect;
+		m_Toolbar.GetClientRect(&clientRect);
+		int idx=0;
+		for (std::vector<StdToolbarItem>::const_iterator it=m_Items.begin();it->id!=ID_LAST;++it,idx++)
+		{
+			RECT rc;
+			m_Toolbar.SendMessage(TB_GETITEMRECT,idx,(LPARAM)&rc);
+			if (rc.right>clientRect.right)
+				break;
+		}
+		while (m_Items[idx].id==ID_SEPARATOR)
+			idx++;
+		if (m_Items[idx].id==ID_LAST) return 1;
+		HMENU menu=CreateDropMenu(&m_Items[idx]);
+		TPMPARAMS params={sizeof(params),pChevron->rc};
+		// use ClientToScreen instead of MapWindowPoints because it works better in RTL mode
+		::ClientToScreen(pnmh->hwndFrom,(POINT*)&params.rcExclude);
+		::ClientToScreen(pnmh->hwndFrom,((POINT*)&params.rcExclude)+1);
+		int res=TrackPopupMenuEx(menu,TPM_RETURNCMD,params.rcExclude.left,params.rcExclude.bottom,m_hWnd,&params);
+		DestroyMenu(menu);
+
+		if (res>0)
+		{
+			res=m_Items[res-1].id;
+			if (res) PostMessage(WM_COMMAND,res);
+		}
+
+		// remove the next mouse click if it is on the chevron
+		MSG msg;
+		if(PeekMessage(&msg,NULL,WM_LBUTTONDOWN,WM_LBUTTONDBLCLK,PM_NOREMOVE) && PtInRect(&params.rcExclude,msg.pt))
+			PeekMessage(&msg,NULL,WM_LBUTTONDOWN,WM_LBUTTONDBLCLK,PM_REMOVE);
+
+		return 1;
+	}
+	return 0;
+}
+
+HMENU CBandWindow::CreateDropMenu( const StdToolbarItem *pItem )
+{
+	HMODULE hShell32=GetModuleHandle(L"Shell32.dll");
+	std::vector<HMODULE> modules;
+	HMENU menu=CreateDropMenuRec(pItem,modules,hShell32);
+	for (std::vector<HMODULE>::const_iterator it=modules.begin();it!=modules.end();++it)
+		FreeLibrary(*it);
+	MENUINFO info={sizeof(info),MIM_STYLE,MNS_CHECKORBMP};
+	SetMenuInfo(menu,&info);
+	return menu;
+}
+
+HMENU CBandWindow::CreateDropMenuRec( const StdToolbarItem *pItem, std::vector<HMODULE> &modules, HMODULE hShell32 )
+{
+	HMENU menu=CreatePopupMenu();
+	for (int idx=0;pItem->id!=ID_LAST;pItem++,idx++)
+	{
+		if (pItem->id==ID_SEPARATOR)
+		{
+			AppendMenu(menu,MF_SEPARATOR,0,0);
+			continue;
+		}
+		const wchar_t *name=pItem->name;
+		if (!name) name=pItem->tip;
+		if (!name) name=L"";
+		if (pItem->submenu)
+		{
+			HMENU menu2=CreateDropMenu(pItem->submenu);
+			AppendMenu(menu,MF_POPUP,(UINT_PTR)menu2,name);
+		}
+		else
+		{
+			int cmd=(int)(pItem-&m_Items[0]+1);
+			AppendMenu(menu,MF_STRING,cmd,name);
+		}
+
+		if (!pItem->bIconLoaded && (!pItem->iconPath || _wcsicmp(pItem->iconPath,L"NONE")!=0))
+		{
+			pItem->bIconLoaded=true;
+			if (m_MenuIconSize>0)
+			{
+				HICON hIcon=LoadIcon(m_MenuIconSize,pItem->iconPath,pItem->icon,modules,hShell32);
+				if (!hIcon)
+					hIcon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(1),IMAGE_ICON,m_MenuIconSize,m_MenuIconSize,LR_DEFAULTCOLOR);
+				if (hIcon)
+				{
+					HICON hIcon2=pItem->iconPathD?LoadIcon(m_MenuIconSize,pItem->iconPathD,0,modules,hShell32):NULL;
+					if (!hIcon2)
+						hIcon2=CreateDisabledIcon(hIcon,m_MenuIconSize);
+					pItem->menuIcon=BitmapFromIcon(hIcon,m_MenuIconSize,NULL,true);
+					pItem->menuIconD=BitmapFromIcon(hIcon2,m_MenuIconSize,NULL,true);
+				}
+			}
+		}
+		if (pItem->menuIcon)
+		{
+			MENUITEMINFO mii={sizeof(mii)};
+			mii.fMask=MIIM_BITMAP;
+			mii.hbmpItem=pItem->bDisabled?pItem->menuIconD:pItem->menuIcon;
+			SetMenuItemInfo(menu,idx,TRUE,&mii);
+		}
+
+		if (pItem->bDisabled)
+			EnableMenuItem(menu,idx,MF_BYPOSITION|MF_GRAYED);
+		if (pItem->bChecked)
+			CheckMenuItem(menu,idx,MF_BYPOSITION|MF_CHECKED);
+	}
+	return menu;
+}
+
 void CBandWindow::UpdateToolbar( void )
 {
 	// disable the Up button if we are at the top level
@@ -585,7 +1057,15 @@ void CBandWindow::UpdateToolbar( void )
 			}
 		}
 	}
-	m_Toolbar.SendMessage(TB_ENABLEBUTTON,CBandWindow::ID_GOUP,bDesktop?0:1);
+	EnableButton(ID_GOUP,!bDesktop);
+}
+
+void CBandWindow::EnableButton( int cmd, bool bEnable )
+{
+	m_Toolbar.SendMessage(TB_ENABLEBUTTON,cmd,bEnable?1:0);
+	for (std::vector<StdToolbarItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
+		if (it->id==cmd)
+			it->bDisabled=!bEnable;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -644,39 +1124,57 @@ LRESULT CALLBACK CExplorerBand::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM 
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
+// Subclasses the rebar's parent to catch RBN_CHEVRONPUSHED
+LRESULT CALLBACK CExplorerBand::ParentSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+{
+	if (uMsg==WM_NOTIFY && ((NMHDR*)lParam)->code==RBN_CHEVRONPUSHED)
+	{
+		if (SendMessage((HWND)dwRefData,uMsg,wParam,lParam))
+			return 0;
+	}
+	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+}
+
 // IDeskBand
 STDMETHODIMP CExplorerBand::GetBandInfo( DWORD dwBandID, DWORD dwViewMode, DESKBANDINFO* pdbi )
 {
 	// initializes the band
-	if (m_bSubclassRebar && !m_bSubclassedRebar)
+	if (!m_bSubclassedRebar)
 	{
-		CRegKey regSettings;
-		if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
-			regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
-
-		DWORD NewLine;
-		if (regSettings.QueryDWORDValue(L"NewLine",NewLine)!=ERROR_SUCCESS)
-			NewLine=0;
-		m_bBandNewLine=NewLine!=0;
-
-		HWND parent=GetParent(m_BandWindow.GetToolbar());
+		HWND rebar=GetParent(m_BandWindow.GetToolbar());
 		wchar_t className[256];
-		GetClassName(parent,className,_countof(className));
+		GetClassName(rebar,className,_countof(className));
 		if (_wcsicmp(className,REBARCLASSNAME)==0)
 		{
-			SetWindowSubclass(parent,RebarSubclassProc,(UINT_PTR)this,(DWORD_PTR)m_BandWindow.GetToolbar());
+			if (m_bSubclassRebar)
+			{
+				CRegKey regSettings;
+				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
+					regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
+
+				DWORD NewLine;
+				if (regSettings.QueryDWORDValue(L"NewLine",NewLine)!=ERROR_SUCCESS)
+					NewLine=0;
+				m_bBandNewLine=NewLine!=0;
+
+				SetWindowSubclass(rebar,RebarSubclassProc,(UINT_PTR)this,(DWORD_PTR)m_BandWindow.GetToolbar());
+			}
+			SetWindowSubclass(GetParent(rebar),ParentSubclassProc,(UINT_PTR)this,(DWORD_PTR)m_BandWindow.m_hWnd);
 			m_bSubclassedRebar=true;
 		}
 	}
 	RECT rc;
+	SendMessage(m_BandWindow.GetToolbar(),TB_GETITEMRECT,0,(LPARAM)&rc);
+	int minSize=rc.right;
 	int count=(int)SendMessage(m_BandWindow.GetToolbar(),TB_BUTTONCOUNT,0,0);
 	SendMessage(m_BandWindow.GetToolbar(),TB_GETITEMRECT,count-1,(LPARAM)&rc);
+	bool bChevron=FindSettingBool("ResizeableToolbar",false);
 
 	if (pdbi)
 	{
 		if (pdbi->dwMask&DBIM_MINSIZE)
 		{
-			pdbi->ptMinSize.x=rc.right;
+			pdbi->ptMinSize.x=bChevron?minSize:rc.right;
 			pdbi->ptMinSize.y=rc.bottom;
 		}
 		if (pdbi->dwMask&DBIM_MAXSIZE)
@@ -702,6 +1200,11 @@ STDMETHODIMP CExplorerBand::GetBandInfo( DWORD dwBandID, DWORD dwViewMode, DESKB
 		{
 			//Use the default background color by removing this flag.
 			pdbi->dwMask&=~DBIM_BKCOLOR;
+		}
+		if (pdbi->dwMask&DBIM_MODEFLAGS)
+		{
+			if (bChevron)
+				pdbi->dwModeFlags|=DBIMF_USECHEVRON;
 		}
 	}
 	return S_OK;
@@ -736,7 +1239,7 @@ STDMETHODIMP CExplorerBand::ResizeBorderDW( const RECT* prcBorder, IUnknown* pun
 
 STDMETHODIMP CExplorerBand::ShowDW( BOOL fShow )
 {
-	if (m_bSubclassedRebar)
+	if (m_bSubclassRebar && m_bSubclassedRebar)
 	{
 		// on Windows 7 get the current RBBS_BREAK state and save it in the registry to be restored later
 		HWND rebar=GetParent(m_BandWindow.GetToolbar());
@@ -777,7 +1280,12 @@ STDMETHODIMP CExplorerBand::SetSite( IUnknown* pUnkSite )
 		m_BandWindow.DestroyWindow();
 	m_BandWindow.SetBrowser(NULL);
 	if (m_bSubclassedRebar)
-		RemoveWindowSubclass(GetParent(m_BandWindow.GetToolbar()),RebarSubclassProc,(UINT_PTR)this);
+	{
+		HWND hwnd=GetParent(m_BandWindow.GetToolbar());
+		if (m_bSubclassRebar)
+			RemoveWindowSubclass(hwnd,RebarSubclassProc,(UINT_PTR)this);
+		RemoveWindowSubclass(GetParent(hwnd),ParentSubclassProc,(UINT_PTR)this);
+	}
 	m_bSubclassedRebar=false;
 	m_bHandleSetInfo=true;
 
@@ -835,11 +1343,11 @@ STDMETHODIMP CExplorerBand::OnCommandStateChange( long Command, VARIANT_BOOL Ena
 {
 	if (Command==CSC_NAVIGATEFORWARD)
 	{
-		SendMessage(m_BandWindow.GetToolbar(),TB_ENABLEBUTTON,CBandWindow::ID_GOFORWARD,Enable?1:0);
+		m_BandWindow.EnableButton(CBandWindow::ID_GOFORWARD,Enable?true:false);
 	}
 	if (Command==CSC_NAVIGATEBACK)
 	{
-		SendMessage(m_BandWindow.GetToolbar(),TB_ENABLEBUTTON,CBandWindow::ID_GOBACK,Enable?1:0);
+		m_BandWindow.EnableButton(CBandWindow::ID_GOBACK,Enable?true:false);
 	}
 	return S_OK;
 }

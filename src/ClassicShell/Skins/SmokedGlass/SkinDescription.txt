@@ -1,4 +1,4 @@
-; Full Glass skin
+; Smoked Glass skin
 
 ; About - text to use in the About box for this skin. use \n for new line
 About=Smoked Glass skin\n\nSimple transparent menu with dark background.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2010, Ivo Beltchev
@@ -26,7 +26,7 @@ Main_bitmap=1
 ; fullglass, fullalpha - new opacity modes that are used for transparent menu background
 Main_opacity=fullglass
 Main_bitmap_slices_X=6,1,1,6,1,13
-Main_bitmap_slices_Y=13,364,8
+Main_bitmap_slices_Y=60,317,8
 
 Main_large_icons=1
 Main_font="Segoe UI",normal,-10
@@ -104,11 +104,13 @@ Submenu_separator_slices_Y=15,100,15
 
 ; OPTIONS
 
-OPTION CAPTION="Caption",1
+OPTION TWO_COLUMNS="Two Columns",0
+OPTION CAPTION="Caption",1, NOT TWO_COLUMNS, 0
+OPTION USER_IMAGE="Show User Picture",0
+OPTION USER_NAME="Show User Name",0
+OPTION CENTER_NAME="Center User Name",0, USER_NAME, 0
 OPTION SMALL_ICONS="Small Icons",0
 OPTION DISABLE_MASK="Reduce Glass Color",1
-OPTION TWO_COLUMNS="Two Columns",0
-OPTION USER_IMAGE="Show User Picture",0
 
 [NOT CAPTION]
 Main_bitmap=2
@@ -154,15 +156,57 @@ User_bitmap=9
 ; If User_bitmap is missing, the frame is assumed to be 0 pixels and this offset is ignored
 User_image_offset=8,8
 
-
-[USER_IMAGE AND TWO_COLUMNS]
-Main_padding2=4,70,4,4
-
-[USER_IMAGE AND NOT TWO_COLUMNS]
 User_frame_position=-6,6
 
-[USER_IMAGE AND NOT TWO_COLUMNS AND CAPTION]
+[USER_IMAGE AND SMALL_ICONS]
+User_image_size=32
+User_bitmap=10
+
+[USER_NAME]
+User_font="Segoe UI",bold,22
+User_text_color=#FFFFFF
+User_glow_color=#000000
+User_glow_size=2
+User_name_position=10,18,-75,58
+User_name_align=right
+
+
+[USER_NAME AND SMALL_ICONS]
+User_font="Segoe UI",bold,18
+User_name_position=10,15,-55,45
+
+[USER_NAME AND NOT USER_IMAGE]
+User_name_position=10,18,-10,58
+
+[USER_NAME AND NOT USER_IMAGE AND SMALL_ICONS]
+User_name_position=10,15,-10,45
+
+
+[USER_NAME AND TWO_COLUMNS]
+User_name_align=right2
+
+
+[(USER_IMAGE OR USER_NAME) AND TWO_COLUMNS]
+Main_padding2=4,70,4,4
+
+[(USER_IMAGE OR USER_NAME) AND TWO_COLUMNS AND SMALL_ICONS]
+Main_padding2=4,54,4,4
+
+[(USER_IMAGE OR USER_NAME) AND CAPTION]
 Main_padding=2,70,4,4
 
-[USER_IMAGE AND NOT TWO_COLUMNS AND NOT CAPTION]
+[(USER_IMAGE OR USER_NAME) AND CAPTION AND SMALL_ICONS]
+Main_padding=2,54,4,4
+
+[(USER_IMAGE OR USER_NAME) AND NOT TWO_COLUMNS AND NOT CAPTION]
 Main_padding=4,70,4,4
+
+[(USER_IMAGE OR USER_NAME) AND NOT TWO_COLUMNS AND NOT CAPTION AND SMALL_ICONS]
+Main_padding=4,54,4,4
+
+
+[CENTER_NAME]
+User_name_align=center
+
+[CENTER_NAME AND TWO_COLUMNS]
+User_name_align=center2

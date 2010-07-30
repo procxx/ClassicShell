@@ -61,13 +61,14 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib htmlhelp.lib"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -139,13 +140,14 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib htmlhelp.lib"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -216,13 +218,14 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib htmlhelp.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -296,13 +299,14 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib htmlhelp.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -375,13 +379,14 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib htmlhelp.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -455,13 +460,14 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib"
+				AdditionalDependencies="comctl32.lib uxtheme.lib WtsApi32.lib Secur32.lib Msimg32.lib Netapi32.lib dwmapi.lib PowrProf.lib Oleacc.lib winmm.lib htmlhelp.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -576,10 +582,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\FNVHash.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\IconManager.cpp"
 				>
 			</File>
@@ -678,7 +680,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\FNVHash.h"
+				RelativePath=".\dllmain.h"
 				>
 			</File>
 			<File

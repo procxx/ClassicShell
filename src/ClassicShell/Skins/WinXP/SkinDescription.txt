@@ -64,6 +64,8 @@ Submenu_separator_slices_X=50,75,50
 
 OPTION SMALL_ICONS="Small Icons",0
 OPTION USER_IMAGE="Show User Picture",0
+OPTION USER_NAME="Show User Name",0
+OPTION CENTER_NAME="Center User Name",0, USER_NAME, 0
 
 [SMALL_ICONS]
 Main_large_icons=0
@@ -72,10 +74,26 @@ Main_arrow=0
 
 [USER_IMAGE]
 User_image_size=48
-Main_bitmap=2
-Main_bitmap_slices_Y=66,1,8
-User_frame_position=-10,8
+User_frame_position=10,8
 User_bitmap=18
 User_image_offset=2,2
+
+[USER_IMAGE OR USER_NAME]
+Main_bitmap=2
+Main_bitmap_slices_Y=66,1,8
 Main_padding=4,67,2,9
 Main_padding2=3,67,4,9
+
+[USER_NAME]
+User_name_position=75,15,-15,55
+User_name_align=left
+User_font="Franklin Gothic Medium",normal,22
+User_text_color=#FFFFFF
+User_glow_color=#0C50B1
+User_glow_size=2
+
+[USER_NAME AND NOT USER_IMAGE]
+User_name_position=15,15,-15,55
+
+[CENTER_NAME]
+User_name_align=center

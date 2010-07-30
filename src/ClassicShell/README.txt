@@ -1,5 +1,5 @@
 CLASSIC SHELL
-Version 2.0.0
+Version 2.8.3
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.
@@ -7,11 +7,14 @@ classic start menu, a toolbar for Windows Explorer and others.
 The latest version can be found on Source Forge:
 http://classicshell.sourceforge.net/
 
-Report problems in the Classic Shell help forum:
-http://sourceforge.net/projects/classicshell/forums/forum/1049756
+Report problems in the Classic Shell bug tracker:
+http://sourceforge.net/tracker/?group_id=290975&atid=1230788
 
 For answers to frequently asked questions look here:
 http://classicshell.sourceforge.net/faq.html
+Or use the forums to get help:
+Help: http://sourceforge.net/projects/classicshell/forums/forum/1049756
+Discussion: http://sourceforge.net/projects/classicshell/forums/forum/1049755
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -30,7 +33,7 @@ sadly is missing from Windows 7. It has a variety of advanced features:
 *	Translated in 35 languages, including Right-to-left support for Arabic and Hebrew
 
 *	Does not disable the original start menu in Windows. You can access it by
-  Shift+Click on the start button
+	Shift+Click on the start button
 
 *	Right-click on an item in the menu to delete, rename, sort, or perform other tasks
 
@@ -41,6 +44,8 @@ sadly is missing from Windows 7. It has a variety of advanced features:
 *	Fully customizable in both looks and functionality
 
 *	Support for Microsoft’s Active Accessibility
+
+*	Converts the “All Programs” button in the Windows menu into a cascading menu
 
 
 ///////////////////////////////////////////////////////////////////////////////

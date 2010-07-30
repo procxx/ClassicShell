@@ -85,6 +85,7 @@ END
 13                      BITMAP                  "menu_arrows.bmp"
 14                      BITMAP                  "menu_arrows2.bmp"
 15                      BITMAP                  "user_bitmap.bmp"
+16                      BITMAP                  "user_bitmap32.bmp"
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

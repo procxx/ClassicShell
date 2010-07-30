@@ -27,6 +27,21 @@ void UnhookDropTarget( void );
 // Set the hotkeys and controls for the start menu
 void SetControls( DWORD hotkeyCSM, DWORD hotkeyNSM, DWORD controls );
 
-extern HWND g_StartButton;
-extern HWND g_TaskBar;
-extern HWND g_OwnerWindow;
+extern DWORD g_Controls;
+extern HWND g_StartButton, g_TaskBar, g_OwnerWindow;
+extern HWND g_TopMenu, g_AllPrograms, g_ProgramsButton, g_UserPic; // from the Windows menu
+
+enum TMenuMsgParam // wParam for the ClassicStartMenu.StartMenuMsg message
+{
+	MSG_TOGGLE, // toggles the classic start menu
+	MSG_OPEN, // opens the classic start menu
+	MSG_SETTINGS, // show Settings
+	MSG_SHIFTWIN, // Shift+Win was pressed
+	MSG_DRAG, // an item is dragged on the start button
+	MSG_SHIFTDRAG, // an item is dragged on the start button (Shift is pressed)
+	MSG_FINDMENU, // find Windows menu
+	MSG_EXIT, // unhook everything and exit
+};
+
+STARTMENUAPI extern enum _MINIDUMP_TYPE MiniDumpType;
+STARTMENUAPI LONG _stdcall TopLevelFilter( _EXCEPTION_POINTERS *pExceptionInfo );

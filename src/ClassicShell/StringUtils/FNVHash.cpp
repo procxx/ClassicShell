@@ -1,8 +1,8 @@
 // Classic Shell (c) 2009-2010, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
-#include "stdafx.h"
 #include "FNVHash.h"
+#include "StringUtils.h"
 
 // FNV hash algorithm as described here: http://www.isthe.com/chongo/tech/comp/fnv/index.html
 

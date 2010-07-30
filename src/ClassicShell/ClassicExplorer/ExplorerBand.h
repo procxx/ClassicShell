@@ -14,6 +14,7 @@ public:
 
 	enum
 	{
+		ID_LAST=-1,
 		ID_SEPARATOR=0,
 
 		// standard toolbar commands
@@ -26,7 +27,7 @@ public:
 		ID_PROPERTIES,
 		ID_EMAIL,
 
-		ID_LAST, // last standard command
+		ID_LAST_STD, // last standard command
 
 		// additional supported commands
 		ID_MOVETO,
@@ -39,6 +40,15 @@ public:
 		ID_GOBACK,
 		ID_GOFORWARD,
 		ID_REFRESH,
+		ID_RENAME,
+		ID_VIEW_TILES,
+		ID_VIEW_DETAILS,
+		ID_VIEW_LIST,
+		ID_VIEW_CONTENT,
+		ID_VIEW_ICONS1,
+		ID_VIEW_ICONS2,
+		ID_VIEW_ICONS3,
+		ID_VIEW_ICONS4,
 
 		ID_CUSTOM=100,
 	};
@@ -54,16 +64,20 @@ public:
 		COMMAND_ID_HANDLER( ID_GOBACK, OnNavigate )
 		COMMAND_ID_HANDLER( ID_GOFORWARD, OnNavigate )
 		COMMAND_ID_HANDLER( ID_EMAIL, OnEmail )
+		COMMAND_ID_HANDLER( ID_RENAME, OnRename )
 		COMMAND_RANGE_HANDLER( ID_CUT, ID_CUSTOM+100, OnToolbarCommand )
 		NOTIFY_CODE_HANDLER( NM_RCLICK, OnRClick )
 		NOTIFY_CODE_HANDLER( TBN_GETINFOTIP, OnGetInfoTip )
+		NOTIFY_CODE_HANDLER( TBN_DROPDOWN, OnDropDown )
+		NOTIFY_CODE_HANDLER( RBN_CHEVRONPUSHED, OnChevron )
 	END_MSG_MAP()
 
-	CBandWindow( void ) { m_Enabled=m_Disabled=NULL; }
+	CBandWindow( void ) { m_ImgEnabled=m_ImgDisabled=NULL; }
 
 	HWND GetToolbar( void ) { return m_Toolbar.m_hWnd; }
 	void SetBrowser( IShellBrowser *pBrowser ) { m_pBrowser=pBrowser; }
 	void UpdateToolbar( void );
+	void EnableButton( int cmd, bool bEnable );
 
 protected:
 	// Handler prototypes:
@@ -76,15 +90,19 @@ protected:
 	LRESULT OnNavigate( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnToolbarCommand( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnEmail( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
+	LRESULT OnRename( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnSettings( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnRClick( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 	LRESULT OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
+	LRESULT OnDropDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
+	LRESULT OnChevron( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 
 private:
 	CWindow m_Toolbar;
 	CComPtr<IShellBrowser> m_pBrowser;
-	HIMAGELIST m_Enabled;
-	HIMAGELIST m_Disabled;
+	HIMAGELIST m_ImgEnabled;
+	HIMAGELIST m_ImgDisabled;
+	int m_MenuIconSize;
 
 	struct StdToolbarItem
 	{
@@ -95,18 +113,29 @@ private:
 
 		const wchar_t *name; // default name
 		const wchar_t *command;
+		const wchar_t *link;
 		const wchar_t *iconPath;
 		const wchar_t *iconPathD;
-		std::wstring regName; // name of the registry value to check for enabled/checked state
+		CString regName; // name of the registry value to check for enabled/checked state
+
+		const StdToolbarItem *submenu;
+		mutable HBITMAP menuIcon;
+		mutable HBITMAP menuIconD;
+		mutable bool bIconLoaded;
+
+		bool bDisabled;
+		bool bChecked;
 	};
 
 	static const StdToolbarItem s_StdItems[];
 
 	std::vector<StdToolbarItem> m_Items;
-	void ParseToolbar( DWORD enabled );
+	void ParseToolbar( DWORD stdEnabled );
 	void SendShellTabCommand( int command );
+	HMENU CreateDropMenu( const StdToolbarItem *pItem );
+	HMENU CreateDropMenuRec( const StdToolbarItem *pItem, std::vector<HMODULE> &modules, HMODULE hShell32 );
 
-	static bool ParseToolbarItem( const wchar_t *name, StdToolbarItem &item );
+	static void ParseToolbarItem( const wchar_t *name, StdToolbarItem &item );
 };
 
 
@@ -181,6 +210,7 @@ protected:
 	CComPtr<IWebBrowser2> m_pWebBrowser;
 
 	static LRESULT CALLBACK RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+	static LRESULT CALLBACK ParentSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(ExplorerBand), CExplorerBand)

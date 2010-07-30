@@ -5,6 +5,7 @@
 #include <commctrl.h>
 #include <oleacc.h>
 #include <atlcomcli.h>
+#include <dwmapi.h>
 #include <utility>
 #include "GlobalSettings.h"
 #include "TranslationSettings.h"
@@ -18,6 +19,8 @@ static wchar_t g_ButtonDontMove[256];
 static wchar_t g_ButtonCopy[256];
 static wchar_t g_ButtonDontCopy[256];
 static wchar_t g_ButtonCancel[256];
+static wchar_t g_ButtonMore[256];
+static HMODULE g_hShell32;
 
 // CClassicCopyFile - this is the implementation of the Copy UI dialog box for files
 
@@ -149,21 +152,23 @@ void CClassicCopyFile::AddAccChild( IAccessible *pAcc, const VARIANT &id )
 	if (role.intVal==ROLE_SYSTEM_PUSHBUTTON)
 	{
 		CComBSTR name;
-		pAcc->get_accName(id,&name);
-		if (_wcsicmp(name,g_ButtonCopy)==0 || _wcsicmp(name,g_ButtonMove)==0)
+		if (SUCCEEDED(pAcc->get_accName(id,&name)) && name)
 		{
-			m_YesButton.first=pAcc;
-			m_YesButton.second=id.intVal;
-		}
-		if (_wcsicmp(name,g_ButtonDontCopy)==0 || _wcsicmp(name,g_ButtonDontMove)==0)
-		{
-			m_NoButton.first=pAcc;
-			m_NoButton.second=id.intVal;
-		}
-		if (_wcsicmp(name,g_ButtonCancel)==0)
-		{
-			m_Cancel.first=pAcc;
-			m_Cancel.second=id.intVal;
+			if (_wcsicmp(name,g_ButtonCopy)==0 || _wcsicmp(name,g_ButtonMove)==0)
+			{
+				m_YesButton.first=pAcc;
+				m_YesButton.second=id.intVal;
+			}
+			else if (_wcsicmp(name,g_ButtonDontCopy)==0 || _wcsicmp(name,g_ButtonDontMove)==0)
+			{
+				m_NoButton.first=pAcc;
+				m_NoButton.second=id.intVal;
+			}
+			else if (_wcsicmp(name,g_ButtonCancel)==0)
+			{
+				m_Cancel.first=pAcc;
+				m_Cancel.second=id.intVal;
+			}
 		}
 	}
 	if (role.intVal==ROLE_SYSTEM_CHECKBUTTON)
@@ -491,6 +496,43 @@ INT_PTR CALLBACK CClassicCopyFolder::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM
 
 ///////////////////////////////////////////////////////////////////////////////
 
+static CComPtr<IAccessible> FindMoreButton( IAccessible *pAcc )
+{
+	CComVariant state;
+	CComVariant self(CHILDID_SELF);
+	pAcc->get_accState(self,&state);
+	if (!(state.intVal&(STATE_SYSTEM_UNAVAILABLE|STATE_SYSTEM_INVISIBLE)))
+	{
+		CComVariant role;
+		pAcc->get_accRole(self,&role);
+		if (role.intVal==ROLE_SYSTEM_PUSHBUTTON)
+		{
+			CComBSTR name;
+			if (SUCCEEDED(pAcc->get_accName(self,&name)) && name && _wcsicmp(name,g_ButtonMore)==0)
+				return pAcc;
+		}
+	}
+
+	CComVariant children[30];
+	long count;
+	AccessibleChildren(pAcc,0,_countof(children),children,&count);
+	for (int i=0;i<count;i++)
+	{
+		if (children[i].vt==VT_DISPATCH)
+		{
+			CComQIPtr<IAccessible> pChild=children[i].pdispVal;
+			if (pChild)
+			{
+				CComPtr<IAccessible> pRes=FindMoreButton(pChild);
+				if (pRes) return pRes;
+			}
+		}
+	}
+	return NULL;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 static LRESULT CALLBACK WindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	if (uMsg==WM_WINDOWPOSCHANGING)
@@ -503,12 +545,13 @@ static LRESULT CALLBACK WindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 			if (_wcsicmp(title,g_TitleMove)==0 || _wcsicmp(title,g_TitleCopy)==0)
 			{
-				DWORD EnableCopyUI=1;
+				// file UI
+				DWORD EnableFileUI=FILEUI_DEFAULT;
 				CRegKey regSettings;
 				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
-					regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI);
+					regSettings.QueryDWORDValue(L"EnableFileUI",EnableFileUI);
 
-				if ((EnableCopyUI&3)==1 || (EnableCopyUI&3)==2)
+				if (EnableFileUI&FILEUI_FILE)
 				{
 					CComPtr<IAccessible> pAcc;
 					HRESULT h=AccessibleObjectFromWindow(hWnd,OBJID_WINDOW,IID_IAccessible,(void**)&pAcc);
@@ -523,14 +566,15 @@ static LRESULT CALLBACK WindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 					}
 				}
 			}
-			if (_wcsicmp(title,g_TitleFolder)==0)
+			else if (_wcsicmp(title,g_TitleFolder)==0)
 			{
-				DWORD EnableCopyUI=1;
+				// folder UI
+				DWORD EnableFileUI=FILEUI_DEFAULT;
 				CRegKey regSettings;
 				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
-					regSettings.QueryDWORDValue(L"EnableCopyUI",EnableCopyUI);
+					regSettings.QueryDWORDValue(L"EnableFileUI",EnableFileUI);
 
-				if ((EnableCopyUI&3)==1)
+				if (EnableFileUI&FILEUI_FOLDER)
 				{
 					CClassicCopyFolder copy;
 					if (copy.Run(hWnd))
@@ -540,10 +584,57 @@ static LRESULT CALLBACK WindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 					}
 				}
 			}
+			else
+			{
+				// look for progress bar
+				DWORD EnableFileUI=FILEUI_DEFAULT;
+				CRegKey regSettings;
+				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
+					regSettings.QueryDWORDValue(L"EnableFileUI",EnableFileUI);
+
+				if (EnableFileUI&FILEUI_MORE)
+				{
+					HWND progress=FindChildWindow(hWnd,PROGRESS_CLASS);
+					if (progress)
+					{
+						int delay=0;
+						const wchar_t *str=FindSetting("MoreProgressDelay");
+						if (str)
+						{
+							delay=_wtol(str);
+							if (delay<0) delay=0;
+						}
+						else if (LOWORD(GetVersion())!=0x0006)
+						{
+							BOOL comp;
+							if (SUCCEEDED(DwmIsCompositionEnabled(&comp)) && comp)
+								delay=500;
+						}
+						SetTimer(hWnd,'CLEX',delay,NULL);
+						return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+					}
+				}
+			}
 			LRESULT res=DefSubclassProc(hWnd,uMsg,wParam,lParam);
 			RemoveWindowSubclass(hWnd,WindowProc,uIdSubclass);
 			return res;
 		}
+	}
+	if (uMsg==WM_TIMER && wParam=='CLEX')
+	{
+		KillTimer(hWnd,wParam);
+
+		CComPtr<IAccessible> pAcc;
+		HRESULT h=AccessibleObjectFromWindow(hWnd,OBJID_WINDOW,IID_IAccessible,(void**)&pAcc);
+		if (SUCCEEDED(h) && pAcc)
+		{
+			CComPtr<IAccessible> pMore=FindMoreButton(pAcc);
+			if (pMore) pMore->accDoDefaultAction(CComVariant(CHILDID_SELF));
+		}
+
+		LRESULT res=DefSubclassProc(hWnd,uMsg,wParam,lParam);
+		RemoveWindowSubclass(hWnd,WindowProc,uIdSubclass);
+		return res;
 	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
@@ -554,7 +645,8 @@ LRESULT CALLBACK ClassicCopyHook( int nCode, WPARAM wParam, LPARAM lParam )
 	{
 		HWND hWnd=(HWND)wParam;
 		CBT_CREATEWND *create=(CBT_CREATEWND*)lParam;
-		if (create->lpcs->lpszName && (int)create->lpcs->lpszClass==32770 && (HINSTANCE)GetWindowLongPtr(hWnd,GWLP_HINSTANCE)!=g_Instance)
+		HINSTANCE hInst=(HINSTANCE)GetWindowLongPtr(hWnd,GWLP_HINSTANCE);
+		if (create->lpcs->lpszName && (int)create->lpcs->lpszClass==32770 && hInst==g_hShell32)
 		{
 			static LONG id;
 			int i=InterlockedIncrement(&id);
@@ -569,15 +661,16 @@ void InitClassicCopyProcess( void )
 {
 	// load UI text from shell32.dll
 	// the text is used to locate controls in the copy dialog by name
-	HMODULE hShell32=GetModuleHandle(L"shell32.dll");
-	LoadString(hShell32,17027,g_TitleMove,256);
-	LoadString(hShell32,17024,g_TitleCopy,256);
-	LoadString(hShell32,16705,g_TitleFolder,256);
-	LoadString(hShell32,13610,g_ButtonMove,256);
-	LoadString(hShell32,13623,g_ButtonDontMove,256);
-	LoadString(hShell32,13604,g_ButtonCopy,256);
-	LoadString(hShell32,13606,g_ButtonDontCopy,256);
-	LoadString(hShell32,13588,g_ButtonCancel,256);
+	g_hShell32=GetModuleHandle(L"shell32.dll");
+	LoadString(g_hShell32,17027,g_TitleMove,256);
+	LoadString(g_hShell32,17024,g_TitleCopy,256);
+	LoadString(g_hShell32,16705,g_TitleFolder,256);
+	LoadString(g_hShell32,13610,g_ButtonMove,256);
+	LoadString(g_hShell32,13623,g_ButtonDontMove,256);
+	LoadString(g_hShell32,13604,g_ButtonCopy,256);
+	LoadString(g_hShell32,13606,g_ButtonDontCopy,256);
+	LoadString(g_hShell32,13588,g_ButtonCancel,256);
+	LoadString(g_hShell32,32992,g_ButtonMore,256);
 }
 
 void InitClassicCopyThread( void )

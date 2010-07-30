@@ -21,7 +21,7 @@ public:
 	void Init( void );
 
 	// Retrieves an icon from a shell folder and child ID
-	int GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLarge );
+	int GetIcon( IShellFolder *pFolder, PIDLIST_ABSOLUTE path, PCUITEMID_CHILD item, bool bLarge );
 	// Retrieves an icon from a file and icon index (index>=0 - icon index, index<0 - resource ID)
 	int GetIcon( const wchar_t *location, int index, bool bLarge );
 	// Retrieves an icon from shell32.dll by resource ID
@@ -39,11 +39,20 @@ private:
 	std::map<unsigned int,int> m_SmallCache;
 
 	HANDLE m_PreloadThread;
+	PIDLIST_ABSOLUTE m_GamesPath;
 
 	void ProcessPreloadedIcons( void );
 
+
+	enum TLoadingStage
+	{
+		LOAD_STOPPED, // the loading thread is not running (the critical section is invalid)
+		LOAD_STOPPING, // the loading thread is stopping
+		LOAD_LOADING, // the loading thread is running
+	};
+
+	static TLoadingStage s_LoadingStage;
 	static int s_DPI;
-	static bool s_bStopLoading;
 	static std::map<unsigned int,HICON> s_PreloadedIcons; // queue of preloaded icons ready to be added to the image list
 	static CRITICAL_SECTION s_PreloadSection; // protects all access to m_SmallCache and s_PreloadedIcons
 

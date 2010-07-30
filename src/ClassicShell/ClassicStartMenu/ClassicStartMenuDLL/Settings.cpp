@@ -7,8 +7,11 @@
 #include "ClassicStartMenuDLL.h"
 #include "SkinManager.h"
 #include "FNVHash.h"
+#include "ParseSettings.h"
+#include "dllmain.h"
 #include <uxtheme.h>
 #include <dwmapi.h>
+#include <htmlhelp.h>
 
 // Default settings
 const DWORD DEFAULT_SHOW_FAVORITES=0;
@@ -30,6 +33,27 @@ static HWND g_SettingsDlg;
 static int g_VariationY, g_NoVariationY;
 static std::vector<unsigned int> g_ExtraOptions; // options that were set but are not used by the current skin
 
+enum
+{
+	CHECK_FALSE,
+	CHECK_TRUE,
+	CHECK_FALSE_DISABLED,
+	CHECK_TRUE_DISABLED,
+};
+
+struct ListOption
+{
+	CString name;
+	CString condition;
+	unsigned int hash;
+	bool bValue; // value set by the user
+	bool bValue2; // default value when the condition is false
+	bool bFinalValue; // final value used by the skin
+	bool bDisabled; // when the condition is false
+};
+
+static std::vector<ListOption> g_ListOptions;
+
 static void ReadSettings( HWND hwndDlg, StartMenuSettings &settings )
 {
 	settings.ShowFavorites=(IsDlgButtonChecked(hwndDlg,IDC_CHECKFAVORITES)==BST_CHECKED)?1:0;
@@ -50,11 +74,18 @@ static void ReadSettings( HWND hwndDlg, StartMenuSettings &settings )
 	settings.Controls|=(DWORD)SendDlgItemMessage(hwndDlg,IDC_COMBOWIN,CB_GETCURSEL,0,0)<<16;
 	settings.Controls|=(DWORD)SendDlgItemMessage(hwndDlg,IDC_COMBOSWIN,CB_GETCURSEL,0,0)<<24;
 	settings.Controls|=(DWORD)SendDlgItemMessage(hwndDlg,IDC_COMBOMCLICK,CB_GETCURSEL,0,0)<<4;
+	settings.Controls|=(DWORD)SendDlgItemMessage(hwndDlg,IDC_COMBOHOVER,CB_GETCURSEL,0,0)<<12;
+	if (IsDlgButtonChecked(hwndDlg,IDC_CHECKEXPANDPROGRAMS)==BST_CHECKED)
+	{
+		settings.Controls|=0x10000000;
+		if (IsDlgButtonChecked(hwndDlg,IDC_RADIOALL)==BST_CHECKED)
+			settings.Controls|=0x20000000;
+	}
 
 	wchar_t skinName[256];
 	int idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETCURSEL,0,0);
 	SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETLBTEXT,idx,(LPARAM)skinName);
-	if (wcscmp(skinName,L"<Default>")==0)
+	if (wcscmp(skinName,LoadStringEx(IDS_DEFAULT_SKIN))==0)
 		settings.SkinName.Empty();
 	else
 		settings.SkinName=skinName;
@@ -69,14 +100,19 @@ static void ReadSettings( HWND hwndDlg, StartMenuSettings &settings )
 		settings.SkinVariation.Empty();
 
 	HWND list=GetDlgItem(hwndDlg,IDC_LISTOPTIONS);
-	int n=(int)SendMessage(list,LVM_GETITEMCOUNT,0,0);
+	int n=(int)g_ListOptions.size();
 	settings.SkinOptions.resize(n);
 	for (int i=0;i<n;i++)
-	{
-		LVITEM item={LVIF_PARAM,i};
-		SendMessage(list,LVM_GETITEM,0,(LPARAM)&item);
-		settings.SkinOptions[i]=(unsigned int)(item.lParam|(ListView_GetCheckState(list,i)?1:0));
-	}
+		settings.SkinOptions[i]=(g_ListOptions[i].hash|(g_ListOptions[i].bValue?1:0));
+
+	idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN2,CB_GETCURSEL,0,0);
+	SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN2,CB_GETLBTEXT,idx,(LPARAM)skinName);
+	if (wcscmp(skinName,LoadStringEx(IDS_DEFAULT_SKIN))==0)
+		settings.SkinName2.Empty();
+	else if (wcscmp(skinName,LoadStringEx(IDS_MAIN_SKIN))==0)
+		settings.SkinName2=L"<Main Skin>";
+	else
+		settings.SkinName2=skinName;
 }
 
 // Read the settings from the registry
@@ -151,6 +187,12 @@ void ReadSettings( StartMenuSettings &settings )
 		else
 			settings.SkinName=L"Windows 7 Basic";
 	}
+
+	size=_countof(skinName);
+	if (regSettings.QueryStringValue(L"SkinName2",skinName,&size)==ERROR_SUCCESS)
+		settings.SkinName2=skinName;
+	else
+		settings.SkinName2.Empty();
 }
 
 static HRESULT CALLBACK TaskDialogCallbackProc( HWND hwnd, UINT uNotification, WPARAM wParam, LPARAM lParam, LONG_PTR dwRefData )
@@ -169,7 +211,7 @@ static void InitSkinVariations( HWND hwndDlg, const wchar_t *var, const std::vec
 	int idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETCURSEL,0,0);
 	SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETLBTEXT,idx,(LPARAM)skinName);
 	MenuSkin skin;
-	if (!LoadMenuSkin(skinName,skin,NULL,options,true))
+	if (!LoadMenuSkin(skinName,skin,NULL,options,RES_LEVEL_NONE))
 	{
 		skin.Variations.clear();
 		skin.Options.clear();
@@ -202,14 +244,13 @@ static void InitSkinVariations( HWND hwndDlg, const wchar_t *var, const std::vec
 	label=GetDlgItem(hwndDlg,IDC_STATICOPT);
 	HWND list=GetDlgItem(hwndDlg,IDC_LISTOPTIONS);
 
-	int n=(int)SendMessage(list,LVM_GETITEMCOUNT,0,0);
+	// store current options in g_ExtraOptions and clear the list
+	int n=(int)g_ListOptions.size();
 	for (int i=0;i<n;i++)
 	{
-		LVITEM item={LVIF_PARAM,i};
-		SendMessage(list,LVM_GETITEM,0,(LPARAM)&item);
-		unsigned int hash=(unsigned int)item.lParam&0xFFFFFFFE;
+		unsigned int hash=g_ListOptions[i].hash;
+		bool bValue=g_ListOptions[i].bValue;
 		bool bFound=false;
-		bool bValue=ListView_GetCheckState(list,i)!=0;
 		for (std::vector<unsigned int>::iterator it=g_ExtraOptions.begin();it!=g_ExtraOptions.end();++it)
 			if ((*it&0xFFFFFFFE)==hash)
 			{
@@ -220,8 +261,8 @@ static void InitSkinVariations( HWND hwndDlg, const wchar_t *var, const std::vec
 		if (!bFound)
 			g_ExtraOptions.push_back(hash|(bValue?1:0));
 	}
-
 	SendMessage(list,LVM_DELETEALLITEMS,0,0);
+
 	if (skin.Options.empty())
 	{
 		ShowWindow(label,SW_HIDE);
@@ -239,12 +280,18 @@ static void InitSkinVariations( HWND hwndDlg, const wchar_t *var, const std::vec
 		MapWindowPoints(NULL,hwndDlg,(POINT*)&rc,2);
 		SetWindowPos(list,NULL,rc.left,rc.top+dy,rc.right-rc.left,rc.bottom-dy-rc.top,SWP_NOZORDER|SWP_SHOWWINDOW);
 
-		idx=0;
-		for (int i=0;i<(int)skin.Options.size();i++)
+		int n=(int)skin.Options.size();
+		g_ListOptions.clear();
+		g_ListOptions.resize(n);
+		std::vector<const wchar_t*> values; // list of true values
+		for (int i=0;i<n;i++)
 		{
-			LVITEM item={LVIF_PARAM|LVIF_TEXT,i};
+			LVITEM item={LVIF_TEXT|LVIF_STATE,i};
 			item.pszText=(LPWSTR)(LPCWSTR)skin.Options[i].label;
 			unsigned int hash=CalcFNVHash(skin.Options[i].name)&0xFFFFFFFE;
+			g_ListOptions[i].name=skin.Options[i].name;
+			g_ListOptions[i].hash=hash;
+			g_ListOptions[i].condition=skin.Options[i].condition;
 
 			// get the default value
 			bool bValue=skin.Options[i].value;
@@ -265,10 +312,59 @@ static void InitSkinVariations( HWND hwndDlg, const wchar_t *var, const std::vec
 					break;
 				}
 
-			item.lParam=hash;
-			SendMessage(list,LVM_INSERTITEM,0,(LPARAM)&item);
+			g_ListOptions[i].bValue=bValue;
+			g_ListOptions[i].bValue2=skin.Options[i].value2;
+
+			bool bDisabled=false;
+			if (!skin.Options[i].condition.IsEmpty() && !EvalCondition(skin.Options[i].condition,values.empty()?NULL:&values[0],(int)values.size()))
+			{
+				bDisabled=true;
+				bValue=skin.Options[i].value2;
+			}
+			g_ListOptions[i].bDisabled=bDisabled;
+
 			if (bValue)
-				ListView_SetCheckState(list,i,TRUE);
+				values.push_back(g_ListOptions[i].name);
+			g_ListOptions[i].bFinalValue=bValue;
+
+			int state=bDisabled?(bValue?CHECK_TRUE_DISABLED:CHECK_FALSE_DISABLED):(bValue?CHECK_TRUE:CHECK_FALSE);
+			item.state=INDEXTOSTATEIMAGEMASK(state+1);
+			item.stateMask=LVIS_STATEIMAGEMASK;
+
+			SendMessage(list,LVM_INSERTITEM,0,(LPARAM)&item);
+		}
+	}
+}
+
+static void ToggleListOption( HWND list, int idx )
+{
+	if (g_ListOptions[idx].bDisabled) return;
+	g_ListOptions[idx].bValue=!g_ListOptions[idx].bValue;
+	ListView_SetItemState(list,idx,INDEXTOSTATEIMAGEMASK((g_ListOptions[idx].bValue?CHECK_TRUE:CHECK_FALSE)+1),LVIS_STATEIMAGEMASK);
+
+	std::vector<const wchar_t*> values; // list of true values
+	int n=(int)g_ListOptions.size();
+	for (int i=0;i<n;i++)
+	{
+		bool bValue=g_ListOptions[i].bValue;
+		bool bDisabled=false;
+		if (!g_ListOptions[i].condition.IsEmpty() && !EvalCondition(g_ListOptions[i].condition,values.empty()?NULL:&values[0],(int)values.size()))
+		{
+			bDisabled=true;
+			bValue=g_ListOptions[i].bValue2;
+		}
+		if (bValue)
+			values.push_back(g_ListOptions[i].name);
+
+		if (bValue!=g_ListOptions[i].bFinalValue || bDisabled!=g_ListOptions[i].bDisabled)
+		{
+			g_ListOptions[i].bFinalValue=bValue;
+			g_ListOptions[i].bDisabled=bDisabled;
+			int state=bDisabled?(bValue?CHECK_TRUE_DISABLED:CHECK_FALSE_DISABLED):(bValue?CHECK_TRUE:CHECK_FALSE);
+			ListView_SetItemState(list,i,INDEXTOSTATEIMAGEMASK(state+1),LVIS_STATEIMAGEMASK);
+			RECT rc;
+			ListView_GetItemRect(list,i,&rc,LVIR_BOUNDS);
+			InvalidateRect(list,&rc,TRUE);
 		}
 	}
 }
@@ -280,25 +376,12 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 	static HICON s_ShieldIcon;
 	if (uMsg==WM_INITDIALOG)
 	{
-		// get the DLL version. this is a bit hacky. the standard way is to use GetFileVersionInfo and such API.
-		// but it takes a file name instead of module handle so it will probably load the DLL a second time.
-		// the header of the version resource is a fixed size so we can count on VS_FIXEDFILEINFO to always
-		// be at offset 40
-		void *pRes=NULL;
-		HRSRC hResInfo=FindResource(g_Instance,MAKEINTRESOURCE(VS_VERSION_INFO),RT_VERSION);
-		if (hResInfo)
-		{
-			HGLOBAL hRes=LoadResource(g_Instance,hResInfo);
-			pRes=LockResource(hRes);
-		}
+		DWORD ver=GetVersionEx(g_Instance);
 		wchar_t title[100];
-		if (pRes)
-		{
-			VS_FIXEDFILEINFO *pVer=(VS_FIXEDFILEINFO*)((char*)pRes+40);
-			Sprintf(title,_countof(title),L"Settings for Classic Start Menu %d.%d.%d",HIWORD(pVer->dwProductVersionMS),LOWORD(pVer->dwProductVersionMS),HIWORD(pVer->dwProductVersionLS));
-		}
+		if (ver)
+			Sprintf(title,_countof(title),LoadStringEx(IDS_SETTINGS_TITLE_VER),ver>>24,(ver>>16)&0xFF,ver&0xFFFF);
 		else
-			Sprintf(title,_countof(title),L"Settings for Classic Start Menu");
+			Sprintf(title,_countof(title),LoadStringEx(IDS_SETTINGS_TITLE));
 		SetWindowText(hwndDlg,title);
 
 		HICON icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,GetSystemMetrics(SM_CXICON),GetSystemMetrics(SM_CYICON),LR_DEFAULTCOLOR);
@@ -316,9 +399,9 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 
 		g_SettingsDlg=hwndDlg; // must be after calling ReadSettings
 
-		SendDlgItemMessage(hwndDlg,IDC_COMBOSCROLL,CB_ADDSTRING,0,(LPARAM)L"Don't scroll (use multiple columns)");
-		SendDlgItemMessage(hwndDlg,IDC_COMBOSCROLL,CB_ADDSTRING,0,(LPARAM)L"Scroll (use single column)");
-		SendDlgItemMessage(hwndDlg,IDC_COMBOSCROLL,CB_ADDSTRING,0,(LPARAM)L"Auto (multiple columns if they fit)");
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSCROLL,CB_ADDSTRING,0,(LPARAM)(const wchar_t*)LoadStringEx(IDS_SCROLL_NO));
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSCROLL,CB_ADDSTRING,0,(LPARAM)(const wchar_t*)LoadStringEx(IDS_SCROLL_YES));
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSCROLL,CB_ADDSTRING,0,(LPARAM)(const wchar_t*)LoadStringEx(IDS_SCROLL_AUTO));
 
 		CheckDlgButton(hwndDlg,IDC_CHECKFAVORITES,settings.ShowFavorites?BST_CHECKED:BST_UNCHECKED);
 		CheckDlgButton(hwndDlg,IDC_CHECKDOCUMENTS,settings.ShowDocuments?BST_CHECKED:BST_UNCHECKED);
@@ -335,7 +418,12 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		SendDlgItemMessage(hwndDlg,IDC_HOTKEYW,HKM_SETHOTKEY,settings.HotkeyNSM,0);
 		SendDlgItemMessage(hwndDlg,IDC_HOTKEY,HKM_SETRULES,HKCOMB_NONE|HKCOMB_S|HKCOMB_C,HOTKEYF_CONTROL|HOTKEYF_ALT);
 		SendDlgItemMessage(hwndDlg,IDC_HOTKEYW,HKM_SETRULES,HKCOMB_NONE|HKCOMB_S|HKCOMB_C,HOTKEYF_CONTROL|HOTKEYF_ALT);
-		const wchar_t *text[]={L"Nothing",L"Classic Menu",L"Windows Menu"};
+
+		CString strCtrl0=LoadStringEx(IDS_CTRL_NOTHING);
+		CString strCtrl1=LoadStringEx(IDS_CTRL_CLASSIC);
+		CString strCtrl2=LoadStringEx(IDS_CTRL_WINDOWS);
+
+		const wchar_t *text[]={strCtrl0,strCtrl1,strCtrl2};
 		for (int i=0;i<_countof(text);i++)
 		{
 			SendDlgItemMessage(hwndDlg,IDC_COMBOCLICK,CB_ADDSTRING,0,(LPARAM)text[i]);
@@ -343,12 +431,17 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			SendDlgItemMessage(hwndDlg,IDC_COMBOWIN,CB_ADDSTRING,0,(LPARAM)text[i]);
 			SendDlgItemMessage(hwndDlg,IDC_COMBOSWIN,CB_ADDSTRING,0,(LPARAM)text[i]);
 			SendDlgItemMessage(hwndDlg,IDC_COMBOMCLICK,CB_ADDSTRING,0,(LPARAM)text[i]);
+			SendDlgItemMessage(hwndDlg,IDC_COMBOHOVER,CB_ADDSTRING,0,(LPARAM)text[i]);
 		}
 		SendDlgItemMessage(hwndDlg,IDC_COMBOCLICK,CB_SETCURSEL,settings.Controls&15,0);
 		SendDlgItemMessage(hwndDlg,IDC_COMBOSCLICK,CB_SETCURSEL,(settings.Controls>>8)&15,0);
 		SendDlgItemMessage(hwndDlg,IDC_COMBOWIN,CB_SETCURSEL,(settings.Controls>>16)&15,0);
 		SendDlgItemMessage(hwndDlg,IDC_COMBOSWIN,CB_SETCURSEL,(settings.Controls>>24)&15,0);
 		SendDlgItemMessage(hwndDlg,IDC_COMBOMCLICK,CB_SETCURSEL,(settings.Controls>>4)&15,0);
+		SendDlgItemMessage(hwndDlg,IDC_COMBOHOVER,CB_SETCURSEL,(settings.Controls>>12)&15,0);
+		CheckDlgButton(hwndDlg,IDC_CHECKEXPANDPROGRAMS,(settings.Controls&0x10000000)?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(hwndDlg,IDC_RADIOSEARCH,(settings.Controls&0x20000000)?BST_UNCHECKED:BST_CHECKED);
+		CheckDlgButton(hwndDlg,IDC_RADIOALL,(settings.Controls&0x20000000)?BST_CHECKED:BST_UNCHECKED);
 
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKFAVORITES),!SHRestricted(REST_NOFAVORITESMENU));
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKUNDOCK),!SHRestricted(REST_NOSMEJECTPC));
@@ -366,11 +459,40 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKNETWORK),!bNoSetFolders && !SHRestricted(REST_NONETWORKCONNECTIONS));
 		EnableWindow(GetDlgItem(hwndDlg,IDC_CHECKPRINTERS),!bNoSetFolders);
 
-		SendDlgItemMessage(hwndDlg,IDC_LISTOPTIONS,LVM_SETEXTENDEDLISTVIEWSTYLE,LVS_EX_CHECKBOXES,LVS_EX_CHECKBOXES);
-		RECT rc;
+		// create state images for the options list
+		int size=14;
+		RECT rc={0,0,size,size};
+		HIMAGELIST images=ImageList_Create(size,size,ILC_COLOR32,0,4);
+		BITMAPINFO dib={sizeof(dib)};
+		dib.bmiHeader.biWidth=size;
+		dib.bmiHeader.biHeight=-size;
+		dib.bmiHeader.biPlanes=1;
+		dib.bmiHeader.biBitCount=32;
+		dib.bmiHeader.biCompression=BI_RGB;
+		HDC hdc=CreateCompatibleDC(NULL);
+		HBITMAP bmp=CreateDIBSection(hdc,&dib,DIB_RGB_COLORS,NULL,NULL,0);
+		HBITMAP bmp0;
+
+		for (int i=0;i<4;i++)
+		{
+			bmp0=(HBITMAP)SelectObject(hdc,bmp);
+			FillRect(hdc,&rc,(HBRUSH)(COLOR_WINDOW+1));
+			UINT state=DFCS_BUTTONCHECK|DFCS_FLAT;
+			if (i&1) state|=DFCS_CHECKED;
+			if (i&2) state|=DFCS_INACTIVE;
+			DrawFrameControl(hdc,&rc,DFC_BUTTON,state);
+			SelectObject(hdc,bmp0);
+			ImageList_Add(images,bmp,NULL);
+		}
+
+		DeleteObject(bmp);
+		DeleteDC(hdc);
+
 		GetClientRect(GetDlgItem(hwndDlg,IDC_LISTOPTIONS),&rc);
 		LVCOLUMN column={LVCF_FMT|LVCF_WIDTH,LVCFMT_LEFT,rc.right-GetSystemMetrics(SM_CXVSCROLL)};
 		SendDlgItemMessage(hwndDlg,IDC_LISTOPTIONS,LVM_INSERTCOLUMN,0,(LPARAM)&column);
+	
+		SendDlgItemMessage(hwndDlg,IDC_LISTOPTIONS,LVM_SETIMAGELIST,LVSIL_STATE,(LPARAM)images);
 
 		POINT pt={0,0};
 		GetWindowRect(GetDlgItem(hwndDlg,IDC_STATICOPT),&rc);
@@ -382,8 +504,13 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		ScreenToClient(hwndDlg,&pt);
 		g_NoVariationY=pt.y;
 
-		int idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_ADDSTRING,0,(LPARAM)L"<Default>");
+		int idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_ADDSTRING,0,(LPARAM)(const wchar_t*)LoadStringEx(IDS_DEFAULT_SKIN));
 		SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_SETCURSEL,idx,0);
+		int idx2=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN2,CB_ADDSTRING,0,(LPARAM)(const wchar_t*)LoadStringEx(IDS_DEFAULT_SKIN));
+		SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN2,CB_SETCURSEL,idx2,0);
+		idx2=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN2,CB_ADDSTRING,0,(LPARAM)(const wchar_t*)LoadStringEx(IDS_MAIN_SKIN));
+		if (_wcsicmp(settings.SkinName2,L"<Main Skin>")==0)
+			SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN2,CB_SETCURSEL,idx2,0);
 		wchar_t find[_MAX_PATH];
 		GetSkinsPath(find);
 		Strcat(find,_countof(find),L"1.txt");
@@ -403,9 +530,14 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			if (!(data.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY))
 			{
 				*PathFindExtension(data.cFileName)=0;
+
 				idx=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_ADDSTRING,0,(LPARAM)data.cFileName);
 				if (_wcsicmp(settings.SkinName,data.cFileName)==0)
 					SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_SETCURSEL,idx,0);
+
+				idx2=(int)SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN2,CB_ADDSTRING,0,(LPARAM)data.cFileName);
+				if (_wcsicmp(settings.SkinName2,data.cFileName)==0)
+					SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN2,CB_SETCURSEL,idx2,0);
 			}
 			if (!FindNextFile(h,&data))
 			{
@@ -426,18 +558,22 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		int iconSize=GetSystemMetrics(SM_CXSMICON);
 		SetWindowPos(shield,NULL,pt.x-iconSize,pt.y-iconSize,iconSize,iconSize,SWP_NOZORDER);
 		SendMessage(shield,STM_SETICON,(WPARAM)sii.hIcon,0);
+	}
+
+	if (uMsg==WM_INITDIALOG || (uMsg==WM_COMMAND && wParam==IDC_CHECKEXPANDPROGRAMS))
+	{
+		BOOL enabled=(IsDlgButtonChecked(hwndDlg,IDC_CHECKEXPANDPROGRAMS)==BST_CHECKED);
+		EnableWindow(GetDlgItem(hwndDlg,IDC_STATICSKIN2),enabled);
+		EnableWindow(GetDlgItem(hwndDlg,IDC_COMBOSKIN2),enabled);
+		EnableWindow(GetDlgItem(hwndDlg,IDC_STATICFOCUS),enabled);
+		EnableWindow(GetDlgItem(hwndDlg,IDC_RADIOSEARCH),enabled);
+		EnableWindow(GetDlgItem(hwndDlg,IDC_RADIOALL),enabled);
 		return TRUE;
 	}
 
 	if (uMsg==WM_COMMAND && wParam==MAKEWPARAM(IDC_COMBOSKIN,CBN_SELENDOK))
 	{
 		InitSkinVariations(hwndDlg,NULL,std::vector<unsigned int>());
-		return TRUE;
-	}
-
-	if (uMsg==WM_COMMAND && wParam==IDC_CHECKHOTKEY)
-	{
-		EnableWindow(GetDlgItem(hwndDlg,IDC_HOTKEY),IsDlgButtonChecked(hwndDlg,IDC_CHECKHOTKEY)==BST_CHECKED);
 		return TRUE;
 	}
 
@@ -448,10 +584,10 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		SendDlgItemMessage(hwndDlg,IDC_COMBOSKIN,CB_GETLBTEXT,idx,(LPARAM)name);
 		MenuSkin skin;
 		wchar_t caption[256];
-		Sprintf(caption,_countof(caption),L"About skin %s",name);
-		if (!LoadMenuSkin(name,skin,NULL,std::vector<unsigned int>(),true))
+		Sprintf(caption,_countof(caption),LoadStringEx(IDS_SKIN_ABOUT),name);
+		if (!LoadMenuSkin(name,skin,NULL,std::vector<unsigned int>(),RES_LEVEL_NONE))
 		{
-			MessageBox(hwndDlg,L"Failed to load skin.",caption,MB_OK|MB_ICONERROR);
+			MessageBox(hwndDlg,LoadStringEx(IDS_SKIN_FAIL),caption,MB_OK|MB_ICONERROR);
 			return TRUE;
 		}
 		TASKDIALOGCONFIG task={sizeof(task),hwndDlg,NULL,TDF_ENABLE_HYPERLINKS|TDF_ALLOW_DIALOG_CANCELLATION|TDF_USE_HICON_MAIN,TDCBF_OK_BUTTON};
@@ -462,6 +598,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		TaskDialogIndirect(&task,NULL,NULL,NULL);
 		return TRUE;
 	}
+
 	if (uMsg==WM_COMMAND && wParam==IDOK)
 	{
 		StartMenuSettings settings;
@@ -493,6 +630,7 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			regSettings.SetBinaryValue(L"SkinOptions",NULL,0);
 		else
 			regSettings.SetBinaryValue(L"SkinOptions",&settings.SkinOptions[0],(int)settings.SkinOptions.size()*4);
+		regSettings.SetStringValue(L"SkinName2",settings.SkinName2);
 
 		if (!settings.ShowRecent)
 			regSettings.DeleteSubKey(L"MRU");
@@ -510,15 +648,17 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		NMHDR *pHdr=(NMHDR*)lParam;
 		if (pHdr->idFrom==IDC_LINKHELP && (pHdr->code==NM_CLICK || pHdr->code==NM_RETURN))
 		{
+			// click on Help
 			wchar_t path[_MAX_PATH];
 			GetModuleFileName(g_Instance,path,_countof(path));
 			*PathFindFileName(path)=0;
-			Strcat(path,_countof(path),DOC_PATH L"ClassicStartMenu.html");
-			ShellExecute(hwndDlg,NULL,path,NULL,NULL,SW_SHOWNORMAL);
+			Strcat(path,_countof(path),DOC_PATH L"ClassicShell.chm::/ClassicStartMenu.html");
+			HtmlHelp(GetDesktopWindow(),path,HH_DISPLAY_TOPIC,NULL);
 			return TRUE;
 		}
 		if (pHdr->idFrom==IDC_LINKINI && (pHdr->code==NM_CLICK || pHdr->code==NM_RETURN))
 		{
+			// click on More Settings
 			CRegKey regSettings;
 			if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu")!=ERROR_SUCCESS)
 				regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu");
@@ -527,11 +667,15 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			if (regSettings.QueryDWORDValue(L"IgnoreIniWarning",show)!=ERROR_SUCCESS)
 			{
 				TASKDIALOGCONFIG task={sizeof(task),hwndDlg,NULL,TDF_ALLOW_DIALOG_CANCELLATION,TDCBF_OK_BUTTON};
+				CString title=LoadStringEx(IDS_APP_TITLE);
+				CString warning=LoadStringEx(IDS_INI_WARNING);
+				CString ignore=LoadStringEx(IDS_INI_IGNORE);
 				task.pszMainIcon=TD_INFORMATION_ICON;
-				task.pszWindowTitle=L"Classic Start Menu";
-				task.pszMainInstruction=L"After modifying the ini file you have to save it and restart the Classic Start Menu. Right-click on the start button and select \"Exit\". Then run ClassicStartMenu.exe again. It will read the new settings.\n\nRemember: All lines starting with a semicolon are ignored. Remove the semicolon from the settings you want to use.";
-				task.pszVerificationText=L"Don't show this message again";
+				task.pszWindowTitle=title;
+				task.pszMainInstruction=warning;
+				task.pszVerificationText=ignore;
 				BOOL bIgnore=FALSE;
+
 				TaskDialogIndirect(&task,NULL,NULL,&bIgnore);
 				if (bIgnore)
 					regSettings.SetDWORDValue(L"IgnoreIniWarning",1);
@@ -544,6 +688,38 @@ static INT_PTR CALLBACK SettingsDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			Strcat(path,_countof(path),INI_PATH L"StartMenu.ini");
 			ShellExecute(hwndDlg,L"runas",L"notepad",path,NULL,SW_SHOWNORMAL);
 			return TRUE;
+		}
+		if (pHdr->idFrom==IDC_LISTOPTIONS && (pHdr->code==NM_CLICK || pHdr->code==NM_DBLCLK))
+		{
+			// click on the state image
+			NMITEMACTIVATE *pItem=(NMITEMACTIVATE*)pHdr;
+			LVHITTESTINFO hit={pItem->ptAction};
+			int idx=ListView_HitTest(pHdr->hwndFrom,&hit);
+			if (idx>=0 && (hit.flags&LVHT_ONITEMSTATEICON))
+				ToggleListOption(pHdr->hwndFrom,idx);
+		}
+		if (pHdr->idFrom==IDC_LISTOPTIONS && pHdr->code==LVN_KEYDOWN && ((NMLVKEYDOWN*)pHdr)->wVKey==VK_SPACE)
+		{
+			// spacebar was pressed
+			int idx=ListView_GetNextItem(pHdr->hwndFrom,-1,LVNI_SELECTED);
+			if (idx>=0)
+				ToggleListOption(pHdr->hwndFrom,idx);
+		}
+		if (pHdr->idFrom==IDC_LISTOPTIONS && pHdr->code==NM_CUSTOMDRAW)
+		{
+			// gray out the disabled options
+			NMLVCUSTOMDRAW *pDraw=(NMLVCUSTOMDRAW*)pHdr;
+			if (pDraw->nmcd.dwDrawStage==CDDS_PREPAINT)
+			{
+				SetWindowLongPtr(hwndDlg,DWLP_MSGRESULT,CDRF_NOTIFYITEMDRAW);
+				return TRUE;
+			}
+			if (pDraw->nmcd.dwDrawStage==CDDS_ITEMPREPAINT && g_ListOptions[pDraw->nmcd.dwItemSpec].bDisabled)
+			{
+				pDraw->clrText=GetSysColor(COLOR_GRAYTEXT);
+				SetWindowLongPtr(hwndDlg,DWLP_MSGRESULT,CDRF_DODEFAULT);
+				return TRUE;
+			}
 		}
 	}
 	if (uMsg==WM_DESTROY)
@@ -563,7 +739,7 @@ void EditSettings( bool bModal )
 		SetActiveWindow(g_SettingsDlg);
 	else
 	{
-		HWND dlg=CreateDialog(g_Instance,MAKEINTRESOURCE(IDD_SETTINGS),NULL,SettingsDlgProc);
+		HWND dlg=CreateSettingsDialog(NULL,SettingsDlgProc);
 		ShowWindow(dlg,SW_SHOWNORMAL);
 		SetForegroundWindow(dlg);
 		if (bModal)

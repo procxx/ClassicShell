@@ -59,8 +59,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,0,0,0
- PRODUCTVERSION 2,0,0,0
+ FILEVERSION 2,8,3,0
+ PRODUCTVERSION 2,8,3,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -77,12 +77,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic Windows Explorer features"
-            VALUE "FileVersion", "2, 0, 0, 0"
+            VALUE "FileVersion", "2, 8, 3, 0"
             VALUE "InternalName", "ClassicExplorer.dll"
             VALUE "LegalCopyright", "Copyright (C) 2009-2010, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicExplorer.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "2, 0, 0, 0"
+            VALUE "ProductVersion", "2, 8, 3, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -150,12 +150,12 @@ BEGIN
     CONTROL         "<a>&More...</a>",IDC_LINKMORE,"SysLink",WS_TABSTOP,7,120,45,10
 END
 
-IDD_SETTINGS DIALOGEX 0, 0, 380, 191
+IDD_SETTINGS DIALOGEX 0, 0, 380, 220
 STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Settings for Classic Explorer"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    ICON            "",IDC_SHIELD,34,164,21,20
+    ICON            "",IDC_SHIELD,34,194,20,20
     GROUPBOX        "Navigation pane tweaks:",IDC_STATIC,7,7,180,86
     LTEXT           "Navigation pane style:",IDC_STATIC,16,19,77,12,SS_CENTERIMAGE
     COMBOBOX        IDC_COMBOSTYLE,94,19,85,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
@@ -171,31 +171,35 @@ BEGIN
     CONTROL         "Show caption in the title bar",IDC_CHECKTITLE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,123,105,10
     CONTROL         "Show icon in the title bar",IDC_CHECKICON,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,136,95,10
     CONTROL         "Disable breadcrumbs",IDC_CHECKCRUMBS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,149,82,10
-    GROUPBOX        "Toolbar buttons:",IDC_STATIC,193,7,180,86
-    CONTROL         "Use big buttons",IDC_CHECKBIG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,18,69,10
-    CONTROL         "Up One Level",IDC_CHECK1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,31,59,10
-    CONTROL         "Cut",IDC_CHECK2,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,269,31,27,10
-    CONTROL         "Copy",IDC_CHECK3,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,318,31,33,10
-    CONTROL         "Paste",IDC_CHECK4,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,44,34,10
-    CONTROL         "Delete",IDC_CHECK5,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,269,44,37,10
-    CONTROL         "Properties",IDC_CHECK6,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,318,44,49,10
-    CONTROL         "Email",IDC_CHECK7,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,57,32,10
-    CONTROL         "Settings",IDC_CHECK8,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,269,57,42,10
-    LTEXT           "Note: If you hide the Settings button you can still access the settings by right-clicking on the toolbar",IDC_STATIC,199,71,168,19
-    CONTROL         "Enable classic copy UI",IDC_CHECKCOPY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,102,89,10
-    CONTROL         "For folders too",IDC_CHECKCOPYFOLDER,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,305,102,63,10
-    CONTROL         "Enable only in Explorer (improves performance)",IDC_CHECKCOPYEXP,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,209,115,164,10
     CONTROL         "Show free space and file size in status bar",IDC_CHECKSIZE,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,128,151,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,170,151,10
+    CONTROL         "Show detailed info for single selection",IDC_CHECKINFO,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,23,183,136,10
+    GROUPBOX        "Toolbar buttons:",IDC_STATIC,193,7,180,86
+    CONTROL         "Use big buttons",IDC_CHECKBIG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,25,69,10
+    CONTROL         "Up One Level",IDC_CHECK1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,38,59,10
+    CONTROL         "Cut",IDC_CHECK2,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,269,38,27,10
+    CONTROL         "Copy",IDC_CHECK3,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,318,38,33,10
+    CONTROL         "Paste",IDC_CHECK4,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,51,34,10
+    CONTROL         "Delete",IDC_CHECK5,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,269,51,37,10
+    CONTROL         "Properties",IDC_CHECK6,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,318,51,49,10
+    CONTROL         "Email",IDC_CHECK7,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,64,32,10
+    CONTROL         "Settings",IDC_CHECK8,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,269,64,42,10
+    GROUPBOX        "File operation tweaks:",IDC_STATIC,193,96,180,68
+    CONTROL         "Replace file conflict dialog",IDC_CHECKCOPY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,110,100,10
+    CONTROL         "Replace folder conflict dialog",IDC_CHECKCOPYFOLDER,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,123,107,10
+    CONTROL         "Always show more details",IDC_CHECKMORE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,136,98,10
+    CONTROL         "Enable only in Explorer (improves performance)",IDC_CHECKCOPYEXP,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,149,166,10
     CONTROL         "Add icon overlay for shared folders",IDC_CHECKSHARED,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,141,129,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,201,170,129,10
     CONTROL         "Show only in Explorer (improves performance)",IDC_CHECKSHAREDEXP,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,209,154,164,10
-    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,175,31,10
-    CONTROL         "<a>More Settings...</a>",IDC_LINKINI,"SysLink",WS_TABSTOP,58,175,62,10
-    DEFPUSHBUTTON   "OK",IDOK,265,170,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,323,170,50,14
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,209,183,164,10
+    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,204,31,10
+    CONTROL         "<a>More Settings...</a>",IDC_LINKINI,"SysLink",WS_TABSTOP,58,204,62,10
+    DEFPUSHBUTTON   "OK",IDOK,265,199,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,323,199,50,14
 END
 
 IDD_FILEMULTIR DIALOGEX 0, 0, 285, 136
@@ -326,7 +330,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 373
         TOPMARGIN, 7
-        BOTTOMMARGIN, 184
+        BOTTOMMARGIN, 213
     END
 
     IDD_FILEMULTIR, DIALOG
@@ -421,7 +425,16 @@ END
 
 STRINGTABLE 
 BEGIN
-    IDS_PROJNAME            "ClassicExplorer"
+    IDS_APP_TITLE           "Classic Explorer"
+    IDS_INI_WARNING         "After modifying the ini file you have to open a new Explorer window to use the new settings.\n\nRemember: All lines starting with a semicolon are ignored."
+    IDS_INI_IGNORE          "Don't show this message again"
+    IDS_NEW_SETTINGS1       "The new settings will take effect the next time you open an Explorer window."
+    IDS_NEW_SETTINGS2       "You need to log off and back on for the new settings to take effect."
+    IDS_SETTINGS_TITLE      "Settings for Classic Explorer"
+    IDS_SETTINGS_TITLE_VER  "Settings for Classic Explorer %d.%d.%d"
+    IDS_STYLE_VISTA         "Windows Vista"
+    IDS_STYLE_XP_CLASSIC    "Windows XP Classic"
+    IDS_STYLE_XP_SIMPLE     "Windows XP Simple"
 END
 
 #endif    // English (U.S.) resources

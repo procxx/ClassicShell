@@ -21,29 +21,6 @@ const int DEFAULT_NAV_DELAY=100;
 
 int CExplorerBHO::s_AutoNavDelay;
 
-struct FindChild
-{
-	const wchar_t *className;
-	HWND hWnd;
-};
-
-static BOOL CALLBACK EnumChildProc( HWND hwnd, LPARAM lParam )
-{
-	FindChild &find=*(FindChild*)lParam;
-	wchar_t name[256];
-	GetClassName(hwnd,name,_countof(name));
-	if (_wcsicmp(name,find.className)!=0) return TRUE;
-	find.hWnd=hwnd;
-	return FALSE;
-}
-
-static HWND FindChildWindow( HWND hwnd, const wchar_t *className )
-{
-	FindChild find={className};
-	EnumChildWindows(hwnd,EnumChildProc,(LPARAM)&find);
-	return find.hWnd;
-}
-
 LRESULT CALLBACK CExplorerBHO::SubclassTreeParentProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	// when the tree selection changes start a timer to navigate to the new folder in 100ms
@@ -142,6 +119,14 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 		}
 		if (indent>=0)
 			TreeView_SetIndent(hWnd,indent);
+
+		const wchar_t *str=FindSetting("TreeItemSpacing");
+		if (str)
+		{
+			int d=_wtol(str);
+			if (d)
+				TreeView_SetItemHeight(hWnd,TreeView_GetItemHeight(hWnd)+d);
+		}
 
 		if (wParam==0) return 0;
 	}
@@ -415,12 +400,32 @@ LRESULT CALLBACK CExplorerBHO::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM w
 		UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
 		((CExplorerBHO*)uIdSubclass)->m_pBrowser->BrowseObject(NULL,flags|SBSP_PARENT);
 	}
-	if (uMsg==RB_GETRECT && wParam==1 && ((CExplorerBHO*)uIdSubclass)->m_bFixSearchResize)
+
+	if (((CExplorerBHO*)uIdSubclass)->m_bFixSearchResize)
 	{
-		// HACK! there is a bug in Win7 so when the user is resizing the Search box Explorer asks for the rect of band with
-		// index=1 instead of ID=1. So here we find the correct band index.
-		wParam=DefSubclassProc(hWnd,RB_IDTOINDEX,1,0);
+		// HACK! Explorer doesn't use RB_IDTOINDEX every time it needs to access a particular band. Since we insert the Up button in the second
+		// position, the rest of the bands get offset and comedy ensues (the search box is not sized properly).
+		// To fix the issue, we renumber the bands so that from the outside ours appears to be last.
+		if (uMsg==RB_IDTOINDEX || uMsg==RB_HITTEST)
+		{
+			// remap the result from RB_IDTOINDEX and RB_HITTEST
+			LRESULT res=DefSubclassProc(hWnd,uMsg,wParam,lParam);
+			if (res<0) return res;
+			if (res==1) res=3;
+			else if (res==2) res=1;
+			else if (res==3) res=2;
+			if (lParam && uMsg==RB_HITTEST) ((RBHITTESTINFO*)lParam)->iBand=(int)res;
+			return res;
+		}
+		if (uMsg==RB_GETBANDBORDERS || uMsg==RB_GETBANDINFO || uMsg==RB_GETRECT || uMsg==RB_SETBANDINFO || uMsg==RB_SETBANDWIDTH)
+		{
+			// remap wParam for all GET/SET messages
+			if (wParam==1) wParam=2;
+			else if (wParam==2) wParam=3;
+			else if (wParam==3) wParam=1;
+		}
 	}
+
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
@@ -786,7 +791,7 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 			if (m_pBrowser && SUCCEEDED(m_pBrowser->GetControlWindow(FCW_STATUS,&status)))
 			{
 				CRegKey regSettings;
-				bool bWin7=(LOWORD(GetVersion())==0x0106);
+				bool bWin7=(LOWORD(GetVersion())!=0x0006);
 				DWORD FreeSpace=bWin7?SPACE_SHOW:0;
 				DWORD UpButton=1;
 				DWORD AddressBar=0;
@@ -796,6 +801,7 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 					regSettings.QueryDWORDValue(L"UpButton",UpButton);
 					regSettings.QueryDWORDValue(L"AddressBar",AddressBar);
 				}
+				FreeSpace^=SPACE_INFOTIP;
 
 				HWND root=GetAncestor(status,GA_ROOT);
 				if (root && (AddressBar&(ADDRESS_SHOWTITLE|ADDRESS_SHOWICON)))
@@ -815,6 +821,22 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 					rebar=GetParent(band);
 
 				bool bRedrawRebar=false;
+
+				if (rebar && FindSettingBool("HideSearch",false))
+				{
+					// to remove the Search box, first find the band with ID=2. Then disable the child control and hide the band
+					int idx=(int)SendMessage(rebar,RB_IDTOINDEX,2,0);
+					if (idx>=0)
+					{
+						REBARBANDINFO info={sizeof(info),RBBIM_CHILD};
+						SendMessage(rebar,RB_GETBANDINFO,idx,(LPARAM)&info);
+						if (info.hwndChild)
+							EnableWindow(info.hwndChild,FALSE);
+						SendMessage(rebar,RB_SHOWBAND,idx,FALSE);
+						bRedrawRebar=true;
+					}
+				}
+
 				if (rebar && UpButton)
 				{
 					// find the toolbar 
@@ -869,6 +891,7 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 					SendMessage(rebar,RB_INSERTBAND,1,(LPARAM)&info);
 					bRedrawRebar=true;
 				}
+
 				if (rebar)
 				{
 					int AddressBarHistory=0;
@@ -904,29 +927,14 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 					}
 				}
 
-				const wchar_t *str=FindSetting("Search",NULL);
-				if (rebar && str && _wcsicmp(str,L"none")==0)
-				{
-					// to remove the Search box, first find the band with ID=2. Then disable the child control and hide the band
-					int idx=(int)SendMessage(rebar,RB_IDTOINDEX,2,0);
-					REBARBANDINFO info={sizeof(info),RBBIM_CHILD};
-					SendMessage(rebar,RB_GETBANDINFO,idx,(LPARAM)&info);
-					if (info.hwndChild)
-						EnableWindow(info.hwndChild,FALSE);
-					SendMessage(rebar,RB_SHOWBAND,idx,FALSE);
-					bRedrawRebar=true;
-				}
-
 				if (bRedrawRebar)
 					RedrawWindow(rebar,NULL,NULL,RDW_UPDATENOW|RDW_ALLCHILDREN);
 
-				if (FreeSpace)
+				if (FreeSpace&SPACE_SHOW)
 				{
-					FreeSpace=SPACE_SHOW|SPACE_TOTAL; // always show total
+					FreeSpace|=SPACE_TOTAL; // always show total
 					if (bWin7)
 						FreeSpace|=SPACE_WIN7;
-					if (FindSettingBool("SingleFileInfo",true))
-						FreeSpace|=SPACE_INFOTIP;
 					SetWindowSubclass(status,SubclassStatusProc,(UINT_PTR)this,FreeSpace);
 					m_bForceRefresh=(bWin7 && FindSettingBool("ForceRefreshWin7",true));
 				}

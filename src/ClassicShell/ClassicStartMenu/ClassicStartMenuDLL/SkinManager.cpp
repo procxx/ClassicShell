@@ -2,6 +2,7 @@
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
+#include "resource.h"
 #include "SkinManager.h"
 #include "IconManager.h"
 #include "LogManager.h"
@@ -9,6 +10,7 @@
 #include "GlobalSettings.h"
 #include "TranslationSettings.h"
 #include "FNVHash.h"
+#include "dllmain.h"
 #include <dwmapi.h>
 
 wchar_t MenuSkin::s_SkinError[1024];
@@ -23,6 +25,7 @@ MenuSkin::MenuSkin( void )
 	AboutIcon=NULL;
 	Main_bitmap=NULL;
 	Caption_font=NULL;
+	User_font=NULL;
 	Main_font=NULL;
 	Main_font2=NULL;
 	Main_selectionColor=true;
@@ -55,6 +58,7 @@ void MenuSkin::Reset( void )
 	if (AboutIcon) DestroyIcon(AboutIcon);
 	if (Main_bitmap) DeleteObject(Main_bitmap);
 	if (Caption_font) DeleteObject(Caption_font);
+	if (User_font) DeleteObject(User_font);
 	if (Main_font) DeleteObject(Main_font);
 	if (Main_font2 && Main_font2!=Main_font) DeleteObject(Main_font2);
 	if (!Main_selectionColor && Main_selection.bmp) DeleteObject(Main_selection.bmp);
@@ -79,6 +83,7 @@ void MenuSkin::Reset( void )
 	AboutIcon=NULL;
 	Main_bitmap=NULL;
 	Caption_font=NULL;
+	User_font=NULL;
 	Main_font=NULL;
 	Main_font2=NULL;
 	Main_selectionColor=true;
@@ -125,7 +130,7 @@ static void LoadSkinNumbers( const wchar_t *str, int *numbers, int count, bool b
 	}
 }
 
-static HFONT LoadSkinFont( const wchar_t *str, const wchar_t *name, int weight, int size )
+static HFONT LoadSkinFont( const wchar_t *str, const wchar_t *name, int weight, int size, bool bDPI )
 {
 	DWORD quality=DEFAULT_QUALITY;
 	const wchar_t *str2=FindSetting("FontSmoothing");
@@ -136,16 +141,20 @@ static HFONT LoadSkinFont( const wchar_t *str, const wchar_t *name, int weight, 
 	if (str2 && _wcsicmp(str2,L"cleartype")==0)
 		quality=CLEARTYPE_QUALITY;
 	wchar_t token[256];
+	bool bItalic=false;
 	if (str)
 	{
 		str=GetToken(str,token,_countof(token),L", \t");
 		name=token;
 		wchar_t token2[256];
 		str=GetToken(str,token2,_countof(token2),L", \t");
+		weight=FW_NORMAL;
 		if (_wcsicmp(token2,L"bold")==0)
 			weight=FW_BOLD;
-		else
-			weight=FW_NORMAL;
+		else if (_wcsicmp(token2,L"italic")==0)
+			bItalic=true;
+		else if (_wcsicmp(token2,L"bold_italic")==0)
+			weight=FW_BOLD, bItalic=true;
 		str=GetToken(str,token2,_countof(token2),L", \t");
 		size=_wtol(token2);
 	}
@@ -157,7 +166,8 @@ static HFONT LoadSkinFont( const wchar_t *str, const wchar_t *name, int weight, 
 		metrics.lfMenuFont.lfQuality=(BYTE)quality;
 		return CreateFontIndirect(&metrics.lfMenuFont);
 	}
-	return CreateFont(size*CIconManager::GetDPI()/72,0,0,0,weight,0,0,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,quality,DEFAULT_PITCH,name);
+	int dpi=bDPI?CIconManager::GetDPI():96;
+	return CreateFont(size*dpi/72,0,0,0,weight,bItalic?1:0,0,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,quality,DEFAULT_PITCH,name);
 }
 
 static HICON LoadSkinIcon( HMODULE hMod, int index )
@@ -186,7 +196,7 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 		if (!bmp)
 		{
 			GetErrorMessage(err,_countof(err),GetLastError());
-			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load bitmap resource with ID=%d.\r\n%s",index,err);
+			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_BMPRES),index,err);
 			return NULL;
 		}
 	}
@@ -200,7 +210,7 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 		if (!bmp)
 		{
 			GetErrorMessage(err,_countof(err),GetLastError());
-			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load bitmap file %s.\r\n%s",fname,err);
+			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_BMPFILE),fname,err);
 			return NULL;
 		}
 	}
@@ -216,7 +226,7 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 			if (!bmpMask)
 			{
 				GetErrorMessage(err,_countof(err),GetLastError());
-				Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load mask bitmap resource with ID=%d.\r\n%s",maskIndex,err);
+				Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_MASKRES),maskIndex,err);
 			}
 		}
 		else
@@ -229,7 +239,7 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 			if (!bmpMask)
 			{
 				GetErrorMessage(err,_countof(err),GetLastError());
-				Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load mask bitmap file %s.\r\n%s",fname,err);
+				Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_MASKFILE),fname,err);
 			}
 		}
 		if (bmpMask)
@@ -241,7 +251,7 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 
 	if (bmpMask && (info.bmWidth!=infoMask.bmWidth || info.bmHeight!=infoMask.bmHeight))
 	{
-		Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"The background bitmap %d and the mask bitmap %d have different sizes.\r\n",index,maskIndex);
+		Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_MASKSIZE),index,maskIndex);
 	}
 
 	if (bmpMask && info.bmWidth==infoMask.bmWidth && info.bmHeight==infoMask.bmHeight)
@@ -329,6 +339,7 @@ static void MirrorBitmap( HBITMAP bmp )
 	GetObject(bmp,sizeof(info),&info);
 
 	unsigned char *ptr=(unsigned char*)info.bmBits;
+	if (!ptr) return;
 	int stride=info.bmBitsPixel/8;
 	int pitch=stride*info.bmWidth;
 	for (int y=0;y<info.bmHeight;y++,ptr+=pitch)
@@ -346,7 +357,7 @@ static void MirrorBitmap( HBITMAP bmp )
 }
 
 // Load the skin from the module. If hMod is NULL loads the "custom" skin from 1.txt
-static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, const std::vector<unsigned int> &options, bool bNoResources )
+static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, const std::vector<unsigned int> &options, TResLevel level )
 {
 	skin.version=1;
 	CSkinParser parser;
@@ -355,12 +366,12 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		HRSRC hResInfo=FindResource(hMod,MAKEINTRESOURCE(1),L"SKIN");
 		if (!hResInfo)
 		{
-			Strcpy(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Can't find the main \"SKIN\" resource with ID=1.\r\n");
+			Strcpy(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_FIND_RES1));
 			return false;
 		}
 		if (!parser.LoadText(hMod,hResInfo))
 		{
-			Strcpy(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load the main \"SKIN\" resource with ID=1.\r\n");
+			Strcpy(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_LOAD_RES1));
 			return false;
 		}
 	}
@@ -371,7 +382,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		Strcat(path,_countof(path),L"1.txt");
 		if (!parser.LoadText(path))
 		{
-			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load the main skin file %s.\r\n",path);
+			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_LOAD_FILE1),path);
 			return false;
 		}
 	}
@@ -403,19 +414,19 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		for (std::vector<std::pair<int,CString>>::const_iterator it=skin.Variations.begin();it!=skin.Variations.end();++it)
 			if (wcscmp(variation,it->second)==0)
 			{
-				if (it->first==1) break;
+				if (it->first<=1) break;
 				LOG_MENU(LOG_OPEN,L"Loading variation: name=%s, id=%d",it->second,it->first);
 				if (hMod)
 				{
 					HRSRC hResInfo=FindResource(hMod,MAKEINTRESOURCE(it->first),L"SKIN");
 					if (!hResInfo)
 					{
-						Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Can't find the variation \"SKIN\" resource with ID=%d.\r\n",it->first);
+						Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_FIND_RES),it->first);
 						break;
 					}
 					if (!parser.LoadVariation(hMod,hResInfo))
 					{
-						Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load the variation \"SKIN\" resource with ID=%d.\r\n",it->first);
+						Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_LOAD_RES),it->first);
 						break;
 					}
 				}
@@ -428,7 +439,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 					Strcat(path,_countof(path),name);
 					if (!parser.LoadVariation(path))
 					{
-						Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Failed to load the variation skin file %s.\r\n",path);
+						Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_LOAD_FILE),path);
 						break;
 					}
 				}
@@ -442,7 +453,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	for (int i=0;;i++)
 	{
 		MenuSkin::Option option;
-		if (!parser.ParseOption(option.name,option.label,option.value,i))
+		if (!parser.ParseOption(option.name,option.label,option.value,option.condition,option.value2,i))
 			break;
 		if (!option.name.IsEmpty())
 		{
@@ -455,10 +466,14 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 					bValue=(*it&1)!=0;
 					break;
 				}
+			if (!option.condition.IsEmpty() && !EvalCondition(option.condition,values.empty()?NULL:&values[0],(int)values.size()))
+				bValue=option.value2;
 			if (bValue)
 				values.push_back(option.name);
 		}
 	}
+	if (level==RES_LEVEL_ALLPROGRAMS)
+		values.push_back(L"ALL_PROGRAMS");
 	if (values.empty())
 		parser.FilterConditions(NULL,0);
 	else
@@ -492,7 +507,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 
 	// CAPTION SECTION - describes the caption portion of the main menu
 	str=parser.FindSetting("Caption_font");
-	skin.Caption_font=LoadSkinFont(str,L"Segoe UI",FW_NORMAL,18);
+	skin.Caption_font=LoadSkinFont(str,L"Segoe UI",FW_NORMAL,18,true);
 	str=parser.FindSetting("Caption_text_color");
 	if (str)
 		LoadSkinNumbers(str,(int*)&skin.Caption_text_color,1,true);
@@ -526,7 +541,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		skin.Main_background=GetSysColor(COLOR_MENU);
 
 	str=parser.FindSetting("Main_bitmap");
-	if (str && !bNoResources)
+	if (str && level==RES_LEVEL_FULL)
 	{
 		int id=_wtol(str);
 		if (id)
@@ -579,11 +594,11 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	skin.Main_large_icons=str && _wtol(str);
 
 	str=parser.FindSetting("Main_font");
-	skin.Main_font=LoadSkinFont(str,NULL,0,0);
+	skin.Main_font=LoadSkinFont(str,NULL,0,0,true);
 
 	str=parser.FindSetting("Main_font2");
 	if (str)
-		skin.Main_font2=LoadSkinFont(str,NULL,0,0);
+		skin.Main_font2=LoadSkinFont(str,NULL,0,0,true);
 	else
 		skin.Main_font2=skin.Main_font;
 
@@ -648,7 +663,8 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		else
 		{
 			skin.Main_selectionColor=false;
-			if (!bNoResources)
+			skin.Main_selection.bmp=NULL;
+			if (level==RES_LEVEL_FULL)
 			{
 				int id=_wtol(str);
 				if (id)
@@ -683,7 +699,8 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		else
 		{
 			skin.Main_selectionColor2=false;
-			if (!bNoResources)
+			skin.Main_selection2.bmp=NULL;
+			if (level==RES_LEVEL_FULL)
 			{
 				int id=_wtol(str);
 				if (id)
@@ -733,7 +750,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 
 	skin.Main_arrow_Size.cx=skin.Main_arrow_Size2.cx=DEFAULT_ARROW_SIZE;
 	skin.Main_arrow_Size.cy=skin.Main_arrow_Size2.cy=0;
-	if (!bNoResources)
+	if (level==RES_LEVEL_FULL)
 	{
 		str=parser.FindSetting("Main_arrow");
 		if (str)
@@ -791,7 +808,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	skin.Main_thin_frame=(str && _wtol(str));
 
 	skin.Main_separatorHeight=skin.Main_separatorHeight2=0;
-	if (!bNoResources)
+	if (level==RES_LEVEL_FULL)
 	{
 		str=parser.FindSetting("Main_separator");
 		if (str)
@@ -887,7 +904,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		skin.Main_text_padding2=skin.Main_text_padding;
 
 	str=parser.FindSetting("Main_pager");
-	if (str && !bNoResources)
+	if (str && level==RES_LEVEL_FULL)
 	{
 		int id=_wtol(str);
 		if (id)
@@ -910,7 +927,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	}
 
 	str=parser.FindSetting("Main_pager_arrows");
-	if (str && !bNoResources)
+	if (str && level==RES_LEVEL_FULL)
 	{
 		int id=_wtol(str);
 		if (id)
@@ -926,7 +943,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		MirrorBitmap(skin.Main_pager_arrows);
 
 	str=parser.FindSetting("User_bitmap");
-	if (str && !bNoResources)
+	if (str && level==RES_LEVEL_FULL)
 	{
 		int id=_wtol(str);
 		if (id)
@@ -981,6 +998,54 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	else
 		skin.User_image_alpha=255;
 
+	str=parser.FindSetting("User_name_position");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.User_name_position,4,false);
+	else
+		memset(&skin.User_name_position,0,sizeof(skin.User_name_position));
+
+	skin.User_name_align=MenuSkin::NAME_CENTER;
+	str=parser.FindSetting("User_name_align");
+	if (str)
+	{
+		if (_wcsicmp(str,L"center1")==0)
+			skin.User_name_align=MenuSkin::NAME_CENTER1;
+		else if (_wcsicmp(str,L"center2")==0)
+			skin.User_name_align=MenuSkin::NAME_CENTER2;
+		else if (_wcsicmp(str,L"left")==0)
+			skin.User_name_align=MenuSkin::NAME_LEFT;
+		else if (_wcsicmp(str,L"left1")==0)
+			skin.User_name_align=MenuSkin::NAME_LEFT1;
+		else if (_wcsicmp(str,L"left2")==0)
+			skin.User_name_align=MenuSkin::NAME_LEFT2;
+		else if (_wcsicmp(str,L"right")==0)
+			skin.User_name_align=MenuSkin::NAME_RIGHT;
+		else if (_wcsicmp(str,L"right1")==0)
+			skin.User_name_align=MenuSkin::NAME_RIGHT1;
+		else if (_wcsicmp(str,L"right2")==0)
+			skin.User_name_align=MenuSkin::NAME_RIGHT2;
+	}
+
+	str=parser.FindSetting("User_font");
+	skin.User_font=LoadSkinFont(str,L"Segoe UI",FW_NORMAL,18,false);
+	str=parser.FindSetting("User_text_color");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.User_text_color,1,true);
+	else
+		skin.User_text_color=0xFFFFFF;
+
+	str=parser.FindSetting("User_glow_color");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.User_glow_color,1,true);
+	else
+		skin.User_glow_color=0xFFFFFF;
+
+	str=parser.FindSetting("User_glow_size");
+	if (str)
+		skin.User_glow_size=_wtol(str);
+	else
+		skin.User_glow_size=0;
+
 
 	// SUB-MENU SECTION - describes the menu portion of the sub-menu
 	str=parser.FindSetting("Submenu_background");
@@ -990,7 +1055,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		skin.Submenu_background=GetSysColor(COLOR_MENU);
 
 	str=parser.FindSetting("Submenu_bitmap");
-	if (str && !bNoResources)
+	if (str && level>=RES_LEVEL_ALLPROGRAMS)
 	{
 		int id=_wtol(str);
 		if (id)
@@ -1025,7 +1090,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	}
 
 	str=parser.FindSetting("Submenu_font");
-	skin.Submenu_font=LoadSkinFont(str,NULL,0,0);
+	skin.Submenu_font=LoadSkinFont(str,NULL,0,0,true);
 
 	str=parser.FindSetting("Submenu_glow_size");
 	if (str)
@@ -1063,6 +1128,12 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	else
 		skin.Submenu_offset=0;
 
+	str=parser.FindSetting("AllPrograms_offset");
+	if (str)
+		skin.AllPrograms_offset=_wtol(str);
+	else
+		skin.AllPrograms_offset=0;
+
 	str=parser.FindSetting("Submenu_selection");
 	if (str)
 	{
@@ -1071,7 +1142,8 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		else
 		{
 			skin.Submenu_selectionColor=false;
-			if (!bNoResources)
+			skin.Submenu_selection.bmp=NULL;
+			if (level>=RES_LEVEL_ALLPROGRAMS)
 			{
 				int id=_wtol(str);
 				if (id)
@@ -1107,7 +1179,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	skin.Submenu_arrow_Size.cx=DEFAULT_ARROW_SIZE;
 	skin.Submenu_arrow_Size.cy=0;
 	str=parser.FindSetting("Submenu_arrow");
-	if (str && !bNoResources)
+	if (str && level>=RES_LEVEL_ALLPROGRAMS)
 	{
 		int id=_wtol(str);
 		if (id)
@@ -1132,7 +1204,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	str=parser.FindSetting("Submenu_thin_frame");
 	skin.Submenu_thin_frame=(str && _wtol(str));
 	str=parser.FindSetting("Submenu_separator");
-	if (str && !bNoResources)
+	if (str && level>=RES_LEVEL_ALLPROGRAMS)
 	{
 		int id=_wtol(str);
 		if (id)
@@ -1151,7 +1223,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		memset(skin.Submenu_separator_slices_X,0,sizeof(skin.Submenu_separator_slices_X));
 	str=parser.FindSetting("Submenu_separatorV");
 	skin.Submenu_separatorWidth=0;
-	if (str && !bNoResources)
+	if (str && level>=RES_LEVEL_ALLPROGRAMS)
 	{
 		int id=_wtol(str);
 		if (id)
@@ -1189,7 +1261,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		skin.Submenu_text_padding=DEFAULT_TEXT_PADDING;
 
 	str=parser.FindSetting("Submenu_pager");
-	if (str && !bNoResources)
+	if (str && level>=RES_LEVEL_ALLPROGRAMS)
 	{
 		int id=_wtol(str);
 		if (id)
@@ -1213,7 +1285,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	}
 
 	str=parser.FindSetting("Submenu_pager_arrows");
-	if (str && !bNoResources)
+	if (str && level>=RES_LEVEL_ALLPROGRAMS)
 	{
 		int id=_wtol(str);
 		if (id)
@@ -1231,20 +1303,20 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	return true;
 }
 
-bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variation, const std::vector<unsigned int> &options, bool bNoResources )
+bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variation, const std::vector<unsigned int> &options, TResLevel level )
 {
 	MenuSkin::s_SkinError[0]=0;
 	wchar_t path[_MAX_PATH];
 	GetSkinsPath(path);
 
-	if (!*fname || _wcsicmp(fname,L"<Default>")==0)
+	if (!*fname || _wcsicmp(fname,LoadStringEx(IDS_DEFAULT_SKIN))==0)
 	{
-		LoadDefaultMenuSkin(skin,bNoResources);
+		LoadDefaultMenuSkin(skin,level);
 		return true;
 	}
 	if (_wcsicmp(fname,L"Custom")==0)
 	{
-		if (!LoadSkin(NULL,skin,variation,options,bNoResources))
+		if (!LoadSkin(NULL,skin,variation,options,level))
 		{
 			FreeMenuSkin(skin);
 			return false;
@@ -1254,16 +1326,16 @@ bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variatio
 	{
 		Strcat(path,_countof(path),fname);
 		Strcat(path,_countof(path),L".skin");
-		HMODULE hMod=LoadLibraryEx(path,NULL,LOAD_LIBRARY_AS_DATAFILE);
+		HMODULE hMod=LoadLibraryEx(path,NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
 		if (!hMod)
 		{
 			wchar_t err[1024];
 			GetErrorMessage(err,_countof(err),GetLastError());
-			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"Error loading %s\n%s",path,err);
+			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_LOAD),path,err);
 			return false;
 		}
 
-		if (!LoadSkin(hMod,skin,variation,options,bNoResources))
+		if (!LoadSkin(hMod,skin,variation,options,level))
 		{
 			FreeMenuSkin(skin);
 			FreeLibrary(hMod);
@@ -1274,15 +1346,15 @@ bool LoadMenuSkin( const wchar_t *fname, MenuSkin &skin, const wchar_t *variatio
 	}
 	if (skin.version>MAX_SKIN_VERSION)
 	{
-		Strcpy(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),L"The selected skin is not compatible with this version of the start menu.\r\n");
+		Strcpy(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_VERSION));
 		return false;
 	}
 	return true;
 }
 
-void LoadDefaultMenuSkin( MenuSkin &skin, bool bNoResources )
+void LoadDefaultMenuSkin( MenuSkin &skin, TResLevel level )
 {
-	LoadSkin(g_Instance,skin,NULL,std::vector<unsigned int>(),bNoResources);
+	LoadSkin(g_Instance,skin,NULL,std::vector<unsigned int>(),level);
 }
 
 void FreeMenuSkin( MenuSkin &skin )

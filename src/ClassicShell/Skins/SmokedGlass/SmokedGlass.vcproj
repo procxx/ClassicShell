@@ -161,6 +161,10 @@
 				RelativePath=".\user_bitmap.bmp"
 				>
 			</File>
+			<File
+				RelativePath=".\user_bitmap32.bmp"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

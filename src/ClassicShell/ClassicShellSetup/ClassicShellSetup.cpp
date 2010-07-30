@@ -6,26 +6,217 @@
 #include <shlwapi.h>
 #include <stdio.h>
 #include <commctrl.h>
+#include <Psapi.h>
+#include <vector>
 #include "resource.h"
+#include "StringUtils.h"
+#include "FNVHash.h"
 
 // ClassicShellSetup.exe is a bootstrap application that contains installers for 32-bit and 64-bit.
 // It unpacks the right installer into the temp directory and executes it.
-// Finally, if the start menu is installed we launch it for the first time. Note: The installer can't
-// launch the start menu itself because it runs as the SYSTEM user and we need to run as the logged in user
 
 typedef BOOL (WINAPI *FIsWow64Process)( HANDLE hProcess, PBOOL Wow64Process );
+typedef BOOL (WINAPI *FQueryFullProcessImageName)( HANDLE hProcess, DWORD dwFlags, LPTSTR lpExeName, PDWORD lpdwSize );
+
+
+
+enum
+{
+	ERR_WRONG_OS=101, // the OS is too old, Vista or up is required
+	ERR_OLD_VERSION, // detected version older than 1.0.0
+	ERR_HASH_NOTFOUND, // the HASH resource is missing
+	ERR_MSIRES_NOTFOUND, // missing MSI resource
+	ERR_HASH_ERROR,
+	ERR_VERRES_NOTFOUND, // missing version resource
+	ERR_MSI_EXTRACTFAIL, // failed to extract the MSI file
+	ERR_MSIEXEC, // msiexec failed to start
+};
+
+static int ExtractMsi( HINSTANCE hInstance, const wchar_t *msiName, bool b64, bool bQuiet )
+{
+	void *pRes=NULL;
+	HRSRC hResInfo=FindResource(hInstance,MAKEINTRESOURCE(IDR_MSI_CHECKSUM),L"MSI_FILE");
+	if (hResInfo)
+	{
+		HGLOBAL hRes=LoadResource(hInstance,hResInfo);
+		pRes=LockResource(hRes);
+	}
+	if (!pRes)
+	{
+		if (!bQuiet)
+		{
+			wchar_t strTitle[256];
+			if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+			wchar_t strText[256];
+			if (!LoadString(hInstance,IDS_ERR_INTERNAL,strText,_countof(strText))) strText[0]=0;
+			MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONERROR);
+		}
+		return ERR_HASH_NOTFOUND;
+	}
+	unsigned int hash=((unsigned int*)pRes)[b64?1:0];
+
+	// extract the installer
+	pRes=NULL;
+	hResInfo=FindResource(hInstance,MAKEINTRESOURCE(b64?IDR_MSI_FILE64:IDR_MSI_FILE32),L"MSI_FILE");
+	if (hResInfo)
+	{
+		HGLOBAL hRes=LoadResource(hInstance,hResInfo);
+		pRes=LockResource(hRes);
+	}
+	if (!pRes)
+	{
+		if (!bQuiet)
+		{
+			wchar_t strTitle[256];
+			if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+			wchar_t strText[256];
+			if (!LoadString(hInstance,IDS_ERR_INTERNAL,strText,_countof(strText))) strText[0]=0;
+			MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONERROR);
+		}
+		return ERR_MSIRES_NOTFOUND;
+	}
+	int size=SizeofResource(hInstance,hResInfo);
+	if (CalcFNVHash(pRes,size)!=hash)
+	{
+		if (!bQuiet)
+		{
+			wchar_t strTitle[256];
+			if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+			wchar_t strText[256];
+			if (!LoadString(hInstance,IDS_ERR_CORRUPTED,strText,_countof(strText))) strText[0]=0;
+			wchar_t message[1024];
+			Sprintf(message,_countof(message),strText,msiName);
+			MessageBox(NULL,message,strTitle,MB_OK|MB_ICONERROR);
+		}
+		return ERR_HASH_ERROR;
+	}
+
+	HANDLE hFile=CreateFile(msiName,GENERIC_WRITE,0,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
+	if (hFile==INVALID_HANDLE_VALUE)
+	{
+		wchar_t strTitle[256];
+		if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+		wchar_t strText[256];
+		if (!LoadString(hInstance,IDS_ERR_EXTRACT,strText,_countof(strText))) strText[0]=0;
+
+		wchar_t message[1024];
+		Sprintf(message,_countof(message),strText,msiName);
+		if (!bQuiet)
+		{
+			MessageBox(NULL,message,strTitle,MB_OK|MB_ICONERROR);
+		}
+		return ERR_MSI_EXTRACTFAIL;
+	}
+	DWORD q;
+	WriteFile(hFile,pRes,size,&q,NULL);
+	CloseHandle(hFile);
+
+	return 0;
+}
+
+INT_PTR CALLBACK DialogProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
+{
+	if (uMsg==WM_COMMAND && wParam==IDOK)
+	{
+		wchar_t text[256];
+		GetDlgItemText(hwndDlg,IDC_EDITPWD,text,_countof(text));
+		CharUpper(text);
+		if (CalcFNVHash(text)==0xdd7faf06)
+			EndDialog(hwndDlg,IDOK);
+		else
+			MessageBox(hwndDlg,L"Wrong password.",L"Error",MB_OK|MB_ICONERROR);
+		return TRUE;
+	}
+	if (uMsg==WM_COMMAND && wParam==IDCANCEL)
+	{
+		EndDialog(hwndDlg,IDCANCEL);
+		return TRUE;
+	}
+	return FALSE;
+}
 
 int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow )
 {
-	bool bQuiet=wcsstr(lpCmdLine,L"/qn")!=NULL;
 	INITCOMMONCONTROLSEX init={sizeof(init),ICC_STANDARD_CLASSES};
 	InitCommonControlsEx(&init);
+
+	// get installer version
+	VS_FIXEDFILEINFO *pVer=NULL;
+	{
+		void *pRes=NULL;
+		HRSRC hResInfo=FindResource(hInstance,MAKEINTRESOURCE(VS_VERSION_INFO),RT_VERSION);
+		if (hResInfo)
+		{
+			HGLOBAL hRes=LoadResource(hInstance,hResInfo);
+			pRes=LockResource(hRes);
+		}
+		if (pRes)
+			pVer=(VS_FIXEDFILEINFO*)((char*)pRes+40);
+	}
+
+	if (pVer && pVer->dwProductVersionMS==0x20008 && pVer->dwProductVersionLS==0 && DialogBox(hInstance,MAKEINTRESOURCE(IDD_DIALOGPWD),NULL,DialogProc)!=IDOK)
+		return 0;
+
+	int count;
+	wchar_t *const *params=CommandLineToArgvW(lpCmdLine,&count);
+	if (!params) count=0;
+
+	int extract=0;
+	bool bQuiet=false;
+	for (;count>0;count--,params++)
+	{
+		if (_wcsicmp(params[0],L"help")==0)
+		{
+			wchar_t strTitle[256];
+			if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+			wchar_t strText[4096];
+			if (!LoadString(hInstance,IDS_HELP,strText,_countof(strText))) strText[0]=0;
+
+			MessageBox(NULL,strText,strTitle,MB_OK);
+			return 0;
+		}
+		if (_wcsicmp(params[0],L"extract32")==0)
+			extract=32;
+		if (_wcsicmp(params[0],L"extract64")==0)
+			extract=64;
+		if (_wcsicmp(params[0],L"/qn")==0 || _wcsicmp(params[0],L"/q")==0 || _wcsicmp(params[0],L"/quiet")==0 || _wcsicmp(params[0],L"/passive")==0)
+		{
+			bQuiet=true;
+		}
+	}
+
+	if (!pVer)
+	{
+		if (!bQuiet)
+		{
+			wchar_t strTitle[256];
+			if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+			wchar_t strText[256];
+			if (!LoadString(hInstance,IDS_ERR_INTERNAL,strText,_countof(strText))) strText[0]=0;
+			MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONERROR);
+		}
+		return ERR_VERRES_NOTFOUND;
+	}
+
+	if (extract)
+	{
+		wchar_t msiName[_MAX_PATH];
+		Sprintf(msiName,_countof(msiName),L"ClassicShellSetup%d_%d_%d_%d.msi",extract,HIWORD(pVer->dwProductVersionMS),LOWORD(pVer->dwProductVersionMS),HIWORD(pVer->dwProductVersionLS));
+		return ExtractMsi(hInstance,msiName,extract==64,bQuiet);
+	}
+
 	// check Windows version
 	if ((GetVersion()&255)<6)
 	{
 		if (!bQuiet)
-			MessageBox(NULL,L"Classic Shell requires Windows Vista or later.",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
-		return 101;
+		{
+			wchar_t strTitle[256];
+			if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+			wchar_t strText[256];
+			if (!LoadString(hInstance,IDS_ERR_VISTA,strText,_countof(strText))) strText[0]=0;
+			MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONERROR);
+		}
+		return ERR_WRONG_OS;
 	}
 
 	// dynamically link to IsWow64Process because it is not available for Windows 2000
@@ -34,48 +225,60 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	if (!isWow64Process)
 	{
 		if (!bQuiet)
-			MessageBox(NULL,L"Classic Shell requires Windows Vista or later.",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
-		return 101;
+		{
+			wchar_t strTitle[256];
+			if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+			wchar_t strText[256];
+			if (!LoadString(hInstance,IDS_ERR_VISTA,strText,_countof(strText))) strText[0]=0;
+			MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONERROR);
+		}
+		return ERR_WRONG_OS;
 	}
 
 	BOOL b64=FALSE;
 	isWow64Process(GetCurrentProcess(),&b64);
 
-	// check for versions older than 1.0.0
-	const wchar_t *oldVersions32[]={
-		L"{4FB649CF-3B19-44C2-AE13-3978BA10E3C0}", // 0.9.7
-		L"{131E8BB5-6E2F-437B-9923-3BAC5402995D}", // 0.9.8
-		L"{962C0EF9-28A6-48B5-AE5D-F8F8B4B1C5F6}", // 0.9.9
-		L"{AA86C803-F195-4593-A9EC-24D26D4F9C7E}", // 0.9.10
-		NULL
-	};
-
-	const wchar_t *oldVersions64[]={
-		L"{962E3DB4-82A7-4B38-80B4-F3DB790D9CA2}", // 0.9.7
-		L"{4F5A8EAD-D866-47CB-85C3-E17BB328687E}", // 0.9.8
-		L"{029C99FA-B112-486A-8350-DA2099C812ED}", // 0.9.9
-		L"{2099745F-EFD7-43C8-9A3A-5EAF01CD56FF}", // 0.9.10
-		NULL
-	};
-
-	
-	for (const wchar_t **oldVersion=b64?oldVersions64:oldVersions32;*oldVersion;oldVersion++)
+	// look for an old version the start menu (2.0.0 or older) and show a warning if it is still running. the uninstaller for such old versions doesn't close the start menu
+	HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
+	if (hwnd)
 	{
-		wchar_t buf[256];
-		swprintf_s(buf,L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\%s",*oldVersion);
-		HKEY hKey=NULL;
-		if (RegCreateKeyEx(HKEY_LOCAL_MACHINE,buf,0,NULL,REG_OPTION_NON_VOLATILE,KEY_READ|KEY_QUERY_VALUE|KEY_WOW64_64KEY,NULL,&hKey,NULL)==ERROR_SUCCESS)
+		bool bStartMenu=false;
+
+		DWORD id;
+		GetWindowThreadProcessId(hwnd,&id);
+		HANDLE process=OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ,FALSE,id);
+		if (process)
 		{
-			DWORD version;
-			DWORD size=sizeof(version);
-			if (RegQueryValueEx(hKey,L"Version",0,NULL,(BYTE*)&version,&size)==ERROR_SUCCESS)
+			bStartMenu=true;
+			wchar_t path[_MAX_PATH];
+			DWORD size=_countof(path);
+
+			FQueryFullProcessImageName queryFullProcessImageName=(FQueryFullProcessImageName)GetProcAddress(hKernel32,"QueryFullProcessImageNameW");
+			if (queryFullProcessImageName && queryFullProcessImageName(process,0,path,&size))
 			{
-				RegCloseKey(hKey);
-				if (!bQuiet)
-					MessageBox(NULL,L"This version of Classic Shell cannot be installed over versions older than 1.0.0. Please uninstall the old version of Classic Shell, log off, and run the installer again.",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
-				return 102;
+				DWORD q;
+				DWORD size=GetFileVersionInfoSize(path,&q);
+				if (size)
+				{
+					std::vector<char> buf(size);
+					if (GetFileVersionInfo(path,0,size,&buf[0]))
+					{
+						VS_FIXEDFILEINFO *pVer;
+						UINT len;
+						if (VerQueryValue(&buf[0],L"\\",(void**)&pVer,&len) && pVer->dwProductVersionMS>0x20000)
+							bStartMenu=false;
+					}
+				}
 			}
-			RegCloseKey(hKey);
+			CloseHandle(process);
+		}
+		if (bStartMenu)
+		{
+			wchar_t strTitle[256];
+			if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+			wchar_t strText[1024];
+			if (!LoadString(hInstance,IDS_OLDSTARTMENU,strText,_countof(strText))) strText[0]=0;
+			MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONWARNING);
 		}
 	}
 /*
@@ -87,54 +290,58 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	}
 */
 
-	// the 64-bit version of Classic Shell 1.9.7 has a bug in the uninstaller that fails to back up the ini files. if that version is detected,
-	// warn the user to skip the backup step.
-	if (b64)
+	DWORD version;
 	{
 		HKEY hKey;
-		if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,L"SOFTWARE\\IvoSoft\\ClassicShell",0,KEY_READ|KEY_WOW64_64KEY,&hKey)==ERROR_SUCCESS)
+		if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,L"SOFTWARE\\IvoSoft\\ClassicShell",0,KEY_READ|(b64?KEY_WOW64_64KEY:0),&hKey)==ERROR_SUCCESS)
 		{
-			DWORD version;
 			DWORD size=sizeof(version);
-			if (RegQueryValueEx(hKey,L"Version",0,NULL,(BYTE*)&version,&size)==ERROR_SUCCESS && version==10907)
-			{
-				RegCloseKey(hKey);
-				MessageBox(NULL,L"Warning!\nYou are about to upgrade from version 1.9.7 of Classic Shell. There is a known problem with that version on 64-bit systems. When asked if you want to back up the ini files, respond with 'No'. Otherwise the installation will abort.",L"Classic Shell Setup",MB_OK|MB_ICONWARNING);
-			}
+			if (RegQueryValueEx(hKey,L"Version",0,NULL,(BYTE*)&version,&size)!=ERROR_SUCCESS)
+				version=0;
+			RegCloseKey(hKey);
+		}
+	}
+	// the 64-bit version of Classic Shell 1.9.7 has a bug in the uninstaller that fails to back up the ini files. if that version is detected,
+	// warn the user to skip the backup step.
+	if (b64 && version==10907)
+	{
+		wchar_t strTitle[256];
+		if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+		wchar_t strText[256];
+		if (!LoadString(hInstance,IDS_ERR_VER197,strText,_countof(strText))) strText[0]=0;
+		MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONERROR);
+	}
+
+	// when upgrading from 2.8.1 or 2.8.2, back up the Run key
+	const wchar_t *extraParam=L"";
+	if (version>=20800 && version<=20802)
+	{
+		HKEY hKey;
+		if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_READ|(b64?KEY_WOW64_64KEY:0),&hKey)==ERROR_SUCCESS)
+		{
+			if (RegQueryValueEx(hKey,L"Classic Start Menu",NULL,NULL,NULL,NULL)==ERROR_SUCCESS)
+				extraParam=L" BACKUP_RUN=1";
+			RegCloseKey(hKey);
 		}
 	}
 
-
-	// extract the installer
-	void *pRes=NULL;
-	HRSRC hResInfo=FindResource(hInstance,MAKEINTRESOURCE(b64?IDR_MSI_FILE64:IDR_MSI_FILE32),L"MSI_FILE");
-	if (hResInfo)
-	{
-		HGLOBAL hRes=LoadResource(hInstance,hResInfo);
-		pRes=LockResource(hRes);
-	}
-	if (!pRes)
-	{
-		if (!bQuiet)
-			MessageBox(NULL,L"Internal Setup Error",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
-		return 103;
-	}
-	wchar_t path[_MAX_PATH*2];
-	GetTempPath(_countof(path),path);
 	wchar_t msiName[_MAX_PATH];
-	GetTempFileName(path,L"CSH",0,msiName);
-	HANDLE hFile=CreateFile(msiName,GENERIC_WRITE,0,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
-	if (hFile==INVALID_HANDLE_VALUE)
+	Sprintf(msiName,_countof(msiName),L"%%ALLUSERSPROFILE%%\\ClassicShellSetup%d_%d_%d_%d.msi",b64?64:32,HIWORD(pVer->dwProductVersionMS),LOWORD(pVer->dwProductVersionMS),HIWORD(pVer->dwProductVersionLS));
+	DoEnvironmentSubst(msiName,_countof(msiName));
+	int ex=ExtractMsi(hInstance,msiName,b64!=FALSE,bQuiet);
+	if (ex) return ex;
+
+	wchar_t cmdLine[2048];
+	if (wcsstr(lpCmdLine,L"%MSI%"))
 	{
-		wchar_t message[1024];
-		swprintf_s(message,L"Failed to create temp file '%s'.",msiName);
-		if (!bQuiet)
-			MessageBox(NULL,message,L"Classic Shell Setup",MB_OK|MB_ICONERROR);
-		return 104;
+		SetEnvironmentVariable(L"MSI",msiName);
+		Sprintf(cmdLine,_countof(cmdLine),L"msiexec.exe %s%s",lpCmdLine,extraParam);
+		DoEnvironmentSubst(cmdLine,_countof(cmdLine));
 	}
-	DWORD q;
-	WriteFile(hFile,pRes,SizeofResource(hInstance,hResInfo),&q,NULL);
-	CloseHandle(hFile);
+	else
+	{
+		Sprintf(cmdLine,_countof(cmdLine),L"msiexec.exe /i %s %s%s",msiName,lpCmdLine,extraParam);
+	}
 
 	// start the installer
 	STARTUPINFO startupInfo;
@@ -142,42 +349,26 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	startupInfo.cb=sizeof(startupInfo);
 	PROCESS_INFORMATION processInfo;
 	memset(&processInfo,0,sizeof(processInfo));
-	wchar_t cmdLine[2048];
-	swprintf_s(cmdLine,L"msiexec.exe /i %s %s",msiName,lpCmdLine);
-
 	if (!CreateProcess(NULL,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
 	{
 		DeleteFile(msiName);
 		if (!bQuiet)
-			MessageBox(NULL,L"Failed to run msiexec.exe",L"Classic Shell Setup",MB_OK|MB_ICONERROR);
-		return 105;
+		{
+			wchar_t strTitle[256];
+			if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+			wchar_t strText[256];
+			if (!LoadString(hInstance,IDS_ERR_MSIEXEC,strText,_countof(strText))) strText[0]=0;
+			MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONERROR);
+		}
+		return ERR_MSIEXEC;
 	}
 	else
 	{
 		// wait for the installer to finish
 		WaitForSingleObject(processInfo.hProcess,INFINITE);
-		DeleteFile(msiName);
 		DWORD code;
 		GetExitCodeProcess(processInfo.hProcess,&code);
-		if (code) return code;
-
-		// if there were no errors, launch the start menu for the first time
-		HKEY hKey=NULL;
-		if (RegCreateKeyEx(HKEY_LOCAL_MACHINE,L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",0,NULL,REG_OPTION_NON_VOLATILE,KEY_READ|KEY_QUERY_VALUE|KEY_WOW64_64KEY,NULL,&hKey,NULL)==ERROR_SUCCESS)
-		{
-			DWORD type=0;
-			DWORD size=sizeof(path);
-			if (RegQueryValueEx(hKey,L"Classic Start Menu",0,&type,(BYTE*)path,&size)==ERROR_SUCCESS && type==REG_SZ)
-			{
-				memset(&startupInfo,0,sizeof(startupInfo));
-				startupInfo.cb=sizeof(startupInfo);
-				memset(&processInfo,0,sizeof(processInfo));
-				if (!bQuiet)
-					wcscat_s(path,L" -open");
-				CreateProcess(NULL,path,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo);
-			}
-			RegCloseKey(hKey);
-		}
+		DeleteFile(msiName);
+		return code;
 	}
-	return 0;
 }

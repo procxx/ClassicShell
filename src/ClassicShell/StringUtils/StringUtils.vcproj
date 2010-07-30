@@ -280,6 +280,22 @@
 	</References>
 	<Files>
 		<File
+			RelativePath=".\FNVHash.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\FNVHash.h"
+			>
+		</File>
+		<File
+			RelativePath=".\StringSet.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\StringSet.h"
+			>
+		</File>
+		<File
 			RelativePath=".\StringUtils.cpp"
 			>
 		</File>

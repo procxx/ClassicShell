@@ -35,7 +35,7 @@ extern HINSTANCE g_Instance;
 #define DOC_PATH L""
 #else
 #define INI_PATH L"..\\"
-#define DOC_PATH L"..\\..\\Docs\\"
+#define DOC_PATH L"..\\..\\Docs\\Help\\"
 #endif
 
 #include "StringUtils.h"

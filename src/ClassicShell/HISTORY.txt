@@ -1,4 +1,49 @@
 ===============================================================================
+== Version 2.8.3 beta (Jul, 2010):
+
+- Added a way to put shell folders as buttons in the toolbar
+
+- Fixed a crash when browsing the assembly cache in the start menu
+
+- Fixed a problem that may corrupt the registry during uninstall
+
+- Added more troubleshooting capabilities
+
+
+===============================================================================
+== Version 2.8.2 beta (Jul, 2010):
+
+- Added toolbar commands for different Explorer views (Details, List, etc)
+
+- Fixed a freezing bug in the start menu
+
+- Fixed few cosmetic bugs in the skins
+
+
+===============================================================================
+== Version 2.8.1 beta (Jul, 2010):
+
+- Added an option for cascading All Programs in the Windows start menu
+
+- Added an option to open the start menu when hovering over the start button
+
+- Added a possibility for the skins to include the user name in the start menu
+
+- Added support for dropdown menus and chevrons in the Explorer toolbar
+
+- Added an option to automatically open progress dialogs to show more details
+
+- Converted the help to CHM file format
+
+- A much better installer using WiX
+
+- The settings no longer have semicolon in front of them. Just enter the new
+  value. Leave the value blank to use the default
+
+- Changes to StartMenu.ini no longer require the start menu to be restarted
+
+
+===============================================================================
 == Version 2.0.0 general release (Jul, 2010):
 
 - Fixed a bug in the "EnableContextMenu" setting
