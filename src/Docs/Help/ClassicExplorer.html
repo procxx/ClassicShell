@@ -1,0 +1,300 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html><head>
+
+
+
+
+
+
+
+
+
+
+
+
+  <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Explorer</title>
+  <style type="text/css">
+h1 {
+  color: #0070c0;
+  font-family: "Times New Roman",Times,serif;
+}
+body {
+  font-family: Arial,Helvetica,sans-serif;
+}
+
+  </style></head><body>
+<h1><a target="_blank" href="http://classicshell.sourceforge.net/"><img src="images/ClassicShell.png" style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge"></a>&nbsp; Classic Explorer</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;"></span><br>
+<span style="font-weight: bold; color: rgb(79, 129, 189);">Classic
+Explorer</span> is a plugin for Windows Explorer that:
+
+<ul>
+
+  <li>Adds a toolbar to Explorer for some common operations (Go
+to parent folder, Cut, Copy, Paste, Delete, Properties, Email). The toolbar is fully customizable</li>
+  <li>Replaces the copy UI in Vista and Windows 7 with the more user-friendly &#8220;classic&#8221; version similar to Windows XP</li>
+  
+  <li>Handles Alt+Enter in the folder panel of Windows Explorer and shows the properties of the selected folder</li>
+
+  <li>Has options for customizing the folder panel to look more like the Windows XP version or to not fade the expand buttons</li>
+  <li>Can show the free disk space and the total file size in the status bar</li>
+  <li>Can disable the breadcrumbs in the address bar</li>
+  <li>Fixes
+a long list of features that are broken in Windows 7 &#8211; missing icon
+overlay for shared folders, the jumping folders in the navigation pane,
+missing sorting headers in list view, and more<br>
+  </li>
+
+
+
+
+</ul><br>
+
+
+<h1><a name="copy"></a>New copy UI</h1>
+
+In Vista when you copy files and there is a conflict you are presented
+with this:<br>
+
+<br>
+
+<img src="images/before.png" style="width: 460px; height: 472px;" alt="Before" title="Before"><br>
+
+<p>What&#8217;s wrong with it?</p>
+
+<p>Well, for
+starters it is half a screen full of text that you have to read. Also
+it is not immediately clear what parts of it are clickable. You have to
+move the mouse around to discover the UI like in a <a target="_blank" href="http://en.wikipedia.org/wiki/Day_of_the_Tentacle">Lucas Arts
+adventure game</a>. And finally the keyboard usability is awful. To
+tell it
+<span style="font-weight: bold; color: rgb(79, 129, 189);">&#8220;yes, I know what I&#8217;m doing, I want to overwrite all files&#8221;</span> you have to
+press <strong><span style="color: rgb(79, 129, 189);">Alt+D, up, up, up, Space</span></strong>! It is harder than performing the <a target="_blank" href="http://www.youtube.com/watch?v=AErqKebdqjU&amp;feature=fvw">Akuma
+Kara Demon move</a> in Street Fighter 3. There is a time and a place
+for
+that stuff and copying files is not it.</p>
+
+<p>The Classic Explorer plugin brings back the simpler dialog box from Windows XP:<br>
+</p>
+
+<p><img src="images/after.png" style="width: 438px; height: 251px;" alt="After" title="After"><br>
+</p>
+
+<p>It
+is immediately clear what is clickable <span style="font-style: italic;">(clue &#8211; the buttons at the
+bottom)</span>, there is easy keyboard navigation (press <span style="font-weight: bold; color: rgb(79, 129, 189);">Y</span> for &#8220;Yes&#8221;, <span style="font-weight: bold; color: rgb(79, 129, 189);">A</span> to
+copy all files) and you can still see which file is newer and which is
+larger. And of course just like in Windows XP, holding down <strong style="color: rgb(79, 129, 189);">Shift</strong> while clicking on the No button means "No to All" (or just press <strong style="color: rgb(79, 129, 189);">Shift+N</strong>).<br>
+</p>
+
+<p>If you click
+on <span style="text-decoration: underline;">More&#8230;</span> you will get
+the original dialog from Windows. From there you
+will see all the details and you&#8217;ll get an extra option to &#8220;Copy, but
+keep both files&#8221;.</p>
+<p><span style="font-weight: bold;">Important Note:</span> Only the UI is replaced. The underlying system that does the actual copying is not affected.<br>
+</p>
+<p><br>
+</p>
+
+
+
+<h1><a name="alt_enter"></a>Alt+Enter in the folder panel</h1>
+
+Alt+Enter is
+universal shortcut across Windows to bring up the properties of the
+selection. But in Vista and Windows 7 it doesn&#8217;t work in the left
+panel that shows the folders. It works fine on the right where the
+files are. This is broken compared to Windows XP where Alt+Enter works
+in both places.
+<p>To solve the
+problem, the Classic Explorer plugin detects when you press Alt+Enter
+and shows the properties for the currently selected folder.<br>
+</p>
+<p><br>
+</p>
+
+
+<h1><a name="toolbar"></a>Toolbar for Windows Explorer</h1>
+Windows
+Explorer in Vista doesn&#8217;t have a toolbar like the one in Windows XP. If
+you want to go to the parent folder you have to use the breadcrumbs
+bar. If you want to copy or delete a file with the mouse you have to
+right-click and look for the Delete command. The right-click menu gets
+bigger and bigger the more shell extensions you have installed, and
+finding the right command can take a while.<br>
+<p>To solve the problem, the Classic Explorer plugin adds a new toolbar:<br>
+</p>
+
+&nbsp;<img src="images/toolbar.png" style="width: 590px; height: 150px;" alt="Explorer Toolbar" title="Explorer Toolbar"><br>
+<br>
+The available button are: Go Up, Cut, Copy, Paste, Delete, Properties,
+Email, Settings. More buttons can be added from the Settings dialog.<br>
+<br>
+<span style="font-weight: bold; color: rgb(0, 112, 192);">Hints:</span><br>
+&nbsp;&nbsp;&nbsp; - Hold the <strong>Control key</strong> when clicking the Up button to open the parent folder in a new Explorer window.<br>
+&nbsp;&nbsp;&nbsp; - Hold the <strong>Shift key</strong> when clicking the Delete button to permanently delete a file<br>
+
+<br>
+
+The new toolbar doesn&#8217;t show up in Explorer automatically after
+installation. You have to do a few things before you can use it:<br>
+
+<ol style="font-family: Helvetica,Arial,sans-serif;">
+
+  <li>Open a new Windows Explorer window (Win key+E)</li>
+  <li>Turn on the menu in Explorer &#8211; Go to Tools (Alt+T), Folder
+Options, the View tab, and make sure &#8220;Always show menus&#8221; is checked.</li>
+  <li>Right click on the menu bar and select &#8220;Classic Explorer Bar&#8221; to
+show the toolbar.</li>
+  <li>If that option is not available (you only see &#8220;Lock the
+Toolbars&#8221;) you may have to enable the plugin from Internet Explorer.
+Run IE, right click on its toolbar and select &#8220;Classic Explorer Bar&#8221;.
+It will ask you if you want to enable this add-on. Select &#8220;Enable&#8221;,
+then repeat steps 1 through 3 again.</li>
+  <li>If even then you don't see the toolbar, maybe the browser
+extensions are disabled on your system. This is usually the default for
+servers. Open the "Internet Options", go to the "Advanced" tab, and check
+the option "Enable third-party browser extensions".<br>
+  </li>
+
+</ol><br>
+<h1><a name="statusbar"></a>Status bar</h1>
+In Windows 7 the status bar in Explorer doesn't show the free disk
+space and the size of the selected files. Classic Explorer fixes that:<br>
+<br>
+<img src="images/statusbar.png" style="width: 507px; height: 26px;" alt="File size in status bar" title="File size in status bar"><br>
+<br>
+When no files are selected the total size of all files in the folder is shown.<br>
+<br>
+By default the status bar feature is disabled for Windows Vista. It can
+still be turned on from the settings. The only benefit you will get
+from it is seeing the total size when no files are selected (Vista
+doesn't show that).<br>
+<br>
+<strong>Note:</strong> There is a bug in the Windows 7 Explorer that sometimes doesn't show any text in the status bar. Press <strong style="color: rgb(0, 112, 192);">F5</strong> to refresh the view and get the status text.<br>
+<br>
+<strong>Another note:</strong> It goes without saying <span style="font-style: italic;">(but I&#8217;ll say it anyway!)</span> that you have to turn on the status bar from the Tools menu if you want to see the file sizes.<br>
+<br>
+<br>
+
+
+<h1><a name="settings"></a>Settings</h1>Version 2.9.0 introduces a new
+much more powerful system for editing the settings. All settings are
+accessible through a single UI, instead of dealing with ini files:<br>
+<img src="images/explorer_settings.png" style="width: 587px; height: 397px;" alt="Classic Explorer Settings" title="Classic Explorer Settings"><br>
+<br>
+You can choose from seeing only the basic settings, or all available
+settings. Hover over each setting to see a description of what it's for.<br>
+Every setting has a default value. The default value can be constant,
+or it may depend on the current system settings. Once you edit a
+setting it becomes "modified" and is shown in bold. To revert to the
+default value, right-click on the setting.<br>
+<br>You can save the settings to an XML file, and later load them back.
+Press the <span style="font-weight: bold;">Backup</span> button to access these functions. From there you can
+also reset all settings to their default value.<br>
+
+<br>
+
+Press OK to store your settings. Most of the settings will be applied
+the next time you open a new Explorer window. Small number of settings
+will require a log off before you can see the change.<br>
+
+<br>
+
+<span style="font-weight: bold;">Note:</span> All Settings windows are resizeable. Resize them and place them where you want them to be. They will remember the new position.<br>
+
+<br>
+Here's one example of what can be customized:<br>
+
+    <img src="images/titlebar.png" style="width: 705px; height: 124px;" alt="Title bar tweaks" title="Title bar tweaks"><br>
+<br>
+Click on the <span style="font-weight: bold;">Toolbar Buttons</span> tab to customize the toolbar:<br>
+<img style="width: 587px; height: 397px;" alt="Customize Toolbar" title="Customize Toolbar" src="images/toolbar_settings.png"><br>
+<br>The column on the left shows the current buttons in the toolbar,
+and the column on the right lists the buttons you can add to the
+toolbar. You can drag and drop buttons from the right column to the
+left. You
+can rearrange the buttons by dragging them up and down. If you drop one button inside another you will create a sub-menu.<br>
+Hover over each
+button to see a short description of what it does. Right-click on each
+button to access more functions (like Delete, Rename, etc). From the
+right-click menu you can also reset the toolbar to the original state.<br>
+Each item in the left column must have a unique name. This is the
+identifier of the item and can only contain English letters, digits and
+underscore. Some items (like SEPARATOR) cannot be renamed.<br>
+<br>
+After you place a button in the toolbar, you can edit it's attributes. Double-click on the button to edit:<br>
+<img style="width: 384px; height: 327px;" alt="Edit toolbar button" title="Edit toolbar button" src="images/button_settings.png"><br>
+Here you can select a command for the button, its text and icon. Press the <span style="font-weight: bold;">Restore Defaults</span> button to get the default text and icon for the chosen command.<br>
+The command can be:<br>
+<ul>
+  <li><span style="font-weight: bold;">one of the predefined commands</span> - from the dropdown</li>
+  <li><span style="font-weight: bold;">open &lt;some folder&gt;</span> - this will open the folder in the current browser</li>
+  <li><span style="font-weight: bold;">custom executable string</span>
+- this can be a name of a program and its arguments, or even a URL
+(like http://www.google.com). For the arguments you can use the
+placeholders %1 and %2. %1 will be the path of the current folder and
+%2 will be the path of the selected file (only when a single file is
+selected). Environment variables like %SystemRoot% are also supported</li>
+  <li><span style="font-weight: bold;">left blank</span> - then if the link attribute is used, it will act as a command<br>
+  </li>
+</ul>
+The link can be a path to a file or a folder. If it is a file, that
+file will be executed. If it is a folder, that folder will be opened as
+a sub-menu (only for top-level buttons).<br>
+<br>
+The icon can be:<br style="font-weight: bold;">
+<ul>
+  <li><span style="font-weight: bold;">left blank</span> - then if the link attribute points to a file or a folder, the icon of that file or folder will be used<br>
+    <span style="font-weight: bold;"></span></li>
+  <li><span style="font-weight: bold;">resource file,icon ID</span> - for example <span style="font-weight: bold;">%windir%\notepad.exe,2</span>. Do not leave space between the file name and the comma. <span style="font-weight: bold;">Make sure you are using the icon's resource ID, and not the icon's index.</span> For best results use the <span style="font-weight: bold;">[...]</span> button next to the icon box</li>
+  <li><span style="font-weight: bold;">,icon ID</span> - same as above, but the resource file is the <span style="font-weight: bold;">ClassicExplorer.dll</span> itself. This is useful when referring to Classic Explorer's own icons<br>
+  </li>
+  <li><span style="font-weight: bold;">icon file</span> -&nbsp; for example <span style="font-weight: bold;">C:\Program Files\Mozilla Thunderbird\Email.ico</span></li>
+  <li><span style="font-weight: bold;">none</span> - this will use a blank icon</li>
+</ul>
+If the label or the tip attribute start with <span style="font-weight: bold;">$</span> (dollar sign), then the
+system will treat it as a name of a string in the <span style="font-weight: bold;">ExplorerL10N.ini</span>
+file. The actual text will depend on the current language setting. This
+is useful when creating a toolbar that can be used by multiple languages.<br>
+<br>
+<span style="font-weight: bold;">Note to developers: </span>Buttons for custom commands can be checked or disabled. The toolbar checks the registry key <span style="font-weight: bold;">HKCU\Software\IvoSoft\ClassicExplorer</span>
+for a DWORD value with the name of the button (the name used in left
+column). 0 means normal, 1 is disabled and 2 is checked. The toolbar
+reads the registry keys on startup. To force the buttons to update
+their state after that you need to find all Explorer windows, locate
+the child window with class <span style="font-weight: bold;">ClassicShell.CBandWindow</span>, and post a message <span style="font-weight: bold;">WM_CLEAR</span>. This is useful if you are developing a custom exe to be used by the toolbar.<br>
+
+<br>
+<br>
+
+<h1><a name="admin"></a>Administrative Settings</h1>The settings are
+per user and are stored in the registry. By default every user can edit
+all of their settings. An administrator can lock specific settings, so
+no user can edit them:<br>
+<img style="width: 587px; height: 397px;" alt="Locked Explorer setting" title="Locked Explorer setting" src="images/up_locked.png"><br>
+In this example the setting "Show Up button" is locked to always be
+"After Back/Forward" and can't be changed by any user. This is achieved
+by adding the setting to the <span style="font-weight: bold;">HKEY_LOCAL_MACHINE\SOFTWARE\IvoSoft\ClassicExplorer</span> registry key. Create a string value called "ShowUpButton" and set it to "AfterBack".<br>
+The easiest way to know the registry name of a setting and its value is to modify it, and then look it up in <span style="font-weight: bold;">HKEY_CURRENT_USER\Software\IvoSoft\ClassicExplorer</span>.<br>
+Sometimes you may want to lock a setting to its default value, but you
+don't know what the default value is. Then create a DWORD value and set
+it to 0xDEFA.<br>
+<br>
+There is also a global setting "EnableSettings". Set it to 0 in the
+registry to prevent the users from even opening the Settings dialog:<br>
+<img style="width: 603px; height: 257px;" alt="Disable all settings" title="Disable all settings" src="images/settings_disable_ex.png"><br>
+<br>
+<h1><a name="localization"></a>Localization</h1>
+
+
+The user
+interface (except the Settings dialog box) is localized in all 35
+languages available for Vista and Windows 7.<br>
+The Settings dialog box is translated in a smaller number of languages.
+The default installation contains only English. More languages can be
+downloaded from the <a href="http://classicshell.sourceforge.net/">main Classic Shell page</a>. Make sure you download the translation package for the exact version of Classic Shell.<br>
+
+<span style="font-weight: bold;"></span><br>
+
+</body></html>

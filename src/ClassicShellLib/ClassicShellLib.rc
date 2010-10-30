@@ -1,0 +1,259 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_SETTINGSTREE DIALOGEX 0, 0, 350, 160
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_SETTINGS,"SysTreeView32",TVS_DISABLEDRAGDROP | TVS_INFOTIP | WS_BORDER | WS_HSCROLL | WS_TABSTOP,7,7,336,124
+    LTEXT           "The settings that are modified from the default will show in bold\r\nRight-click on a setting for more functions",IDC_STATICTIP,7,135,336,18
+END
+
+IDD_SETTINGS DIALOGEX 0, 0, 381, 220
+STYLE DS_SETFONT | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+EXSTYLE WS_EX_CONTROLPARENT
+CAPTION "Settings"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_TABSETTINGS,"SysTabControl32",TCS_MULTILINE | TCS_FOCUSNEVER,7,7,367,182
+    CONTROL         "<a>Help...</a>",IDC_LINKHELP,"SysLink",WS_TABSTOP,7,204,31,10,WS_EX_TRANSPARENT
+    CONTROL         "Basic Settings",IDC_RADIOBASIC,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,58,194,60,10
+    CONTROL         "All Settings",IDC_RADIOALL,"Button",BS_AUTORADIOBUTTON,58,206,51,10
+    PUSHBUTTON      "Backup",IDC_BUTTONBACKUP,200,199,60,14,WS_GROUP
+    DEFPUSHBUTTON   "OK",IDOK,267,199,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,324,199,50,14
+END
+
+IDD_BROWSEFORICON DIALOGEX 0, 0, 317, 183
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+CAPTION "Select Icon"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "File:",IDC_STATICFILE,7,7,19,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_EDITFILE,33,7,260,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "...",IDC_BUTTONBROWSE,294,7,16,14
+    CONTROL         "",IDC_LISTICONS,"SysListView32",LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_AUTOARRANGE | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,26,303,132
+    DEFPUSHBUTTON   "OK",IDOK,205,162,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,260,162,50,14
+END
+
+IDD_LANGUAGE DIALOGEX 0, 0, 316, 183
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LISTBOX         IDC_LISTLANGUAGE,7,18,302,158,LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Select a language for the user interface:",IDC_STATICHINT,7,7,131,8
+END
+
+IDD_CUSTOMTREE DIALOGEX 0, 0, 365, 183
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "Current toolbar items:",IDC_STATICLEFT,7,7,167,8
+    CONTROL         "",IDC_TREEITEMS,"SysTreeView32",TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_EDITLABELS | TVS_SHOWSELALWAYS | TVS_INFOTIP | WS_BORDER | WS_HSCROLL | WS_TABSTOP,7,16,167,139
+    LTEXT           "Available commands:",IDC_STATICRIGHT,193,7,100,8
+    CONTROL         "",IDC_TREECOMMANDS,"SysTreeView32",TVS_SHOWSELALWAYS | TVS_INFOTIP | WS_BORDER | WS_HSCROLL | WS_TABSTOP,191,16,167,139
+    LTEXT           "<<",IDC_STATICMIDDLE,177,77,11,8
+    LTEXT           "Drag items from the right column to the left. Double-click to edit. Right-click for more functions",IDC_STATICHINT,7,159,351,17
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_SETTINGSTREE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 343
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 153
+    END
+
+    IDD_SETTINGS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 374
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 213
+    END
+
+    IDD_BROWSEFORICON, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 310
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 176
+    END
+
+    IDD_LANGUAGE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 309
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 176
+    END
+
+    IDD_CUSTOMTREE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 358
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 176
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_ICONPLAY            ICON                    "play.ico"
+IDI_ICONLOCK            ICON                    "padlock.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE 
+BEGIN
+    IDS_TOGGLE_SETTING      "Toggle Setting\tSpace"
+    IDS_SELECT_SETTING      "Select Setting\tSpace"
+    IDS_DEFAULT_SETTING     "Set Default\tCtrl+Space"
+    IDS_PLAY_SETTING        "Play Sound\tCtrl+P"
+    IDS_ICON_FILTERS        "Icon files (*.ico, *.dll, *.exe)|*.ico;*.dll;*.exe|ICO files (*.ico)|*.ico|DLL files (*.dll)|*.dll|EXE files (*.exe)|*.exe|All Files (*.*)|*.*|"
+    IDS_ICON_TITLE          "Select Source File"
+    IDS_WAV_FILTERS         "WAV files (*.wav)|*.wav|"
+    IDS_WAV_TITLE           "Select Sound File"
+    IDS_SETTING_LOCKED      "This setting has been locked by the administrator"
+    IDS_SETTING_LOCKED_GP   "This setting has been locked by a group policy"
+    IDS_BASIC_SETTINGS      "Basic Settings"
+    IDS_ALWAYS_ON_TOP       "&Always on Top"
+    IDS_MENU_EDIT           "Edit Item"
+    IDS_MENU_DELETE         "Delete Item"
+    IDS_MENU_RENAME         "Rename Item"
+    IDS_PICK_LINK_TITLE     "Select a file or a folder"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_PICK_LINK_FILE      "Select File"
+    IDS_PICK_LINK_FOLDER    "Select Folder"
+    IDS_DUPLICATE_ITEM      "Item named '%s' already exists."
+    IDS_ERROR_TITLE         "Error"
+    IDS_ERROR_SEPARATOR     "The item name cannot be '%s'."
+    IDS_ERROR_ASCII         "This is an internal name of the item and must contain only English letters and numbers. Use the Text and Tip properties to enter the visible text."
+    IDS_ERROR_EMPTY         "The item name cannot be empty."
+    IDS_RESET_TOOLBAR       "Reset Toolbar"
+    IDS_RESET_TOOLBAR_WARN  "Are you sure you want to reset all toolbar buttons?"
+    IDS_RESET_MENU          "Reset Start Menu"
+    IDS_RESET_MENU_WARN     "Are you sure you want to reset the whole start menu?"
+    IDS_ADD_TOOLBAR         "Add to Toolbar"
+    IDS_ADD_MENU            "Add to Menu"
+    IDS_INSERT_MENU         "Create sub-menu"
+    IDS_EMPTY_MENU          "<empty menu>"
+    IDS_TREE_TOOLBAR        "Current toolbar buttons:"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_TREE_MENU           "Current menu items:"
+    IDS_XML_FILTERS         "XML files (*.xml)|*.xml|"
+    IDS_XML_TITLE_LOAD      "Load XML File"
+    IDS_XML_TITLE_SAVE      "Save XML File"
+    IDS_RESET_CONFIRM       "Are you sure you want to reset all settings?"
+    IDS_RESET_TITLE         "Reset All Settings"
+    IDS_TOOLBAR_LOCKED      "The toolbar is locked by the administrator"
+    IDS_MENU_LOCKED         "The start menu is locked by the administrator"
+    IDS_BACKUP_SAVE         "Save to XML File..."
+    IDS_BACKUP_LOAD         "Load from XML File..."
+    IDS_BACKUP_RESET        "Reset all settings"
+    IDS_ERROR_LOADING_XML   "Error loading XML file '%s'."
+    IDS_ERROR_SAVING_XML    "Error saving XML file '%s'."
+    IDS_DRAG_DROP_EXP_TIP   "Drag buttons from the right column to the left. You can drop on top of a button to create a sub-menu.\nDouble-click in the left column to edit the button. Right-click for more functions."
+    IDS_DRAG_DROP_SM_TIP    "Drag menu items from the right column to the left. You can drop on top of a menu item to create a sub-menu.\nDouble-click in the left column to edit the item. Right-click for more functions."
+    IDS_COMMAND_EXP_TIP     "Drag the command or double-click on it to add it to the toolbar"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_COMMAND_SM_TIP      "Drag the command or double-click on it to add it to the start menu"
+    IDS_COMMAND_FILTERS     "Programs (*.exe, *.com, *.pif, *.bat, *.cmd)|*.exe;*.com;*.pif;*.bat;*.cmd|All files (*.*)|*.*|"
+    IDS_OS_LANGUAGE         "Current OS language"
+END
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

@@ -1,0 +1,645 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "#include ""..\\..\\ClassicShellLib\\resource.h""\r\n"
+    "#include ""..\\..\\ClassicShellLib\\ClassicShellLib.rc""\r\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_RENAME DIALOGEX 0, 0, 227, 54
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_TOPMOST
+CAPTION "Rename"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "&New name:",IDC_LABEL,7,7,44,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_EDITNAME,56,7,163,14,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,116,33,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,170,33,50,14
+END
+
+IDD_RENAMER DIALOGEX 0, 0, 227, 54
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_TOPMOST | WS_EX_LAYOUTRTL
+CAPTION "Rename"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "&New name:",IDC_LABEL,7,7,44,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_EDITNAME,56,7,163,14,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,116,33,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,170,33,50,14
+END
+
+IDD_LOGOFF DIALOGEX 0, 0, 179, 59
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Log Off Windows"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Log Off",IDOK,55,38,55,14
+    PUSHBUTTON      "&No",IDCANCEL,117,38,55,14
+    ICON            "",IDC_STATICICON1,7,7,20,20
+    LTEXT           "Are you sure you want to log off?",IDC_PROMPT,35,7,137,20,SS_CENTERIMAGE
+END
+
+IDD_LOGOFFR DIALOGEX 0, 0, 179, 59
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_LAYOUTRTL
+CAPTION "Log Off Windows"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "&Log Off",IDOK,55,38,55,14
+    PUSHBUTTON      "&No",IDCANCEL,117,38,55,14
+    ICON            "",IDC_STATICICON1,7,7,20,20
+    LTEXT           "Are you sure you want to log off?",IDC_PROMPT,35,7,137,20,SS_CENTERIMAGE
+END
+
+IDD_SKINSETTINGS DIALOGEX 0, 0, 311, 165
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "Skin:",IDC_STATICSKIN,7,7,16,12,SS_CENTERIMAGE
+    COMBOBOX        IDC_COMBOSKIN,28,7,141,96,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "About This Skin",IDC_ABOUT,176,7,60,14
+    PUSHBUTTON      "Reset Skin",IDC_BUTTONRESET,244,7,60,14
+    LTEXT           "The selected skin is not compatible with this version of the start menu.",IDC_STATICVER,7,24,229,22
+    CONTROL         "",IDC_SKINOPTIONS,"SysTreeView32",TVS_DISABLEDRAGDROP | TVS_INFOTIP | WS_BORDER | WS_HSCROLL | WS_TABSTOP,7,35,297,113
+    LTEXT           "Skin Options:",IDC_STATICOPT,7,24,49,8,SS_CENTERIMAGE
+    LTEXT           "This skin is used by the cascading All Programs menu in the Windows start menu",IDC_STATICALLPROGS,7,150,297,8
+END
+
+IDD_CUSTOMMENU DIALOGEX 0, 0, 249, 210
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+CAPTION "Edit Menu Item (%s)"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "Command:",IDC_STATICCOMMAND,7,7,35,12,SS_CENTERIMAGE
+    COMBOBOX        IDC_COMBOCOMMAND,47,7,180,30,CBS_DROPDOWN | CBS_AUTOHSCROLL | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "...",IDC_BUTTONCOMMAND,228,7,14,12
+    LTEXT           "Link:",IDC_STATICLINK,7,23,16,12,SS_CENTERIMAGE
+    COMBOBOX        IDC_COMBOLINK,47,23,180,30,CBS_DROPDOWN | CBS_AUTOHSCROLL | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "...",IDC_BUTTONLINK,228,23,14,12
+    LTEXT           "Label:",IDC_STATICTEXT,7,41,22,12,SS_CENTERIMAGE
+    EDITTEXT        IDC_EDITLABEL,47,41,195,12,ES_AUTOHSCROLL
+    LTEXT           "Tip:",IDC_STATICINFOTIP,7,58,13,12,SS_CENTERIMAGE
+    EDITTEXT        IDC_EDITTIP,47,58,195,12,ES_AUTOHSCROLL
+    LTEXT           "Icon:",IDC_STATICICON,7,74,18,12,SS_CENTERIMAGE
+    EDITTEXT        IDC_EDITICON,47,74,180,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "...",IDC_BUTTONICON,228,74,14,12
+    ICON            "",IDC_ICONN,9,89,20,20
+    CONTROL         "Sort Z->A",IDC_CHECKSORTZA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,116,48,10
+    CONTROL         "Sort Z->A (for sub-menus)",IDC_CHECKSORTZAREC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,129,101,10
+    CONTROL         "Sort Once",IDC_CHECKSORTONCE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,142,48,10
+    CONTROL         "Open Up",IDC_CHECKOPENUP,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,155,44,10
+    CONTROL         "Open Up (for sub-menus)",IDC_CHECKOPENUPREC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,168,97,10
+    CONTROL         "Don't Expand",IDC_CHECKNOEXPAND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,116,59,10
+    CONTROL         "Multi-column",IDC_CHECKMULTICOLUMN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,129,55,10
+    CONTROL         "Track Recent Items",IDC_CHECKTRACK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,142,78,10
+    CONTROL         "Don't Track Recent Items",IDC_CHECKNOTRACK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,155,97,10
+    CONTROL         "Place Items First",IDC_CHECKITEMSFIRST,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,168,69,10
+    PUSHBUTTON      "Restore Defaults",IDC_BUTTONRESET,7,189,90,14
+    DEFPUSHBUTTON   "OK",IDOK,135,189,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,192,189,50,14
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_RENAME, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 220
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 47
+    END
+
+    IDD_RENAMER, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 220
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 47
+    END
+
+    IDD_LOGOFF, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 172
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 52
+    END
+
+    IDD_LOGOFFR, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 172
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 52
+    END
+
+    IDD_SKINSETTINGS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 304
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 158
+    END
+
+    IDD_CUSTOMMENU, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 242
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 203
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 2,9,0,0
+ PRODUCTVERSION 2,9,0,0
+ FILEFLAGSMASK 0x17L
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "IvoSoft"
+            VALUE "FileDescription", "Classic Start Menu"
+            VALUE "FileVersion", "2, 9, 0, 0"
+            VALUE "InternalName", "ClassicStartMenuDLL"
+            VALUE "LegalCopyright", "Copyright (C) 2009-2010, Ivo Beltchev"
+            VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
+            VALUE "ProductName", "Classic Shell"
+            VALUE "ProductVersion", "2, 9, 0, 0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_APPICON             ICON                    "..\\..\\ClassicShellSetup\\ClassicShell.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// SKIN
+//
+
+1                       SKIN                    "SkinDescription.txt"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_ARROWS              BITMAP                  "menu_arrows.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE 
+BEGIN
+    IDS_APP_TITLE           "Classic Start Menu"
+    IDS_SETTINGS_TITLE      "Settings for Classic Start Menu"
+    IDS_SETTINGS_TITLE_VER  "Settings for Classic Start Menu %d.%d.%d"
+    IDS_NEW_SETTINGS        "You need to restart the menu for the new settings to take effect: Right-click on the start button and select ""Exit"". Then run ClassicStartMenu.exe again. It will read the new settings."
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SKIN_ERR_UNKNOWN    "Unknown error.\r\n"
+    IDS_SKIN_ERR_DISABLE    "\r\nYou can disable this popup from the settings."
+    IDS_SKIN_ERR            "Skin Error"
+    IDS_SKIN_WARN           "Skin Warning"
+    IDS_SKIN_ABOUT          "About skin %s"
+    IDS_SKIN_FAIL           "Failed to load skin."
+    IDS_SKIN_ERR_BMPRES     "Failed to load bitmap resource with ID=%d.\r\n%s"
+    IDS_SKIN_ERR_BMPFILE    "Failed to load bitmap file %s.\r\n%s"
+    IDS_SKIN_ERR_MASKRES    "Failed to load mask bitmap resource with ID=%d.\r\n%s"
+    IDS_SKIN_ERR_MASKFILE   "Failed to load mask bitmap file %s.\r\n%s"
+    IDS_SKIN_ERR_MASKSIZE   "The background bitmap %d and the mask bitmap %d have different sizes.\r\n"
+    IDS_SKIN_ERR_FIND_RES1  "Can't find the main ""SKIN"" resource with ID=1.\r\n"
+    IDS_SKIN_ERR_LOAD_RES1  "Failed to load the main ""SKIN"" resource with ID=1.\r\n"
+    IDS_SKIN_ERR_LOAD_FILE1 "Failed to load the main skin file %s.\r\n"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SKIN_ERR_FIND_RES   "Can't find the variation ""SKIN"" resource with ID=%d.\r\n"
+    IDS_SKIN_ERR_LOAD_RES   "Failed to load the variation ""SKIN"" resource with ID=%d.\r\n"
+    IDS_SKIN_ERR_LOAD_FILE  "Failed to load the variation skin file %s.\r\n"
+    IDS_SKIN_ERR_LOAD       "Error loading %s\n%s"
+    IDS_SKIN_ERR_VERSION    "The selected skin is not compatible with this version of the start menu.\r\n"
+    IDS_MENU_TITLE          "== Classic Start Menu =="
+    IDS_DEFAULT_SKIN        "<No Skin>"
+    IDS_CONTROLS_SETTINGS   "Controls"
+    IDS_OPEN_NOTHING        "Nothing"
+    IDS_OPEN_NOTHING_TIP    "The action will do nothing"
+    IDS_OPEN_CSM            "Classic Start Menu"
+    IDS_OPEN_CSM_TIP        "The action will open the classic start menu"
+    IDS_OPEN_WSM            "Windows Start Menu"
+    IDS_OPEN_WSM_TIP        "The action will open the default start menu"
+    IDS_LCLICK              "Left Click opens:"
+    IDS_LCLICK_TIP          "Select what happens when you click the left mouse button on the Start Button"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SHIFT_LCLICK        "Shift+Click opens:"
+    IDS_SHIFT_LCLICK_TIP    "Select what happens when you hold Shift and click the left mouse button on the Start Button"
+    IDS_WIN_KEY             "Windows Key opens:"
+    IDS_WIN_KEY_TIP         "Select what happens when you press the Windows key"
+    IDS_SHIFT_WIN           "Shift+Win opens:"
+    IDS_SHIFT_WIN_TIP       "Select what happens when you hold Shift and press the Windows key"
+    IDS_MCLICK              "Middle Click opens:"
+    IDS_MCLICK_TIP          "Select what happens when you click the middle mouse button on the Start Button"
+    IDS_HOVER               "Hover opens:"
+    IDS_HOVER_TIP           "Select what happens when you hover the mouse over the Start Button"
+    IDS_HOVER_DELAY         "Hover delay"
+    IDS_HOVER_DELAY_TIP     "Enter the delay (in ms) for hovering over the Start Button"
+    IDS_CSM_HOTKEY          "Additional Classic Menu hotkey"
+    IDS_CSM_HOTKEY_TIP      "Enter an additional hotkey for opening the classic start menu"
+    IDS_WSM_HOTKEY          "Additional Windows Menu hotkey"
+    IDS_WSM_HOTKEY_TIP      "Enter an additional hotkey for opening the Windows start menu"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SHOW_ITEMS          "Special Items"
+    IDS_ITEM_HIDE           "Don't display this item"
+    IDS_ITEM_HIDE_TIP       "This item will not appear in the start menu"
+    IDS_ITEM_SHOW           "Display as a link"
+    IDS_ITEM_SHOW_TIP       "This item will appear as a link you can click"
+    IDS_ITEM_MENU           "Display as a menu"
+    IDS_ITEM_MENU_TIP       "This item will appear as a sub-menu"
+    IDS_SHOW_FAVORITES      "Favorites"
+    IDS_SHOW_FAVORITES_TIP  "Select how to display Favorites in the start menu"
+    IDS_SHOW_DOCUMENTS      "Recent documents"
+    IDS_SHOW_DOCUMENTS_TIP  "Select how to display the recent documents in the start menu"
+    IDS_MAX_DOCS            "Max recent documents"
+    IDS_MAX_DOCS_TIP        "Limit the number of recent documents in the start menu"
+    IDS_SHOW_USERFILES      "User files"
+    IDS_SHOW_USERFILES_TIP  "Select how to display the user's files in the start menu"
+    IDS_SHOW_USERDOCS       "User documents"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SHOW_USERDOCS_TIP   "Select how to display the user's documents in the start menu"
+    IDS_SHOW_USERPICS       "User pictures"
+    IDS_SHOW_USERPICS_TIP   "Select how to display the user's pictures in the start menu"
+    IDS_SHOW_CP             "Control Panel"
+    IDS_SHOW_CP_TIP         "Select how to display the Control Panel in the start menu"
+    IDS_SHOW_NETWORK        "Network Connections"
+    IDS_SHOW_NETWORK_TIP    "Select how to display Network in the start menu"
+    IDS_SHOW_PRINTERS       "Printers"
+    IDS_SHOW_PRINTERS_TIP   "Select how to display Printers in the start menu"
+    IDS_SHOW_SEARCH         "Show Search"
+    IDS_SHOW_SEARCH_TIP     "Enable the Search menu"
+    IDS_SHOW_HELP           "Show Help and Support"
+    IDS_SHOW_HELP_TIP       "Enable the Help and Support item"
+    IDS_SHOW_RUN            "Show Run"
+    IDS_SHOW_RUN_TIP        "Enable the Run item"
+    IDS_SHOW_LOGOFF         "Show Log Off"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SHOW_LOGOFF_TIP     "Enable the Log Off item"
+    IDS_CONFIRM_LOGOFF      "Confirm Log Off"
+    IDS_CONFIRM_LOGOFF_TIP  "The Log Off command will show a confirmation prompt before logging off"
+    IDS_SHOW_UNDOCK         "Show Undock"
+    IDS_SHOW_UNDOCK_TIP     "Enable the Undock item (for laptops only)"
+    IDS_SHOW_SHUTDOWN       "Shutdown"
+    IDS_SHOW_SHUTDOWN_TIP   "Select how to display Shutdown in the start menu"
+    IDS_SHOW_RSHUTDOWN      "Show Shutdown during remote sessions"
+    IDS_SHOW_RSHUTDOWN_TIP  "Enable the Shutdown item during a Remote Desktop connection"
+    IDS_SHOW_RECENT         "Show recent programs"
+    IDS_SHOW_RECENT_TIP     "Enable the display of recently-used programs"
+    IDS_MAX_PROGS           "Max recent programs (use negative number to reverse the order)"
+    IDS_MAX_PROGS_TIP       "Limit the number of recent programs. If the number is negative, the most recent program will be at the bottom"
+    IDS_RECENT_TOP          "Show recent programs on top"
+    IDS_RECENT_TOP_TIP      "Select if you want the recent programs to be before or after the other programs in the main menu"
+    IDS_RECENT_KEYS         "Shortcuts for the recent programs"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_RECENT_KEYS_TIP     "Select the style of the keyboard shortcuts for the recent programs"
+    IDS_KEY_NOTHING         "No shortcuts"
+    IDS_KEY_NOTHING_TIP     "Disables the shortcuts completely"
+    IDS_KEY_NORMAL          "Normal shortcuts"
+    IDS_KEY_NORMAL_TIP      "Use the first letter of the program for the shortcut"
+    IDS_KEY_DIGITS          "Digits"
+    IDS_KEY_DIGITS_TIP      "Use digits for the shortcuts (1, 2, 3, etc)"
+    IDS_KEY_HIDDEN          "Hidden digits"
+    IDS_KEY_HIDDEN_TIP      "Same as above, but the digits are not shown"
+    IDS_BEHAVIOR_SETTINGS   "General Behavior"
+    IDS_EXPAND_LINKS        "Expand folder shortcuts"
+    IDS_EXPAND_LINKS_TIP    "When this is checked, shortcuts (links) to folders will open as sub-menus"
+    IDS_MENU_DELAY          "Menu delay"
+    IDS_MENU_DELAY_TIP      "The delay (in ms) for opening sub-menus when the mouse hovers over a folder item"
+    IDS_TIP_DELAY           "Infotip delay"
+    IDS_TIP_DELAY_TIP       "The delay for the infotip. The first number is the delay for showing the infotip and the second is the delay for hiding it. Use '0,0' to disable the tips"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_FTIP_DELAY          "Infotip delay (for folders)"
+    IDS_FTIP_DELAY_TIP      "Same as the above, but for folder items. This is disabled by default because the folder infotips are usually not very helpful"
+    IDS_ANIM_NONE           "No animation"
+    IDS_ANIM_NONE_TIP       "The menu pops in with no animation"
+    IDS_ANIM_FADE           "Fade"
+    IDS_ANIM_FADE_TIP       "The menu fades into view"
+    IDS_ANIM_SLIDE          "Slide"
+    IDS_ANIM_SLIDE_TIP      "The menu slides into view"
+    IDS_ANIMATION           "Main menu animation"
+    IDS_ANIMATION_TIP       "Pick the type of the animation for the main menu"
+    IDS_ANIM_SPEED          "Main menu animation speed"
+    IDS_ANIM_SPEED_TIP      "The duration (in ms) for the main menu animation"
+    IDS_SUB_ANIMATION       "Sub-menu animation"
+    IDS_SUB_ANIMATION_TIP   "Pick the type of the animation for the sub-menus"
+    IDS_SUB_ANIM_SPEED      "Sub-menu animation speed"
+    IDS_SUB_ANIM_SPEED_TIP  "The duration (in ms) for the sub-menu animation"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SCROLL_SPEED        "Main menu scroll speed (1..10)"
+    IDS_SCROLL_SPEED_TIP    "The speed (from 1 to 10) when scrolling the items in the main menu"
+    IDS_SUB_SCROLL_SPEED    "Sub-menu scroll speed (1..10)"
+    IDS_SUB_SCROLL_SPEED_TIP 
+                            "The speed (from 1 to 10) when scrolling the items in the sub-menus"
+    IDS_FADE_SPEED          "Fade speed"
+    IDS_FADE_SPEED_TIP      "The duration (in ms) of the fade animation for the selected menu item"
+    IDS_DRAG_DELAY          "Drag/drop hide delay"
+    IDS_DRAG_DELAY_TIP      "The delay (in ms), after which the menu will close when you are dragging an item outside of the menu. Lets you drag from the menu to the Desktop or other programs"
+    IDS_ACCESSIBILITY       "Enable accessibility"
+    IDS_ACCESSIBILITY_TIP   "Enable the active accessibility features of the start menu"
+    IDS_NEXTTASKBAR         "Show next to taskbar (when the taskbar is vertical)"
+    IDS_NEXTTASKBAR_TIP     "When this is checked and the taskbar is docked to the left or right edge of the screen, the start menu will appear next to the taskbar instead of on top of it"
+    IDS_SEARCH_COMMAND      "Custom search command"
+    IDS_SEARCH_COMMAND_TIP  "Enter a custom command to run when you pick Search -> For Files or Folders"
+    IDS_CASCADE_MENU        "Cascading right-click menu"
+    IDS_CASCADE_MENU_TIP    "When this is checked, the additional items of the right-click menu (like New Folder, or Sort by Name) are placed in a sub-menu of their own"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_CACHE_ICONS         "Pre-cache icons"
+    IDS_CACHE_ICONS_TIP     "When this is checked, the system will begin pre-loading the icons as soon as you log in, so the start menu will open faster"
+    IDS_SKIN_ERRORS         "Report skin errors"
+    IDS_SKIN_ERRORS_TIP     "When this is checked, the menu will report problems with the current skin. This is useful when creating and troubleshooting new skins"
+    IDS_LOOK_SETTINGS       "Menu Look"
+    IDS_MENU_WIDTH          "Main menu width"
+    IDS_MENU_WIDTH_TIP      "Set the width of the main menu text to fit this many average-width characters"
+    IDS_SUBMENU_WIDTH       "Sub-menu width"
+    IDS_SUBMENU_WIDTH_TIP   "Set the width of the sub-menu text to fit this many average-width characters"
+    IDS_SAME_COLUMNS        "All columns are same size"
+    IDS_SAME_COLUMNS_TIP    "When this is checked, all columns of a menu will be forced to be the same size"
+    IDS_MENU_CAPTION        "Menu caption"
+    IDS_MENU_CAPTION_TIP    "Enter the text you want to see on the side of the menu (for skins that support caption)"
+    IDS_MENU_USERNAME       "User name text"
+    IDS_MENU_USERNAME_TIP   "Enter the text you want to see in the user-name portion of the menu (for skins that show the user name)"
+    IDS_PIC_COMMAND         "User picture command"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_PIC_COMMAND_TIP     "Enter the command you want to run when you click on the user picture"
+    IDS_NAME_COMMAND        "User name command"
+    IDS_NAME_COMMAND_TIP    "Enter the command you want to run when you click on the user name"
+    IDS_SMALL_SIZE_SM       "Small icon size"
+    IDS_SMALL_SIZE_SM_TIP   "Set the small icon size. The default is 16 for DPI<=96, 20 for 96<DPI<=120 and 24 for DPI>120"
+    IDS_LARGE_SIZE_SM       "Large icon size"
+    IDS_LARGE_SIZE_SM_TIP   "Set the large icon size. The default is 32 for DPI<=96, 40 for 96<DPI<=120 and 48 for DPI>120"
+    IDS_NUMERIC_SORT        "Use numeric sorting"
+    IDS_NUMERIC_SORT_TIP    "When this is checked, the start menu will use numeric (logical) sorting instead of alphabetical sorting for names that contain numbers"
+    IDS_FONT_SMOOTHING      "Font smoothing"
+    IDS_FONT_SMOOTHING_TIP  "Select the font smoothing for the menu text"
+    IDS_SMOOTH_DEFAULT      "Default"
+    IDS_SMOOTH_DEFAULT_TIP  "The text will use the system default"
+    IDS_SMOOTH_NONE         "No smoothing"
+    IDS_SMOOTH_NONE_TIP     "The text will have no smoothing"
+    IDS_SMOOTH_STD          "Standard"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SMOOTH_STD_TIP      "The text will use the the standard anti-aliasing smoothing"
+    IDS_SMOOTH_CLEAR        "Clear Type"
+    IDS_SMOOTH_CLEAR_TIP    "The text will use the ClearType smoothing"
+    IDS_SECURITY_SETTINGS   "Security"
+    IDS_DRAG_DROP           "Enable Drag and Drop"
+    IDS_DRAG_DROP_TIP       "When this is checked, the user will be allowed to drag and drop items in the start menu"
+    IDS_CONTEXT_MENU        "Enable right-click menu"
+    IDS_CONTEXT_MENU_TIP    "When this is checked, the user will be allowed to right-click on an item and use its context menu"
+    IDS_NEW_FOLDER          "Enable New Folder"
+    IDS_NEW_FOLDER_TIP      "When this is checked, the user will be allowed to right-click in the start menu and create new folders"
+    IDS_EXIT                "Enable Exit"
+    IDS_EXIT_TIP            "When this is checked, the user can right-click on the start button and select 'Exit'"
+    IDS_SOUND_SETTINGS      "Sounds"
+    IDS_SOUND_MAIN          "Main menu sound"
+    IDS_SOUND_MAIN_TIP      "This sound plays when the start menu is opened"
+    IDS_SOUND_POPUP         "Sub-menu sound"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SOUND_POPUP_TIP     "This sound plays when a sub-menu is opened"
+    IDS_SOUND_COMMAND       "Command sound"
+    IDS_SOUND_COMMAND_TIP   "This sound plays when a start menu item is executed"
+    IDS_SOUND_DROP          "Drop sound"
+    IDS_SOUND_DROP_TIP      "This sound plays when something is dropped on the start menu"
+    IDS_WSM_SETTINGS        "Windows Start Menu"
+    IDS_CASCADE_ALL         "Cascading All Programs menu"
+    IDS_CASCADE_ALL_TIP     "When this is checked, the 'All Programs' item in the Windows start menu will expand as a cascading sub-menu"
+    IDS_ALL_DELAY           "Hover delay"
+    IDS_ALL_DELAY_TIP       "Enter the delay (in ms) for hovering over the 'All Programs' item"
+    IDS_ALL_SELECT          "Initially focus on:"
+    IDS_ALL_SELECT_TIP      "Select which item will be selected by default when you open the Windows start menu"
+    IDS_SELECT_SEARCH       "Search box"
+    IDS_SELECT_SEARCH_TIP   "The search box will be selected by default"
+    IDS_SELECT_BUTTON       "All Programs"
+    IDS_SELECT_BUTTON_TIP   "The 'All Programs' item will be selected by default"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SKIN_SETTINGS       "Skin"
+    IDS_ALL_SKIN_SETTINGS   "All Programs Skin"
+    IDS_CUSTOM_SETTINGS     "Customize Start Menu"
+    IDS_LANGUAGE_SETTINGS_SM "Language"
+    IDS_SCROLL_TYPE         "Multiple columns in sub-menus"
+    IDS_SCROLL_TYPE_TIP     "Select what to do when a sub-menu doesn't fit in a single column"
+    IDS_SCROLL_NO           "Use multiple columns"
+    IDS_SCROLL_NO_TIP       "If the menu doesn't fit in one column it will use multiple columns"
+    IDS_SCROLL_YES          "Use single column (scroll)"
+    IDS_SCROLL_YES_TIP      "If the menu doesn't fit in one column it will start scrolling"
+    IDS_SCROLL_AUTO         "Auto (multiple columns if they fit)"
+    IDS_SCROLL_AUTO_TIP     "The menu will use multiple columns only if all columns fit on screen. Otherwise it will use a single scrolling column"
+    IDS_ANIM_RANDOM         "Random"
+    IDS_ANIM_RANDOM_TIP     "The menu will use either slide or fade randomly"
+    IDC_SKINVARIATION       "Skin Variation"
+    IDS_COMMAND_TIP         "Pick a command for the menu item. The command determines what the item does when clicked"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_LINK_TIP            "Type a full path of a file or a folder. If you select a file, it will be executed. If you select a folder, it will be opened as a sub-menu. You can use environment variables like %windir%\\Notepad.exe. Note: Buttons with sub-menus cannot have a link"
+    IDS_TEXT_TIP            "Enter the text for the menu item. If the text starts with $ (like $Menu.Network) it will be looked up in the file StartMenuL10N.ini"
+    IDS_TIP_TIP             "Enter the infotip for the menu item. If the text starts with $ (like $Menu.NetworkTip) it will be looked up in the file StartMenuL10N.ini"
+    IDS_ICON_TIP            "Enter the icon for the button. If the icon is blank, the default icon of the link will be used instead. Use either a path to a .ico file, or a combination of a .dll file and a icon ID. Use 'none' to get no icon at all"
+    IDS_SORTZA_TIP          "The menu will be sorted in descending order by default"
+    IDS_SORTZAREC_TIP       "The sub-menus of this menu will be sorted in descending order"
+    IDS_SORTONCE_TIP        "The menu will be sorted automatically the first time it is opened. Any items added later will be at the bottom"
+    IDS_OPENUP_TIP          "The menu will open up instead of down (if there is room)"
+    IDS_OPENUPREC_TIP       "The sub-menus of this menu will open up instead of down"
+    IDS_NOEXPAND_TIP        "If this item has a link to a folder, it will not expand as a sub-menu"
+    IDS_MULTICOLUMN_TIP     "The menu will use multiple columns if it doesn't fit on screen"
+    IDS_TRACK_TIP           "The items from this menu will be tracked by the 'Recent Programs' database"
+    IDS_NOTRACK_TIP         "The items from this menu will not be tracked by the 'Recent Programs' database"
+    IDS_ITEMSFIRST_TIP      "If the menu has both a link to a folder and child items, the child items will appear before the files of the folder"
+    IDS_MAIN_SORTZA         "Sort the main menu in Z->A order"
+    IDS_MAIN_SORTONCE       "Sort the main menu only the first time"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SEPARATOR_TIP       "This item separates items in the menu"
+    IDS_BREAK_TIP           "(only for two-column main menus) marks the start of the second column"
+    IDS_PADDING_TIP         "(only for two-column main menus) moves the rest of the items in the column to the bottom"
+    IDS_PROGRAMS_TIP        "The Programs folder - contains all installed programs"
+    IDS_FAVORITES_TIP       "The Favorites folder"
+    IDS_DOCUMENTS_TIP       "Shows the recent documents"
+    IDS_USERFILES_TIP       "Shows the user files folder"
+    IDS_USERDOCS_TIP        "Shows the user documents folder"
+    IDS_USERPICS_TIP        "Shows the user pictures folder"
+    IDS_CONTROLPANEL_TIP    "Shows the contents of the Control Panel"
+    IDS_CONTROLPANEL2_TIP   "Shows the contents of the Control Panel. When double-clicked, will show the Control Panel in Categories view"
+    IDS_SECURITY_TIP        "Shows the Windows Security menu (with Task Manager, Change Password, etc). This only works via Remote Desktop"
+    IDS_NETWORK_TIP         "Shows the network connections"
+    IDS_PRINTERS_TIP        "Shows the available printers"
+    IDS_RUN_TIP             "Shows the Run dialog"
+    IDS_HELP_TIP            "Shows the Windows help"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_LOGOFF_TIP          "Logs off the current user"
+    IDS_UNDOCK_TIP          "Undocks the laptop from the docking station"
+    IDS_DISCONNECT_TIP      "Disconnects the computer from the terminal session (like Remote Desktop)"
+    IDS_SHUTDOWNBOX_TIP     "Shows the shutdown dialog"
+    IDS_SEARCHFI_TIP        "Searches for files and folders"
+    IDS_SEARCHPR_TIP        "Searches for a printer"
+    IDS_SEARCHCO_TIP        "Searches for computers on the network"
+    IDS_SEARCHPE_TIP        "Searches for people. May be disabled if Windows Mail is not available"
+    IDS_TASKBAR_TIP         "Opens the Taskbar and Start Menu settings"
+    IDS_MENU_TIP            "Opens the Classic Start Menu settings"
+    IDS_RECENT_TIP          "Creates a sub-menu with the recently executed items"
+    IDS_SLEEP_TIP           "Suspends the computer in sleep state"
+    IDS_HIBERNATE_TIP       "Suspends the computer in hibernate state"
+    IDS_RESTART_TIP         "Restarts the computer"
+    IDS_SHUTDOWN_TIP        "Shuts down the computer"
+    IDS_SWITCH_TIP          "Exits the current session and enters the 'switch user' screen"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_CUSTOM_TIP          "This is a custom menu item. Use the command property to launch a program, or the link property to add a folder to the start menu"
+    IDS_SEARCH_TIP          "This is the top item for the Search menu"
+    IDS_SETTINGS_MENU_TIP   "This is the top item for the Settings menu"
+    IDS_FEATURES_TIP        "Opens the Programs and Features window"
+    IDS_RESTORE_TIP         "Restores all properties (text, icon and more) to the defaults for the selected command"
+END
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#include "..\..\ClassicShellLib\resource.h"
+#include "..\..\ClassicShellLib\ClassicShellLib.rc"
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

@@ -1,0 +1,58 @@
+Classic Shell build instructions
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+1) Required tools
+
+* Visual Studio 2008 with Platform SDK
+
+* HTML Help Workshop - http://www.microsoft.com/downloads/details.aspx?FamilyID=00535334-c8a6-452f-9aa0-d597d16580cc&displaylang=en
+
+* WiX 3.0 - http://wix.codeplex.com/
+
+Make sure the help compiler hhc.exe and the wix tools light and candle are
+in the PATH.
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+2) Build the project
+
+Go to the ClassicShell\ClassicShellSetup folder and run BuildInstaller.bat.
+It will compile all code, rebuild the help, create the 32 and 64-bit MSI files
+and package everything in one bootstrapper exe. The final exe will be in
+ClassicShell\ClassicShellSetup\Release
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+3) The build process in detail
+
+BuildInstaller.bat does a few things:
+
+A. Compiles the ClassicShell solution for the Setup|Win32 configuration.
+   This includes the 32-bit ClassicExplorer and ClassicStartMenu, the skins
+   for the start menu, the ClassicShellSetup tool, and the SetupHelper tool.
+
+B. Compiles the ClassicShell solution for the Setup|x64 configuration.
+   This includes the 64-bit ClassicExplorer and ClassicStartMenu.
+
+C. Compiles the CHM help file from the Docs\Help\ClassicShell.hhp project.
+
+D. Uses the SetupHelper tool to calculate the checksums for all ini files.
+   The checksums are saved in inichecksum.bin. They are used during uninstall
+   to detect modified ini files.
+
+E. Builds the 32-bit and 64-bit MSI files using WiX.
+
+F. Builds the final setup exe using the ClassicShellSetup solution.
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+4) Localization
+
+Classic Shell can be localized in multiple languages. You can provide your own
+text for most of the user interface.
+Download the ClassicShellLoc.zip file and read the document Localization.rtf.
