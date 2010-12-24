@@ -5,10 +5,6 @@
 	Name="ClassicSkin"
 	ProjectGUID="{9EC23CA9-384A-4EEB-979E-69879DC1A78C}"
 	RootNamespace="ClassicSkin"
-	SccProjectName="SAK"
-	SccAuxPath="SAK"
-	SccLocalPath="SAK"
-	SccProvider="SAK"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>

@@ -23,6 +23,16 @@ static wchar_t g_ButtonCancel[256];
 static wchar_t g_ButtonMore[256];
 static HMODULE g_hShell32;
 
+static void LogPrint( CString *pLog, const wchar_t *format, ... )
+{
+	wchar_t buf[256];
+	va_list args;
+	va_start(args,format);
+	int len=Vsprintf(buf,_countof(buf),format,args);
+	va_end(args);
+	*pLog+=buf;
+}
+
 // CClassicCopyFile - this is the implementation of the Copy UI dialog box for files
 
 class CClassicCopyFile
@@ -31,11 +41,11 @@ public:
 	CClassicCopyFile( void ) { m_Icon=m_SrcIcon=m_DstIcon=NULL; m_bCopyMultiLast=false; }
 	~CClassicCopyFile( void );
 
-	bool Run( HWND hWnd, IAccessible *pAcc );
+	bool Run( HWND hWnd, IAccessible *pAcc, CString *pLog );
 
 private:
-	void EnumAccChildren( IAccessible *pAcc );
-	void AddAccChild( IAccessible *pAcc, const VARIANT &id );
+	void EnumAccChildren( IAccessible *pAcc, CString *pLog );
+	void AddAccChild( IAccessible *pAcc, const VARIANT &id, CString *pLog );
 	void GetFileInfo( IAccessible *pAcc, bool bSrc );
 
 	CString m_FileName;
@@ -71,13 +81,15 @@ CClassicCopyFile::~CClassicCopyFile( void )
 }
 
 // Show the dialog box. Returns true to suppress the original task dialog box
-bool CClassicCopyFile::Run( HWND hWnd, IAccessible *pAcc )
+bool CClassicCopyFile::Run( HWND hWnd, IAccessible *pAcc, CString *pLog )
 {
 	// find all interesting controls
-	EnumAccChildren(pAcc);
+	EnumAccChildren(pAcc,pLog);
 
 	if (!m_YesButton.first || m_YesButton.second!=CHILDID_SELF || !m_NoButton.first || m_NoButton.second!=CHILDID_SELF || !m_Cancel.first)
 		return false; // something is wrong, do nothing
+
+	if (pLog) pLog->Empty(); // success - no need to log anything
 
 	// get the info for the source and the destination file (file name, icon, properties)
 	m_bReadOnly=false;
@@ -143,7 +155,7 @@ void CClassicCopyFile::PumpMessages( void )
 	}
 }
 
-void CClassicCopyFile::AddAccChild( IAccessible *pAcc, const VARIANT &id )
+void CClassicCopyFile::AddAccChild( IAccessible *pAcc, const VARIANT &id, CString *pLog )
 {
 	CComVariant state;
 	pAcc->get_accState(id,&state);
@@ -155,20 +167,28 @@ void CClassicCopyFile::AddAccChild( IAccessible *pAcc, const VARIANT &id )
 		CComBSTR name;
 		if (SUCCEEDED(pAcc->get_accName(id,&name)) && name)
 		{
+			if (pLog)
+				LogPrint(pLog,L"button found: '%s', %d\r\n",name,id.intVal);
 			if (_wcsicmp(name,g_ButtonCopy)==0 || _wcsicmp(name,g_ButtonMove)==0)
 			{
 				m_YesButton.first=pAcc;
 				m_YesButton.second=id.intVal;
+				if (pLog)
+					LogPrint(pLog,L"YES button: %x, %d\r\n",(DWORD)pAcc,id.intVal);
 			}
 			else if (_wcsicmp(name,g_ButtonDontCopy)==0 || _wcsicmp(name,g_ButtonDontMove)==0)
 			{
 				m_NoButton.first=pAcc;
 				m_NoButton.second=id.intVal;
+				if (pLog)
+					LogPrint(pLog,L"NO button: %x, %d\r\n",(DWORD)pAcc,id.intVal);
 			}
 			else if (_wcsicmp(name,g_ButtonCancel)==0)
 			{
 				m_Cancel.first=pAcc;
 				m_Cancel.second=id.intVal;
+				if (pLog)
+					LogPrint(pLog,L"CANCEL button: %x, %d\r\n",(DWORD)pAcc,id.intVal);
 			}
 		}
 	}
@@ -180,9 +200,9 @@ void CClassicCopyFile::AddAccChild( IAccessible *pAcc, const VARIANT &id )
 	}
 }
 
-void CClassicCopyFile::EnumAccChildren( IAccessible *pAcc )
+void CClassicCopyFile::EnumAccChildren( IAccessible *pAcc, CString *pLog )
 {
-	AddAccChild(pAcc,CComVariant(CHILDID_SELF));
+	AddAccChild(pAcc,CComVariant(CHILDID_SELF),pLog);
 	long count;
 	pAcc->get_accChildCount(&count);
 	CComVariant children[20];
@@ -193,10 +213,10 @@ void CClassicCopyFile::EnumAccChildren( IAccessible *pAcc )
 		{
 			CComQIPtr<IAccessible> pChild=children[i].pdispVal;
 			if (pChild)
-				EnumAccChildren(pChild);
+				EnumAccChildren(pChild,pLog);
 		}
 		else
-			AddAccChild(pAcc,children[i]);
+			AddAccChild(pAcc,children[i],pLog);
 	}
 }
 
@@ -564,16 +584,58 @@ static LRESULT CALLBACK WindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 				// file UI
 				if (GetSettingBool(L"ReplaceFileUI"))
 				{
+					CString log;
+					bool bLog=GetSettingInt(L"LogLevel")>0;
 					CComPtr<IAccessible> pAcc;
 					HRESULT h=AccessibleObjectFromWindow(hWnd,OBJID_WINDOW,IID_IAccessible,(void**)&pAcc);
 					if (SUCCEEDED(h) && pAcc)
 					{
 						CClassicCopyFile copy;
-						if (copy.Run(hWnd,pAcc))
+						if (copy.Run(hWnd,pAcc,bLog?&log:NULL))
 						{
 							pos->x=pos->y=-20000;
 							pos->flags&=~(SWP_SHOWWINDOW|SWP_NOMOVE);
 						}
+					}
+					else if (bLog)
+						LogPrint(&log,L"AccessibleObjectFromWindow: error=0x%X, hWnd=0x%X",h,(DWORD)hWnd);
+
+					if (bLog)
+					{
+						wchar_t fname[_MAX_PATH]=L"%LOCALAPPDATA%\\ExplorerLog.txt";
+						DoEnvironmentSubst(fname,_countof(fname));
+						if (!log.IsEmpty())
+						{
+							FILE *f;
+							if (_wfopen_s(&f,fname,L"wb")==0)
+							{
+								fwprintf(f,L"\xFEFF");
+
+								OSVERSIONINFOEX ver={sizeof(ver)};
+								GetVersionEx((OSVERSIONINFO*)&ver);
+								fwprintf(f,L"version = %d.%d.%d - %d.%d\r\n\r\n",ver.dwMajorVersion,ver.dwMinorVersion,ver.dwBuildNumber,ver.wServicePackMajor,ver.wServicePackMinor);
+
+								wchar_t languages[100]={0};
+								ULONG size=4; // up to 4 languages
+								ULONG len=_countof(languages);
+								GetThreadPreferredUILanguages(MUI_LANGUAGE_NAME,&size,languages,&len);
+								for (const wchar_t *lang=languages;*lang;lang+=wcslen(lang)+1)
+									fwprintf(f,L"language = %s\r\n",lang);
+
+								fwprintf(f,L"\r\n");
+								fwprintf(f,L"g_ButtonMove = '%s'\r\n",g_ButtonMove);
+								fwprintf(f,L"g_ButtonDontMove = '%s'\r\n",g_ButtonDontMove);
+								fwprintf(f,L"g_ButtonCopy = '%s'\r\n",g_ButtonCopy);
+								fwprintf(f,L"g_ButtonDontCopy = '%s'\r\n",g_ButtonDontCopy);
+								fwprintf(f,L"g_ButtonCancel = '%s'\r\n",g_ButtonCancel);
+								fwprintf(f,L"\r\n");
+
+								fwrite((const wchar_t*)log,log.GetLength(),2,f);
+								fclose(f);
+							}
+						}
+						else
+							DeleteFile(fname);
 					}
 				}
 			}

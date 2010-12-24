@@ -5,3 +5,4 @@
 
 void InitSettings( void );
 STARTMENUAPI void EditSettings( bool bModal );
+STARTMENUAPI void LogHookError( int error );

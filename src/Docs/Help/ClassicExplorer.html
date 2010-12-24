@@ -1,17 +1,5 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html><head>
-
-
-
-
-
-
-
-
-
-
-
-
   <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Explorer</title>
   <style type="text/css">
 h1 {
@@ -181,7 +169,7 @@ doesn't show that).<br>
 <h1><a name="settings"></a>Settings</h1>Version 2.9.0 introduces a new
 much more powerful system for editing the settings. All settings are
 accessible through a single UI, instead of dealing with ini files:<br>
-<img src="images/explorer_settings.png" style="width: 587px; height: 397px;" alt="Classic Explorer Settings" title="Classic Explorer Settings"><br>
+<img src="images/explorer_settings.png" style="width: 682px; height: 455px;" alt="Classic Explorer Settings" title="Classic Explorer Settings"><br>
 <br>
 You can choose from seeing only the basic settings, or all available
 settings. Hover over each setting to see a description of what it's for.<br>
@@ -209,7 +197,7 @@ Here's one example of what can be customized:<br>
     <img src="images/titlebar.png" style="width: 705px; height: 124px;" alt="Title bar tweaks" title="Title bar tweaks"><br>
 <br>
 Click on the <span style="font-weight: bold;">Toolbar Buttons</span> tab to customize the toolbar:<br>
-<img style="width: 587px; height: 397px;" alt="Customize Toolbar" title="Customize Toolbar" src="images/toolbar_settings.png"><br>
+<img style="width: 682px; height: 455px;" alt="Customize Toolbar" title="Customize Toolbar" src="images/toolbar_settings.png"><br>
 <br>The column on the left shows the current buttons in the toolbar,
 and the column on the right lists the buttons you can add to the
 toolbar. You can drag and drop buttons from the right column to the
@@ -223,21 +211,71 @@ Each item in the left column must have a unique name. This is the
 identifier of the item and can only contain English letters, digits and
 underscore. Some items (like SEPARATOR) cannot be renamed.<br>
 <br>
+<span style="font-weight: bold;">Important Note:</span> Not all available commands have default icons or text. That's because Windows doesn't have icons for things like <span style="font-weight: bold;">Undo</span>, <span style="font-weight: bold;">Select All</span>, etc. If you want to use such buttons in your toolbar you will have to provide your own icon. See below how to do it.<br>
+<br>
 After you place a button in the toolbar, you can edit it's attributes. Double-click on the button to edit:<br>
-<img style="width: 384px; height: 327px;" alt="Edit toolbar button" title="Edit toolbar button" src="images/button_settings.png"><br>
+<img style="width: 446px; height: 375px;" alt="Edit toolbar button" title="Edit toolbar button" src="images/button_settings.png"><br>
 Here you can select a command for the button, its text and icon. Press the <span style="font-weight: bold;">Restore Defaults</span> button to get the default text and icon for the chosen command.<br>
 The command can be:<br>
 <ul>
-  <li><span style="font-weight: bold;">one of the predefined commands</span> - from the dropdown</li>
+
+  
+  <li><span style="font-weight: bold;">left blank</span> - then if the link attribute is used, it will act as a command</li>
+<li><span style="font-weight: bold;">one of the predefined commands</span> - from the dropdown</li>
   <li><span style="font-weight: bold;">open &lt;some folder&gt;</span> - this will open the folder in the current browser</li>
+  
   <li><span style="font-weight: bold;">custom executable string</span>
 - this can be a name of a program and its arguments, or even a URL
-(like http://www.google.com). For the arguments you can use the
-placeholders %1 and %2. %1 will be the path of the current folder and
-%2 will be the path of the selected file (only when a single file is
-selected). Environment variables like %SystemRoot% are also supported</li>
-  <li><span style="font-weight: bold;">left blank</span> - then if the link attribute is used, it will act as a command<br>
-  </li>
+(like http://www.google.com). You can use environment variables like <span style="font-weight: bold;">%SystemRoot%</span>. You can also use the
+placeholders <span style="font-weight: bold;">%1</span>, <span style="font-weight: bold;">%2</span>, <span style="font-weight: bold;">%3</span>, <span style="font-weight: bold;">%4</span> and <span style="font-weight: bold;">%5</span>:</li>
+  <ul>
+    <li><span style="font-weight: bold;">%1</span> is the path of the
+current folder. Keep in mind that if the current folder is a root of a
+drive it will end with a backslash (like C:\)<br>
+    </li>
+    <li><span style="font-weight: bold;">%2</span> is the path of the selected file (only when a single file is
+selected)</li>
+    <li><span style="font-weight: bold;">%3</span>
+is a name of a temporary text file that contains all selected files.
+Each line in the text file contains one file with its full path<br>
+</li>
+    <li><span style="font-weight: bold;">%4</span>
+is the same as %3, but the file is in Unicode (UTF16) format. The file
+contains no byte order mark. %3 and %4 can't both be used by the same command<br>
+</li>
+    <li><span style="font-weight: bold;">Note to developers: </span>When
+%3 or %4 is used, it is the responsibility of the command to delete the
+temporary file when it finishes. Otherwise the temp file will be left
+behind and waste disk space. Also the if the command is a console application
+or a batch file it will be launched in silent mode with no console
+window</li>
+
+    <li><span style="font-weight: bold;">%5</span> is a name of a
+temporary text file, which can be used to return a command back to
+Classic Explorer. If the first 2 bytes of the file are 255 and 254, the
+file is treated as Unicode. Only one command can be used at a time. The command
+can be:</li>
+    <ul>
+      <li><span style="font-weight: bold;">open &lt;folder name&gt;</span> - causes Explorer to navigate to the given folder</li>
+      <li><span style="font-weight: bold;">select &lt;list of file names&gt;</span>
+- selects the given files, deselects the rest. The file names must be
+separated by a tab or a newline character. The files should not contain
+a path. If they do, the path will be ignored<br>
+      </li>
+      <li><span style="font-weight: bold;">refresh</span> - refreshes Explorer</li>
+    </ul>
+  </ul>
+  <ul>
+    <li><span style="font-weight: bold;">Note to developers:</span>
+commands using %5 will run in silent mode (like commands using %3 or
+%4) but
+also Explorer will wait for the process to finish. The process must
+finish as quickly as possible, because Explorer will be frozen during
+the execution of the command</li>
+    <li>See the next section for a few examples how to use these parameters<br>
+    </li>
+
+  </ul>
 </ul>
 The link can be a path to a file or a folder. If it is a file, that
 file will be executed. If it is a folder, that folder will be opened as
@@ -266,24 +304,66 @@ their state after that you need to find all Explorer windows, locate
 the child window with class <span style="font-weight: bold;">ClassicShell.CBandWindow</span>, and post a message <span style="font-weight: bold;">WM_CLEAR</span>. This is useful if you are developing a custom exe to be used by the toolbar.<br>
 
 <br>
+<h1><a name="examples"></a>Examples for Custom Commands</h1>
+<h3>1) Print the current folder</h3>
+Use this command: <span style="font-weight: bold;">cmd.exe /k echo %1</span>. %1 will be replaced by the path of the current folder.<br>
+<br>
+<h3>2) Open the selected file in Notepad</h3>
+Use this command: <span style="font-weight: bold;">%SystemRoot%\notepad.exe %2</span>. %2 will be replaced by the full name of the selected file.<br>
+<br>
+<h3>3) Copy selected files to the parent folder<br>
+</h3>
+Create a batch file called <span style="font-weight: bold;">C:\CopyParent.bat</span>:<br><span style="font-family: monospace;">FOR /F "delims=" %%i in (%1) do copy /Y "%%i" ..</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">delete %1</span><br style="font-family: monospace;">
+<br>
+Use this command: <span style="font-weight: bold;">C:\</span><span style="font-weight: bold;">CopyParent</span><span style="font-weight: bold;">.bat %3</span>.
+%3 will be replaced by a text file containing the full names of all
+selected files. The batch file will read each line of that text file,
+and copy each of the selected files to the parent folder. At the end
+the batch file deletes the initial
+temp file.<br>
+<br>
+<h3>4) Select all text files</h3>
+Create a batch file called <span style="font-weight: bold;">C:\SelectText.bat</span>:<br>
+<span style="font-weight: bold; font-family: monospace;">echo select &gt; %1</span><br style="font-weight: bold; font-family: monospace;">
+<span style="font-weight: bold; font-family: monospace;">dir *.txt /b &gt;&gt; %1</span><br style="font-weight: bold; font-family: monospace;">
+<br>
+Use this command: <span style="font-weight: bold;">C:\SelectText.bat %5.</span>
+%5 will be replaced by a blank text file, where the command must output
+the word "select" and a list of files it wants to select. The "dir
+*.txt /b" command provides that list.<br>
+<br>
 <br>
 
 <h1><a name="admin"></a>Administrative Settings</h1>The settings are
 per user and are stored in the registry. By default every user can edit
 all of their settings. An administrator can lock specific settings, so
 no user can edit them:<br>
-<img style="width: 587px; height: 397px;" alt="Locked Explorer setting" title="Locked Explorer setting" src="images/up_locked.png"><br>
+<img style="width: 682px; height: 455px;" alt="Locked Explorer setting" title="Locked Explorer setting" src="images/up_locked.png"><br>
 In this example the setting "Show Up button" is locked to always be
-"After Back/Forward" and can't be changed by any user. This is achieved
-by adding the setting to the <span style="font-weight: bold;">HKEY_LOCAL_MACHINE\SOFTWARE\IvoSoft\ClassicExplorer</span> registry key. Create a string value called "ShowUpButton" and set it to "AfterBack".<br>
+"Before Back/Forward" and can't be changed by any user. This is achieved
+by adding the setting to the <span style="font-weight: bold;">HKEY_LOCAL_MACHINE\SOFTWARE\IvoSoft\ClassicExplorer</span> registry key. Create a string value called "ShowUpButton" and set it to "BeforeBack".<br>
 The easiest way to know the registry name of a setting and its value is to modify it, and then look it up in <span style="font-weight: bold;">HKEY_CURRENT_USER\Software\IvoSoft\ClassicExplorer</span>.<br>
 Sometimes you may want to lock a setting to its default value, but you
 don't know what the default value is. Then create a DWORD value and set
 it to 0xDEFA.<br>
 <br>
-There is also a global setting "EnableSettings". Set it to 0 in the
+There is also a global setting <span style="font-weight: bold;">EnableSettings</span>. Set it to 0 in the
 registry to prevent the users from even opening the Settings dialog:<br>
 <img style="width: 603px; height: 257px;" alt="Disable all settings" title="Disable all settings" src="images/settings_disable_ex.png"><br>
+<br>
+You can enable or disable Classic Explorer for individual processes
+using the 2 registry settings "ProcessWhiteList" and
+"ProcessBlackList". <span style="font-weight: bold;">ProcessWhiteList </span>is
+a list of processes for which Classic Explorer will load. Use only the
+file name of the process (like "notepad.exe"), separate multiple names
+with a comma or a semicolon. <span style="font-weight: bold;">ProcessBlackList</span>
+is a list of processes for which Classic Explorer will not load. You
+should only use one of the two lists. If both lists are specified, the
+black list will be ignored. The lists are only used when you enable the
+features that are supported for processes other than Explorer. At the
+moment these features are: the shared overlay icon and the replacements
+for the copy dialogs.<br>
 <br>
 <h1><a name="localization"></a>Localization</h1>
 

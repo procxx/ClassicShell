@@ -188,9 +188,7 @@ int ExitStartMenu( void )
 		DWORD size=sizeof(path);
 		if (RegQueryValueEx(hKey,L"Path",0,&type,(BYTE*)path,&size)==ERROR_SUCCESS && type==REG_SZ)
 		{
-			STARTUPINFO startupInfo;
-			memset(&startupInfo,0,sizeof(startupInfo));
-			startupInfo.cb=sizeof(startupInfo);
+			STARTUPINFO startupInfo={sizeof(startupInfo)};
 			PROCESS_INFORMATION processInfo;
 			memset(&processInfo,0,sizeof(processInfo));
 			wcscat_s(path,L"ClassicStartMenu.exe");

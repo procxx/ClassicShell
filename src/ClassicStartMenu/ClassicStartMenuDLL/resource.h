@@ -55,6 +55,8 @@
 #define IDS_SETTINGS_TITLE_VER          3003
 #define IDS_NEW_SETTINGS                3004
 #define IDS_CTRL_NOTHING                3005
+#define IDS_STRING3005                  3005
+#define IDS_NO_TEXT                     3005
 #define IDS_CTRL_CLASSIC                3006
 #define IDS_CTRL_WINDOWS                3007
 #define IDS_SETTINGS                    3008

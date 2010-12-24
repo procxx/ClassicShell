@@ -5,10 +5,6 @@
 	Name="ClassicShellLib"
 	ProjectGUID="{D42FE717-485B-492D-884A-1999F6D51154}"
 	RootNamespace="ClassicShellLib"
-	SccProjectName="SAK"
-	SccAuxPath="SAK"
-	SccLocalPath="SAK"
-	SccProvider="SAK"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>

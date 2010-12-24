@@ -1,4 +1,21 @@
 ===============================================================================
+== Version 2.9.2 release candidate (Dec, 2010):
+
+- Added a toolbar command for creating a new folder
+
+- Added a way for the custom toolbar commands to receive all selected files
+
+- Added a white list and a black list to limit which processes can load Classic
+  Explorer
+
+- Fixed the Z-order problems when the start menu is activated by hovering
+
+- Fixed the spontaneous expanding of the All Programs menu
+
+- Small improvements to the settings UI
+
+
+===============================================================================
 == Version 2.9.0 beta (Oct, 2010):
 
 - Replaced the ini files with a graphical interface for editing all settings

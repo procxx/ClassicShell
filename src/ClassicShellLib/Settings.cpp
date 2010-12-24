@@ -713,6 +713,7 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 {
 	if (m_ImageList) return m_ImageList;
 	int size=TreeView_GetItemHeight(tree);
+	if (size>16 && size<20) size=16; // avoid weird sizes that can distort the icons
 	m_ImageList=ImageList_Create(size,size,ILC_COLOR32|ILC_MASK|((GetWindowLong(tree,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)?ILC_MIRROR:0),0,12);
 	BITMAPINFO dib={sizeof(dib)};
 	dib.bmiHeader.biWidth=size;

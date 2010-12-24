@@ -40,6 +40,10 @@
 			<param name="Local" value="ClassicExplorer.html#settings">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
+			<param name="Name" value="Examples for Custom Commands">
+			<param name="Local" value="ClassicExplorer.html#examples">
+			</OBJECT>
+		<LI> <OBJECT type="text/sitemap">
 			<param name="Name" value="Administrative Settings">
 			<param name="Local" value="ClassicExplorer.html#admin">
 			</OBJECT>

@@ -170,25 +170,26 @@ public:
 	{
 		CONTAINER_LARGE        = 0x000001, // use large icons
 		CONTAINER_MULTICOLUMN  = 0x000002, // use multiple columns instead of a single scrolling column
-		CONTAINER_CONTROLPANEL = 0x000004, // this is the control panel, don't go into subfolders
-		CONTAINER_PROGRAMS     = 0x000008, // this is a folder from the Start Menu hierarchy (drop operations prefer link over move)
-		CONTAINER_DOCUMENTS    = 0x000010, // sort by time, limit the count (for recent documents)
-		CONTAINER_ALLPROGRAMS  = 0x000020, // this is the main menu of All Programs (combines the Start Menu and Programs folders)
-		CONTAINER_RECENT       = 0x000040, // insert recent programs (sorted by time)
-		CONTAINER_LINK         = 0x000080, // this is an expanded link to a folder (always scrolling)
-		CONTAINER_ITEMS_FIRST  = 0x000100, // put standard items at the top
-		CONTAINER_DRAG         = 0x000200, // allow items to be dragged out
-		CONTAINER_DROP         = 0x000400, // allow dropping of items
-		CONTAINER_LEFT         = 0x000800, // the window is aligned on the left
-		CONTAINER_TOP          = 0x001000, // the window is aligned on the top
-		CONTAINER_AUTOSORT     = 0x002000, // the menu is always in alphabetical order
-		CONTAINER_OPENUP_REC   = 0x004000, // the container's children will prefer to open up instead of down
-		CONTAINER_SORTZA       = 0x008000, // the container will sort backwards by default
-		CONTAINER_SORTZA_REC   = 0x010000, // the container's children will sort backwards by default
-		CONTAINER_SORTONCE     = 0x020000, // the container will save the sort order the first time the menu is opened
-		CONTAINER_TRACK        = 0x040000, // track shortcuts from this menu
-		CONTAINER_NOSUBFOLDERS = 0x080000, // don't go into subfolders
-		CONTAINER_NONEWFOLDER  = 0x100000, // don't show the "New Folder" command
+		CONTAINER_MULTICOL_REC = 0x000004, // the children will be multi-column
+		CONTAINER_CONTROLPANEL = 0x000008, // this is the control panel, don't go into subfolders
+		CONTAINER_PROGRAMS     = 0x000010, // this is a folder from the Start Menu hierarchy (drop operations prefer link over move)
+		CONTAINER_DOCUMENTS    = 0x000020, // sort by time, limit the count (for recent documents)
+		CONTAINER_ALLPROGRAMS  = 0x000040, // this is the main menu of All Programs (combines the Start Menu and Programs folders)
+		CONTAINER_RECENT       = 0x000080, // insert recent programs (sorted by time)
+		CONTAINER_LINK         = 0x000100, // this is an expanded link to a folder (always scrolling)
+		CONTAINER_ITEMS_FIRST  = 0x000200, // put standard items at the top
+		CONTAINER_DRAG         = 0x000400, // allow items to be dragged out
+		CONTAINER_DROP         = 0x000800, // allow dropping of items
+		CONTAINER_LEFT         = 0x001000, // the window is aligned on the left
+		CONTAINER_TOP          = 0x002000, // the window is aligned on the top
+		CONTAINER_AUTOSORT     = 0x004000, // the menu is always in alphabetical order
+		CONTAINER_OPENUP_REC   = 0x008000, // the container's children will prefer to open up instead of down
+		CONTAINER_SORTZA       = 0x010000, // the container will sort backwards by default
+		CONTAINER_SORTZA_REC   = 0x020000, // the container's children will sort backwards by default
+		CONTAINER_SORTONCE     = 0x040000, // the container will save the sort order the first time the menu is opened
+		CONTAINER_TRACK        = 0x080000, // track shortcuts from this menu
+		CONTAINER_NOSUBFOLDERS = 0x100000, // don't go into subfolders
+		CONTAINER_NONEWFOLDER  = 0x200000, // don't show the "New Folder" command
 	};
 
 	CMenuContainer( CMenuContainer *pParent, int index, int options, const StdMenuItem *pStdItem, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName );

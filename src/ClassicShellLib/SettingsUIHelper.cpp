@@ -950,12 +950,11 @@ LRESULT CEditCustomItemDlg::OnOK( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL
 
 LRESULT CEditCustomItemDlg::OnCancel( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
 {
-	(*m_pItem)=m_StoredItem;
-
 	::EnableWindow(m_EnableParent,TRUE);
 	m_bResult=false;
 	StorePlacement();
 	DestroyWindow();
+	(*m_pItem)=m_StoredItem;
 	return 0;
 }
 

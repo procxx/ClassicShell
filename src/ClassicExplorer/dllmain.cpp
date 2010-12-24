@@ -73,6 +73,7 @@ TlsData *GetTlsData( void )
 	if (!pData)
 	{
 		pData=(void*)LocalAlloc(LPTR,sizeof(TlsData));
+		memset(pData,0,sizeof(TlsData));
 		TlsSetValue(g_TlsIndex,pData);
 	}
 	return (TlsData*)pData;
@@ -98,6 +99,52 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 			// some arbitrary app
 			if ((!GetSettingBool(L"ShareOverlay") || GetSettingBool(L"ShareExplorer")) && (!bReplaceUI || GetSettingBool(L"FileExplorer")))
 				return FALSE;
+			CString whiteList=GetSettingString(L"ProcessWhiteList");
+			if (!whiteList.IsEmpty())
+			{
+				// check for whitelisted process names
+				const wchar_t *str=whiteList;
+				bool bFound=false;
+				while (*str)
+				{
+					wchar_t token[_MAX_PATH];
+					str=GetToken(str,token,_countof(token),L",;");
+					wchar_t *start=token;
+					while (*start==' ')
+						start++;
+					wchar_t *end=start+Strlen(start);
+					while (end>start && end[-1]==' ')
+						end--;
+					*end=0;
+					if (_wcsicmp(exe,start)==0)
+					{
+						bFound=true;
+						break;
+					}
+				}
+				if (!bFound)
+					return FALSE;
+			}
+			else
+			{
+				// check for blacklisted process names
+				CString blackList=GetSettingString(L"ProcessBlackList");
+				const wchar_t *str=blackList;
+				while (*str)
+				{
+					wchar_t token[_MAX_PATH];
+					str=GetToken(str,token,_countof(token),L",;");
+					wchar_t *start=token;
+					while (*start==' ')
+						start++;
+					wchar_t *end=start+Strlen(start);
+					while (end>start && end[-1]==' ')
+						end--;
+					*end=0;
+					if (_wcsicmp(exe,start)==0)
+						return FALSE;
+				}
+			}
 		}
 
 		g_Instance=hInstance;

@@ -5,9 +5,6 @@
 	Name="ClassicShellSetup"
 	ProjectGUID="{A4A4D3B1-24E7-401E-A37C-72141D7603DC}"
 	RootNamespace="ClassicShellSetup"
-	SccProjectName="Perforce Project"
-	SccLocalPath=".."
-	SccProvider="MSSCCI:Perforce SCM"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>

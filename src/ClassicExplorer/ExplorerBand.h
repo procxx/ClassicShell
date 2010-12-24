@@ -43,6 +43,7 @@ public:
 		ID_REFRESH,
 		ID_STOP,
 		ID_RENAME,
+		ID_NEWFOLDER,
 		ID_VIEW_TILES,
 		ID_VIEW_DETAILS,
 		ID_VIEW_LIST,
@@ -126,6 +127,9 @@ private:
 	HMENU CreateDropMenu( const StdToolbarItem *pItem );
 	HMENU CreateDropMenuRec( const StdToolbarItem *pItem, std::vector<HMODULE> &modules, HMODULE hShell32 );
 	void SendEmail( void );
+	void NewFolder( void );
+	void ExecuteCommandFile( const wchar_t *pText );
+	void ExecuteCustomCommand( const wchar_t *pCommand );
 };
 
 

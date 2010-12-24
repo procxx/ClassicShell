@@ -5,9 +5,6 @@
 	Name="ClassicStartMenuDLL"
 	ProjectGUID="{85DEECBB-1F9B-4983-9D54-3BF42182B7E7}"
 	RootNamespace="ClassicStartMenuDLL"
-	SccProjectName="Perforce Project"
-	SccLocalPath="..\.."
-	SccProvider="MSSCCI:Perforce SCM"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>

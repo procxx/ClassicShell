@@ -61,7 +61,6 @@ static StdMenuOption g_StdOptions[]=
 	{MENU_FEATURES,MENU_ENABLED}, // no setting (prevents the Programs and Features from expanding), check policy (for control panel)
 	{MENU_CLASSIC_SETTINGS,MENU_ENABLED}, // MENU_ENABLED from ini file
 	{MENU_SEARCH,MENU_ENABLED}, // check policy
-	{MENU_SEARCH_FILES,MENU_NONE}, // MENU_ENABLED if the search service is available
 	{MENU_SEARCH_PRINTER,MENU_NONE}, // MENU_ENABLED if Active Directory is available
 	{MENU_SEARCH_COMPUTERS,MENU_NONE}, // MENU_ENABLED if Active Directory is available, check policy
 	{MENU_SEARCH_PEOPLE,MENU_NONE}, // MENU_ENABLED if %ProgramFiles%\Windows Mail\wab.exe exists
@@ -724,6 +723,8 @@ void CMenuContainer::InitItems( void )
 				SHGetFileInfo((LPCWSTR)item.pItem1,0,&info,sizeof(info),SHGFI_PIDL|SHGFI_DISPLAYNAME);
 				item.name=info.szDisplayName;
 			}
+			else
+				item.name=LoadStringEx(IDS_NO_TEXT);
 
 			item.bPrograms=(item.id==MENU_PROGRAMS || item.id==MENU_FAVORITES);
 			m_Items.insert(m_Items.begin()+menuIdx,1,item);
@@ -1925,8 +1926,13 @@ LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 			::ShowWindow(g_UserPic,SW_SHOW);
 			::SetFocus(g_ProgramsButton);
 			CPoint pt(GetMessagePos());
-			::ScreenToClient(g_TopMenu,&pt);
-			::PostMessage(g_TopMenu,WM_MOUSEMOVE,0,MAKELONG(pt.x,pt.y));
+			RECT rc;
+			::GetWindowRect(g_TopMenu,&rc);
+			if (PtInRect(&rc,pt))
+			{
+				::ScreenToClient(g_TopMenu,&pt);
+				::PostMessage(g_TopMenu,WM_MOUSEMOVE,0,MAKELONG(pt.x,pt.y));
+			}
 		}
 	}
 	return 0;
@@ -2717,24 +2723,6 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 			case MENU_SEARCH_COMPUTERS:
 				g_StdOptions[i].options=(s_bActiveDirectory==1 && !SHRestricted(REST_HASFINDCOMPUTERS))?MENU_ENABLED|MENU_EXPANDED:0;
 				break;
-			case MENU_SEARCH_FILES:
-				{
-					bool bEnabled=false;
-					if (!GetSettingString(L"SearchFilesCommand").IsEmpty())
-						bEnabled=true;
-					else
-					{
-						CComPtr<IShellDispatch2> pShellDisp;
-						if (SUCCEEDED(CoCreateInstance(CLSID_Shell,NULL,CLSCTX_SERVER,IID_IShellDispatch2,(void**)&pShellDisp)))
-						{
-							CComVariant var;
-							if (SUCCEEDED(pShellDisp->IsServiceRunning(CComBSTR(L"WSearch"),&var)) && var.vt==VT_BOOL && var.boolVal)
-								bEnabled=true;
-						}
-					}
-					g_StdOptions[i].options=bEnabled?MENU_ENABLED|MENU_EXPANDED:0;
-				}
-				break;
 			case MENU_SEARCH_PEOPLE:
 				g_StdOptions[i].options=bPeople?MENU_ENABLED|MENU_EXPANDED:0;
 				break;
@@ -2921,7 +2909,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 		}
 		rc.top=rc.bottom;
 		options|=CONTAINER_ALLPROGRAMS;
-		options|=CONTAINER_MULTICOLUMN;
+		options|=CONTAINER_MULTICOLUMN|CONTAINER_MULTICOL_REC;
 	}
 	else
 	{
@@ -3126,11 +3114,6 @@ bool CMenuContainer::ProcessMouseMessage( HWND hwnd, UINT uMsg, WPARAM wParam, L
 				return true;
 			}
 	}
-	if (uMsg==WM_MOUSELEAVE)
-	{
-		if (hwnd==g_ProgramsButton)
-			return s_bAllPrograms;
-	}
 	if (uMsg==WM_MOUSEHOVER)
 	{
 		if (hwnd==g_ProgramsButton && GetSettingBool(L"CascadeAll"))
@@ -3145,8 +3128,13 @@ bool CMenuContainer::ProcessMouseMessage( HWND hwnd, UINT uMsg, WPARAM wParam, L
 			s_Menus[0]->DestroyWindow();
 		::ShowWindow(g_UserPic,SW_SHOW);
 		CPoint pt(GetMessagePos());
-		::ScreenToClient(g_TopMenu,&pt);
-		::PostMessage(g_TopMenu,WM_MOUSEMOVE,0,MAKELONG(pt.x,pt.y));
+		RECT rc;
+		::GetWindowRect(g_TopMenu,&rc);
+		if (PtInRect(&rc,pt))
+		{
+			::ScreenToClient(g_TopMenu,&pt);
+			::PostMessage(g_TopMenu,WM_MOUSEMOVE,0,MAKELONG(pt.x,pt.y));
+		}
 		return false;
 	}
 	return false;

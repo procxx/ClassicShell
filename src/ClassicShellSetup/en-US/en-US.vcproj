@@ -5,10 +5,6 @@
 	Name="en-US"
 	ProjectGUID="{0A60FD06-3A81-4651-A869-9850DBC115EA}"
 	RootNamespace="enUS"
-	SccProjectName="SAK"
-	SccAuxPath="SAK"
-	SccLocalPath="SAK"
-	SccProvider="SAK"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>

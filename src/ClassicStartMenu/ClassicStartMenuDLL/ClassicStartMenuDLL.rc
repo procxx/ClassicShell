@@ -98,8 +98,8 @@ BEGIN
 END
 
 IDD_SKINSETTINGS DIALOGEX 0, 0, 311, 165
-STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN | WS_SYSMENU
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN | WS_SYSMENU
+FONT 9, "Segoe UI", 400, 0, 0x0
 BEGIN
     LTEXT           "Skin:",IDC_STATICSKIN,7,7,16,12,SS_CENTERIMAGE
     COMBOBOX        IDC_COMBOSKIN,28,7,141,96,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
@@ -112,9 +112,9 @@ BEGIN
 END
 
 IDD_CUSTOMMENU DIALOGEX 0, 0, 249, 210
-STYLE DS_SETFONT | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+STYLE DS_SETFONT | DS_CENTER | WS_POPUP | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 CAPTION "Edit Menu Item (%s)"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
+FONT 9, "Segoe UI", 400, 0, 0x0
 BEGIN
     LTEXT           "Command:",IDC_STATICCOMMAND,7,7,35,12,SS_CENTERIMAGE
     COMBOBOX        IDC_COMBOCOMMAND,47,7,180,30,CBS_DROPDOWN | CBS_AUTOHSCROLL | CBS_SORT | WS_VSCROLL | WS_TABSTOP
@@ -129,7 +129,7 @@ BEGIN
     LTEXT           "Icon:",IDC_STATICICON,7,74,18,12,SS_CENTERIMAGE
     EDITTEXT        IDC_EDITICON,47,74,180,12,ES_AUTOHSCROLL
     PUSHBUTTON      "...",IDC_BUTTONICON,228,74,14,12
-    ICON            "",IDC_ICONN,9,89,20,20
+    ICON            "",IDC_ICONN,9,89,18,17
     CONTROL         "Sort Z->A",IDC_CHECKSORTZA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,116,48,10
     CONTROL         "Sort Z->A (for sub-menus)",IDC_CHECKSORTZAREC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,129,101,10
     CONTROL         "Sort Once",IDC_CHECKSORTONCE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,142,48,10
@@ -211,8 +211,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,9,0,0
- PRODUCTVERSION 2,9,0,0
+ FILEVERSION 2,9,2,0
+ PRODUCTVERSION 2,9,2,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -229,12 +229,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "2, 9, 0, 0"
+            VALUE "FileVersion", "2, 9, 2, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009-2010, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "2, 9, 0, 0"
+            VALUE "ProductVersion", "2, 9, 2, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -278,6 +278,7 @@ BEGIN
     IDS_SETTINGS_TITLE      "Settings for Classic Start Menu"
     IDS_SETTINGS_TITLE_VER  "Settings for Classic Start Menu %d.%d.%d"
     IDS_NEW_SETTINGS        "You need to restart the menu for the new settings to take effect: Right-click on the start button and select ""Exit"". Then run ClassicStartMenu.exe again. It will read the new settings."
+    IDS_NO_TEXT             "<No Text>"
 END
 
 STRINGTABLE 

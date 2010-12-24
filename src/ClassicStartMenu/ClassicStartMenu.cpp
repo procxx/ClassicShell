@@ -10,6 +10,7 @@
 #include <shlobj.h>
 #include <dbghelp.h>
 #include "StringUtils.h"
+#include "Settings.h"
 
 #include "ClassicStartMenuDLL\ClassicStartMenuDLL.h"
 #include "ClassicStartMenuDLL\SettingsUI.h"
@@ -44,6 +45,11 @@ static HWND HookStartMenu( bool bHookExplorer )
 	// install hooks in the explorer process
 	thread=GetWindowThreadProcessId(g_StartButton,NULL);
 	g_StartHook=SetWindowsHookEx(WH_GETMESSAGE,HookInject,hHookModule,thread);
+	if (!g_StartHook)
+	{
+		int err=GetLastError();
+		LogHookError(err);
+	}
 	PostMessage(g_StartButton,WM_NULL,0,0); // make sure there is one message in the queue
 
 	return NULL;

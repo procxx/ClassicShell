@@ -5,9 +5,6 @@
 	Name="ClassicExplorer"
 	ProjectGUID="{9AF324B7-F786-4D85-B2E1-6E51720F874E}"
 	RootNamespace="ClassicExplorer"
-	SccProjectName="Perforce Project"
-	SccLocalPath=".."
-	SccProvider="MSSCCI:Perforce SCM"
 	Keyword="AtlProj"
 	TargetFrameworkVersion="196613"
 	>

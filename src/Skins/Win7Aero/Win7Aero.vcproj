@@ -5,10 +5,6 @@
 	Name="Win7Aero"
 	ProjectGUID="{EA65FDDD-CB77-417F-8BB4-2F3ECB5B3E75}"
 	RootNamespace="Win7Aero"
-	SccProjectName="SAK"
-	SccAuxPath="SAK"
-	SccLocalPath="SAK"
-	SccProvider="SAK"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>

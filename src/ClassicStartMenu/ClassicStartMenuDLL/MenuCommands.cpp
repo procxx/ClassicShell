@@ -214,7 +214,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			if (item.pStdItem->settings&StdMenuItem::MENU_NOTRACK)
 				options&=~CONTAINER_TRACK;
 			if (item.pStdItem->settings&StdMenuItem::MENU_MULTICOLUMN)
-				options|=CONTAINER_MULTICOLUMN;
+				options|=CONTAINER_MULTICOL_REC;
 		}
 
 		if (item.pItem1 && s_pKnownFolders)
@@ -256,8 +256,15 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			}
 		}
 
-		if (!(options&CONTAINER_LINK) && ((m_Options&CONTAINER_MULTICOLUMN) || item.id==MENU_PROGRAMS))
-			options|=CONTAINER_MULTICOLUMN;
+		if (options&CONTAINER_LINK)
+			options&=~(CONTAINER_MULTICOLUMN|CONTAINER_MULTICOL_REC);
+		else
+		{
+			if (item.id==MENU_PROGRAMS || (m_Options&CONTAINER_MULTICOL_REC))
+				options|=CONTAINER_MULTICOL_REC;
+			if ((options&CONTAINER_MULTICOL_REC) && GetKeyState(VK_SHIFT)>=0)
+				options|=CONTAINER_MULTICOLUMN;
+		}
 		CMenuContainer *pMenu=new CMenuContainer(this,index,options,pSubMenu,item.pItem1,item.pItem2,m_RegName+L"\\"+item.name);
 		pMenu->InitItems();
 

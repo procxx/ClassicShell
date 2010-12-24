@@ -808,6 +808,7 @@ public:
 		COMMAND_HANDLER( IDC_EDITICON, EN_KILLFOCUS, OnIconChanged )
 		COMMAND_HANDLER( IDC_CHECKTRACK, BN_CLICKED, OnCheckTrack )
 		COMMAND_HANDLER( IDC_CHECKNOTRACK, BN_CLICKED, OnCheckTrack )
+		COMMAND_HANDLER( IDC_CHECKMULTICOLUMN, BN_CLICKED, OnCheckMulti )
 		COMMAND_HANDLER( IDC_BUTTONRESET, BN_CLICKED, OnReset )
 		CHAIN_MSG_MAP( CEditCustomItemDlg )
 	END_MSG_MAP()
@@ -836,6 +837,7 @@ protected:
 	LRESULT OnLinkChanged( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnIconChanged( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnCheckTrack( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
+	LRESULT OnCheckMulti( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnBrowseCommand( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnBrowseLink( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnBrowseIcon( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
@@ -864,11 +866,19 @@ LRESULT CEditMenuDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 	CheckDlgButton(IDC_CHECKOPENUP,(m_pItem->settings&StdMenuItem::MENU_OPENUP)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKOPENUPREC,(m_pItem->settings&StdMenuItem::MENU_OPENUP_REC)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKNOEXPAND,(m_pItem->settings&StdMenuItem::MENU_NOEXPAND)?BST_CHECKED:BST_UNCHECKED);
-	CheckDlgButton(IDC_CHECKMULTICOLUMN,(m_pItem->settings&StdMenuItem::MENU_MULTICOLUMN)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKTRACK,(m_pItem->settings&StdMenuItem::MENU_TRACK)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKNOTRACK,(m_pItem->settings&StdMenuItem::MENU_NOTRACK)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKITEMSFIRST,(m_pItem->settings&StdMenuItem::MENU_ITEMS_FIRST)?BST_CHECKED:BST_UNCHECKED);
+	if (m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0)
+	{
+		CheckDlgButton(IDC_CHECKMULTICOLUMN,BST_CHECKED);
+		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(FALSE);
+	}
+	else
+		CheckDlgButton(IDC_CHECKMULTICOLUMN,(m_pItem->settings&StdMenuItem::MENU_MULTICOLUMN)?BST_CHECKED:BST_UNCHECKED);
+
 	UpdateIcons(IDC_ICONN,0);
+	SendDlgItemMessage(IDC_EDITLABEL,EM_SETCUEBANNER,TRUE,(LPARAM)(const wchar_t*)LoadStringEx(IDS_NO_TEXT));
 
 	CWindow tooltip=CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_TRANSPARENT,TOOLTIPS_CLASS,NULL,WS_POPUP|TTS_NOPREFIX|TTS_ALWAYSTIP,0,0,0,0,m_hWnd,NULL,g_Instance,NULL);
 	tooltip.SendMessage(TTM_SETMAXTIPWIDTH,0,GetSystemMetrics(SM_CXSCREEN)/2);
@@ -975,10 +985,11 @@ LRESULT CEditMenuDlg::OnOK( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHan
 	if (IsDlgButtonChecked(IDC_CHECKOPENUP)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_OPENUP;
 	if (IsDlgButtonChecked(IDC_CHECKOPENUPREC)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_OPENUP_REC;
 	if (IsDlgButtonChecked(IDC_CHECKNOEXPAND)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_NOEXPAND;
-	if (IsDlgButtonChecked(IDC_CHECKMULTICOLUMN)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_MULTICOLUMN;
 	if (IsDlgButtonChecked(IDC_CHECKTRACK)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_TRACK;
 	if (IsDlgButtonChecked(IDC_CHECKNOTRACK)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_NOTRACK;
 	if (IsDlgButtonChecked(IDC_CHECKITEMSFIRST)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_ITEMS_FIRST;
+	if (IsDlgButtonChecked(IDC_CHECKMULTICOLUMN)==BST_CHECKED && (!m_pItem->pStdCommand || wcscmp(m_pItem->pStdCommand->name,L"programs")!=0))
+		m_pItem->settings|=StdMenuItem::MENU_MULTICOLUMN;
 
 	return CEditCustomItemDlg::OnOK(wNotifyCode,wID,hWndCtl,bHandled);
 }
@@ -992,6 +1003,16 @@ LRESULT CEditMenuDlg::OnCommandChanged( WORD wNotifyCode, WORD wID, HWND hWndCtl
 	GetDlgItem(IDC_COMBOLINK).EnableWindow(bEnable);
 	GetDlgItem(IDC_BUTTONLINK).EnableWindow(bEnable);
 	GetDlgItem(IDC_BUTTONRESET).EnableWindow(m_pItem->pStdCommand && *m_pItem->pStdCommand->name);
+	if (m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0)
+	{
+		CheckDlgButton(IDC_CHECKMULTICOLUMN,BST_CHECKED);
+		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(FALSE);
+	}
+	else
+	{
+		CheckDlgButton(IDC_CHECKMULTICOLUMN,(m_pItem->settings&StdMenuItem::MENU_MULTICOLUMN)?BST_CHECKED:BST_UNCHECKED);
+		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(TRUE);
+	}
 	UpdateIcons(IDC_ICONN,0);
 	return 0;
 }
@@ -1021,6 +1042,15 @@ LRESULT CEditMenuDlg::OnCheckTrack( WORD wNotifyCode, WORD wID, HWND hWndCtl, BO
 {
 	if (IsDlgButtonChecked(wID)==BST_CHECKED)
 		CheckDlgButton(IDC_CHECKTRACK+IDC_CHECKNOTRACK-wID,BST_UNCHECKED);
+	return 0;
+}
+
+LRESULT CEditMenuDlg::OnCheckMulti( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
+{
+	if (IsDlgButtonChecked(IDC_CHECKMULTICOLUMN)==BST_CHECKED)
+		m_pItem->settings|=StdMenuItem::MENU_MULTICOLUMN;
+	else
+		m_pItem->settings&=~StdMenuItem::MENU_MULTICOLUMN;
 	return 0;
 }
 
@@ -1084,6 +1114,13 @@ LRESULT CEditMenuDlg::OnReset( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& b
 	CheckDlgButton(IDC_CHECKTRACK,(m_pItem->settings&StdMenuItem::MENU_TRACK)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKNOTRACK,(m_pItem->settings&StdMenuItem::MENU_NOTRACK)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKITEMSFIRST,(m_pItem->settings&StdMenuItem::MENU_ITEMS_FIRST)?BST_CHECKED:BST_UNCHECKED);
+	if (m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0)
+	{
+		CheckDlgButton(IDC_CHECKMULTICOLUMN,BST_CHECKED);
+		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(FALSE);
+	}
+	else
+		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(FALSE);
 
 	UpdateIcons(IDC_ICONN,IDC_ICOND);
 	return 0;
@@ -1499,4 +1536,19 @@ void EditSettings( bool bModal )
 	else
 		Sprintf(title,_countof(title),LoadStringEx(IDS_SETTINGS_TITLE));
 	EditSettings(title,bModal);
+}
+
+void LogHookError( int error )
+{
+	if (GetSettingInt(L"LogLevel")>0)
+	{
+		wchar_t fname[_MAX_PATH]=L"%LOCALAPPDATA%\\StartMenuLog.txt";
+		DoEnvironmentSubst(fname,_countof(fname));
+		FILE *f;
+		if (_wfopen_s(&f,fname,L"wb")==0)
+		{
+			fprintf(f,"Failed to hook Explorer - error=0x%X\r\n",error);
+			fclose(f);
+		}
+	}
 }

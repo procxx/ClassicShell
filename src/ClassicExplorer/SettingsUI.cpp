@@ -11,7 +11,6 @@
 #include "Translations.h"
 #include "resource.h"
 #include "dllmain.h"
-#include <htmlhelp.h>
 #include <dwmapi.h>
 
 static wchar_t g_ContentName[]=L"View Content"; // this is set to empty string on Vista to disable the "view content" command
@@ -29,6 +28,7 @@ static CStdCommand g_StdCommands[]={
 	{L"refresh",L"Refresh",IDS_REFRESH_TIP,L"RefreshItem",NULL,L"",L"shell32.dll,16739"},
 	{L"stop",L"Stop",IDS_STOP_TIP,L"StopItem",NULL,L"",L"imageres.dll,98"},
 	{L"rename",L"Rename",IDS_RENAME_TIP,L"RenameItem",NULL,L"",L"shell32.dll,242"},
+	{L"newfolder",L"New Folder",IDS_NEWFOLDER_TIP,L"NewFolderItem",NULL,L"$Toolbar.NewFolder",L"shell32.dll,319"},
 	{L"moveto",L"Move To",IDS_MOVETO_TIP,L"MoveToItem",NULL,NULL,L""},
 	{L"copyto",L"Copy To",IDS_COPYTO_TIP,L"CopyToItem",NULL,NULL,L""},
 	{L"undo",L"Undo",IDS_UNDO_TIP,L"UndoItem",NULL,NULL,L""},
@@ -412,6 +412,9 @@ static CCustomToolbarPanel g_CustomToolbarPanel;
 static CSetting g_Settings[]={
 {L"Basic",CSetting::TYPE_GROUP,IDS_BASIC_SETTINGS},
 	{L"EnableSettings",CSetting::TYPE_BOOL,0,0,1,CSetting::FLAG_HIDDEN},
+	{L"LogLevel",CSetting::TYPE_INT,0,0,0,CSetting::FLAG_HIDDEN},
+	{L"ProcessWhiteList",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_HIDDEN},
+	{L"ProcessBlackList",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_HIDDEN},
 
 {L"NavigationPane",CSetting::TYPE_GROUP,IDS_NAVIGATION_SETTINGS},
 	{L"TreeStyle",CSetting::TYPE_INT,IDS_TREE_STYLE,IDS_TREE_STYLE_TIP,2,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
@@ -472,7 +475,7 @@ static CSetting g_Settings[]={
 	{L"ShareOverlay",CSetting::TYPE_BOOL,IDS_SHARE,IDS_SHARE_TIP,0,CSetting::FLAG_COLD|CSetting::FLAG_BASIC},
 	{L"ShareOverlayIcon",CSetting::TYPE_ICON,IDS_SHARE_ICON,IDS_SHARE_ICON_TIP,L"%windir%\\system32\\imageres.dll,164",CSetting::FLAG_COLD,L"ShareOverlay"},
 	{L"ShareExplorer",CSetting::TYPE_BOOL,IDS_SHARE_EXPLORER,IDS_SHARE_EXPLORER_TIP,1,CSetting::FLAG_COLD,L"ShareOverlay"},
-	{L"ShowHeaders",CSetting::TYPE_BOOL,IDS_HEADERS,IDS_HEADERS_TIP,0},
+	{L"ShowHeaders",CSetting::TYPE_BOOL,IDS_HEADERS,IDS_HEADERS_TIP,0,CSetting::FLAG_WARM},
 
 {L"FileOperation",CSetting::TYPE_GROUP,IDS_FILE_SETTINGS},
 	{L"ReplaceFileUI",CSetting::TYPE_BOOL,IDS_FILE_UI,IDS_FILE_UI_TIP,1,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
@@ -521,16 +524,21 @@ void UpdateSettings( void )
 	}
 }
 
+static bool g_bCopyHook0; // initial state of the copy hook before the settings are edited
+
 void InitSettings( void )
 {
 	InitSettings(g_Settings,false);
+	g_bCopyHook0=GetSettingBool(L"ReplaceFileUI") || GetSettingBool(L"ReplaceFolderUI") || GetSettingBool(L"EnableMore");
 }
 
 void ClosingSettings( HWND hWnd, int flags, int command )
 {
 	if (command==IDOK)
 	{
-		if (flags&CSetting::FLAG_COLD)
+		bool bCopyHook=GetSettingBool(L"ReplaceFileUI") || GetSettingBool(L"ReplaceFolderUI") || GetSettingBool(L"EnableMore");
+
+		if ((flags&CSetting::FLAG_COLD) || (bCopyHook && !g_bCopyHook0))
 			MessageBox(hWnd,LoadStringEx(IDS_NEW_SETTINGS2),LoadStringEx(IDS_APP_TITLE),MB_OK|MB_ICONWARNING);
 		else if (flags&CSetting::FLAG_WARM)
 			MessageBox(hWnd,LoadStringEx(IDS_NEW_SETTINGS1),LoadStringEx(IDS_APP_TITLE),MB_OK|MB_ICONINFORMATION);
@@ -539,10 +547,7 @@ void ClosingSettings( HWND hWnd, int flags, int command )
 
 void EditSettings( void )
 {
-	// start the installer
-	STARTUPINFO startupInfo;
-	memset(&startupInfo,0,sizeof(startupInfo));
-	startupInfo.cb=sizeof(startupInfo);
+	STARTUPINFO startupInfo={sizeof(startupInfo)};
 	PROCESS_INFORMATION processInfo;
 	memset(&processInfo,0,sizeof(processInfo));
 	wchar_t path[_MAX_PATH];

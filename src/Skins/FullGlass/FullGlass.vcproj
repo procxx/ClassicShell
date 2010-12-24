@@ -5,10 +5,6 @@
 	Name="FullGlass"
 	ProjectGUID="{066C9721-26D5-4C4D-868E-50C2BA0A8196}"
 	RootNamespace="FullGlass"
-	SccProjectName="SAK"
-	SccAuxPath="SAK"
-	SccLocalPath="SAK"
-	SccProvider="SAK"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>

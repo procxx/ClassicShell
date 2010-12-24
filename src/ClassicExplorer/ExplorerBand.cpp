@@ -14,7 +14,9 @@
 #include "Translations.h"
 #include "dllmain.h"
 #include "SettingsUIHelper.h"
+#include "FNVHash.h"
 #include <shdeprecated.h>
+#include <algorithm>
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -45,6 +47,7 @@ static struct
 	{L"refresh",CBandWindow::ID_REFRESH},
 	{L"stop",CBandWindow::ID_STOP},
 	{L"rename",CBandWindow::ID_RENAME},
+	{L"newfolder",CBandWindow::ID_NEWFOLDER},
 	{L"viewtiles",CBandWindow::ID_VIEW_TILES},
 	{L"viewdetails",CBandWindow::ID_VIEW_DETAILS},
 	{L"viewlist",CBandWindow::ID_VIEW_LIST},
@@ -230,25 +233,14 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 		else
 		{
 			button.iBitmap=I_IMAGENONE;
+			bool bNoIcon=false;
+			HICON hIcon=NULL;
 			if (item.iconPath)
 			{
-				if (_wcsicmp(item.iconPath,L"NONE")!=0)
-				{
-					HICON hIcon=LoadIcon(iconSize,item.iconPath,modules);
-					if (!hIcon)
-						hIcon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(1),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
-					if (hIcon)
-					{
-						button.iBitmap=ImageList_AddIcon(m_ImgEnabled,hIcon);
-						HICON hIcon2=item.iconPathD?LoadIcon(iconSize,item.iconPathD,modules):NULL;
-						if (!hIcon2)
-							hIcon2=CreateDisabledIcon(hIcon,iconSize);
-						int idx=ImageList_AddIcon(m_ImgDisabled,hIcon2);
-						ATLASSERT(button.iBitmap==idx);
-						DestroyIcon(hIcon);
-						DestroyIcon(hIcon2);
-					}
-				}
+				if (_wcsicmp(item.iconPath,L"NONE")==0)
+					bNoIcon=true;
+				else
+					hIcon=LoadIcon(iconSize,item.iconPath,modules);
 			}
 			else if (item.link)
 			{
@@ -263,17 +255,20 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 					hIcon=LoadIcon(iconSize,pidl);
 					ILFree(pidl);
 				}
-				if (hIcon)
-				{
-					button.iBitmap=ImageList_AddIcon(m_ImgEnabled,hIcon);
-					HICON hIcon2=item.iconPathD?LoadIcon(iconSize,item.iconPathD,modules):NULL;
-					if (!hIcon2)
-						hIcon2=CreateDisabledIcon(hIcon,iconSize);
-					int idx=ImageList_AddIcon(m_ImgDisabled,hIcon2);
-					ATLASSERT(button.iBitmap==idx);
-					DestroyIcon(hIcon2);
-					DestroyIcon(hIcon);
-				}
+			}
+
+			if (!hIcon && !bNoIcon)
+				hIcon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(1),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+			if (hIcon)
+			{
+				button.iBitmap=ImageList_AddIcon(m_ImgEnabled,hIcon);
+				HICON hIcon2=item.iconPathD?LoadIcon(iconSize,item.iconPathD,modules):NULL;
+				if (!hIcon2)
+					hIcon2=CreateDisabledIcon(hIcon,iconSize);
+				int idx=ImageList_AddIcon(m_ImgDisabled,hIcon2);
+				ATLASSERT(button.iBitmap==idx);
+				DestroyIcon(hIcon);
+				DestroyIcon(hIcon2);
 			}
 
 			button.fsState=(item.id!=ID_SETTINGS || GetSettingBool(L"EnableSettings"))?TBSTATE_ENABLED:0;
@@ -398,6 +393,196 @@ void CBandWindow::SendEmail( void )
 	}
 }
 
+void CBandWindow::NewFolder( void )
+{
+	CComPtr<IShellView> pView;
+	if (FAILED(m_pBrowser->QueryActiveShellView(&pView))) return;
+	CComQIPtr<IFolderView> pView2=pView;
+	if (!pView2) return;
+
+	{
+		// check if this is a filesystem folder (InvokeCommand may crash for non-folders)
+		CComPtr<IPersistFolder2> pFolder;
+		LPITEMIDLIST pidl;
+		if (FAILED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) || FAILED(pFolder->GetCurFolder(&pidl)))
+			return;
+		wchar_t path[_MAX_PATH];
+		path[0]=0;
+		bool bFolder=(SHGetPathFromIDList(pidl,path) && *path); // it is a folder if it has a path
+		ILFree(pidl);
+		if (!bFolder)
+			return;
+	}
+
+	CComPtr<IShellFolder> pFolder;
+	if (FAILED(pView2->GetFolder(IID_IShellFolder,(void**)&pFolder)) || !pFolder) return;
+
+
+	std::vector<unsigned int> items;
+	{
+		// remember the old folders
+		CComPtr<IEnumIDList> pEnum;
+		if (pFolder->EnumObjects(NULL,SHCONTF_FOLDERS,&pEnum)!=S_OK) pEnum=NULL;
+
+		PITEMID_CHILD child;
+		while (pEnum && pEnum->Next(1,&child,NULL)==S_OK)
+		{
+			STRRET str;
+			if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_FORPARSING,&str)))
+			{
+				wchar_t *pName;
+				StrRetToStr(&str,child,&pName);
+				items.push_back(CalcFNVHash(pName));
+				CoTaskMemFree(pName);
+			}
+			ILFree(child);
+		}
+	}
+
+	CComPtr<IContextMenu> pMenu;
+	HMENU menu=CreatePopupMenu();
+	bool bRename=false;
+	if (SUCCEEDED(pFolder->CreateViewObject(m_hWnd,IID_IContextMenu,(void**)&pMenu)))
+	{
+		if (SUCCEEDED(pMenu->QueryContextMenu(menu,0,1,32767,CMF_NORMAL)))
+		{
+			CMINVOKECOMMANDINFOEX info={sizeof(info),CMIC_MASK_UNICODE};
+			info.lpVerb="NewFolder";
+			info.lpVerbW=L"NewFolder";
+			info.nShow=SW_SHOWNORMAL;
+			info.fMask|=CMIC_MASK_NOASYNC;
+			info.hwnd=GetAncestor(m_hWnd,GA_ROOT);
+			// Note: InvokeCommand crashes if the item is "Computer". I don't know if this is a bug in Explorer
+			// or I am not supposed to give unsupported verbs to InvokeCommand. Unfortunately there is no way to
+			// check if "NewFolder" is a supported verb. It is not present in the menu no matter what I give to
+			// QueryContextMenu. So we verify if this is a filesystem folder, cross fingers and hope for the best
+			if (SUCCEEDED(pMenu->InvokeCommand((CMINVOKECOMMANDINFO*)&info)))
+				bRename=true;
+		}
+	}
+	DestroyMenu(menu);
+
+	if (bRename)
+	{
+		// look for a new folder and rename it
+		CComPtr<IEnumIDList> pEnum;
+		if (pFolder->EnumObjects(NULL,SHCONTF_FOLDERS,&pEnum)!=S_OK) pEnum=NULL;
+
+		PITEMID_CHILD child;
+		while (pEnum && pEnum->Next(1,&child,NULL)==S_OK)
+		{
+			STRRET str;
+			if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_FORPARSING,&str)))
+			{
+				wchar_t *pName;
+				StrRetToStr(&str,child,&pName);
+				unsigned int hash=CalcFNVHash(pName);
+				if (std::find(items.begin(),items.end(),hash)==items.end())
+				{
+					// found the new folder
+					pView->SelectItem(child,SVSI_SELECT|SVSI_EDIT|SVSI_DESELECTOTHERS|SVSI_ENSUREVISIBLE|SVSI_FOCUSED);
+					CoTaskMemFree(pName);
+					break;
+				}
+				CoTaskMemFree(pName);
+			}
+			ILFree(child);
+		}
+	}
+}
+
+void CBandWindow::ExecuteCommandFile( const wchar_t *pText )
+{
+	wchar_t command[256];
+	pText=GetToken(pText,command,_countof(command),L" \t\r\n");
+	if (_wcsicmp(command,L"open")==0)
+	{
+		// navigate to the given folder
+		wchar_t path[_MAX_PATH];
+		GetToken(pText,path,_countof(path),L" \t\r\n");
+		PIDLIST_RELATIVE pidl;
+		SFGAOF flags=0;
+		if (m_pBrowser && SUCCEEDED(SHParseDisplayName(path,NULL,&pidl,0,&flags)))
+		{
+			UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
+			m_pBrowser->BrowseObject(pidl,flags|SBSP_ABSOLUTE);
+			ILFree(pidl);
+		}
+	}
+	else if (_wcsicmp(command,L"refresh")==0)
+	{
+		// refresh Explorer
+		SendShellTabCommand(41504);
+	}
+	else if (_wcsicmp(command,L"select")==0)
+	{
+		// select the given files, deselect all others
+
+		std::vector<unsigned int> selected;
+		wchar_t path[_MAX_PATH];
+		while (*pText)
+		{
+			pText=GetToken(pText,path,_countof(path),L"\t\r\n");
+			wchar_t *fname=PathFindFileName(path);
+			CharUpper(fname);
+
+			// trim leading spaces
+			while (*fname==' ')
+				fname++;
+			// trim trailing spaces
+			wchar_t *end=fname+Strlen(fname);
+			while (end>fname && end[-1]==' ')
+				end--;
+			*end=0;
+
+			if (*fname)
+				selected.push_back(CalcFNVHash(fname));
+		}
+
+		CComPtr<IShellView> pView;
+		if (SUCCEEDED(m_pBrowser->QueryActiveShellView(&pView)))
+		{
+			CComQIPtr<IFolderView> pView2=pView;
+			if (!pView2) return;
+			CComPtr<IShellFolder> pFolder;
+			if (FAILED(pView2->GetFolder(IID_IShellFolder,(void**)&pFolder)) || !pFolder) return;
+			CComPtr<IEnumIDList> pEnum;
+			if (SUCCEEDED(pView2->Items(SVGIO_ALLVIEW,IID_IEnumIDList,(void**)&pEnum)) && pEnum)
+			{
+				PITEMID_CHILD child;
+				bool bFirst=true;
+				while (pEnum->Next(1,&child,NULL)==S_OK)
+				{
+					STRRET str;
+					if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_FORPARSING|SHGDN_INFOLDER,&str)))
+					{
+						wchar_t *pName;
+						StrRetToStr(&str,child,&pName);
+
+						CharUpper(pName);
+						unsigned int hash=CalcFNVHash(pName);
+						CoTaskMemFree(pName);
+
+						UINT flags=SVSI_DESELECT;
+						if (std::find(selected.begin(),selected.end(),hash)!=selected.end())
+						{
+							// the file is in the list
+							flags=SVSI_SELECT;
+							if (bFirst)
+							{
+								flags|=SVSI_ENSUREVISIBLE|SVSI_FOCUSED;
+								bFirst=false;
+							}
+						}
+						pView->SelectItem(child,flags);
+					}
+					ILFree(child);
+				}
+			}
+		}
+	}
+}
+
 void CBandWindow::SendShellTabCommand( int command )
 {
 	// sends a command to the ShellTabWindowClass window
@@ -414,6 +599,207 @@ void CBandWindow::SendShellTabCommand( int command )
 	}
 }
 
+void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
+{
+	wchar_t buf[2048];
+	Strcpy(buf,_countof(buf),pCommand);
+	// expand environment variables
+	DoEnvironmentSubst(buf,_countof(buf));
+	wchar_t *pBuf=buf;
+	bool bArg1=wcsstr(buf,L"%1")!=NULL;
+	bool bArg2=wcsstr(buf,L"%2")!=NULL;
+	bool bArg3=wcsstr(buf,L"%3")!=NULL;
+	bool bArg4=wcsstr(buf,L"%4")!=NULL;
+	bool bArg5=wcsstr(buf,L"%5")!=NULL;
+	wchar_t path[_MAX_PATH];
+	wchar_t file[_MAX_PATH];
+	wchar_t input[_MAX_PATH];
+	wchar_t output[_MAX_PATH];
+	wchar_t temp[_MAX_PATH];
+	path[0]=file[0]=input[0]=output[0]=temp[0]=0;
+
+	CComPtr<IShellView> pView;
+	if (SUCCEEDED(m_pBrowser->QueryActiveShellView(&pView)))
+	{
+		CComPtr<IPersistFolder2> pFolder;
+		LPITEMIDLIST pidl;
+		CComQIPtr<IFolderView> pView2=pView;
+		if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) && SUCCEEDED(pFolder->GetCurFolder(&pidl)))
+		{
+			// get current path
+			SHGetPathFromIDList(pidl,path);
+			if (bArg2)
+			{
+				CComPtr<IEnumIDList> pEnum;
+				int count;
+				// if only one file is selected get the file name (%2)
+				if (SUCCEEDED(pView2->ItemCount(SVGIO_SELECTION,&count)) && count==1 && SUCCEEDED(pView2->Items(SVGIO_SELECTION,IID_IEnumIDList,(void**)&pEnum)) && pEnum)
+				{
+					PITEMID_CHILD child;
+					if (pEnum->Next(1,&child,NULL)==S_OK)
+					{
+						LPITEMIDLIST full=ILCombine(pidl,child);
+						SHGetPathFromIDList(full,file);
+						ILFree(child);
+						ILFree(full);
+					}
+				}
+			}
+
+			if (bArg3 || bArg4)
+			{
+				GetTempPath(_countof(temp),temp);
+				if (GetTempFileName(temp,L"cei",0,input))
+				{
+					// create a text file with the selected files
+					FILE *f;
+					if (_wfopen_s(&f,input,L"wb")==0 && f)
+					{
+						CComPtr<IEnumIDList> pEnum;
+						if (SUCCEEDED(pView2->Items(SVGIO_SELECTION,IID_IEnumIDList,(void**)&pEnum)) && pEnum)
+						{
+							PITEMID_CHILD child;
+							while (pEnum->Next(1,&child,NULL)==S_OK)
+							{
+								wchar_t fname[_MAX_PATH];
+								LPITEMIDLIST full=ILCombine(pidl,child);
+								SHGetPathFromIDList(full,fname);
+								ILFree(child);
+								ILFree(full);
+								if (bArg3)
+								{
+									char fnameA[_MAX_PATH];
+									WcsToMbs(fnameA,_countof(fnameA),fname);
+									fprintf_s(f,"%s\r\n",fnameA);
+								}
+								else
+								{
+									fwprintf_s(f,L"%s\r\n",fname);
+								}
+							}
+						}
+						fclose(f);
+					}
+					else
+					{
+						input[0]=0;
+						bArg3=false;
+						bArg4=false;
+					}
+				}
+				else
+				{
+					input[0]=0;
+					bArg3=false;
+					bArg4=false;
+				}
+			}
+
+			ILFree(pidl);
+		}
+
+		if (bArg5)
+		{
+			if (!temp[0]) GetTempPath(_countof(temp),temp);
+			if (GetTempFileName(temp,L"ceo",0,output))
+			{
+				FILE *f;
+				if (_wfopen_s(&f,output,L"wb")==0 && f)
+				{
+					fclose(f);
+				}
+				else
+				{
+					output[0]=0;
+					bArg5=false;
+				}
+			}
+			else
+			{
+				output[0]=0;
+				bArg5=false;
+			}
+		}
+		if (bArg1 || bArg2 || bArg3 || bArg4 || bArg5)
+		{
+			// expand %1, %2, %3, %4, %5
+			DWORD_PTR args[100]={(DWORD_PTR)path,(DWORD_PTR)file,(DWORD_PTR)input,(DWORD_PTR)input,(DWORD_PTR)output};
+			FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_ARGUMENT_ARRAY|FORMAT_MESSAGE_FROM_STRING,buf,0,0,(LPWSTR)&pBuf,0,(va_list*)args);
+		}
+
+		wchar_t exe[_MAX_PATH];
+		const wchar_t *params=SeparateArguments(pBuf,exe);
+		if (_wcsicmp(exe,L"open")==0)
+		{
+			PIDLIST_RELATIVE pidl;
+			SFGAOF flags=0;
+			if (m_pBrowser && SUCCEEDED(SHParseDisplayName((LPWSTR)params,NULL,&pidl,0,&flags)))
+			{
+				UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
+				m_pBrowser->BrowseObject(pidl,flags|SBSP_ABSOLUTE);
+				ILFree(pidl);
+			}
+		}
+		else if (bArg3 || bArg4 || bArg5)
+		{
+			// create a process instead of using ShellExecute
+			STARTUPINFO startupInfo={sizeof(startupInfo)};
+			PROCESS_INFORMATION processInfo;
+			memset(&processInfo,0,sizeof(processInfo));
+			DWORD flags=CREATE_NO_WINDOW;
+			if (CreateProcess(exe,pBuf,NULL,NULL,TRUE,flags,NULL,path,&startupInfo,&processInfo))
+			{
+				CloseHandle(processInfo.hThread);
+				if (bArg5)
+				{
+					// wait for the process to finish so we can parse the output file
+					WaitForSingleObject(processInfo.hProcess,INFINITE);
+				}
+				CloseHandle(processInfo.hProcess);
+			}
+			if (bArg5)
+			{
+				// process output
+				FILE *f;
+				if (_wfopen_s(&f,output,L"rb")==0 && f)
+				{
+					// load output file
+					fseek(f,0,SEEK_END);
+					int size=ftell(f);
+					fseek(f,0,SEEK_SET);
+					std::vector<unsigned char> text(size+2);
+					if (fread(&text[0],1,size,f)!=size)
+						text.clear();
+					fclose(f);
+					if (!text.empty())
+					{
+						text[size]=0;
+						text[size+1]=0;
+						std::vector<wchar_t> textW;
+						if (size>=2 && text[0]==0xFF && text[1]==0xFE)
+							ExecuteCommandFile((wchar_t*)&text[2]);
+						else
+						{
+							int len=MbsToWcs(NULL,0,(char*)&text[0]);
+							textW.resize(len+1);
+							MbsToWcs(&textW[0],len+1,(char*)&text[0]);
+							ExecuteCommandFile(&textW[0]);
+						}
+					}
+				}
+				DeleteFile(output);
+			}
+		}
+		else
+		{
+			// simply execute
+			ShellExecute(NULL,NULL,exe,params,path,SW_SHOWNORMAL);
+		}
+		if (pBuf!=buf)
+			LocalFree(pBuf);
+	}
+}
+
 // Executes a cut/copy/paste/delete command
 LRESULT CBandWindow::OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
@@ -423,71 +809,7 @@ LRESULT CBandWindow::OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 	{
 		if (m_Items[idx].command)
 		{
-			wchar_t buf[2048];
-			Strcpy(buf,_countof(buf),m_Items[idx].command);
-			DoEnvironmentSubst(buf,_countof(buf));
-			wchar_t *pBuf=buf;
-			bool bArg1=wcsstr(buf,L"%1")!=NULL;
-			bool bArg2=wcsstr(buf,L"%2")!=NULL;
-			wchar_t path[_MAX_PATH];
-			wchar_t file[_MAX_PATH];
-			path[0]=file[0]=0;
-
-			CComPtr<IShellView> pView;
-			if (SUCCEEDED(m_pBrowser->QueryActiveShellView(&pView)))
-			{
-				CComPtr<IPersistFolder2> pFolder;
-				LPITEMIDLIST pidl;
-				CComQIPtr<IFolderView> pView2=pView;
-				if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) && SUCCEEDED(pFolder->GetCurFolder(&pidl)))
-				{
-					// get current path
-					SHGetPathFromIDList(pidl,path);
-					if (bArg2)
-					{
-						CComPtr<IEnumIDList> pEnum;
-						int count;
-						// if only one file is selected get the file name (%2)
-						if (SUCCEEDED(pView2->ItemCount(SVGIO_SELECTION,&count)) && count==1 && SUCCEEDED(pView2->Items(SVGIO_SELECTION,IID_IEnumIDList,(void**)&pEnum)) && pEnum)
-						{
-							PITEMID_CHILD child;
-							if (pEnum->Next(1,&child,NULL)==S_OK)
-							{
-								LPITEMIDLIST full=ILCombine(pidl,child);
-								SHGetPathFromIDList(full,file);
-								ILFree(child);
-								ILFree(full);
-							}
-						}
-					}
-					ILFree(pidl);
-				}
-
-				if (bArg1 || bArg2)
-				{
-					// expand environment variables, %1, %2
-					DWORD_PTR args[100]={(DWORD_PTR)path,(DWORD_PTR)file};
-					FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_ARGUMENT_ARRAY|FORMAT_MESSAGE_FROM_STRING,buf,0,0,(LPWSTR)&pBuf,0,(va_list*)args);
-				}
-
-				wchar_t exe[_MAX_PATH];
-				const wchar_t *params=SeparateArguments(pBuf,exe);
-				if (_wcsicmp(exe,L"open")==0)
-				{
-					PIDLIST_RELATIVE pidl;
-					SFGAOF flags=0;
-					if (m_pBrowser && SUCCEEDED(SHParseDisplayName((LPWSTR)params,NULL,&pidl,0,&flags)))
-					{
-						UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
-						m_pBrowser->BrowseObject(pidl,flags|SBSP_ABSOLUTE);
-						ILFree(pidl);
-					}
-				}
-				else
-					ShellExecute(NULL,NULL,exe,params,path,SW_SHOWNORMAL);
-				if (pBuf!=buf)
-					LocalFree(pBuf);
-			}
+			ExecuteCustomCommand(m_Items[idx].command);
 		}
 		else if (m_Items[idx].link)
 		{
@@ -544,6 +866,11 @@ LRESULT CBandWindow::OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 			CComQIPtr<IFolderView2> pView2=pView;
 			if (pView2) pView2->DoRename();
 		}
+		return TRUE;
+	}
+	if (id==ID_NEWFOLDER)
+	{
+		NewFolder();
 		return TRUE;
 	}
 

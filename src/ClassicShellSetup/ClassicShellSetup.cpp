@@ -344,9 +344,7 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	}
 
 	// start the installer
-	STARTUPINFO startupInfo;
-	memset(&startupInfo,0,sizeof(startupInfo));
-	startupInfo.cb=sizeof(startupInfo);
+	STARTUPINFO startupInfo={sizeof(startupInfo)};
 	PROCESS_INFORMATION processInfo;
 	memset(&processInfo,0,sizeof(processInfo));
 	if (!CreateProcess(NULL,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))

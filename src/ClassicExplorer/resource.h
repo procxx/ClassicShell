@@ -242,6 +242,7 @@
 #define IDS_VIEWICONS4_TIP              2164
 #define IDS_OPEN_TIP                    2165
 #define IDS_CUSTOM_TIP                  2166
+#define IDS_NEWFOLDER_TIP               2167
 
 // Next default values for new objects
 // 

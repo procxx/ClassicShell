@@ -440,7 +440,6 @@ static LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam
 		if (!wParam)
 		{
 			CMenuContainer::CloseProgramsMenu();
-			SendMessage(g_AllPrograms,BM_SETSTATE,FALSE,0);
 		}
 		g_bAllProgramsTimer=false;
 	}
@@ -473,7 +472,6 @@ static  LRESULT CALLBACK SubclassProgramsProc( HWND hWnd, UINT uMsg, WPARAM wPar
 		{
 			if (!CMenuContainer::IsMenuOpened())
 				CMenuContainer::ToggleStartMenu(hWnd,GetKeyState(VK_SPACE)<0 || GetKeyState(VK_RETURN)<0 || GetKeyState(VK_LEFT)<0 || GetKeyState(VK_RIGHT)<0,true);
-			PostMessage(g_ProgramsButton,WM_MOUSELEAVE,0,0);
 			return 0;
 		}
 	}
@@ -762,6 +760,8 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			const wchar_t *name;
 			if (msg->message==WM_MBUTTONDOWN)
 				name=L"MiddleClick";
+			else if (GetKeyState(VK_CONTROL)<0)
+				name=L"Hover";
 			else if (GetKeyState(VK_SHIFT)<0)
 				name=L"ShiftClick";
 			else
@@ -891,8 +891,22 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				if (WindowFromPoint(pt)==g_StartButton || PointAroundStartButton())
 				{
 					int control=GetSettingInt(L"Hover");
-					if (control==OPEN_CLASSIC)
-						ToggleStartMenu(g_StartButton,false);
+					if (control==OPEN_CLASSIC && GetAsyncKeyState(VK_CONTROL)>=0)
+					{
+						// simulate Ctrl+Click. we can't simply show the menu here, because a window can't be activated without being clicked
+						INPUT inputs[4]={
+							{INPUT_KEYBOARD},
+							{INPUT_MOUSE},
+							{INPUT_MOUSE},
+							{INPUT_KEYBOARD},
+						};
+						inputs[0].ki.wVk=VK_CONTROL;
+						inputs[1].mi.dwFlags=MOUSEEVENTF_LEFTDOWN;
+						inputs[2].mi.dwFlags=MOUSEEVENTF_LEFTUP;
+						inputs[3].ki.wVk=VK_CONTROL;
+						inputs[3].ki.dwFlags=KEYEVENTF_KEYUP;
+						SendInput(_countof(inputs),inputs,sizeof(INPUT));
+					}
 					else if (control==OPEN_WINDOWS)
 					{
 						FindWindowsMenu();

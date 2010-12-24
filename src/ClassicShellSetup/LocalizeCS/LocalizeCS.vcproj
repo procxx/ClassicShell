@@ -5,10 +5,6 @@
 	Name="LocalizeCS"
 	ProjectGUID="{8A3B0C7E-F743-40D7-9CB2-57052CFFBE2D}"
 	RootNamespace="LocalizeCS"
-	SccProjectName="SAK"
-	SccAuxPath="SAK"
-	SccLocalPath="SAK"
-	SccProvider="SAK"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
