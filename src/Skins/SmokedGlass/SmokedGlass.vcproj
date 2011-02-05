@@ -136,6 +136,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\search.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\selection.bmp"
 				>
 			</File>

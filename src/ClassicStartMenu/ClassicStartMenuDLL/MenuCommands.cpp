@@ -13,6 +13,7 @@
 #include "Translations.h"
 #include "LogManager.h"
 #include "FNVHash.h"
+#include "ResourceHelper.h"
 #include "resource.h"
 #include <WtsApi32.h>
 #include <PowrProf.h>
@@ -103,10 +104,63 @@ static INT_PTR CALLBACK LogOffDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, L
 	return FALSE;
 }
 
+struct ShortcutParams
+{
+	wchar_t target[_MAX_PATH+1];
+	wchar_t temp[_MAX_PATH];
+	wchar_t fname[_MAX_PATH+1];
+};
+
+static DWORD WINAPI NewShortcutThread( void *param )
+{
+	ShortcutParams *pParams=(ShortcutParams*)param;
+	HANDLE hFile=CreateFile(pParams->fname,0,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
+	if (hFile!=INVALID_HANDLE_VALUE)
+	{
+		// run the shortcut wizard
+		wchar_t cmdLine[1024];
+		Sprintf(cmdLine,_countof(cmdLine),L"rundll32.exe appwiz.cpl,NewLinkHere %s",pParams->fname);
+
+		STARTUPINFO startupInfo={sizeof(startupInfo)};
+		PROCESS_INFORMATION processInfo;
+		memset(&processInfo,0,sizeof(processInfo));
+		wchar_t exe[_MAX_PATH]=L"%windir%\\system32\\rundll32.exe";
+		DoEnvironmentSubst(exe,_countof(exe));
+		if (CreateProcess(exe,cmdLine,NULL,NULL,FALSE,0,NULL,pParams->temp,&startupInfo,&processInfo))
+		{
+			CloseHandle(processInfo.hThread);
+			WaitForSingleObject(processInfo.hProcess,INFINITE);
+			CloseHandle(processInfo.hProcess);
+
+			// see what the file was renamed to
+			struct {
+				DWORD  FileNameLength;
+				wchar_t FileName[_MAX_PATH];
+			} nameInfo={0};
+			BOOL bInfo=GetFileInformationByHandleEx(hFile,FileNameInfo,&nameInfo,sizeof(nameInfo));
+			CloseHandle(hFile);
+			if (bInfo)
+			{
+				// move to the final target folder
+				int len=Sprintf(pParams->fname,_countof(pParams->fname)-1,L"%s\\%s",pParams->temp,PathFindFileName(nameInfo.FileName));
+				pParams->fname[len+1]=0;
+				SHFILEOPSTRUCT shfop={g_OwnerWindow,FO_MOVE,pParams->fname,pParams->target};
+				SHFileOperation(&shfop);
+			}
+		}
+		else
+			CloseHandle(hFile);
+		DeleteFile(pParams->fname);
+	}
+	delete pParams;
+	return 0;
+}
+
 // This function "activates" an item. The item can be activated in multiple ways:
 // ACTIVATE_SELECT - select the item, make sure it is visible
 // ACTIVATE_OPEN - if the item is a submenu, it is opened. otherwise the item is just selected (but all submenus are closed first)
 // ACTIVATE_OPEN_KBD - same as above, but when done with a keyboard
+// ACTIVATE_OPEN_SEARCH - opens the search results submenu
 // ACTIVATE_EXECUTE - executes the item. it can be a shell item or a command item
 // ACTIVATE_MENU - shows the context menu for the item
 void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *pPt )
@@ -116,7 +170,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	{
 		if (type==ACTIVATE_SELECT)
 		{
-			SetFocus();
+			if (!(m_Options&CONTAINER_SEARCH))
+				SetFocus();
 			SetHotItem(-1);
 		}
 		return;
@@ -127,8 +182,17 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	if (type==ACTIVATE_SELECT)
 	{
 		// set the hot item
-		SetFocus();
-		SetHotItem(index);
+		if (item.id==MENU_SEARCH_BOX)
+		{
+			m_SearchBox.SetFocus();
+			SetHotItem(-1);
+		}
+		else
+		{
+			if (!(m_Options&CONTAINER_SEARCH))
+				SetFocus();
+			SetHotItem(index);
+		}
 		if (m_ScrollHeight>0 && index<m_ScrollCount)
 		{
 			// scroll the pager to make this item visible
@@ -152,10 +216,12 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		return;
 	}
 
-	if (type==ACTIVATE_OPEN || type==ACTIVATE_OPEN_KBD)
+	if (type==ACTIVATE_OPEN || type==ACTIVATE_OPEN_KBD || type==ACTIVATE_OPEN_SEARCH)
 	{
+		if (item.id==MENU_SEARCH_BOX && type!=ACTIVATE_OPEN_SEARCH)
+			return;
 		m_HotPos=GetMessagePos();
-		if (!item.bFolder)
+		if (!item.bFolder && item.id!=MENU_SEARCH_BOX)
 		{
 			SetActiveWindow();
 			// destroy old submenus
@@ -172,7 +238,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		const StdMenuItem *pSubMenu=item.pStdItem?item.pStdItem->submenu:NULL;
 		bool bOpenUp=false;
 
-		int options=CONTAINER_DRAG|CONTAINER_DROP;
+		int options=(type==ACTIVATE_OPEN_SEARCH)?CONTAINER_DRAG|CONTAINER_SEARCH:CONTAINER_DRAG|CONTAINER_DROP;
 		if (item.id==MENU_CONTROLPANEL)
 			options|=CONTAINER_CONTROLPANEL;
 		if (item.id==MENU_DOCUMENTS)
@@ -215,6 +281,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				options&=~CONTAINER_TRACK;
 			if (item.pStdItem->settings&StdMenuItem::MENU_MULTICOLUMN)
 				options|=CONTAINER_MULTICOL_REC;
+			if (item.pStdItem->settings&StdMenuItem::MENU_NOEXTENSIONS)
+				options|=CONTAINER_NOEXTENSIONS;
 		}
 
 		if (item.pItem1 && s_pKnownFolders)
@@ -256,6 +324,9 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			}
 		}
 
+		if (m_Options&CONTAINER_NOEXTENSIONS)
+			options|=CONTAINER_NOEXTENSIONS;
+
 		if (options&CONTAINER_LINK)
 			options&=~(CONTAINER_MULTICOLUMN|CONTAINER_MULTICOL_REC);
 		else
@@ -266,7 +337,22 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				options|=CONTAINER_MULTICOLUMN;
 		}
 		CMenuContainer *pMenu=new CMenuContainer(this,index,options,pSubMenu,item.pItem1,item.pItem2,m_RegName+L"\\"+item.name);
-		pMenu->InitItems();
+		if (type==ACTIVATE_OPEN_SEARCH)
+		{
+			wchar_t text[256];
+			m_SearchBox.GetWindowText(text,_countof(text));
+			wchar_t *pText=text;
+			while (*pText==' ' || *pText=='\t')
+				pText++;
+			int len=Strlen(pText);
+			while (len>0 && (pText[len-1]==' ' || pText[len-1]=='\t'))
+				len--;
+			pText[len]=0;
+			CharUpper(pText);
+			pMenu->InitItems(m_SearchItems,pText);
+		}
+		else
+			pMenu->InitItems();
 
 		RECT itemRect;
 		GetItemRect(index,itemRect);
@@ -321,7 +407,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (!parent)
 		{
 			// place sub-menus in front of the taskbar
-			pMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE);
+			if (type==ACTIVATE_OPEN_SEARCH)
+				pMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE|SWP_NOACTIVATE);
+			else
+				pMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE);
 		}
 		RECT rc2;
 		pMenu->GetWindowRect(&rc2);
@@ -460,22 +549,39 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 		m_Submenu=index;
 		InvalidateItem(index);
-		SetHotItem(index);
+		if (type!=ACTIVATE_OPEN_SEARCH)
+			SetHotItem(index);
 		UpdateWindow();
 
-		if (animate)
+		if (type==ACTIVATE_OPEN_SEARCH)
+			pMenu->SetWindowPos(HWND_TOPMOST,&rc2,SWP_SHOWWINDOW|SWP_NOACTIVATE);
+		else if (animate)
 		{
 			pMenu->SetWindowPos(HWND_TOPMOST,&rc2,0);
 			int speed=GetSettingInt(L"SubMenuAnimationSpeed");
 			if (speed<=0) speed=MENU_ANIM_SPEED_SUBMENU;
 			else if (speed>=10000) speed=10000;
 			if (!AnimateWindow(pMenu->m_hWnd,speed,animFlags))
+			{
+				if (pMenu->m_SearchBox.m_hWnd)
+					pMenu->m_SearchBox.ShowWindow(SW_SHOW);
 				pMenu->ShowWindow(SW_SHOW); // show the menu anyway if AnimateWindow fails
+			}
+			else
+			{
+				if (pMenu->m_SearchBox.m_hWnd)
+					pMenu->m_SearchBox.ShowWindow(SW_SHOW);
+			}
 		}
 		else
+		{
+			if (pMenu->m_SearchBox.m_hWnd)
+				pMenu->m_SearchBox.ShowWindow(SW_SHOW);
 			pMenu->SetWindowPos(HWND_TOPMOST,&rc2,SWP_SHOWWINDOW);
-		pMenu->SetFocus();
-		if (type==ACTIVATE_OPEN_KBD)
+		}
+		if (type!=ACTIVATE_OPEN_SEARCH)
+			pMenu->SetFocus();
+		if (type==ACTIVATE_OPEN_KBD || type==ACTIVATE_OPEN_SEARCH)
 			pMenu->SetHotItem(0);
 		else
 			pMenu->SetHotItem(-1);
@@ -491,6 +597,19 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	if (type==ACTIVATE_EXECUTE)
 	{
 		if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP) return;
+		if (item.id==MENU_SEARCH_BOX)
+		{
+			// the search button was pressed
+			m_SearchBox.SetFocus();
+			for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();*it!=this;++it)
+				if (!(*it)->m_bDestroyed)
+					(*it)->PostMessage(WM_CLOSE);
+			if (m_SearchState==SEARCH_MORE)
+				UpdateSearchResults(true);
+			else
+				m_SearchBox.SetWindowText(L"");
+			return;
+		}
 
 		if (!item.pItem1)
 		{
@@ -519,7 +638,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	if (type==ACTIVATE_MENU)
 	{
 		// when showing the context menu close all submenus
-		SetActiveWindow();
+		if (!(m_Options&CONTAINER_SEARCH))
+			SetActiveWindow();
 		for (int i=(int)s_Menus.size()-1;s_Menus[i]!=this;i--)
 			if (!s_Menus[i]->m_bDestroyed)
 				s_Menus[i]->DestroyWindow();
@@ -711,7 +831,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 		if (item.bFolder && item.pItem2)
 		{
-			// context menu for a double folder - remove most command,s add Open All Users
+			// context menu for a double folder - remove most commands, add Open All Users
 			int n=GetMenuItemCount(menu);
 			for (int i=0;i<n;i++)
 			{
@@ -723,7 +843,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 						command[0]=0;
 					if (_stricmp(command,"open")==0)
 					{
-						InsertMenu(menu,i+1,MF_BYPOSITION|MF_STRING,CMD_OPEN_ALL,FindTranslation(L"Menu.OpenAll",L"O&pen All Users"));
+						if (!s_bNoCommonFolders)
+							InsertMenu(menu,i+1,MF_BYPOSITION|MF_STRING,CMD_OPEN_ALL,FindTranslation(L"Menu.OpenAll",L"O&pen All Users"));
 						InsertMenu(menu,i+2,MF_BYPOSITION|MF_SEPARATOR,0,0);
 						i+=2;
 						n+=2;
@@ -764,6 +885,45 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				AppendMenu(menu,MF_SEPARATOR,0,0);
 			AppendMenu(menu,MF_STRING,CMD_DELETEMRU,FindTranslation(L"Menu.RemoveList",L"Remove &from this list"));
 		}
+		else if (type==ACTIVATE_MENU && (m_Options&CONTAINER_SEARCH))
+		{
+			// context menu for a search item - remove delete, rename and link
+			int n=GetMenuItemCount(menu);
+			for (int i=0;i<n;i++)
+			{
+				int id=GetMenuItemID(menu,i);
+				if (id>0)
+				{
+					char command[256];
+					if (FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+						command[0]=0;
+					if (_stricmp(command,"delete")!=0 && _stricmp(command,"rename")!=0 && _stricmp(command,"link")!=0)
+						continue;
+				}
+				DeleteMenu(menu,i,MF_BYPOSITION);
+				i--;
+				n--;
+			}
+		}
+		// remove multiple separators
+		{
+			bool bSeparator=false;
+			int n=GetMenuItemCount(menu);
+			for (int i=0;i<n;i++)
+			{
+				MENUITEMINFO info={sizeof(info),MIIM_FTYPE};
+				if (GetMenuItemInfo(menu,i,TRUE,&info))
+				{
+					if (info.fType==MFT_SEPARATOR && bSeparator)
+					{
+						DeleteMenu(menu,i,MF_BYPOSITION);
+						i--;
+						n--;
+					}
+					bSeparator=(info.fType==MFT_SEPARATOR);
+				}
+			}
+		}
 	}
 
 	int res=0;
@@ -798,6 +958,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		m_pMenu3=pMenu;
 		HBITMAP shellBmp=NULL;
 		HBITMAP newFolderBmp=NULL;
+		HBITMAP newShortcutBmp=NULL;
 		if ((item.id==MENU_NO || item.id==MENU_EMPTY) && (m_Options&CONTAINER_DROP))// clicked on a movable item
 		{
 			AppendMenu(menu,MF_SEPARATOR,0,0);
@@ -826,59 +987,50 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			}
 
 			if (bNew)
+			{
 				AppendMenu(menu2,MF_STRING,CMD_NEWFOLDER,FindTranslation(L"Menu.NewFolder",L"New Folder"));
+				AppendMenu(menu2,MF_STRING,CMD_NEWSHORTCUT,FindTranslation(L"Menu.NewShortcut",L"New Shortcut"));
+			}
 
 			if (bNew || menu!=menu2)
 			{
 				int size=16;
-				BITMAPINFO bi={0};
-				bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
-				bi.bmiHeader.biWidth=bi.bmiHeader.biHeight=size;
-				bi.bmiHeader.biPlanes=1;
-				bi.bmiHeader.biBitCount=32;
-				HDC hdc=CreateCompatibleDC(NULL);
-				RECT rc={0,0,size,size};
-
 				if (bNew)
 				{
 					HMODULE hShell32=GetModuleHandle(L"shell32.dll");
-					HICON icon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(319),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
-					if (icon)
+					HICON hIcon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(319),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
+					if (hIcon)
 					{
-						newFolderBmp=CreateDIBSection(hdc,&bi,DIB_RGB_COLORS,NULL,NULL,0);
-						HGDIOBJ bmp0=SelectObject(hdc,newFolderBmp);
-						FillRect(hdc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
-						DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
-						SelectObject(hdc,bmp0);
-						DestroyIcon(icon);
-
+						newFolderBmp=BitmapFromIcon(hIcon,size,NULL,true);
 						MENUITEMINFO mii={sizeof(mii)};
 						mii.fMask=MIIM_BITMAP;
 						mii.hbmpItem=newFolderBmp;
 						SetMenuItemInfo(menu2,CMD_NEWFOLDER,FALSE,&mii);
+					}
+					hIcon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(16769),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
+					if (hIcon)
+					{
+						newShortcutBmp=BitmapFromIcon(hIcon,size,NULL,true);
+						MENUITEMINFO mii={sizeof(mii)};
+						mii.fMask=MIIM_BITMAP;
+						mii.hbmpItem=newShortcutBmp;
+						SetMenuItemInfo(menu2,CMD_NEWSHORTCUT,FALSE,&mii);
 					}
 				}
 				if (menu!=menu2)
 				{
 					int idx=GetMenuItemCount(menu);
 					AppendMenu(menu,MF_POPUP,(UINT_PTR)menu2,FindTranslation(L"Menu.Organize",L"Organize Start menu"));
-					HICON icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
-					if (icon)
+					HICON hIcon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
+					if (hIcon)
 					{
-						shellBmp=CreateDIBSection(hdc,&bi,DIB_RGB_COLORS,NULL,NULL,0);
-						HGDIOBJ bmp0=SelectObject(hdc,shellBmp);
-						FillRect(hdc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
-						DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
-						SelectObject(hdc,bmp0);
-						DestroyIcon(icon);
-
+						shellBmp=BitmapFromIcon(hIcon,size,NULL,true);
 						MENUITEMINFO mii={sizeof(mii)};
 						mii.fMask=MIIM_BITMAP;
 						mii.hbmpItem=shellBmp;
 						SetMenuItemInfo(menu,idx,TRUE,&mii);
 					}
 				}
-				DeleteDC(hdc);
 			}
 		}
 
@@ -901,6 +1053,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (m_pMenu2) m_pMenu2.Release();
 		if (m_pMenu3) m_pMenu3.Release();
 		if (newFolderBmp) DeleteObject(newFolderBmp);
+		if (newShortcutBmp) DeleteObject(newShortcutBmp);
 		if (shellBmp) DeleteObject(shellBmp);
 	}
 
@@ -1066,6 +1219,63 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		return;
 	}
 
+	if (res==CMD_NEWSHORTCUT)
+	{
+		wchar_t target[_MAX_PATH+1];
+		SHGetPathFromIDList(m_Path1a[0],target);
+		target[Strlen(target)+1]=0;
+		wchar_t fname[_MAX_PATH+1];
+
+		// first try in the original folder
+		PathMakeUniqueName(fname,_countof(fname)-1,L"scut.lnk",L"New Shortcut.lnk",target);
+		HANDLE hFile=CreateFile(fname,GENERIC_WRITE,0,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
+		if (hFile!=INVALID_HANDLE_VALUE)
+		{
+			CloseHandle(hFile);
+
+			// just run the shortcut wizard
+			wchar_t cmdLine[1024];
+			Sprintf(cmdLine,_countof(cmdLine),L"rundll32.exe appwiz.cpl,NewLinkHere %s",fname);
+
+			STARTUPINFO startupInfo={sizeof(startupInfo)};
+			PROCESS_INFORMATION processInfo;
+			memset(&processInfo,0,sizeof(processInfo));
+			wchar_t exe[_MAX_PATH]=L"%windir%\\system32\\rundll32.exe";
+			DoEnvironmentSubst(exe,_countof(exe));
+			if (CreateProcess(exe,cmdLine,NULL,NULL,FALSE,0,NULL,target,&startupInfo,&processInfo))
+			{
+				CloseHandle(processInfo.hThread);
+				CloseHandle(processInfo.hProcess);
+			}
+		}
+		else if (GetLastError()==ERROR_ACCESS_DENIED)
+		{
+			// there was a problem, most likely UAC didn't let us create a folder
+
+			// create a temp folder just for us
+			wchar_t temp[_MAX_PATH];
+			GetTempPath(_countof(temp),temp);
+			Strcat(temp,_countof(temp),L"ClassicShell");
+			CreateDirectory(temp,NULL);
+
+			// make a unique link file and keep a handle to the file
+			PathMakeUniqueName(fname,_countof(fname)-1,L"scut.lnk",L"New Shortcut.lnk",temp);
+
+			HANDLE hFile=CreateFile(fname,GENERIC_WRITE,0,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
+			if (hFile!=INVALID_HANDLE_VALUE)
+			{
+				CloseHandle(hFile);
+				// wait for the wizard to finish in a separate thread and close the menu
+				// otherwise it appears behind the menu
+				ShortcutParams *pParams=new ShortcutParams;
+				memcpy(pParams->target,target,sizeof(target));
+				memcpy(pParams->temp,temp,sizeof(temp));
+				memcpy(pParams->fname,fname,sizeof(fname));
+				CreateThread(NULL,0,NewShortcutThread,pParams,0,NULL);
+			}
+		}
+	}
+
 	if (res==CMD_DELETEMRU && item.id==MENU_RECENT && s_bRecentItems)
 	{
 		STRRET str;
@@ -1184,20 +1394,37 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (bAllPrograms) ::EnableWindow(g_TopMenu,FALSE);
 		info.hwnd=g_OwnerWindow;
 
-		::SetForegroundWindow(g_OwnerWindow);
 		RECT rc;
 		GetWindowRect(&rc);
+		::SetForegroundWindow(g_OwnerWindow);
 		::SetWindowPos(g_OwnerWindow,HWND_TOPMOST,rc.left,rc.top,rc.right-rc.left,rc.bottom-rc.top,0);
 		HRESULT hr=pMenu->InvokeCommand((LPCMINVOKECOMMANDINFO)&info);
-		if (type==ACTIVATE_EXECUTE && SUCCEEDED(hr) && (item.id==MENU_RECENT || (m_Options&CONTAINER_TRACK)) && s_bRecentItems)
+		if (type==ACTIVATE_EXECUTE && SUCCEEDED(hr))
 		{
-			STRRET str;
-			if (SUCCEEDED(pFolder->GetDisplayNameOf(pidl,SHGDN_FORPARSING,&str)))
+			if ((item.id==MENU_RECENT || (m_Options&CONTAINER_TRACK)) && s_bRecentItems)
 			{
-				wchar_t *name;
-				StrRetToStr(&str,pidl,&name);
-				AddMRUShortcut(name);
-				CoTaskMemFree(name);
+				// update MRU list
+				STRRET str;
+				if (SUCCEEDED(pFolder->GetDisplayNameOf(pidl,SHGDN_FORPARSING,&str)))
+				{
+					wchar_t *name;
+					StrRetToStr(&str,pidl,&name);
+					AddMRUShortcut(name);
+					CoTaskMemFree(name);
+				}
+			}
+			if (!(m_Options&CONTAINER_LINK))
+			{
+				// update item ranks
+				STRRET str;
+				if (SUCCEEDED(pFolder->GetDisplayNameOf(pidl,SHGDN_INFOLDER|SHGDN_NORMAL,&str)))
+				{
+					wchar_t *name;
+					StrRetToStr(&str,pidl,&name);
+					CharUpper(name);
+					AddItemRank(CalcFNVHash(name));
+					CoTaskMemFree(name);
+				}
 			}
 		}
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)

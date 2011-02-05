@@ -63,6 +63,7 @@ Submenu_separator_slices_X=50,75,50
 ; OPTIONS
 
 OPTION SMALL_ICONS="Small Icons",0
+OPTION LARGE_FONT="Large Font",0
 OPTION USER_IMAGE="Show User Picture",0
 OPTION USER_NAME="Show User Name",0
 OPTION CENTER_NAME="Center User Name",0, USER_NAME, 0
@@ -73,6 +74,10 @@ AllPrograms_options=variations
 Main_large_icons=0
 Main_font="Segoe UI",normal,-9
 Main_arrow=0
+
+[LARGE_FONT]
+Main_font="Segoe UI",normal,-10
+Submenu_font="Segoe UI",normal,-10
 
 [USER_IMAGE]
 User_image_size=48

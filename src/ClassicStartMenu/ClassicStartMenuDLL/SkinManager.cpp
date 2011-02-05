@@ -47,6 +47,7 @@ MenuSkin::MenuSkin( void )
 	Submenu_separatorV=NULL;
 	Submenu_pager=NULL;
 	Submenu_pager_arrows=NULL;
+	Search_bitmap=NULL;
 }
 
 MenuSkin::~MenuSkin( void )
@@ -80,6 +81,7 @@ void MenuSkin::Reset( void )
 	if (Main_pager_arrows) DeleteObject(Main_pager_arrows);
 	if (Submenu_pager) DeleteObject(Submenu_pager);
 	if (Submenu_pager_arrows) DeleteObject(Submenu_pager_arrows);
+	if (Search_bitmap) DeleteObject(Search_bitmap);
 
 	AboutIcon=NULL;
 	Main_bitmap=NULL;
@@ -105,6 +107,7 @@ void MenuSkin::Reset( void )
 	Main_pager_arrows=NULL;
 	Submenu_pager=NULL;
 	Submenu_pager_arrows=NULL;
+	Search_bitmap=NULL;
 }
 
 static void GetErrorMessage( wchar_t *err, int size, DWORD code )
@@ -1321,6 +1324,17 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	}
 	if (bRTL && skin.Submenu_pager_arrows)
 		MirrorBitmap(skin.Submenu_pager_arrows);
+
+	str=parser.FindSetting(L"Search_bitmap");
+	if (str && (flags&LOADMENU_RESOURCES))
+	{
+		int id=_wtol(str);
+		if (id)
+		{
+			skin.Search_bitmap=LoadSkinBitmap(hMod,id,0,skin.Search_bitmap32,0);
+			if (!skin.Search_bitmap) return false;
+		}
+	}
 
 	return true;
 }

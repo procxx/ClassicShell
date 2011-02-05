@@ -38,6 +38,8 @@ public:
 		m_CurPath[0]=0;
 		m_Rebar=NULL;
 		m_TopWindow=NULL;
+		m_Breadcrumbs=NULL;
+		m_Hook=m_HookKbd=NULL;
 	}
 
 	DECLARE_REGISTRY_RESOURCEID(IDR_EXPLORERBHO)
@@ -120,6 +122,10 @@ private:
 	CWindow m_ComboBox;
 	LPITEMIDLIST m_NavigatePidl;
 	UINT m_NavigateMsg; // private message that is posted to the progress bar to navigate ti m_NavigatePidl
+	HHOOK m_Hook;
+	HHOOK m_HookKbd;
+	HWND m_Breadcrumbs;
+	char m_AltD;
 
 	struct ComboItem
 	{
@@ -136,6 +142,7 @@ private:
 	static int s_AutoNavDelay;
 
 	static LRESULT CALLBACK HookExplorer( int code, WPARAM wParam, LPARAM lParam );
+	static LRESULT CALLBACK HookKeyboard( int code, WPARAM wParam, LPARAM lParam );
 	static LRESULT CALLBACK SubclassTreeParentProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );

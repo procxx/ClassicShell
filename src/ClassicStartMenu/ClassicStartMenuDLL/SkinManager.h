@@ -192,6 +192,10 @@ struct MenuSkin
 	bool Submenu_pager_arrows32;
 	SIZE Submenu_pager_arrow_Size;
 
+	// SEARCH SECTION
+	HBITMAP Search_bitmap;
+	bool Search_bitmap32; // 32-bit bitmap
+
 	MenuSkin( void );
 	~MenuSkin( void );
 	void Reset( void );

@@ -736,6 +736,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\search_icons.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\SkinDescription.txt"
 				>
 			</File>

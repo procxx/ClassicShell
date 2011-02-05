@@ -14,6 +14,7 @@
 #include "LogManager.h"
 #include "FNVHash.h"
 #include "ResourceHelper.h"
+#include "SettingsUIHelper.h"
 #include "dllmain.h"
 #include "resource.h"
 #include <uxtheme.h>
@@ -61,6 +62,7 @@ static StdMenuOption g_StdOptions[]=
 	{MENU_FEATURES,MENU_ENABLED}, // no setting (prevents the Programs and Features from expanding), check policy (for control panel)
 	{MENU_CLASSIC_SETTINGS,MENU_ENABLED}, // MENU_ENABLED from ini file
 	{MENU_SEARCH,MENU_ENABLED}, // check policy
+	{MENU_SEARCH_BOX,MENU_NONE}, // check settings
 	{MENU_SEARCH_PRINTER,MENU_NONE}, // MENU_ENABLED if Active Directory is available
 	{MENU_SEARCH_COMPUTERS,MENU_NONE}, // MENU_ENABLED if Active Directory is available, check policy
 	{MENU_SEARCH_PEOPLE,MENU_NONE}, // MENU_ENABLED if %ProgramFiles%\Windows Mail\wab.exe exists
@@ -84,14 +86,18 @@ bool CMenuContainer::s_bShowTopEmpty=false;
 bool CMenuContainer::s_bNoDragDrop=false;
 bool CMenuContainer::s_bNoContextMenu=false;
 bool CMenuContainer::s_bExpandLinks=false;
+bool CMenuContainer::s_bSearchSubWord=false;
 bool CMenuContainer::s_bLogicalSort=false;
 bool CMenuContainer::s_bAllPrograms=false;
+bool CMenuContainer::s_bNoCommonFolders=false;
 char CMenuContainer::s_bActiveDirectory=-1;
 CMenuContainer *CMenuContainer::s_pDragSource=NULL;
 bool CMenuContainer::s_bRightDrag;
 std::vector<CMenuContainer*> CMenuContainer::s_Menus;
+volatile HWND CMenuContainer::s_FirstMenu;
 std::map<unsigned int,int> CMenuContainer::s_MenuScrolls;
 CString CMenuContainer::s_MRUShortcuts[MRU_PROGRAMS_COUNT];
+std::vector<CMenuContainer::ItemRank> CMenuContainer::s_ItemRanks;
 CComPtr<IShellFolder> CMenuContainer::s_pDesktop;
 CComPtr<IKnownFolderManager> CMenuContainer::s_pKnownFolders;
 HWND CMenuContainer::s_LastFGWindow;
@@ -116,6 +122,144 @@ CLIPFORMAT CMenuContainer::s_ShellFormat;
 MenuSkin CMenuContainer::s_Skin;
 std::vector<CMenuFader*> CMenuFader::s_Faders;
 
+bool CMenuContainer::SearchItem::MatchText( const wchar_t *search ) const
+{
+	if (name.IsEmpty()) return false;
+	if (s_bSearchSubWord)
+	{
+		// split search into tokens and see of all are found
+		for (const wchar_t *pSearch=search;*pSearch;)
+		{
+			wchar_t token[100];
+			pSearch=GetToken(pSearch,token,_countof(token),L" ");
+			if (!wcswcs(name,token))
+				return false;
+		}
+	}
+	else
+	{
+		// split search into tokens, then see if any of the words start with those tokens
+		for (const wchar_t *pSearch=search;*pSearch;)
+		{
+			wchar_t token[100];
+			pSearch=GetToken(pSearch,token,_countof(token),L" ");
+			bool bFound=false;
+			int len=Strlen(token);
+			for (const wchar_t *pName=name;*pName;)
+			{
+				while (*pName && wcschr(L" \t.,$&[]{}()",*pName))
+					pName++;
+				if (wcsncmp(pName,token,len)==0)
+				{
+					bFound=true;
+					break;
+				}
+				while (*pName && !wcschr(L" \t.,$&[]{}()",*pName))
+					pName++;
+			}
+			if (!bFound)
+				return false;
+		}
+	}
+	return true;
+}
+
+LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+{
+	CMenuContainer *pParent=(CMenuContainer*)uIdSubclass;
+	CWindow box(hWnd);
+	if (uMsg==WM_PAINT && !pParent->m_bNoSearchDraw)
+	{
+		// use buffered paint to allow the edit box to appear on a glass background
+		pParent->m_bNoSearchDraw=true;
+
+		PAINTSTRUCT ps;
+		HDC hdc=box.BeginPaint(&ps);
+
+		BP_PAINTPARAMS paintParams={sizeof(paintParams)};
+		HDC hdcPaint=NULL;
+		HPAINTBUFFER hBufferedPaint=BeginBufferedPaint(hdc,&ps.rcPaint,BPBF_TOPDOWNDIB,&paintParams,&hdcPaint);
+		if (hdcPaint)
+		{
+			SendMessage(hWnd,WM_PRINTCLIENT,(WPARAM)hdcPaint,PRF_CLIENT);
+			BufferedPaintSetAlpha(hBufferedPaint,&ps.rcPaint,255);
+			EndBufferedPaint(hBufferedPaint,TRUE);
+		}
+		box.EndPaint(&ps);
+
+		pParent->m_bNoSearchDraw=false;
+		return 0;
+	}
+	if (uMsg==WM_KEYDOWN)
+	{
+		if (wParam==VK_TAB)
+		{
+			// forward Tabs to the parent
+			return pParent->SendMessage(uMsg,wParam,lParam);
+		}
+		if (wParam==VK_UP || wParam==VK_DOWN)
+		{
+			// forward up/down keys to the auto-complete
+			if (DefSubclassProc(hWnd,uMsg,wParam,lParam)==0)
+				return 0;
+			// forward up/down keys to the sub-menu or the parent
+			CMenuContainer *pSearchMenu=s_Menus[s_Menus.size()-1];
+			if (pSearchMenu->m_Options&CONTAINER_SEARCH)
+				LRESULT res=pSearchMenu->SendMessage(uMsg,wParam,lParam);
+			else
+				return pParent->SendMessage(uMsg,wParam,lParam);
+		}
+		if (wParam==VK_RETURN)
+		{
+			// forward Enter to the submenu, or execute the current string
+			CMenuContainer *pSearchMenu=s_Menus[s_Menus.size()-1];
+			if ((pSearchMenu->m_Options&CONTAINER_SEARCH) && pSearchMenu->m_Items[0].id!=MENU_EMPTY)
+				pSearchMenu->SendMessage(WM_KEYDOWN,VK_RETURN);
+			else
+			{
+				CString text;
+				CWindow(hWnd).GetWindowText(text);
+				wchar_t exe[_MAX_PATH];
+				const wchar_t *args=SeparateArguments(text,exe);
+				ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL);
+			}
+			return 0;
+		}
+		if (wParam==VK_ESCAPE)
+		{
+			// forward Esc to the parent or clear the string
+			if (box.GetWindowTextLength()==0)
+				pParent->PostMessage(WM_KEYDOWN,VK_ESCAPE);
+			else
+				box.SetWindowText(L"");
+			return 0;
+		}
+	}
+	if (uMsg==WM_CHAR && (wParam==VK_RETURN || wParam==VK_ESCAPE || wParam==VK_TAB))
+	{
+		// prevent a beep when Enter, Esc or Tab is pressed
+		return 0;
+	}
+	if (uMsg==WM_MOUSEACTIVATE)
+	{
+		pParent->ActivateItem(pParent->m_SearchIndex,ACTIVATE_SELECT,NULL);
+		// close all sub-menus
+		for (int i=(int)s_Menus.size()-1;s_Menus[i]!=pParent;i--)
+			if (!s_Menus[i]->m_bDestroyed && !(s_Menus[i]->m_Options&CONTAINER_SEARCH))
+				s_Menus[i]->DestroyWindow();
+	}
+	if (uMsg==WM_SETFOCUS)
+	{
+		pParent->SetSearchState(SEARCH_BLANK);
+	}
+	if (uMsg==WM_KILLFOCUS && !s_pDragSource)
+	{
+		box.SetWindowText(L"");
+		pParent->SetSearchState(SEARCH_NONE);
+	}
+	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+}
+
 int CMenuContainer::CompareMenuString( const wchar_t *str1, const wchar_t *str2 )
 {
 	if (s_bLogicalSort)
@@ -139,13 +283,17 @@ CMenuContainer::CMenuContainer( CMenuContainer *pParent, int index, int options,
 	m_Region=NULL;
 	m_Path1a[0]=ILCloneFull(path1);
 	m_Path1a[1]=NULL;
-	m_Path2a[0]=ILCloneFull(path2);
+	if (s_bNoCommonFolders)
+		m_Path2a[0]=NULL;
+	else
+		m_Path2a[0]=ILCloneFull(path2);
 	m_Path2a[1]=NULL;
 
 	if (options&CONTAINER_ALLPROGRAMS)
 	{
 		SHGetKnownFolderIDList(FOLDERID_Programs,0,NULL,&m_Path1a[1]);
-		SHGetKnownFolderIDList(FOLDERID_CommonPrograms,0,NULL,&m_Path2a[1]);
+		if (!s_bNoCommonFolders)
+			SHGetKnownFolderIDList(FOLDERID_CommonPrograms,0,NULL,&m_Path2a[1]);
 	}
 
 	m_rUser1.left=m_rUser1.right=0;
@@ -163,6 +311,12 @@ CMenuContainer::CMenuContainer( CMenuContainer *pParent, int index, int options,
 	s_Menus.push_back(this);
 	m_Submenu=-1;
 	m_bScrollTimer=false;
+	m_bNoSearchDraw=false;
+	m_bInSearchUpdate=false;
+	m_bSearchShowAll=false;
+	m_SearchIcons=NULL;
+	m_SearchState=SEARCH_NONE;
+	m_ResultsHash=0;
 
 	CoCreateInstance(CLSID_DragDropHelper,NULL,CLSCTX_INPROC_SERVER,IID_IDropTargetHelper,(void**)&m_pDropTargetHelper);
 	LOG_MENU(LOG_OPEN,L"Open Menu, ptr=%p, index=%d, options=%08X, name=%s",this,index,options,regName);
@@ -179,13 +333,15 @@ CMenuContainer::~CMenuContainer( void )
 	if (m_Path1a[1]) ILFree(m_Path1a[1]);
 	if (m_Path2a[0]) ILFree(m_Path2a[0]);
 	if (m_Path2a[1]) ILFree(m_Path2a[1]);
+	for (std::vector<SearchItem>::iterator it=m_SearchItems.begin();it!=m_SearchItems.end();++it)
+		ILFree(it->pidl);
 	if (std::find(s_Menus.begin(),s_Menus.end(),m_pParent)!=s_Menus.end()) // check if the parent is still alive
 	{
 		if (m_pParent->m_Submenu==m_ParentIndex)
 		{
 			if (!m_pParent->m_bDestroyed)
 				m_pParent->InvalidateItem(m_ParentIndex);
-			if (m_pParent->m_HotItem<0)
+			if (m_pParent->m_HotItem<0 && !(m_Options&CONTAINER_SEARCH))
 				m_pParent->SetHotItem(m_ParentIndex);
 			m_pParent->m_Submenu=-1;
 		}
@@ -197,6 +353,8 @@ CMenuContainer::~CMenuContainer( void )
 
 	// must be here and not in OnDestroy because during drag/drop a menu can close while still processing messages
 	s_Menus.erase(std::find(s_Menus.begin(),s_Menus.end(),this));
+	if (m_SearchIcons)
+		DeleteObject(m_SearchIcons);
 }
 
 void CMenuContainer::AddFirstFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSOLUTE path, std::vector<MenuItem> &items, int options, unsigned int hash0 )
@@ -224,12 +382,12 @@ void CMenuContainer::AddFirstFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSO
 				item.nameHash=CalcFNVHash(name,hash0);
 				CoTaskMemFree(name);
 				StrRetToStr(&str,pidl,&name);
-				item.name=name;
+				item.SetName(name,(options&CONTAINER_NOEXTENSIONS)!=0);
 				CoTaskMemFree(name);
 			}
 			else
 			{
-				item.name=name;
+				item.SetName(name,(options&CONTAINER_NOEXTENSIONS)!=0);
 				CharUpper(name);
 				item.nameHash=CalcFNVHash(name,hash0);
 				CoTaskMemFree(name);
@@ -299,7 +457,7 @@ void CMenuContainer::AddSecondFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABS
 				// new item
 				MenuItem item={MENU_NO};
 				item.icon=g_IconManager.GetIcon(pFolder,pidl,(options&CONTAINER_LARGE)!=0);
-				item.name=name;
+				item.SetName(name,(options&CONTAINER_NOEXTENSIONS)!=0);
 				item.nameHash=hash;
 				item.pItem1=pItem2;
 
@@ -401,7 +559,7 @@ void CMenuContainer::InitItems( void )
 
 								MenuItem item={MENU_NO};
 								item.icon=g_IconManager.GetIcon(pFolder,pidl,(m_Options&CONTAINER_LARGE)!=0);
-								item.name=name;
+								item.SetName(name,(m_Options&CONTAINER_NOEXTENSIONS)!=0);
 								item.pItem1=pidl0;
 
 								m_Items.push_back(item);
@@ -567,14 +725,25 @@ void CMenuContainer::InitItems( void )
 							if (idx<10)
 							{
 								if (recentType==2)
+								{
 									item.name.Format(L"&%d %s",(idx+1)%10,name);
+									if (m_Options&CONTAINER_NOEXTENSIONS)
+									{
+										const wchar_t *begin=item.name;
+										const wchar_t *end=wcsrchr(begin,'.');
+										if (end)
+										{
+											item.name.Truncate((int)(end-begin));
+										}
+									}
+								}
 								else
-									item.name=name;
+									item.SetName(name,(m_Options&CONTAINER_NOEXTENSIONS)!=0);
 								if (recentType==2 || recentType==3)
 									item.accelerator=((idx+1)%10)+'0';
 							}
 							else
-								item.name=name;
+								item.SetName(name,(m_Options&CONTAINER_NOEXTENSIONS)!=0);
 							item.nameHash=0;
 							item.pItem1=pItem;
 							pItem=NULL;
@@ -624,9 +793,22 @@ void CMenuContainer::InitItems( void )
 				m_Items.push_back(item);
 		}
 		size_t menuIdx=(m_Options&CONTAINER_ITEMS_FIRST)?0:m_Items.size();
-		bool bBreak=false, bAlignBottom=false;
-		for (const StdMenuItem *pItem=m_pStdItem;pItem->id!=MENU_LAST;pItem++)
+		bool bBreak=false, bAlignBottom=false, bInlineFirst=false;
+		const StdMenuItem *pInlineParent=NULL;
+		for (const StdMenuItem *pItem=m_pStdItem;;pItem++)
 		{
+			if (pItem->id==MENU_LAST)
+			{
+				if (pInlineParent)
+				{
+					pItem=pInlineParent;
+					pInlineParent=NULL;
+					continue;
+				}
+				break;
+			}
+			if (pItem->id==MENU_IGNORE)
+				continue;
 			int stdOptions=MENU_ENABLED|MENU_EXPANDED;
 			for (int i=0;i<_countof(g_StdOptions);i++)
 				if (g_StdOptions[i].id==pItem->id)
@@ -648,11 +830,22 @@ void CMenuContainer::InitItems( void )
 				continue;
 			}
 
+			if (!pInlineParent && pItem->submenu && (pItem->settings&StdMenuItem::MENU_INLINE))
+			{
+				pInlineParent=pItem;
+				pItem=pInlineParent->submenu-1;
+				bInlineFirst=true;
+				continue;
+			}
+
 			MenuItem item={pItem->id,pItem};
+			if (pInlineParent)
+				item.bInline=true;
 
 			item.bBreak=bBreak;
 			item.bAlignBottom=bAlignBottom;
-			bBreak=bAlignBottom=false;
+			item.bInlineFirst=bInlineFirst;
+			bBreak=bAlignBottom=bInlineFirst=false;
 
 			ATLASSERT(pItem->folder1 || !pItem->folder2);
 			if (pItem->folder1)
@@ -691,7 +884,6 @@ void CMenuContainer::InitItems( void )
 			}
 			else if (item.pItem1)
 			{
-				// for some reason SHGetFileInfo(SHGFI_PIDL|SHGFI_ICONLOCATION) doesn't work here. go to the IShellFolder directly
 				CComPtr<IShellFolder> pFolder2;
 				PCUITEMID_CHILD pidl;
 				if (SUCCEEDED(SHBindToParent(item.pItem1,IID_IShellFolder,(void**)&pFolder2,&pidl)))
@@ -727,6 +919,10 @@ void CMenuContainer::InitItems( void )
 				item.name=LoadStringEx(IDS_NO_TEXT);
 
 			item.bPrograms=(item.id==MENU_PROGRAMS || item.id==MENU_FAVORITES);
+			if (item.bInline)
+			{
+				item.bFolder=false;
+			}
 			m_Items.insert(m_Items.begin()+menuIdx,1,item);
 			menuIdx++;
 		}
@@ -742,7 +938,7 @@ void CMenuContainer::InitItems( void )
 	}
 
 	// remove trailing separators
-	while (!m_Items.empty() && m_Items[m_Items.size()-1].id==MENU_SEPARATOR)
+	while (!m_Items.empty() && m_Items[m_Items.size()-1].id==MENU_SEPARATOR && !m_Items[m_Items.size()-1].bInline)
 		m_Items.pop_back();
 
 	if (m_bSubMenu)
@@ -751,7 +947,7 @@ void CMenuContainer::InitItems( void )
 	// find accelerators
 	for (std::vector<MenuItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
 	{
-		if (it->id==MENU_SEPARATOR || it->id==MENU_EMPTY  || it->id==MENU_EMPTY_TOP || it->name.IsEmpty() || (it->id==MENU_RECENT && recentType!=1))
+		if (it->id==MENU_SEPARATOR || it->id==MENU_EMPTY  || it->id==MENU_EMPTY_TOP || it->id==MENU_SEARCH_BOX || it->name.IsEmpty() || (it->id==MENU_RECENT && recentType!=1))
 			continue;
 
 		const wchar_t *name=it->name;
@@ -770,6 +966,84 @@ void CMenuContainer::InitItems( void )
 		CharUpper(buf); // always upper case
 		it->accelerator=buf[0];
 	}
+	UpdateUsedIcons();
+}
+
+// Initialize the m_Items list with the search results
+void CMenuContainer::InitItems( const std::vector<SearchItem> &items, const wchar_t *search )
+{
+	m_Items.clear();
+	m_bRefreshPosted=false;
+	m_Submenu=-1;
+	m_HotPos=GetMessagePos();
+	m_ContextItem=-1;
+	m_ScrollCount=0;
+
+	for (std::vector<SearchItem>::const_iterator it=items.begin();it!=items.end();++it)
+	{
+		if (!it->MatchText(search)) continue;
+		CComPtr<IShellFolder> pFolder;
+		PCUITEMID_CHILD child;
+		if (FAILED(SHBindToParent(it->pidl,IID_IShellFolder,(void**)&pFolder,&child)))
+			continue;
+
+		STRRET str;
+		if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_NORMAL,&str)))
+		{
+			wchar_t *name;
+			StrRetToStr(&str,child,&name);
+
+			MenuItem item={MENU_NO};
+			item.SetName(name,(m_Options&CONTAINER_NOEXTENSIONS)!=0);
+			item.pItem1=ILCloneFull(it->pidl);
+			if (it->icon>=0)
+				item.icon=it->icon;
+			else
+				it->icon=item.icon=g_IconManager.GetIcon(pFolder,child,false);
+			CharUpper(name);
+			item.nameHash=CalcFNVHash(name);
+			CoTaskMemFree(name);
+			m_Items.push_back(item);
+		}
+	}
+
+	if (m_Items.size()>MAX_MENU_ITEMS)
+	{
+		for (size_t i=MAX_MENU_ITEMS;i<m_Items.size();i++)
+		{
+			if (m_Items[i].pItem1) ILFree(m_Items[i].pItem1);
+			if (m_Items[i].pItem2) ILFree(m_Items[i].pItem2);
+		}
+		m_Items.resize(MAX_MENU_ITEMS);
+	}
+
+	if (m_Items.empty())
+	{
+		// add (Empty) item to the empty submenus
+		MenuItem item={m_bSubMenu?MENU_EMPTY:MENU_EMPTY_TOP};
+		item.icon=I_IMAGENONE;
+		item.name=FindTranslation(L"Menu.Empty",L"(Empty)");
+		m_Items.push_back(item);
+	}
+
+	m_ScrollCount=(int)m_Items.size();
+	UpdateUsedIcons();
+}
+
+void CMenuContainer::UpdateUsedIcons( void )
+{
+	g_IconManager.ResetUsedIcons();
+	for (std::vector<CMenuContainer*>::const_iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+	{
+		if ((*it)->m_Options&CONTAINER_LARGE)
+			continue;
+		for (std::vector<MenuItem>::const_iterator it2=(*it)->m_Items.begin();it2!=(*it)->m_Items.end();++it2)
+		{
+			if (it2->icon>0)
+				g_IconManager.AddUsedIcon(it2->icon);
+		}
+	}
+	g_IconManager.StartPostLoading();
 }
 
 // Calculate the size and create the background bitmaps
@@ -807,6 +1081,7 @@ void CMenuContainer::InitWindow( void )
 			}
 		}
 	}
+
 	// calculate maximum height
 	int maxHeight;
 	int maxWidth=m_MaxWidth;
@@ -918,9 +1193,10 @@ void CMenuContainer::InitWindow( void )
 	columnWidths.push_back(0);
 
 	bool bMultiColumn=s_ScrollMenus!=0 && (m_Options&CONTAINER_MULTICOLUMN);
+	int searchIndex=-1;
 
 	{
-		int row=0, column=0;
+		int row=0, column=0, subColumn=0;
 		int y=0;
 		int maxw=0;
 		int index=0;
@@ -942,12 +1218,23 @@ void CMenuContainer::InitWindow( void )
 			{
 				h=0; // this is the first (Empty) item in the top menu. hide it for now
 			}
+			else if (item.bInline)
+			{
+				h=iconSize+iconPadding[index].top+iconPadding[index].bottom;
+				w+=iconSize+iconPadding[index].left+iconPadding[index].right;
+			}
 			else if (item.id==MENU_SEPARATOR)
 			{
 				if (y==0)
 					h=0; // ignore separators at the top of the column
 				else
 					h=sepHeight[index];
+			}
+			else if (item.id==MENU_SEARCH_BOX)
+			{
+				h=metrics.tmHeight*12/8+DEFAULT_SEARCH_PADDING.top+DEFAULT_SEARCH_PADDING.bottom; // 12 DLUs
+				searchIndex=(int)i;
+				w=metrics.tmAveCharWidth*20;
 			}
 			else
 			{
@@ -960,7 +1247,7 @@ void CMenuContainer::InitWindow( void )
 			}
 			if (bMultiColumn && y>0 && y+h>maxHeight)
 			{
-				if (item.id==MENU_SEPARATOR)
+				if (item.id==MENU_SEPARATOR && !item.bInline)
 					h=0; // ignore separators at the bottom of the column
 				else
 				{
@@ -971,15 +1258,37 @@ void CMenuContainer::InitWindow( void )
 					y=0;
 				}
 			}
-			else if (item.id==MENU_SEPARATOR && m_bTwoColumns && column==0 && i+1<m_Items.size() && m_Items[i+1].bBreak)
+			else if (item.id==MENU_SEPARATOR && !item.bInline && m_bTwoColumns && column==0 && i+1<m_Items.size() && m_Items[i+1].bBreak)
 				h=0;
-			if (columnWidths[column]<w) columnWidths[column]=w;
 			item.row=row;
 			item.column=column;
 			item.itemRect.top=y;
 			item.itemRect.bottom=y+h;
 			item.itemRect.left=0;
-			item.itemRect.right=w;
+			if (item.bInline)
+			{
+				if (item.bInlineFirst)
+				{
+					subColumn=0;
+				}
+				else
+				{
+					item.row=row=row-1;
+					item.itemRect.top-=h;
+					item.itemRect.bottom-=h;
+					h=0;
+				}
+				item.itemRect.left=w*subColumn;
+				if (item.id==MENU_SEPARATOR)
+				{
+					w=0;
+					subColumn--;
+				}
+				subColumn++;
+			}
+			item.itemRect.right=item.itemRect.left+w;
+			if (columnWidths[column]<item.itemRect.right)
+				columnWidths[column]=item.itemRect.right;
 			y+=h;
 			row++;
 		}
@@ -1056,12 +1365,68 @@ void CMenuContainer::InitWindow( void )
 		}
 		columnWidths.push_back(maxw);
 		int x=0;
+		bool bInline=false;
 		for (size_t i=0;i<m_Items.size();i++)
 		{
 			MenuItem &item=m_Items[i];
-			item.itemRect.left=m_ColumnOffsets[item.column];
-			item.itemRect.right=item.itemRect.left+columnWidths[item.column];
-			if (maxh<item.itemRect.bottom) maxh=item.itemRect.bottom;
+			if (item.bInline)
+			{
+				item.itemRect.left+=m_ColumnOffsets[item.column];
+				item.itemRect.right+=m_ColumnOffsets[item.column];
+				bInline=true;
+			}
+			else
+			{
+				item.itemRect.left=m_ColumnOffsets[item.column];
+				item.itemRect.right=item.itemRect.left+columnWidths[item.column];
+			}
+			if (maxh<item.itemRect.bottom)
+				maxh=item.itemRect.bottom;
+		}
+
+		if (bInline)
+		{
+			// center inline groups
+			for (size_t i=0;i<m_Items.size();i++)
+			{
+				MenuItem &item=m_Items[i];
+				if (item.bInlineFirst)
+				{
+					int i1=(int)i;
+					bool bSepLeft=(item.id==MENU_SEPARATOR);
+					int w=item.itemRect.right-item.itemRect.left;
+					for (i++;i<m_Items.size();i++)
+					{
+						if (!m_Items[i].bInline || m_Items[i].bInlineFirst)
+							break;
+						w+=(m_Items[i].itemRect.right-m_Items[i].itemRect.left);
+					}
+					w=(columnWidths[item.column]-w);
+					int i2=(int)i;
+					i--;
+					bool bSepRight=(m_Items[i].id==MENU_SEPARATOR);
+					if (!bSepLeft && !bSepRight)
+						w/=2; // centered
+					else if (bSepRight)
+						w=0;
+					int first=-1, last=-1;
+					for (int j=i1;j<i2;j++)
+					{
+						if (m_Items[j].id!=MENU_SEPARATOR)
+						{
+							if (first<0) first=j;
+							last=j;
+						}
+						OffsetRect(&m_Items[j].itemRect,w,0);
+						m_Items[j].bInlineFirst=false;
+					}
+					if (first>=0)
+					{
+						m_Items[first].bInlineFirst=true;
+						m_Items[last].bInlineLast=true;
+					}
+				}
+			}
 		}
 	}
 
@@ -1126,7 +1491,7 @@ void CMenuContainer::InitWindow( void )
 			int dy=m_rContent.top;
 			if (m_bTwoColumns && m_Items[i].column==1)
 			{
-				dx=m_rContent2.left-m_Items[i].itemRect.left;
+				dx=m_rContent2.left-m_ColumnOffsets[1];
 				dy=m_rContent2.top;
 			}
 			OffsetRect(&m_Items[i].itemRect,dx,dy);
@@ -1193,19 +1558,68 @@ void CMenuContainer::InitWindow( void )
 	UpdateScroll();
 	m_bScrollUpHot=m_bScrollDownHot=false;
 
+	m_SearchIndex=searchIndex;
+	if (searchIndex>=0)
+	{
+		m_Items[m_SearchIndex].itemRect.left+=DEFAULT_SEARCH_PADDING.left;
+		m_Items[m_SearchIndex].itemRect.top+=DEFAULT_SEARCH_PADDING.top;
+		m_Items[m_SearchIndex].itemRect.bottom-=DEFAULT_SEARCH_PADDING.bottom;
+		RECT itemRect;
+		GetItemRect(searchIndex,itemRect);
+		itemRect.right-=(itemRect.bottom-itemRect.top)+DEFAULT_SEARCH_PADDING.right;
+		if (m_SearchBox.m_hWnd)
+		{
+			m_SearchBox.SetWindowPos(NULL,&itemRect,SWP_NOZORDER);
+		}
+		else
+		{
+			m_SearchBox.Create(L"EDIT",m_hWnd,itemRect,NULL,WS_CHILD|WS_BORDER|ES_AUTOHSCROLL|ES_WANTRETURN);
+			m_SearchBox.SendMessage(EM_SETCUEBANNER,GetSettingInt(L"SearchBox")==1 && GetSettingBool(L"SearchSelect"),(LPARAM)(const wchar_t*)m_Items[searchIndex].name);
+			m_bNoSearchDraw=false;
+			if (!m_bSubMenu && s_Skin.Main_opacity!=MenuSkin::OPACITY_SOLID && s_Skin.Main_opacity==MenuSkin::OPACITY_REGION)
+				m_bNoSearchDraw=true;
+			if (m_bSubMenu && s_Skin.Submenu_opacity==MenuSkin::OPACITY_SOLID && s_Skin.Submenu_opacity==MenuSkin::OPACITY_REGION)
+				m_bNoSearchDraw=true;
+			if (GetSettingBool(L"SearchAutoComplete"))
+				SHAutoComplete(m_SearchBox,SHACF_FILESYSTEM);
+			SetWindowSubclass(m_SearchBox,SubclassSearchBox,(UINT_PTR)this,0); // must be after SHAutoComplete, so we get the messages first
+			int index=(m_bTwoColumns && m_Items[searchIndex].column==1)?1:0;
+			if (index==1 && (searchIndex==0 || m_Items[searchIndex-1].column==0))
+				m_SearchBox.SetFont(m_Font[1]);
+			else
+				m_SearchBox.SetFont(m_Font[0]);
+			m_SearchIcons=(HBITMAP)LoadImage(g_Instance,MAKEINTRESOURCE(IDB_SEARCH_ICONS),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
+			PremultiplyAlpha(m_SearchIcons);
+		}
+	}
+
 	RECT rc={0,0,totalWidth,totalHeight};
 	AdjustWindowRect(&rc,GetWindowLong(GWL_STYLE),FALSE);
 	RECT rc0;
 	GetWindowRect(&rc0);
-	OffsetRect(&rc,(m_Options&CONTAINER_LEFT)?(rc0.left-rc.left):(rc0.right-rc.right),(m_Options&CONTAINER_TOP)?(rc0.top-rc.top):(rc0.bottom-rc.bottom));
+	int dx=(m_Options&CONTAINER_LEFT)?(rc0.left-rc.left):(rc0.right-rc.right);
+	int dy;
+	if (m_Options&CONTAINER_SEARCH)
+	{
+		RECT itemRect;
+		m_pParent->GetItemRect(m_ParentIndex,itemRect);
+		m_pParent->ClientToScreen(&itemRect);
+		dy=(m_Options&CONTAINER_TOP)?(itemRect.top-s_Skin.Submenu_padding.top-rc.top):(itemRect.bottom+s_Skin.Submenu_padding.bottom-rc.bottom);
+	}
+	else
+	{
+		dy=(m_Options&CONTAINER_TOP)?(rc0.top-rc.top):(rc0.bottom-rc.bottom);
+	}
+	OffsetRect(&rc,dx,dy);
 	if (m_bSubMenu)
 	{
-		int dx=0,dy=0;
+		// make the menu fit on screen
+		int dy2=0;
 		if (rc.bottom>mainBottom)
-			dy=mainBottom-rc.bottom;
+			dy2=mainBottom-rc.bottom;
 		if (rc.top+dy<mainTop)
-			dy=mainTop-rc.top;
-		OffsetRect(&rc,dx,dy);
+			dy2=mainTop-rc.top;
+		OffsetRect(&rc,0,dy2);
 	}
 	SetWindowPos(NULL,&rc,SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOCOPYBITS|SWP_DEFERERASE);
 
@@ -1347,6 +1761,8 @@ LRESULT CMenuContainer::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 	}
 	if (!m_pParent)
 		BufferedPaintInit();
+	if (this==s_Menus[0])
+		s_FirstMenu=m_hWnd;
 	InitWindow();
 	m_HotPos=GetMessagePos();
 	if (GetSettingBool(L"EnableAccessibility"))
@@ -1413,6 +1829,8 @@ void CMenuContainer::InvalidateItem( int index )
 
 void CMenuContainer::SetHotItem( int index )
 {
+	if (index<0 && (m_Options&CONTAINER_SEARCH))
+		return;
 	if (index==m_HotItem) return;
 	if ((index>=0)!=(m_HotItem>=0))
 	{
@@ -1505,6 +1923,318 @@ LRESULT CMenuContainer::OnSetContextItem( UINT uMsg, WPARAM wParam, LPARAM lPara
 	return 0;
 }
 
+LRESULT CMenuContainer::OnColorEdit( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	if (!m_bNoSearchDraw)
+		PostMessage(MCM_REDRAWEDIT);
+	bHandled=FALSE;
+	return 0;
+}
+
+LRESULT CMenuContainer::OnRedrawEdit( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	m_SearchBox.RedrawWindow();
+	return 0;
+}
+
+LRESULT CMenuContainer::OnRefreshIcons( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	g_IconManager.ProcessLoadedIcons();
+	for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+		if ((*it)->m_hWnd)
+			(*it)->Invalidate();
+	return 0;
+}
+
+void CMenuContainer::RefreshIcons( void )
+{
+	// this is called from the background thread
+	HWND first=s_FirstMenu; // must copy into a temp variable because we don't want the value to change in the middle of the next two lines
+	if (first)
+		::PostMessage(first,MCM_REFRESHICONS,0,0);
+}
+
+// Extensions to look for in the PATH directories
+static const wchar_t *pProgramExtensions[]=
+{
+	L".EXE",
+	L".COM",
+	L".BAT",
+	L".CMD",
+	L".MSC",
+	L".CPL",
+};
+
+void CMenuContainer::CollectSearchItemsInt( IShellFolder *pFolder, PIDLIST_ABSOLUTE pidl, int flags, int &count )
+{
+	CComPtr<IEnumIDList> pEnum;
+	if (pFolder->EnumObjects(NULL,SHCONTF_NONFOLDERS|SHCONTF_FOLDERS,&pEnum)!=S_OK) pEnum=NULL;
+	if (!pEnum) return;
+
+	PITEMID_CHILD child;
+	while (pEnum->Next(1,&child,NULL)==S_OK)
+	{
+		count++;
+		if ((count%10)==0)
+		{
+			// pump messages for the search box every 10 items, so the typing is responsive
+			MSG msg;
+			while (PeekMessage(&msg,m_SearchBox,0,0,PM_REMOVE))
+			{
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
+		}
+		SFGAOF itemFlags=SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK;
+		if (SUCCEEDED(pFolder->GetAttributesOf(1,&child,&itemFlags)))
+		{
+			if ((flags&COLLECT_RECURSIVE) && (itemFlags&(SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK))==SFGAO_FOLDER)
+			{
+				// go into subfolders but not archives or links to folders
+				CComPtr<IShellFolder> pChild;
+				if (SUCCEEDED(pFolder->BindToObject(child,NULL,IID_IShellFolder,(void**)&pChild)))
+				{
+					PIDLIST_ABSOLUTE folder=ILCombine(pidl,child);
+					CollectSearchItemsInt(pChild,folder,flags,count);
+					ILFree(folder);
+				}
+			}
+			if ((flags&COLLECT_FOLDERS) || !(itemFlags&SFGAO_FOLDER))
+			{
+				STRRET str;
+				if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_NORMAL,&str)))
+				{
+					wchar_t *name;
+					StrRetToStr(&str,child,&name);
+					CharUpper(name);
+					bool bSkip=false;
+					if (flags&COLLECT_PROGRAMS)
+					{
+						bSkip=true;
+						const wchar_t *ext=PathFindExtension(name);
+						for (int i=0;i<_countof(pProgramExtensions);i++)
+							if (wcscmp(ext,pProgramExtensions[i])==0)
+							{
+								bSkip=false;
+								break;
+							}
+					}
+					if (!bSkip)
+					{
+						SearchItem item;
+						item.name=name;
+						item.pidl=ILCombine(pidl,child);
+						item.icon=-1;
+						ItemRank rank={CalcFNVHash(name)};
+						std::vector<ItemRank>::const_iterator it=std::lower_bound(s_ItemRanks.begin(),s_ItemRanks.end(),rank);
+						if (it==s_ItemRanks.end() || it->hash!=rank.hash)
+							item.rank=0;
+						else
+							item.rank=it->rank;
+						m_SearchItems.push_back(item);
+					}
+					CoTaskMemFree(name);
+				}
+			}
+		}
+	}
+}
+
+void CMenuContainer::CollectSearchItems( void )
+{
+	// user start menu
+	int count=0;
+	{
+		PIDLIST_ABSOLUTE pidl;
+		if (SUCCEEDED(SHGetKnownFolderIDList(FOLDERID_StartMenu,0,NULL,&pidl)))
+		{
+			CComPtr<IShellFolder> pFolder;
+			if (SUCCEEDED(s_pDesktop->BindToObject(pidl,NULL,IID_IShellFolder,(void**)&pFolder)))
+				CollectSearchItemsInt(pFolder,pidl,COLLECT_RECURSIVE,count);
+			ILFree(pidl);
+		}
+	}
+
+	// common start menu
+	if (!s_bNoCommonFolders)
+	{
+		PIDLIST_ABSOLUTE pidl;
+		if (SUCCEEDED(SHGetKnownFolderIDList(FOLDERID_CommonStartMenu,0,NULL,&pidl)))
+		{
+			CComPtr<IShellFolder> pFolder;
+			if (SUCCEEDED(s_pDesktop->BindToObject(pidl,NULL,IID_IShellFolder,(void**)&pFolder)))
+				CollectSearchItemsInt(pFolder,pidl,COLLECT_RECURSIVE,count);
+			ILFree(pidl);
+		}
+	}
+
+	// PATH
+	if (GetSettingBool(L"SearchPath"))
+	{
+		CString PATH;
+		PATH.GetEnvironmentVariable(L"PATH");
+		for (const wchar_t *pPath=PATH;*pPath;)
+		{
+			wchar_t token[_MAX_PATH];
+			pPath=GetToken(pPath,token,_countof(token),L";");
+			PathRemoveBackslash(token);
+			PIDLIST_ABSOLUTE pidl;
+			if (SUCCEEDED(s_pDesktop->ParseDisplayName(NULL,NULL,token,NULL,(PIDLIST_RELATIVE*)&pidl,NULL)))
+			{
+				CComPtr<IShellFolder> pFolder;
+				if (SUCCEEDED(s_pDesktop->BindToObject(pidl,NULL,IID_IShellFolder,(void**)&pFolder)))
+					CollectSearchItemsInt(pFolder,pidl,COLLECT_PROGRAMS,count);
+				ILFree(pidl);
+			}
+		}
+	}
+
+	// Control Panel
+	if (GetSettingBool(L"SearchCP"))
+	{
+		{
+			PIDLIST_ABSOLUTE pidl;
+			if (SUCCEEDED(SHGetKnownFolderIDList(FOLDERID_ControlPanelFolder,0,NULL,&pidl)))
+			{
+				CComPtr<IShellFolder> pFolder;
+				if (SUCCEEDED(s_pDesktop->BindToObject(pidl,NULL,IID_IShellFolder,(void**)&pFolder)))
+					CollectSearchItemsInt(pFolder,pidl,COLLECT_FOLDERS,count);
+				ILFree(pidl);
+			}
+		}
+		// Administrative Tools
+		{
+			PIDLIST_ABSOLUTE pidl;
+			if (SUCCEEDED(SHGetKnownFolderIDList(FOLDERID_AdminTools,0,NULL,&pidl)))
+			{
+				CComPtr<IShellFolder> pFolder;
+				if (SUCCEEDED(s_pDesktop->BindToObject(pidl,NULL,IID_IShellFolder,(void**)&pFolder)))
+					CollectSearchItemsInt(pFolder,pidl,COLLECT_RECURSIVE,count);
+				ILFree(pidl);
+			}
+		}
+		// common Administrative Tools
+		if (!s_bNoCommonFolders)
+		{
+			PIDLIST_ABSOLUTE pidl;
+			if (SUCCEEDED(SHGetKnownFolderIDList(FOLDERID_CommonAdminTools,0,NULL,&pidl)))
+			{
+				CComPtr<IShellFolder> pFolder;
+				if (SUCCEEDED(s_pDesktop->BindToObject(pidl,NULL,IID_IShellFolder,(void**)&pFolder)))
+					CollectSearchItemsInt(pFolder,pidl,COLLECT_RECURSIVE,count);
+				ILFree(pidl);
+			}
+		}
+	}
+
+	// remove duplicates
+	std::sort(m_SearchItems.begin(),m_SearchItems.end());
+	for (size_t i=1;i<m_SearchItems.size();i++)
+	{
+		if (m_SearchItems[i].name==m_SearchItems[i-1].name)
+			m_SearchItems[i-1].name.Empty();
+	}
+}
+
+void CMenuContainer::SetSearchState( TSearchState state )
+{
+	if (m_SearchState==state)
+		return;
+	InvalidateRect(&m_Items[m_SearchIndex].itemRect);
+	m_SearchState=state;
+}
+
+LRESULT CMenuContainer::OnEditChange( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
+{
+	m_SearchBox.RedrawWindow();
+	UpdateSearchResults(false);
+	return 0;
+}
+
+void CMenuContainer::UpdateSearchResults( bool bForceShowAll )
+{
+	if (m_bInSearchUpdate)
+		return;
+	m_bInSearchUpdate=true;
+	if (bForceShowAll)
+		m_bSearchShowAll=true;
+	wchar_t text[256];
+	m_SearchBox.GetWindowText(text,_countof(text));
+	wchar_t *pText=text;
+	while (*pText==' ' || *pText=='\t')
+		pText++;
+	if (*pText && m_SearchItems.empty())
+	{
+		CollectSearchItems();
+		// get the text again - maybe the user typed some more
+		m_SearchBox.GetWindowText(text,_countof(text));
+		pText=text;
+		while (*pText==' ' || *pText=='\t')
+			pText++;
+	}
+	int len=Strlen(pText);
+	while (len>0 && (pText[len-1]==' ' || pText[len-1]=='\t'))
+		len--;
+	pText[len]=0;
+	CharUpper(pText);
+	unsigned int hash=0; // 0 - too many results, otherwise hash of the result names
+	TSearchState state=SEARCH_NONE;
+	if (*pText)
+	{
+		state=SEARCH_TEXT;
+		int count=0;
+		int maxCount=GetSettingInt(L"SearchMax");
+		hash=FNV_HASH0;
+		for (std::vector<SearchItem>::const_iterator it=m_SearchItems.begin();it!=m_SearchItems.end();++it)
+		{
+			if (!it->MatchText(pText)) continue;
+			hash=CalcFNVHash(it->name,hash);
+			count++;
+			if (count>maxCount && !m_bSearchShowAll)
+			{
+				hash=0;
+				state=SEARCH_MORE;
+				break;
+			}
+		}
+		if (count==0)
+			hash=0;
+		if (count<=maxCount)
+			m_bSearchShowAll=false;
+	}
+	else
+	{
+		state=(GetFocus()==m_SearchBox.m_hWnd?SEARCH_BLANK:SEARCH_NONE);
+		m_bSearchShowAll=false;
+	}
+	SetSearchState(state);
+	if (m_ResultsHash!=hash)
+	{
+		m_ResultsHash=hash;
+
+		if (m_ResultsHash==0)
+		{
+			// close all sub-menus
+			for (int i=(int)s_Menus.size()-1;s_Menus[i]!=this;i--)
+				if (!s_Menus[i]->m_bDestroyed)
+					s_Menus[i]->DestroyWindow();
+		}
+		else if (m_Submenu!=m_SearchIndex)
+		{
+			ActivateItem(m_SearchIndex,ACTIVATE_OPEN_SEARCH,NULL);
+		}
+		else
+		{
+			ATLASSERT(s_Menus[s_Menus.size()-1]->m_pParent==this && (s_Menus[s_Menus.size()-1]->m_Options&CONTAINER_SEARCH));
+			CMenuContainer *pSearchMenu=s_Menus[s_Menus.size()-1];
+			pSearchMenu->InitItems(m_SearchItems,pText);
+			pSearchMenu->InitWindow();
+			pSearchMenu->SetHotItem(0);
+		}
+	}
+	m_bInSearchUpdate=false;
+}
+
 // Turn on the keyboard cues from now on. This is done when a keyboard action is detected
 void CMenuContainer::ShowKeyboardCues( void )
 {
@@ -1518,7 +2248,8 @@ void CMenuContainer::ShowKeyboardCues( void )
 
 void CMenuContainer::SetActiveWindow( void )
 {
-	if (GetActiveWindow()!=m_hWnd)
+	HWND active=GetActiveWindow();
+	if (active!=m_hWnd && active!=m_SearchBox.m_hWnd)
 		::SetActiveWindow(m_hWnd);
 	if (!m_bSubMenu && s_bBehindTaskbar)
 		SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE); // make sure the top menu stays behind the taskbar
@@ -1619,11 +2350,13 @@ LRESULT CMenuContainer::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 			pt.x+=8;
 			pt.y+=16;
 		}
-		else
+		else if (!(s_pHotMenu->m_Options&CONTAINER_SEARCH))
 		{
 			pt.x=(rc.left+rc.right)/2;
 			pt.y=rc.bottom;
 		}
+		else
+			return 0;
 
 		tool.lpszText=text;
 		s_Tooltip.SendMessage(TTM_UPDATETIPTEXT,0,(LPARAM)&tool);
@@ -1685,14 +2418,40 @@ LRESULT CMenuContainer::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 	return 0;
 }
 
+bool CMenuContainer::CanSelectItem( const MenuItem &item )
+{
+	if (item.id==MENU_SEPARATOR)
+		return false;
+	if (item.itemRect.bottom==item.itemRect.top)
+		return false;
+	if (item.id==MENU_SEARCH_BOX && GetSettingInt(L"SearchBox")!=1)
+		return false;
+	return true;
+}
+
 LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
 	ShowKeyboardCues();
+
+	if (wParam==VK_TAB && m_SearchBox.m_hWnd && (m_SearchState==SEARCH_MORE || m_SearchState==SEARCH_NONE))
+	{
+		// destroy old submenus
+		for (int i=(int)s_Menus.size()-1;s_Menus[i]!=this;i--)
+			if (!s_Menus[i]->m_bDestroyed)
+				s_Menus[i]->DestroyWindow();
+		if (m_SearchState==SEARCH_MORE)
+			UpdateSearchResults(true);
+		else
+			ActivateItem(m_SearchIndex,ACTIVATE_SELECT,NULL);
+		return 0;
+	}
 
 	if (wParam!=VK_UP && wParam!=VK_DOWN && wParam!=VK_LEFT && wParam!=VK_RIGHT && wParam!=VK_ESCAPE && wParam!=VK_RETURN)
 		return TRUE;
 
 	int index=m_HotItem;
+	if (index<0 && m_SearchState!=SEARCH_NONE)
+		index=m_SearchIndex;
 	if (index<0) index=-1;
 	int n=(int)m_Items.size();
 
@@ -1701,34 +2460,86 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		// previous item
 		if (index<0)
 		{
-			int column=(m_bTwoColumns?1:0);
+			// no item is selected - find the first selectable item in the last column then go up
+			int col=(m_bTwoColumns?1:0);
 			index=0;
-			for (int i=0;i<(int)m_Items.size();i++)
+			for (int i=0;i<n;i++)
 			{
-				if (m_Items[i].column==column && m_Items[i].itemRect.bottom>m_Items[i].itemRect.top)
+				if (m_Items[i].column==col && CanSelectItem(m_Items[i]) && (!m_Items[i].bInline || m_Items[i].bInlineFirst))
 				{
 					index=i;
 					break;
 				}
 			}
 		}
-		// skip separators and the (Empty) item in the top menu if hidden
-		while (m_Items[index].id==MENU_SEPARATOR || m_Items[index].itemRect.bottom==m_Items[index].itemRect.top)
-			index=(index+n-1)%n;
-		index=(index+n-1)%n;
-		while (m_Items[index].id==MENU_SEPARATOR || m_Items[index].itemRect.bottom==m_Items[index].itemRect.top)
-			index=(index+n-1)%n;
-		ActivateItem(index,ACTIVATE_SELECT,NULL);
+		int row=m_Items[index].row;
+		int col=m_Items[index].column;
+		int x0=m_Items[index].itemRect.left;
+		int dist=0x7FFFFFFF;
+		int best=-1;
+		for (int i=1;i<n;i++)
+		{
+			int idx=(index+n-i)%n;
+			if (!CanSelectItem(m_Items[idx]))
+				continue;
+			int d=0x7FFFFFFE;
+			if (m_Items[idx].column==col && m_Items[idx].row<row)
+			{
+				d=((row-m_Items[idx].row)<<16)+abs(m_Items[idx].itemRect.left-x0);
+			}
+			else if (m_Items[idx].bInline && !m_Items[idx].bInlineFirst)
+				continue;
+			if (d<dist)
+			{
+				dist=d;
+				best=idx;
+			}
+		}
+		if (best>=0)
+			ActivateItem(best,ACTIVATE_SELECT,NULL);
 	}
 	if (wParam==VK_DOWN)
 	{
 		// next item
-		while (index>=0 && (m_Items[index].id==MENU_SEPARATOR || m_Items[index].itemRect.bottom==m_Items[index].itemRect.top))
-			index=(index+1)%n;
-		index=(index+1)%n;
-		while (m_Items[index].id==MENU_SEPARATOR || m_Items[index].itemRect.bottom==m_Items[index].itemRect.top)
-			index=(index+1)%n;
-		ActivateItem(index,ACTIVATE_SELECT,NULL);
+		if (index<0)
+		{
+			// no item is selected - find the last selectable item then go down
+			int col=(m_bTwoColumns?1:0);
+			index=0;
+			for (int i=n-1;i>=0;i--)
+			{
+				if (m_Items[i].column==col && CanSelectItem(m_Items[i]) && (!m_Items[i].bInline || m_Items[i].bInlineFirst))
+				{
+					index=i;
+					break;
+				}
+			}
+		}
+		int row=m_Items[index].row;
+		int col=m_Items[index].column;
+		int x0=m_Items[index].itemRect.left;
+		int dist=0x7FFFFFFF;
+		int best=-1;
+		for (int i=1;i<n;i++)
+		{
+			int idx=(index+i)%n;
+			if (!CanSelectItem(m_Items[idx]))
+				continue;
+			int d=0x7FFFFFFE;
+			if (m_Items[idx].column==col && m_Items[idx].row>row)
+			{
+				d=((m_Items[idx].row-row)<<16)+abs(m_Items[idx].itemRect.left-x0);
+			}
+			else if (m_Items[idx].bInline && !m_Items[idx].bInlineFirst)
+				continue;
+			if (d<dist)
+			{
+				dist=d;
+				best=idx;
+			}
+		}
+		if (best>=0)
+			ActivateItem(best,ACTIVATE_SELECT,NULL);
 	}
 	bool bBack=((wParam==VK_LEFT && !s_bRTL) || (wParam==VK_RIGHT && s_bRTL));
 	if (wParam==VK_ESCAPE || (bBack && (s_Menus.size()>1 || (s_Menus.size()==1 && m_bSubMenu))))
@@ -1751,22 +2562,35 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 			}
 		}
 	}
-	else if (bBack && s_Menus.size()==1 && m_bTwoColumns && index>=0)
+	else if (bBack && s_Menus.size()==1 && index>=0)
 	{
-		int column=m_Items[index].column?0:1;
-		int y0=(m_Items[index].itemRect.top+m_Items[index].itemRect.bottom)/2;
-		int dist=INT_MAX;
-		index=-1;
-		for (size_t i=0;i<m_Items.size();i++)
+		if (m_Items[index].bInline && !m_Items[index].bInlineFirst)
 		{
-			if (m_Items[i].id!=MENU_SEPARATOR && m_Items[i].column==column && m_Items[i].itemRect.bottom>m_Items[i].itemRect.top)
+			index--;
+			while (!CanSelectItem(m_Items[index]))
+				index--;
+		}
+		else if (m_bTwoColumns)
+		{
+			int column=m_Items[index].column?0:1;
+			int y0=(m_Items[index].itemRect.top+m_Items[index].itemRect.bottom)/2;
+			if (index<m_ScrollCount) y0-=m_ScrollOffset;
+			int dist=INT_MAX;
+			index=-1;
+			for (int i=0;i<n;i++)
 			{
-				int y=(m_Items[i].itemRect.top+m_Items[i].itemRect.bottom)/2;
-				int d=abs(y-y0);
-				if (dist>d)
+				if (m_Items[i].column==column && CanSelectItem(m_Items[i]))
 				{
-					index=(int)i;
-					dist=d;
+					if (m_Items[i].bInline && !m_Items[i].bInlineLast)
+							continue;
+					int y=(m_Items[i].itemRect.top+m_Items[i].itemRect.bottom)/2;
+					if (i<m_ScrollCount) y-=m_ScrollOffset;
+					int d=abs(y-y0);
+					if (dist>d)
+					{
+						index=i;
+						dist=d;
+					}
 				}
 			}
 		}
@@ -1784,21 +2608,31 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 				ActivateItem(index,ACTIVATE_OPEN_KBD,NULL);
 			else if (wParam==VK_RETURN)
 				ActivateItem(index,ACTIVATE_EXECUTE,NULL);
-			else if (bForward && m_bTwoColumns && m_Items[index].column==0)
+			else if (bForward)
 			{
-				int y0=(m_Items[index].itemRect.top+m_Items[index].itemRect.bottom)/2;
-				int dist=INT_MAX;
-				index=-1;
-				for (size_t i=0;i<m_Items.size();i++)
+				if (m_Items[index].bInline && !m_Items[index].bInlineLast)
 				{
-					if (m_Items[i].id!=MENU_SEPARATOR && m_Items[i].column==1 && m_Items[i].itemRect.bottom>m_Items[i].itemRect.top)
+					index++;
+					while (!CanSelectItem(m_Items[index]))
+						index++;
+				}
+				else if (m_bTwoColumns && m_Items[index].column==0)
+				{
+					int y0=(m_Items[index].itemRect.top+m_Items[index].itemRect.bottom)/2;
+					if (index<m_ScrollCount) y0-=m_ScrollOffset;
+					int dist=INT_MAX;
+					index=-1;
+					for (int i=0;i<n;i++)
 					{
-						int y=(m_Items[i].itemRect.top+m_Items[i].itemRect.bottom)/2;
-						int d=abs(y-y0);
-						if (dist>d)
+						if (m_Items[i].column==1 && CanSelectItem(m_Items[i]) && (!m_Items[i].bInline || m_Items[i].bInlineFirst))
 						{
-							index=(int)i;
-							dist=d;
+							int y=(m_Items[i].itemRect.top+m_Items[i].itemRect.bottom)/2;
+							int d=abs(y-y0);
+							if (dist>d)
+							{
+								index=i;
+								dist=d;
+							}
 						}
 					}
 				}
@@ -1808,9 +2642,9 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		}
 		else if (bForward)
 		{
-			for (int i=(int)m_Items.size()-1;i>=0;i--)
+			for (int i=n-1;i>=0;i--)
 			{
-				if (m_Items[i].id!=MENU_SEPARATOR && m_Items[i].itemRect.bottom>m_Items[i].itemRect.top)
+				if (CanSelectItem(m_Items[i]) && (!m_Items[i].bInline || m_Items[i].bInlineFirst))
 				{
 					ActivateItem(i,ACTIVATE_SELECT,NULL);
 					break;
@@ -1895,6 +2729,11 @@ LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		tool.uId=1;
 		s_Tooltip.SendMessage(TTM_TRACKACTIVATE,FALSE,(LPARAM)&tool);
 	}
+	if ((m_Options&CONTAINER_SEARCH) && !m_pParent->m_bDestroyed && !m_pParent->m_bInSearchUpdate)
+	{
+		m_pParent->m_ResultsHash=0;
+		m_pParent->m_SearchBox.SetWindowText(L"");
+	}
 	m_bDestroyed=true;
 	if (this==s_Menus[0])
 	{
@@ -1934,6 +2773,7 @@ LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 				::PostMessage(g_TopMenu,WM_MOUSEMOVE,0,MAKELONG(pt.x,pt.y));
 			}
 		}
+		s_FirstMenu=m_hWnd;
 	}
 	return 0;
 }
@@ -1970,9 +2810,12 @@ LRESULT CMenuContainer::OnActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 	if (s_pDragSource) return 0;
 	// check if another menu window is being activated
 	// if not, close all menus
-	for (std::vector<CMenuContainer*>::const_iterator it=s_Menus.begin();it!=s_Menus.end();++it)
-		if ((*it)->m_hWnd==(HWND)lParam)
-			return 0;
+	if (lParam)
+	{
+		for (std::vector<CMenuContainer*>::const_iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+			if ((*it)->m_hWnd==(HWND)lParam || (*it)->m_SearchBox.m_hWnd==(HWND)lParam)
+				return 0;
+	}
 
 	if (g_OwnerWindow && (HWND)lParam==g_OwnerWindow)
 		return 0;
@@ -1981,7 +2824,7 @@ LRESULT CMenuContainer::OnActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 		return 0;
 
 	for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
-		if (!(*it)->m_bDestroyed)
+		if ((*it)->m_hWnd && !(*it)->m_bDestroyed)
 			(*it)->PostMessage(WM_CLOSE);
 	if (g_TopMenu && s_bAllPrograms) ::PostMessage(g_TopMenu,WM_CLOSE,0,0);
 #endif
@@ -1991,7 +2834,7 @@ LRESULT CMenuContainer::OnActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 
 LRESULT CMenuContainer::OnMouseActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	if (m_Submenu>=0)
+	if (m_Submenu>=0 || (m_Options&CONTAINER_SEARCH))
 		return MA_NOACTIVATE;
 	bHandled=FALSE;
 	return 0;
@@ -2029,7 +2872,7 @@ LRESULT CMenuContainer::OnMouseMove( UINT uMsg, WPARAM wParam, LPARAM lParam, BO
 
 		UpdateScroll(&pt);
 
-		if (m_Submenu<0)
+		if (m_Submenu<0 && !(m_Options&CONTAINER_SEARCH) && m_SearchState==SEARCH_NONE)
 			SetFocus();
 		if (index>=0)
 		{
@@ -2112,10 +2955,25 @@ bool CMenuContainer::GetDescription( int index, wchar_t *text, int size )
 	if (index<0 || index>=(int)m_Items.size())
 		return false;
 	const MenuItem &item=m_Items[index];
+	bool bLabel=false;
+	if (item.bInline)
+	{
+		int len=0;
+		for (const wchar_t *c=item.name;*c && len<size-1;c++)
+			if (c[0]!='&' || c[1]=='&')
+				text[len++]=*c;
+		text[len]=0;
+		bLabel=true;
+		text+=len;
+		size-=len;
+	}
 	if (item.pStdItem && item.pStdItem->tip)
 	{
 		// get the tip for the standard item
-		Strcpy(text,size,item.pStdItem->tip);
+		if (bLabel)
+			Sprintf(text,size,L"\r\n%s",item.pStdItem->tip);
+		else
+			Strcpy(text,size,item.pStdItem->tip);
 		return true;
 	}
 
@@ -2123,17 +2981,20 @@ bool CMenuContainer::GetDescription( int index, wchar_t *text, int size )
 	CComPtr<IShellFolder> pFolder;
 	PCUITEMID_CHILD pidl;
 	if (FAILED(SHBindToParent(item.pItem1,IID_IShellFolder,(void**)&pFolder,&pidl)))
-	return false;
+		return bLabel;
 
 	CComPtr<IQueryInfo> pQueryInfo;
 	if (FAILED(pFolder->GetUIObjectOf(NULL,1,&pidl,IID_IQueryInfo,NULL,(void**)&pQueryInfo)))
-	return false;
+		return bLabel;
 
-	wchar_t *tip;
+	wchar_t *tip=NULL;
 	if (FAILED(pQueryInfo->GetInfoTip(QITIPF_DEFAULT,&tip)) || !tip)
-	return false;
+		return bLabel;
 
-	Strcpy(text,size,tip);
+	if (bLabel)
+		Sprintf(text,size,L"\r\n%s",tip);
+	else
+		Strcpy(text,size,tip);
 	CoTaskMemFree(tip);
 	return true;
 }
@@ -2142,7 +3003,7 @@ LRESULT CMenuContainer::OnLButtonDown( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 {
 	if (!GetCapture())
 	{
-		if (m_Submenu<0)
+		if (m_Submenu<0 && !(m_Options&CONTAINER_SEARCH) && m_SearchState==SEARCH_NONE)
 			SetFocus();
 		POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
 		m_ClickIndex=-1;
@@ -2216,7 +3077,8 @@ LRESULT CMenuContainer::OnRButtonDown( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 {
 	if (!GetCapture())
 	{
-		SetFocus();
+		if (!(m_Options&CONTAINER_SEARCH))
+			SetFocus();
 		POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
 		m_ClickIndex=-1;
 		int index=HitTest(pt);
@@ -2353,7 +3215,7 @@ void CMenuContainer::LoadItemOrder( void )
 		{
 			m_Options&=~CONTAINER_AUTOSORT;
 
-			unsigned int hash0=CalcFNVHash(L"");
+			unsigned int hash0=FNV_HASH0;
 
 			// assign each m_Item an index based on its position in items. store in row
 			// unknown items get the index of the blank item, or at the end
@@ -2490,6 +3352,50 @@ void CMenuContainer::LoadMRUShortcuts( void )
 	}
 }
 
+void CMenuContainer::SaveItemRanks( void )
+{
+	CRegKey reg;
+	if (reg.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu")!=ERROR_SUCCESS)
+		reg.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu");
+
+	if (s_ItemRanks.empty())
+		reg.SetBinaryValue(L"ItemRanks",NULL,0);
+	else
+		reg.SetBinaryValue(L"ItemRanks",&s_ItemRanks[0],sizeof(ItemRank)*(int)s_ItemRanks.size());
+}
+
+void CMenuContainer::LoadItemRanks( void )
+{
+	s_ItemRanks.clear();
+	CRegKey reg;
+	if (reg.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu")==ERROR_SUCCESS)
+	{
+		ULONG size=0;
+		reg.QueryBinaryValue(L"ItemRanks",NULL,&size);
+		if (size>0)
+		{
+			s_ItemRanks.resize(size/sizeof(ItemRank));
+			reg.QueryBinaryValue(L"ItemRanks",&s_ItemRanks[0],&size);
+		}
+	}
+	std::sort(s_ItemRanks.begin(),s_ItemRanks.end());
+}
+
+void CMenuContainer::AddItemRank( unsigned int hash )
+{
+	for (std::vector<ItemRank>::iterator it=s_ItemRanks.begin();it!=s_ItemRanks.end();++it)
+		if (it->hash==hash)
+		{
+			it->rank++;
+			return;
+		}
+	ItemRank rank={hash,1};
+	s_ItemRanks.push_back(rank);
+	std::sort(s_ItemRanks.begin(),s_ItemRanks.end());
+	if (GetSettingBool(L"SearchTrack"))
+		SaveItemRanks();
+}
+
 LRESULT CMenuContainer::OnGetAccObject( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
 	if ((DWORD)lParam==(DWORD)OBJID_CLIENT && m_pAccessible)
@@ -2522,6 +3428,14 @@ void CMenuContainer::HideStartMenu( void )
 	for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 		if (!(*it)->m_bDestroyed)
 			(*it)->ShowWindow(SW_HIDE);
+}
+
+bool CMenuContainer::IsMenuWindow( HWND hWnd )
+{
+	for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
+		if (hWnd==(*it)->m_hWnd || (*it)->IsChild(hWnd))
+			return true;
+	return false;
 }
 
 bool CMenuContainer::CloseProgramsMenu( void )
@@ -2586,9 +3500,11 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 
 	s_ScrollMenus=GetSettingInt(L"ScrollType");
 	s_bExpandLinks=GetSettingBool(L"ExpandFolderLinks");
+	s_bSearchSubWord=GetSettingBool(L"SearchSubWord");
 	s_bLogicalSort=GetSettingBool(L"NumericSort");
 	s_MaxRecentDocuments=GetSettingInt(L"MaxRecentDocuments");
 	s_ShellFormat=RegisterClipboardFormat(CFSTR_SHELLIDLIST);
+	s_bNoCommonFolders=(SHRestricted(REST_NOCOMMONGROUPS)!=0);
 
 	bool bRemote=GetSystemMetrics(SM_REMOTESESSION)!=0;
 	wchar_t wabPath[_MAX_PATH]=L"%ProgramFiles%\\Windows Mail\\wab.exe";
@@ -2597,6 +3513,9 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	bool bPeople=(hWab!=INVALID_HANDLE_VALUE);
 	if (bPeople) CloseHandle(hWab);
 	s_bRTL=s_Skin.ForceRTL || IsLanguageRTL();
+
+	if (GetSettingBool(L"SearchTrack"))
+		LoadItemRanks();
 
 	APPBARDATA appbar={sizeof(appbar)};
 	s_TaskbarState=(DWORD)SHAppBarMessage(ABM_GETSTATE,&appbar);
@@ -2745,6 +3664,9 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 			case MENU_SEARCH:
 				g_StdOptions[i].options=GetSettingBool(L"Search")?MENU_ENABLED|MENU_EXPANDED:0;
 				break;
+			case MENU_SEARCH_BOX:
+				g_StdOptions[i].options=GetSettingInt(L"SearchBox")?MENU_ENABLED|MENU_EXPANDED:0;
+				break;
 			case MENU_USERFILES:
 				g_StdOptions[i].options=0;
 				{
@@ -2832,7 +3754,10 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	PIDLIST_ABSOLUTE path1;
 	PIDLIST_ABSOLUTE path2;
 	SHGetKnownFolderIDList(FOLDERID_StartMenu,0,NULL,&path1);
-	SHGetKnownFolderIDList(FOLDERID_CommonStartMenu,0,NULL,&path2);
+	if (s_bNoCommonFolders)
+		path2=NULL;
+	else
+		SHGetKnownFolderIDList(FOLDERID_CommonStartMenu,0,NULL,&path2);
 
 	int options=CONTAINER_PROGRAMS|CONTAINER_DRAG|CONTAINER_DROP;
 	if (s_Skin.Main_large_icons && !bAllPrograms)
@@ -3018,7 +3943,8 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	pStartMenu->InitItems();
 	pStartMenu->m_MaxWidth=s_MainRect.right-s_MainRect.left;
 	ILFree(path1);
-	ILFree(path2);
+	if (path2)
+		ILFree(path2);
 
 	bool bTopMost=(s_TaskbarState&ABS_ALWAYSONTOP)!=0 || bAllPrograms;
 
@@ -3056,13 +3982,33 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 		if (speed<=0) speed=MENU_ANIM_SPEED;
 		else if (speed>=10000) speed=10000;
 		if (!AnimateWindow(pStartMenu->m_hWnd,speed,animFlags))
+		{
+			if (pStartMenu->m_SearchBox.m_hWnd)
+				pStartMenu->m_SearchBox.ShowWindow(SW_SHOW);
 			pStartMenu->ShowWindow(SW_SHOW); // show the menu anyway if AnimateWindow fails
+		}
+		else
+		{
+			if (pStartMenu->m_SearchBox.m_hWnd)
+				pStartMenu->m_SearchBox.ShowWindow(SW_SHOW);
+		}
 	}
 	else
+	{
+		if (pStartMenu->m_SearchBox.m_hWnd)
+			pStartMenu->m_SearchBox.ShowWindow(SW_SHOW);
 		pStartMenu->ShowWindow(SW_SHOW);
-	pStartMenu->SetFocus();
-	if (!bAllPrograms)
-		pStartMenu->SetHotItem(-1);
+	}
+	if (pStartMenu->m_SearchIndex>=0 && GetSettingInt(L"SearchBox")==1 && GetSettingBool(L"SearchSelect"))
+	{
+		pStartMenu->ActivateItem(pStartMenu->m_SearchIndex,ACTIVATE_SELECT,NULL);
+	}
+	else
+	{
+		pStartMenu->SetFocus();
+		if (!bAllPrograms)
+			pStartMenu->SetHotItem(-1);
+	}
 	SetForegroundWindow(pStartMenu->m_hWnd);
 	SwitchToThisWindow(pStartMenu->m_hWnd,FALSE); // just in case
 	// position the start button on top

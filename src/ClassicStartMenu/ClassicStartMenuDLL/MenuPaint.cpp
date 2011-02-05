@@ -9,6 +9,7 @@
 #include "MenuContainer.h"
 #include "ClassicStartMenuDLL.h"
 #include "Settings.h"
+#include "Translations.h"
 #include <vsstyle.h>
 #include <dwmapi.h>
 #include <algorithm>
@@ -1070,12 +1071,6 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 		if (i>=m_Items.size()) break;
 		const MenuItem &item=m_Items[i];
 
-		int index=(m_bTwoColumns && item.column==1)?1:0;
-		if (index==1 && (i==0 || m_Items[i-1].column==0))
-		{
-			SelectObject(hdc,m_Font[1]);
-		}
-
 		RECT itemRect=item.itemRect;
 		if (m_ScrollHeight>0)
 		{
@@ -1093,6 +1088,11 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 				continue;
 		}
 
+		int index=(m_bTwoColumns && item.column==1)?1:0;
+		if (index==1 && (i==0 || m_Items[i-1].column==0))
+		{
+			SelectObject(hdc,m_Font[1]);
+		}
 		if (item.id==MENU_SEPARATOR)
 		{
 			// draw separator
@@ -1127,6 +1127,12 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 		}
 
 		bool bHot=(i==m_HotItem || (m_HotItem==-1 && (i==m_Submenu || i==m_ContextItem)));
+		if (item.id==MENU_SEARCH_BOX)
+		{
+			itemRect.right-=DEFAULT_SEARCH_PADDING.right;
+			itemRect.left=itemRect.right-(itemRect.bottom-itemRect.top);
+			bHot=(i==m_HotItem && m_SearchState>=SEARCH_TEXT);
+		}
 		if (bHot)
 		{
 			// draw selection background
@@ -1149,6 +1155,44 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 				SetDCBrushColor(hdc,selColor[index]);
 				FillRect(hdc,&itemRect,(HBRUSH)GetStockObject(DC_BRUSH));
 			}
+		}
+
+		if (item.id==MENU_SEARCH_BOX)
+		{
+			HBITMAP searchIcons=m_SearchIcons;
+			bool b32=true;
+			if (s_Skin.Search_bitmap)
+			{
+				searchIcons=s_Skin.Search_bitmap;
+				b32=s_Skin.Search_bitmap32;
+			}
+
+			RECT rc;
+			m_SearchBox.GetWindowRect(&rc);
+			int iconSize=16, iconY=0;
+			int icon;
+			if (m_SearchState==SEARCH_MORE)
+				icon=IsLanguageRTL()?1:2;
+			else if (m_SearchState>=SEARCH_TEXT)
+				icon=IsLanguageRTL()?3:1;
+			else
+				icon=IsLanguageRTL()?4:0;
+			if (rc.bottom-rc.top>=30)
+			{
+				iconSize=20;
+				iconY=16;
+				if (IsLanguageRTL())
+					icon--;
+			}
+			HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,searchIcons);
+			RECT rSrc={0,0,iconSize,iconSize};
+			RECT rDst=rSrc;
+			OffsetRect(&rSrc,iconSize*icon,iconY);
+			OffsetRect(&rDst,(itemRect.right+itemRect.left-iconSize)/2,(itemRect.bottom+itemRect.top-iconSize)/2);
+			RECT rMargins={0,0,0,0};
+			MarginsBlit(hdc2,hdc,rSrc,rDst,rMargins,b32);
+			SelectObject(hdc2,bmp0);
+			continue;
 		}
 
 		// draw icon
@@ -1278,6 +1322,27 @@ LRESULT CMenuContainer::OnPaint( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 	if (hdcPaint)
 	{
 		DrawBackground(hdcPaint,ps.rcPaint);
+		if (uMsg==WM_PRINTCLIENT && (lParam&PRF_CHILDREN) && m_SearchBox.m_hWnd)
+		{
+			RECT rc;
+			GetWindowRect(&rc);
+			m_SearchBox.GetWindowRect(&rc);
+			::MapWindowPoints(NULL,m_hWnd,(POINT*)&rc,2);
+			int dx=rc.left;
+			if (IsLanguageRTL())
+			{
+				SetLayout(hdcPaint,0);
+				dx=ps.rcPaint.right-rc.right;
+			}
+			OffsetViewportOrgEx(hdcPaint,dx,rc.top,NULL);
+			m_SearchBox.SendMessage(WM_PRINTCLIENT,(WPARAM)hdcPaint,PRF_CLIENT);
+			OffsetViewportOrgEx(hdcPaint,-dx,-rc.top,NULL);
+			if (IsLanguageRTL())
+			{
+				SetLayout(hdcPaint,LAYOUT_RTL);
+			}
+			BufferedPaintSetAlpha(hBufferedPaint,&rc,255);
+		}
 		if (opacity==MenuSkin::OPACITY_GLASS || opacity==MenuSkin::OPACITY_ALPHA)
 		{
 			RECT rc;

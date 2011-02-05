@@ -1,5 +1,5 @@
 CLASSIC SHELL
-Version 2.9.2
+Version 2.9.3
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.
@@ -36,6 +36,9 @@ sadly is missing from Windows 7. It has a variety of advanced features:
 	Shift+Click on the start button
 
 *	Right-click on an item in the menu to delete, rename, sort, or perform other tasks
+
+*	The search box helps you find your programs without getting in the way of your
+	keyboard shortcuts
 
 *	Available for 32 and 64-bit operating systems
 

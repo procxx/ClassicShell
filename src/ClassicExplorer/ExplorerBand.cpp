@@ -235,6 +235,7 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 			button.iBitmap=I_IMAGENONE;
 			bool bNoIcon=false;
 			HICON hIcon=NULL;
+			HBITMAP hBitmap=NULL;
 			if (item.iconPath)
 			{
 				if (_wcsicmp(item.iconPath,L"NONE")==0)
@@ -244,7 +245,6 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 			}
 			else if (item.link)
 			{
-				HICON hIcon=NULL;
 				PIDLIST_ABSOLUTE pidl=NULL;
 				SFGAOF flags=0;
 				wchar_t path[_MAX_PATH];
@@ -252,12 +252,19 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 				DoEnvironmentSubst(path,_countof(path));
 				if (SUCCEEDED(SHParseDisplayName(path,NULL,&pidl,0,&flags)) && pidl)
 				{
-					hIcon=LoadIcon(iconSize,pidl);
+					CComPtr<IShellItemImageFactory> pFactory;
+					if (SUCCEEDED(SHCreateItemFromIDList(pidl,IID_IShellItemImageFactory,(void**)&pFactory)) && pFactory)
+					{
+						SIZE size={iconSize,iconSize};
+						if (FAILED(pFactory->GetImage(size,SIIGBF_ICONONLY,&hBitmap)))
+							hBitmap=NULL;
+					}
+
 					ILFree(pidl);
 				}
 			}
 
-			if (!hIcon && !bNoIcon)
+			if (!hIcon && !hBitmap && !bNoIcon)
 				hIcon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(1),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
 			if (hIcon)
 			{
@@ -269,6 +276,13 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 				ATLASSERT(button.iBitmap==idx);
 				DestroyIcon(hIcon);
 				DestroyIcon(hIcon2);
+			}
+			else if (hBitmap)
+			{
+				button.iBitmap=ImageList_AddMasked(m_ImgEnabled,hBitmap,CLR_NONE);
+				int idx=ImageList_AddMasked(m_ImgDisabled,hBitmap,CLR_NONE);
+				ATLASSERT(button.iBitmap==idx);
+				DeleteObject(hBitmap);
 			}
 
 			button.fsState=(item.id!=ID_SETTINGS || GetSettingBool(L"EnableSettings"))?TBSTATE_ENABLED:0;
@@ -1033,7 +1047,7 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE QueryInterface( REFIID riid, void **ppvObject );
 	virtual ULONG STDMETHODCALLTYPE AddRef( void ) { return 1; }
 	virtual ULONG STDMETHODCALLTYPE Release( void ) { return 1; }
-	STDMETHOD(CallbackSM)(LPSMDATA psmd,UINT uMsg,WPARAM wParam,LPARAM lParam);
+	STDMETHOD(CallbackSM)( LPSMDATA psmd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 
 private:
 	bool m_bExecuted;
@@ -1054,7 +1068,7 @@ HRESULT STDMETHODCALLTYPE CMenuCallback::QueryInterface( REFIID riid, void **ppv
 	}
 }
 
-HRESULT STDMETHODCALLTYPE CMenuCallback::CallbackSM( LPSMDATA psmd,UINT uMsg,WPARAM wParam,LPARAM lParam )
+HRESULT STDMETHODCALLTYPE CMenuCallback::CallbackSM( LPSMDATA psmd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
 	switch(uMsg)
 	{
@@ -1179,7 +1193,6 @@ LRESULT CBandWindow::OnDropDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 		{
 			TPMPARAMS params={sizeof(params),pButton->rcButton};
 			m_Toolbar.MapWindowPoints(NULL,&params.rcExclude); // must use MapWindowPoints to handle RTL correctly
-			CMenuCallback callback(m_pBrowser);
 
 			LPITEMIDLIST pidl;
 			CComPtr<IShellFolder> pFolder;
@@ -1223,7 +1236,7 @@ LRESULT CBandWindow::OnDropDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 							cRegOrder.Detach();
 							POINTL ptl={params.rcExclude.left,params.rcExclude.bottom};
 							RECTL rcl={params.rcExclude.left,params.rcExclude.top,params.rcExclude.right,params.rcExclude.bottom};
-							pMenu->Popup(NULL,&ptl,&rcl,MPPF_FORCEZORDER|MPPF_BOTTOM);
+							pMenu->Popup(GetAncestor(m_hWnd,GA_ROOT),&ptl,&rcl,MPPF_SETFOCUS|MPPF_BOTTOM);
 						}
 					}
 				}

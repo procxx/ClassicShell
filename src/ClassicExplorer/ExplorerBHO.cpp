@@ -26,8 +26,11 @@ int CExplorerBHO::s_AutoNavDelay;
 LRESULT CALLBACK CExplorerBHO::SubclassTreeParentProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	// when the tree selection changes start a timer to navigate to the new folder in 100ms
-	if (uMsg==WM_NOTIFY && ((NMHDR*)lParam)->code==TVN_SELCHANGED && ((NMTREEVIEW*)lParam)->action==TVC_BYKEYBOARD)
-		SetTimer(((NMHDR*)lParam)->hwndFrom,TIMER_NAVIGATE,s_AutoNavDelay,NULL);
+	if (uMsg==WM_NOTIFY && ((NMHDR*)lParam)->code==TVN_SELCHANGED)
+	{
+		if (GetSettingInt(L"AutoNavigate")==2 || ((NMTREEVIEW*)lParam)->action==TVC_BYKEYBOARD)
+			SetTimer(((NMHDR*)lParam)->hwndFrom,TIMER_NAVIGATE,s_AutoNavDelay,NULL);
+	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
@@ -73,7 +76,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 	{
 		wParam&=0x7FFFFFFF;
 
-		if (GetSettingBool(L"AutoNavigate"))
+		if (GetSettingInt(L"AutoNavigate")>0)
 			SetWindowSubclass(GetParent(hWnd),SubclassTreeParentProc,'CLSH',0);
 
 		if (!GetSettingBool(L"NoFadeButtons"))
@@ -148,10 +151,37 @@ LRESULT CALLBACK CExplorerBHO::HookExplorer( int nCode, WPARAM wParam, LPARAM lP
 				{
 					// on Vista we can unhook right now. on Win7 we keep the hook because sometimes the tree control can get destroyed and recreated
 					TlsData *pTlsData=GetTlsData();
-					UnhookWindowsHookEx(pTlsData->bhoHook);
-					pTlsData->bhoHook=NULL;
+					UnhookWindowsHookEx(pTlsData->bho->m_Hook);
+					pTlsData->bho->m_Hook=NULL;
 				}
 				return 0;
+			}
+		}
+	}
+	return CallNextHookEx(NULL,nCode,wParam,lParam);
+}
+
+LRESULT CALLBACK CExplorerBHO::HookKeyboard( int nCode, WPARAM wParam, LPARAM lParam )
+{
+	// wait for the tree control to be created and subclass it
+	if (nCode==HC_ACTION)
+	{
+		TlsData *pTlsData=GetTlsData();
+		if (wParam==pTlsData->bho->m_AltD && (lParam&0x20000000))
+		{
+			if (lParam&0x80000000)
+			{
+				return 0;
+			}
+			else
+			{
+				if (IsWindow(pTlsData->bho->m_Breadcrumbs) && IsWindowVisible(pTlsData->bho->m_Breadcrumbs))
+				{
+					SetFocus(pTlsData->bho->m_Breadcrumbs);
+					SendMessage(pTlsData->bho->m_Breadcrumbs,WM_KEYDOWN,VK_SPACE,0);
+					SendMessage(pTlsData->bho->m_Breadcrumbs,WM_KEYUP,VK_SPACE,0);
+					return 0;
+				}
 			}
 		}
 	}
@@ -759,10 +789,10 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 	if (pUnkSite)
 	{
 		// hook
-		TlsData *pTlsData=GetTlsData();
-		if (!pTlsData->bhoHook)
+		GetTlsData()->bho=this;
+		if (!m_Hook)
 		{
-			pTlsData->bhoHook=SetWindowsHookEx(WH_CBT,HookExplorer,NULL,GetCurrentThreadId());
+			m_Hook=SetWindowsHookEx(WH_CBT,HookExplorer,NULL,GetCurrentThreadId());
 		}
 		CComQIPtr<IServiceProvider> pProvider=pUnkSite;
 
@@ -887,26 +917,30 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 				{
 					int AddressBarHistory=GetSettingInt(L"AddressBarHistory");
 					HWND progress=NULL;
+					HWND breadcrumbs=FindChildWindow(rebar,L"Breadcrumb Parent");
+					if (breadcrumbs)
+					{
+						progress=GetParent(breadcrumbs);
+						breadcrumbs=FindWindowEx(breadcrumbs,NULL,TOOLBARCLASSNAME,NULL);
+						m_AltD=(char)GetSettingString(L"AddressAltD")[0];
+						if (m_AltD>='a' && m_AltD<='z')
+							m_AltD+='A'-'a';
+						if (m_AltD<'A' || m_AltD>'Z')
+							m_AltD=0;
+						if (m_AltD && !m_HookKbd)
+						{
+							m_HookKbd=SetWindowsHookEx(WH_KEYBOARD,HookKeyboard,NULL,GetCurrentThreadId());
+						}
+					}
+					m_Breadcrumbs=breadcrumbs;
 					if (GetSettingBool(L"DisableBreadcrumbs"))
 					{
 						// "hide" the breadcrumbs. no, not really. instead of hiding the breadcrumbs we just make them show the full path as text
-						HWND breadcrumbs=FindChildWindow(rebar,L"Breadcrumb Parent");
-						if (breadcrumbs)
-						{
-							progress=GetParent(breadcrumbs);
-							breadcrumbs=FindWindowEx(breadcrumbs,NULL,TOOLBARCLASSNAME,NULL);
-						}
 						if (breadcrumbs)
 						{
 							m_bNoBreadcrumbs=true;
 							SetWindowSubclass(breadcrumbs,BreadcrumbSubclassProc,(UINT_PTR)this,0);
 						}
-					}
-					else
-					{
-						HWND breadcrumbs=FindChildWindow(rebar,L"Breadcrumb Parent");
-						if (breadcrumbs)
-							progress=GetParent(breadcrumbs);
 					}
 					if (progress && AddressBarHistory)
 					{
@@ -934,10 +968,14 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 	else
 	{
 		// unhook
-		TlsData *pTlsData=GetTlsData();
-		if (pTlsData->bhoHook)
-			UnhookWindowsHookEx(pTlsData->bhoHook);
-		pTlsData->bhoHook=NULL;
+		GetTlsData()->bho=NULL;
+		if (m_Hook)
+			UnhookWindowsHookEx(m_Hook);
+		m_Hook=NULL;
+		if (m_HookKbd)
+			UnhookWindowsHookEx(m_HookKbd);
+		m_HookKbd=NULL;
+		m_Breadcrumbs=NULL;
 		if (m_Rebar)
 			RemoveWindowSubclass(m_Rebar,RebarSubclassProc,(UINT_PTR)this);
 		m_pBrowser=NULL;
@@ -1044,6 +1082,12 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 
 				}
 			}
+		}
+		if (GetSettingBool(L"HideScrollTip"))
+		{
+			CComQIPtr<IFolderViewOptions> pOptions=m_pBrowser;
+			if (pOptions)
+				pOptions->SetFolderViewOptions(FVO_NOSCROLLTIPS,FVO_NOSCROLLTIPS);
 		}
 	}
 	if (m_Toolbar.m_hWnd)

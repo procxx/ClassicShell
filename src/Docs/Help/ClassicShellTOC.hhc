@@ -75,6 +75,10 @@
 			<param name="Local" value="ClassicStartMenu.html#all_programs">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
+			<param name="Name" value="Search">
+			<param name="Local" value="ClassicStartMenu.html#search">
+			</OBJECT>
+		<LI> <OBJECT type="text/sitemap">
 			<param name="Name" value="Localization">
 			<param name="Local" value="ClassicStartMenu.html#localization">
 			</OBJECT>

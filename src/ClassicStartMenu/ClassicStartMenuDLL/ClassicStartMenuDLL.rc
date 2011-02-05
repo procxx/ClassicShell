@@ -111,7 +111,7 @@ BEGIN
     LTEXT           "This skin is used by the cascading All Programs menu in the Windows start menu",IDC_STATICALLPROGS,7,150,297,8
 END
 
-IDD_CUSTOMMENU DIALOGEX 0, 0, 249, 210
+IDD_CUSTOMMENU DIALOGEX 0, 0, 249, 223
 STYLE DS_SETFONT | DS_CENTER | WS_POPUP | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 CAPTION "Edit Menu Item (%s)"
 FONT 9, "Segoe UI", 400, 0, 0x0
@@ -129,20 +129,22 @@ BEGIN
     LTEXT           "Icon:",IDC_STATICICON,7,74,18,12,SS_CENTERIMAGE
     EDITTEXT        IDC_EDITICON,47,74,180,12,ES_AUTOHSCROLL
     PUSHBUTTON      "...",IDC_BUTTONICON,228,74,14,12
-    ICON            "",IDC_ICONN,9,89,18,17
+    ICON            "",IDC_ICONN,9,89,20,20
     CONTROL         "Sort Z->A",IDC_CHECKSORTZA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,116,48,10
     CONTROL         "Sort Z->A (for sub-menus)",IDC_CHECKSORTZAREC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,129,101,10
     CONTROL         "Sort Once",IDC_CHECKSORTONCE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,142,48,10
     CONTROL         "Open Up",IDC_CHECKOPENUP,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,155,44,10
     CONTROL         "Open Up (for sub-menus)",IDC_CHECKOPENUPREC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,168,97,10
+    CONTROL         "Insert Sub-items as Buttons",IDC_CHECKINLINE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,181,98,10
     CONTROL         "Don't Expand",IDC_CHECKNOEXPAND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,116,59,10
     CONTROL         "Multi-column",IDC_CHECKMULTICOLUMN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,129,55,10
     CONTROL         "Track Recent Items",IDC_CHECKTRACK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,142,78,10
     CONTROL         "Don't Track Recent Items",IDC_CHECKNOTRACK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,155,97,10
     CONTROL         "Place Items First",IDC_CHECKITEMSFIRST,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,168,69,10
-    PUSHBUTTON      "Restore Defaults",IDC_BUTTONRESET,7,189,90,14
-    DEFPUSHBUTTON   "OK",IDOK,135,189,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,192,189,50,14
+    CONTROL         "Hide Extensions",IDC_CHECKNOEXT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,181,63,10
+    PUSHBUTTON      "Restore Defaults",IDC_BUTTONRESET,7,202,90,14
+    DEFPUSHBUTTON   "OK",IDOK,135,202,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,192,202,50,14
 END
 
 
@@ -199,7 +201,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 242
         TOPMARGIN, 7
-        BOTTOMMARGIN, 203
+        BOTTOMMARGIN, 216
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -211,8 +213,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,9,2,0
- PRODUCTVERSION 2,9,2,0
+ FILEVERSION 2,9,3,0
+ PRODUCTVERSION 2,9,3,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -229,12 +231,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "2, 9, 2, 0"
+            VALUE "FileVersion", "2, 9, 3, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009-2010, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "2, 9, 2, 0"
+            VALUE "ProductVersion", "2, 9, 3, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -266,6 +268,7 @@ IDI_APPICON             ICON                    "..\\..\\ClassicShellSetup\\Clas
 //
 
 IDB_ARROWS              BITMAP                  "menu_arrows.bmp"
+IDB_SEARCH_ICONS        BITMAP                  "search_icons.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -370,13 +373,53 @@ BEGIN
     IDS_SHOW_NETWORK_TIP    "Select how to display Network in the start menu"
     IDS_SHOW_PRINTERS       "Printers"
     IDS_SHOW_PRINTERS_TIP   "Select how to display Printers in the start menu"
-    IDS_SHOW_SEARCH         "Show Search"
+    IDS_SHOW_SEARCH         "Show Search Menu"
     IDS_SHOW_SEARCH_TIP     "Enable the Search menu"
     IDS_SHOW_HELP           "Show Help and Support"
     IDS_SHOW_HELP_TIP       "Enable the Help and Support item"
     IDS_SHOW_RUN            "Show Run"
     IDS_SHOW_RUN_TIP        "Enable the Run item"
     IDS_SHOW_LOGOFF         "Show Log Off"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_CUSTOM_TIP          "This is a custom menu item. Use the command property to launch a program, or the link property to add a folder to the start menu"
+    IDS_SEARCH_TIP          "This is the top item for the Search menu"
+    IDS_SETTINGS_MENU_TIP   "This is the top item for the Settings menu"
+    IDS_FEATURES_TIP        "Opens the Programs and Features window"
+    IDS_RESTORE_TIP         "Restores all properties (text, icon and more) to the defaults for the selected command"
+    IDS_SEARCH_BOX_TIP      "This is a search box where you can type the text you want to find"
+    IDS_SEARCH_BOX          "Search Box"
+    IDS_SHOW_SEARCH_BOX     "Show search box"
+    IDS_SHOW_SEARCH_BOX_TIP "Enable the search for programs"
+    IDS_SEARCH_BOX_HIDE     "No search box"
+    IDS_SEARCH_BOX_HIDE_TIP "The search box is not shown"
+    IDS_SEARCH_BOX_SHOW     "Access normally"
+    IDS_SEARCH_BOX_SHOW_TIP "The search box will be accessible with the arrow keys and the mouse"
+    IDS_SEARCH_BOX_TAB      "Access with Tab"
+    IDS_SEARCH_BOX_TAB_TIP  "The search box will be accessible only with the Tab key and the mouse"
+    IDS_SEARCH_BOX_SEL      "Selected by default"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SEARCH_BOX_SEL_TIP  "When this is checked, the search box will be selected when you open the menu"
+    IDS_SEARCH_CP           "Search the Control Panel"
+    IDS_SEARCH_CP_TIP       "When this is checked, the search will look in the Control Panel"
+    IDS_SEARCH_PATH         "Search the system path"
+    IDS_SEARCH_PATH_TIP     "When this is checked, the search will look in the folders listed in the PATH environment variable"
+    IDS_SUB_WORD            "Match parts of words"
+    IDS_SUB_WORD_TIP        "The search will match parts of words. For example 'enu' will match 'Classic Menu'"
+    IDS_SEARCH_TRACK        "Track frequency of use"
+    IDS_SEARCH_TRACK_TIP    "When this is checked, the start menu will track how frequently you use programs and will sort the search results by usage"
+    IDS_SEARCH_MAX          "Max search results"
+    IDS_SEARCH_MAX_TIP      "Limit the number of the search results. If the search finds more than this number, no results will be shown unless you press Tab"
+    IDS_SEARCH_AUTO         "Enable Auto-Complete"
+    IDS_SEARCH_AUTO_TIP     "When this is checked, typing a path in the search box will auto-complete names of files and folders"
+    IDS_INLINE_TIP          "The sub-items of this menu item will appear as a row of buttons instead of a sub-menu"
+    IDS_NOEXTENSIONS_TIP    "This menu and its sub-menus will hide the file extensions"
+    IDS_DELAY_ICONS         "Delay loading of icons"
 END
 
 STRINGTABLE 
@@ -510,8 +553,8 @@ BEGIN
     IDS_DRAG_DROP_TIP       "When this is checked, the user will be allowed to drag and drop items in the start menu"
     IDS_CONTEXT_MENU        "Enable right-click menu"
     IDS_CONTEXT_MENU_TIP    "When this is checked, the user will be allowed to right-click on an item and use its context menu"
-    IDS_NEW_FOLDER          "Enable New Folder"
-    IDS_NEW_FOLDER_TIP      "When this is checked, the user will be allowed to right-click in the start menu and create new folders"
+    IDS_NEW_FOLDER          "Enable New Folder and New Shortcut"
+    IDS_NEW_FOLDER_TIP      "When this is checked, the user will be allowed to right-click in the start menu and create new folders and shortcuts"
     IDS_EXIT                "Enable Exit"
     IDS_EXIT_TIP            "When this is checked, the user can right-click on the start button and select 'Exit'"
     IDS_SOUND_SETTINGS      "Sounds"
@@ -622,11 +665,23 @@ END
 
 STRINGTABLE 
 BEGIN
-    IDS_CUSTOM_TIP          "This is a custom menu item. Use the command property to launch a program, or the link property to add a folder to the start menu"
-    IDS_SEARCH_TIP          "This is the top item for the Search menu"
-    IDS_SETTINGS_MENU_TIP   "This is the top item for the Settings menu"
-    IDS_FEATURES_TIP        "Opens the Programs and Features window"
-    IDS_RESTORE_TIP         "Restores all properties (text, icon and more) to the defaults for the selected command"
+    IDS_DELAY_ICONS_TIP     "When this is checked, the menu will show first and the icons will continue to load after that"
+    IDS_SHOW_FAVORITES_TIP2 "Select how to display Favorites in the start menu\nWarning: You don't have a Favorites item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_DOCUMENTS_TIP2 "Select how to display the recent documents in the start menu\nWarning: You don't have a Documents item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_USERFILES_TIP2 "Select how to display the user's files in the start menu\nWarning: You don't have a User Files item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_USERDOCS_TIP2  "Select how to display the user's documents in the start menu\nWarning: You don't have a User Documents item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_USERPICS_TIP2  "Select how to display the user's pictures in the start menu\nWarning: You don't have a User Pictures item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_CP_TIP2        "Select how to display the Control Panel in the start menu\nWarning: You don't have a Control Panel item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_NETWORK_TIP2   "Select how to display Network in the start menu\nWarning: You don't have a Network Connections item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_PRINTERS_TIP2  "Select how to display Printers in the start menu\nWarning: You don't have a Printers item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_SHUTDOWN_TIP2  "Select how to display Shutdown in the start menu\nWarning: You don't have a Shutdown Box item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_SEARCH_BOX_TIP2 
+                            "Enable the search for programs\nWarning: You don't have a Search Box item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_SEARCH_TIP2    "Enable the Search menu\nWarning: You don't have a Search Menu item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_HELP_TIP2      "Enable the Help and Support item\nWarning: You don't have a Help item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_RUN_TIP2       "Enable the Run item\nWarning: You don't have a Run item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_LOGOFF_TIP2    "Enable the Log Off item\nWarning: You don't have a Log Off item in your custom menu, so this setting will be ignored"
+    IDS_SHOW_UNDOCK_TIP2    "Enable the Undock item (for laptops only)\nWarning: You don't have a Undock item in your custom menu, so this setting will be ignored"
 END
 
 #endif    // English (U.S.) resources

@@ -262,7 +262,7 @@ void CSettingsManager::LoadSettings( void )
 						pSetting->flags|=CSetting::FLAG_LOCKED_REG;
 						pSetting->flags&=~CSetting::FLAG_DEFAULT;
 					}
-					if ((pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY)
+					if (pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY)
 					{
 						pSetting->value=CComVariant((int)val);
 						pSetting->flags|=CSetting::FLAG_LOCKED_REG;
@@ -355,6 +355,11 @@ void CSettingsManager::LoadSettings( void )
 								break;
 							}
 						}
+					}
+					else if (regSettings.QueryDWORDValue(pSetting->name,val)==ERROR_SUCCESS)
+					{
+						pSetting->value=CComVariant((int)val);
+						pSetting->flags&=~CSetting::FLAG_DEFAULT;
 					}
 				}
 				else if (pSetting->type==CSetting::TYPE_MULTISTRING)
@@ -714,7 +719,7 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 	if (m_ImageList) return m_ImageList;
 	int size=TreeView_GetItemHeight(tree);
 	if (size>16 && size<20) size=16; // avoid weird sizes that can distort the icons
-	m_ImageList=ImageList_Create(size,size,ILC_COLOR32|ILC_MASK|((GetWindowLong(tree,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)?ILC_MIRROR:0),0,12);
+	m_ImageList=ImageList_Create(size,size,ILC_COLOR32|ILC_MASK|((GetWindowLong(tree,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)?ILC_MIRROR:0),0,13);
 	BITMAPINFO dib={sizeof(dib)};
 	dib.bmiHeader.biWidth=size;
 	dib.bmiHeader.biHeight=-size;
@@ -728,7 +733,7 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 
 	HTHEME theme=OpenThemeData(tree,L"button");
 
-	for (int i=0;i<12;i++)
+	for (int i=0;i<13;i++)
 	{
 		HBITMAP bmp0=(HBITMAP)SelectObject(hdc,bmp);
 		HBITMAP bmp1=(HBITMAP)SelectObject(hdcMask,bmpMask);
@@ -755,6 +760,13 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 		else if (i==3)
 		{
 			ImageList_DrawEx(m_ImageList,2,hdc,0,0,size,size,CLR_NONE,GetSysColor(COLOR_WINDOW),ILD_BLEND|ILD_NORMAL);
+		}
+		else if (i==12)
+		{
+			HICON icon=(HICON)LoadImage(_AtlBaseModule.GetResourceInstance(),MAKEINTRESOURCE(IDI_ICONWARNING),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
+			DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
+			DrawIconEx(hdcMask,0,0,icon,size,size,0,NULL,DI_MASK);
+			DestroyIcon(icon);
 		}
 		else if (i>3)
 		{
@@ -800,6 +812,8 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 	DeleteDC(hdcMask);
 
 	if (theme) CloseThemeData(theme);
+	ImageList_SetOverlayImage(m_ImageList,1,1);
+	ImageList_SetOverlayImage(m_ImageList,12,2);
 	return m_ImageList;
 }
 
@@ -915,11 +929,17 @@ LRESULT CSettingsDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 	{
 		ULONG size=sizeof(pos);
 		if (regSettings.QueryBinaryValue(L"CSettingsDlg",&pos,&size)!=ERROR_SUCCESS || size!=sizeof(pos))
+		{
 			memset(&pos,0,sizeof(pos));
+			pos.basic=true;
+		}
 		regSettings.Close();
 	}
 	else
+	{
 		memset(&pos,0,sizeof(pos));
+		pos.basic=true;
+	}
 
 	m_bOnTop=pos.top;
 	if (m_bOnTop)
@@ -936,6 +956,8 @@ LRESULT CSettingsDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 
 	CWindow backup=GetDlgItem(IDC_BUTTONBACKUP);
 	backup.SetWindowLong(GWL_STYLE,backup.GetWindowLong(GWL_STYLE)|BS_SPLITBUTTON);
+	BUTTON_SPLITINFO info={BCSIF_STYLE,NULL,BCSS_NOSPLIT};
+	backup.SendMessage(BCM_SETSPLITINFO,0,(LPARAM)&info);
 
 	CWindow parent=GetParent();
 	if (parent)
@@ -1445,6 +1467,23 @@ void UpdateSetting( const wchar_t *name, const CComVariant &defValue, bool bLock
 			pSetting->defValue=defValue;
 			if (pSetting->flags&CSetting::FLAG_DEFAULT)
 				pSetting->value=defValue;
+			return;
+		}
+		ATLASSERT(0);
+}
+
+// Updates the setting with a new tooltip and a warning flag
+void UpdateSetting( const wchar_t *name, int tipID, bool bWarning )
+{
+	ATLASSERT(g_LockState==2); // must be locked for writing
+	for (CSetting *pSetting=g_SettingsManager.GetSettings();pSetting->name;pSetting++)
+		if (pSetting->type>=0 && wcscmp(pSetting->name,name)==0)
+		{
+			if (bWarning)
+				pSetting->flags|=CSetting::FLAG_WARNING;
+			else
+				pSetting->flags&=~CSetting::FLAG_WARNING;
+			pSetting->tipID=tipID;
 			return;
 		}
 		ATLASSERT(0);

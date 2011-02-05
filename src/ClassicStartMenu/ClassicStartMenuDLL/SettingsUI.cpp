@@ -621,7 +621,8 @@ static CStdCommand g_StdCommands[]={
 	{L"favorites",L"Favorites",IDS_FAVORITES_TIP,L"FavoritesItem",L"$Menu.Favorites",L"",L"shell32.dll,322",&FOLDERID_Favorites},
 	{L"documents",L"Documents",IDS_DOCUMENTS_TIP,L"DocumentsItem",L"$Menu.Documents",L"",L"shell32.dll,327",&FOLDERID_Recent,NULL,StdMenuItem::MENU_ITEMS_FIRST},
 	{L"settings",L"Settings",IDS_SETTINGS_MENU_TIP,L"SettingsMenu",L"$Menu.Settings",L"",L"shell32.dll,330"},
-	{L"search",L"Search",IDS_SEARCH_TIP,L"SearchMenu",L"$Menu.Search",L"",L"shell32.dll,323"},
+	{L"search",L"Search Menu",IDS_SEARCH_TIP,L"SearchMenu",L"$Menu.Search",L"",L"shell32.dll,323"},
+	{L"search_box",L"Search Box",IDS_SEARCH_BOX_TIP,L"SearchBoxItem",L"$Menu.SearchBox",NULL,L"none"},
 	{L"help",L"Help",IDS_HELP_TIP,L"HelpItem",L"$Menu.Help",NULL,L"shell32.dll,324"},
 	{L"run",L"Run",IDS_RUN_TIP,L"RunItem",L"$Menu.Run",NULL,L"shell32.dll,328"},
 	{L"logoff",L"Log Off",IDS_LOGOFF_TIP,L"LogOffItem",L"$Menu.Logoff",NULL,L"shell32.dll,325"},
@@ -654,7 +655,7 @@ static CStdCommand g_StdCommands[]={
 };
 
 const wchar_t *g_DefaultStartMenu=
-L"Items=COLUMN_PADDING, ProgramsMenu, COLUMN_BREAK, FavoritesItem, DocumentsItem, SettingsMenu, SearchMenu, HelpItem, RunItem, SEPARATOR, LogOffItem, UndockItem, DisconnectItem, ShutdownBoxItem\n"
+L"Items=COLUMN_PADDING, ProgramsMenu, COLUMN_BREAK, FavoritesItem, DocumentsItem, SettingsMenu, SearchMenu, HelpItem, RunItem, SEPARATOR, LogOffItem, UndockItem, DisconnectItem, ShutdownBoxItem, SearchBoxItem\n"
 L"ProgramsMenu.Command=programs\n"
 L"ProgramsMenu.Label=$Menu.Programs\n"
 L"ProgramsMenu.Icon=shell32.dll,326\n"
@@ -693,6 +694,10 @@ L"ShutdownBoxItem.Command=shutdown_box\n"
 L"ShutdownBoxItem.Label=$Menu.ShutdownBox\n"
 L"ShutdownBoxItem.Icon=shell32.dll,329\n"
 L"ShutdownBoxItem.Items=SwitchUserItem, SleepItem, HibernateItem, RestartItem, ShutdownItem\n"
+L"SearchBoxItem.Command=search_box\n"
+L"SearchBoxItem.Label=$Menu.SearchBox\n"
+L"SearchBoxItem.Icon=none\n"
+L"SearchBoxItem.Settings=TRACK_RECENT, OPEN_UP\n"
 L"UserFilesItem.Command=user_files\n"
 L"UserFilesItem.Tip=$Menu.UserFilesTip\n"
 L"UserDocumentsItem.Command=user_documents\n"
@@ -866,16 +871,21 @@ LRESULT CEditMenuDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 	CheckDlgButton(IDC_CHECKOPENUP,(m_pItem->settings&StdMenuItem::MENU_OPENUP)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKOPENUPREC,(m_pItem->settings&StdMenuItem::MENU_OPENUP_REC)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKNOEXPAND,(m_pItem->settings&StdMenuItem::MENU_NOEXPAND)?BST_CHECKED:BST_UNCHECKED);
-	CheckDlgButton(IDC_CHECKTRACK,(m_pItem->settings&StdMenuItem::MENU_TRACK)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKNOTRACK,(m_pItem->settings&StdMenuItem::MENU_NOTRACK)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKITEMSFIRST,(m_pItem->settings&StdMenuItem::MENU_ITEMS_FIRST)?BST_CHECKED:BST_UNCHECKED);
+	CheckDlgButton(IDC_CHECKINLINE,(m_pItem->settings&StdMenuItem::MENU_INLINE)?BST_CHECKED:BST_UNCHECKED);
+	CheckDlgButton(IDC_CHECKNOEXT,(m_pItem->settings&StdMenuItem::MENU_NOEXTENSIONS)?BST_CHECKED:BST_UNCHECKED);
 	if (m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0)
 	{
 		CheckDlgButton(IDC_CHECKMULTICOLUMN,BST_CHECKED);
 		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(FALSE);
+		CheckDlgButton(IDC_CHECKTRACK,(m_pItem->settings&StdMenuItem::MENU_NOTRACK)?BST_UNCHECKED:BST_CHECKED);
 	}
 	else
+	{
 		CheckDlgButton(IDC_CHECKMULTICOLUMN,(m_pItem->settings&StdMenuItem::MENU_MULTICOLUMN)?BST_CHECKED:BST_UNCHECKED);
+		CheckDlgButton(IDC_CHECKTRACK,(m_pItem->settings&StdMenuItem::MENU_TRACK)?BST_CHECKED:BST_UNCHECKED);
+	}
 
 	UpdateIcons(IDC_ICONN,0);
 	SendDlgItemMessage(IDC_EDITLABEL,EM_SETCUEBANNER,TRUE,(LPARAM)(const wchar_t*)LoadStringEx(IDS_NO_TEXT));
@@ -962,6 +972,16 @@ LRESULT CEditMenuDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 	tool.uId=(UINT_PTR)(HWND)GetDlgItem(IDC_CHECKITEMSFIRST);
 	tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
 
+	str=LoadStringEx(IDS_INLINE_TIP);
+	tool.lpszText=(LPWSTR)(LPCWSTR)str;
+	tool.uId=(UINT_PTR)(HWND)GetDlgItem(IDC_CHECKINLINE);
+	tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
+
+	str=LoadStringEx(IDS_NOEXTENSIONS_TIP);
+	tool.lpszText=(LPWSTR)(LPCWSTR)str;
+	tool.uId=(UINT_PTR)(HWND)GetDlgItem(IDC_CHECKNOEXT);
+	tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
+
 	str=LoadStringEx(IDS_RESTORE_TIP);
 	tool.lpszText=(LPWSTR)(LPCWSTR)str;
 	tool.uId=(UINT_PTR)(HWND)GetDlgItem(IDC_BUTTONRESET);
@@ -979,6 +999,7 @@ LRESULT CEditMenuDlg::OnOK( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHan
 	m_pItem->tip.TrimRight();
 
 	m_pItem->settings=0;
+	bool bPrograms=(m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0);
 	if (IsDlgButtonChecked(IDC_CHECKSORTZA)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_SORTZA;
 	if (IsDlgButtonChecked(IDC_CHECKSORTZAREC)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_SORTZA_REC;
 	if (IsDlgButtonChecked(IDC_CHECKSORTONCE)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_SORTONCE;
@@ -988,8 +1009,20 @@ LRESULT CEditMenuDlg::OnOK( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHan
 	if (IsDlgButtonChecked(IDC_CHECKTRACK)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_TRACK;
 	if (IsDlgButtonChecked(IDC_CHECKNOTRACK)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_NOTRACK;
 	if (IsDlgButtonChecked(IDC_CHECKITEMSFIRST)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_ITEMS_FIRST;
-	if (IsDlgButtonChecked(IDC_CHECKMULTICOLUMN)==BST_CHECKED && (!m_pItem->pStdCommand || wcscmp(m_pItem->pStdCommand->name,L"programs")!=0))
-		m_pItem->settings|=StdMenuItem::MENU_MULTICOLUMN;
+	if (IsDlgButtonChecked(IDC_CHECKINLINE)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_INLINE;
+	if (IsDlgButtonChecked(IDC_CHECKNOEXT)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_NOEXTENSIONS;
+	if (bPrograms)
+	{
+		// special handling of the Programs menu
+		// it is always MULTICOLUMN
+		// it is always tracking, unless NOTRACK is set
+		m_pItem->settings&=~StdMenuItem::MENU_TRACK;
+	}
+	else
+	{
+		if (IsDlgButtonChecked(IDC_CHECKMULTICOLUMN)==BST_CHECKED)
+			m_pItem->settings|=StdMenuItem::MENU_MULTICOLUMN;
+	}
 
 	return CEditCustomItemDlg::OnOK(wNotifyCode,wID,hWndCtl,bHandled);
 }
@@ -1114,6 +1147,8 @@ LRESULT CEditMenuDlg::OnReset( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& b
 	CheckDlgButton(IDC_CHECKTRACK,(m_pItem->settings&StdMenuItem::MENU_TRACK)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKNOTRACK,(m_pItem->settings&StdMenuItem::MENU_NOTRACK)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKITEMSFIRST,(m_pItem->settings&StdMenuItem::MENU_ITEMS_FIRST)?BST_CHECKED:BST_UNCHECKED);
+	CheckDlgButton(IDC_CHECKINLINE,(m_pItem->settings&StdMenuItem::MENU_INLINE)?BST_CHECKED:BST_UNCHECKED);
+	CheckDlgButton(IDC_CHECKNOEXT,(m_pItem->settings&StdMenuItem::MENU_NOEXTENSIONS)?BST_CHECKED:BST_UNCHECKED);
 	if (m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0)
 	{
 		CheckDlgButton(IDC_CHECKMULTICOLUMN,BST_CHECKED);
@@ -1138,6 +1173,12 @@ protected:
 	virtual void ParseTreeItemExtra( CTreeItem *pItem, CSettingsParser &parser );
 	virtual void SerializeItemExtra( CTreeItem *pItem, std::vector<wchar_t> &stringBuilder );
 	virtual bool EditItem( CTreeItem *pItem, HWND tree, HTREEITEM hItem, std::vector<HMODULE> &modules );
+	virtual void InitItems( void ) { UpdateWarnings(); }
+	virtual void ItemsChanged( void ) { UpdateWarnings(); }
+
+private:
+	void UpdateWarnings( void );
+	bool FindMenuItem( HTREEITEM hParent, const wchar_t *command );
 };
 
 void CCustomMenuDlg::ParseTreeItemExtra( CTreeItem *pItem, CSettingsParser &parser )
@@ -1162,6 +1203,8 @@ void CCustomMenuDlg::ParseTreeItemExtra( CTreeItem *pItem, CSettingsParser &pars
 		if (_wcsicmp(token,L"NOTRACK_RECENT")==0) pItem->settings|=StdMenuItem::MENU_NOTRACK;
 		if (_wcsicmp(token,L"NOEXPAND")==0) pItem->settings|=StdMenuItem::MENU_NOEXPAND;
 		if (_wcsicmp(token,L"MULTICOLUMN")==0) pItem->settings|=StdMenuItem::MENU_MULTICOLUMN;
+		if (_wcsicmp(token,L"INLINE")==0) pItem->settings|=StdMenuItem::MENU_INLINE;
+		if (_wcsicmp(token,L"NOEXTENSIONS")==0) pItem->settings|=StdMenuItem::MENU_NOEXTENSIONS;
 	}
 }
 
@@ -1181,12 +1224,79 @@ void CCustomMenuDlg::SerializeItemExtra( CTreeItem *pItem, std::vector<wchar_t> 
 	if (pItem->settings&StdMenuItem::MENU_NOTRACK) AppendString(stringBuilder,L"NOTRACK_RECENT|");
 	if (pItem->settings&StdMenuItem::MENU_NOEXPAND) AppendString(stringBuilder,L"NOEXPAND|");
 	if (pItem->settings&StdMenuItem::MENU_MULTICOLUMN) AppendString(stringBuilder,L"MULTICOLUMN|");
+	if (pItem->settings&StdMenuItem::MENU_INLINE) AppendString(stringBuilder,L"INLINE|");
+	if (pItem->settings&StdMenuItem::MENU_NOEXTENSIONS) AppendString(stringBuilder,L"NOEXTENSIONS|");
 	stringBuilder[stringBuilder.size()-1]='\n';
 }
 
 bool CCustomMenuDlg::EditItem( CTreeItem *pItem, HWND tree, HTREEITEM hItem, std::vector<HMODULE> &modules )
 {
 	return CEditMenuDlg(pItem,modules).Run(m_hWnd,IDD_CUSTOMMENU);
+}
+
+void CCustomMenuDlg::UpdateWarnings( void )
+{
+	CSettingsLockWrite lock;
+	bool bWarning;
+	bWarning=!FindMenuItem(NULL,L"favorites");
+	UpdateSetting(L"Favorites",bWarning?IDS_SHOW_FAVORITES_TIP2:IDS_SHOW_FAVORITES_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"documents");
+	UpdateSetting(L"Documents",bWarning?IDS_SHOW_DOCUMENTS_TIP2:IDS_SHOW_DOCUMENTS_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"user_files");
+	UpdateSetting(L"UserFiles",bWarning?IDS_SHOW_USERFILES_TIP2:IDS_SHOW_USERFILES_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"user_documents");
+	UpdateSetting(L"UserDocuments",bWarning?IDS_SHOW_USERDOCS_TIP2:IDS_SHOW_USERDOCS_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"user_pictures");
+	UpdateSetting(L"UserPictures",bWarning?IDS_SHOW_USERPICS_TIP2:IDS_SHOW_USERPICS_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"control_panel") && !FindMenuItem(NULL,L"control_panel_categories");
+	UpdateSetting(L"ControlPanel",bWarning?IDS_SHOW_CP_TIP2:IDS_SHOW_CP_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"network_connections");
+	UpdateSetting(L"Network",bWarning?IDS_SHOW_NETWORK_TIP2:IDS_SHOW_NETWORK_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"printers");
+	UpdateSetting(L"Printers",bWarning?IDS_SHOW_PRINTERS_TIP2:IDS_SHOW_PRINTERS_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"shutdown_box");
+	UpdateSetting(L"Shutdown",bWarning?IDS_SHOW_SHUTDOWN_TIP2:IDS_SHOW_SHUTDOWN_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"search_box");
+	UpdateSetting(L"SearchBox",bWarning?IDS_SHOW_SEARCH_BOX_TIP2:IDS_SHOW_SEARCH_BOX_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"search");
+	UpdateSetting(L"Search",bWarning?IDS_SHOW_SEARCH_TIP2:IDS_SHOW_SEARCH_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"help");
+	UpdateSetting(L"Help",bWarning?IDS_SHOW_HELP_TIP2:IDS_SHOW_HELP_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"run");
+	UpdateSetting(L"Run",bWarning?IDS_SHOW_RUN_TIP2:IDS_SHOW_RUN_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"logoff");
+	UpdateSetting(L"LogOff",bWarning?IDS_SHOW_LOGOFF_TIP2:IDS_SHOW_LOGOFF_TIP,bWarning);
+
+	bWarning=!FindMenuItem(NULL,L"undock");
+	UpdateSetting(L"Undock",bWarning?IDS_SHOW_UNDOCK_TIP2:IDS_SHOW_UNDOCK_TIP,bWarning);
+}
+
+bool CCustomMenuDlg::FindMenuItem( HTREEITEM hParent, const wchar_t *command )
+{
+	if (hParent)
+	{
+		CTreeItem *pItem=GetItem(hParent);
+		if (!pItem) return false;
+		if (_wcsicmp(pItem->command,command)==0)
+			return true;
+	}
+	for (HTREEITEM hChild=hParent?GetChild(hParent):GetRoot();hChild;hChild=GetNext(hChild))
+		if (FindMenuItem(hChild,command))
+			return true;
+	return false;
 }
 
 class CCustomMenuPanel: public ISettingsPanel
@@ -1339,6 +1449,7 @@ CSetting g_Settings[]={
 	{L"MainSortZA",CSetting::TYPE_BOOL,IDS_MAIN_SORTZA,IDS_SORTZA_TIP,0},
 	{L"MainSortOnce",CSetting::TYPE_BOOL,IDS_MAIN_SORTONCE,IDS_SORTONCE_TIP,0},
 	{L"PreCacheIcons",CSetting::TYPE_BOOL,IDS_CACHE_ICONS,IDS_CACHE_ICONS_TIP,1,CSetting::FLAG_COLD},
+	{L"DelayIcons",CSetting::TYPE_BOOL,IDS_DELAY_ICONS,IDS_DELAY_ICONS_TIP,1,CSetting::FLAG_COLD},
 	{L"ReportSkinErrors",CSetting::TYPE_BOOL,IDS_SKIN_ERRORS,IDS_SKIN_ERRORS_TIP,0},
 
 {L"Look",CSetting::TYPE_GROUP,IDS_LOOK_SETTINGS},
@@ -1359,6 +1470,19 @@ CSetting g_Settings[]={
 		{L"None",CSetting::TYPE_RADIO,IDS_SMOOTH_NONE,IDS_SMOOTH_NONE_TIP},
 		{L"Standard",CSetting::TYPE_RADIO,IDS_SMOOTH_STD,IDS_SMOOTH_STD_TIP},
 		{L"ClearType",CSetting::TYPE_RADIO,IDS_SMOOTH_CLEAR,IDS_SMOOTH_CLEAR_TIP},
+
+{L"SearchBoxSettings",CSetting::TYPE_GROUP,IDS_SEARCH_BOX},
+	{L"SearchBox",CSetting::TYPE_INT,IDS_SHOW_SEARCH_BOX,IDS_SHOW_SEARCH_BOX_TIP,0,CSetting::FLAG_BASIC},
+		{L"Hide",CSetting::TYPE_RADIO,IDS_SEARCH_BOX_HIDE,IDS_SEARCH_BOX_HIDE_TIP},
+		{L"Normal",CSetting::TYPE_RADIO,IDS_SEARCH_BOX_SHOW,IDS_SEARCH_BOX_SHOW_TIP},
+		{L"Tab",CSetting::TYPE_RADIO,IDS_SEARCH_BOX_TAB,IDS_SEARCH_BOX_TAB_TIP},
+	{L"SearchSelect",CSetting::TYPE_BOOL,IDS_SEARCH_BOX_SEL,IDS_SEARCH_BOX_SEL_TIP,1,0,L"SearchBox=1"},
+	{L"SearchCP",CSetting::TYPE_BOOL,IDS_SEARCH_CP,IDS_SEARCH_CP_TIP,1,0,L"SearchBox"},
+	{L"SearchPath",CSetting::TYPE_BOOL,IDS_SEARCH_PATH,IDS_SEARCH_PATH_TIP,1,0,L"SearchBox"},
+	{L"SearchSubWord",CSetting::TYPE_BOOL,IDS_SUB_WORD,IDS_SUB_WORD_TIP,1,0,L"SearchBox"},
+	{L"SearchTrack",CSetting::TYPE_BOOL,IDS_SEARCH_TRACK,IDS_SEARCH_TRACK_TIP,1,0,L"SearchBox"},
+	{L"SearchMax",CSetting::TYPE_INT,IDS_SEARCH_MAX,IDS_SEARCH_MAX_TIP,20,0,L"SearchBox"},
+	{L"SearchAutoComplete",CSetting::TYPE_BOOL,IDS_SEARCH_AUTO,IDS_SEARCH_AUTO_TIP,1,0,L"SearchBox"},
 
 {L"Skin",CSetting::TYPE_GROUP,IDS_SKIN_SETTINGS,0,0,CSetting::FLAG_BASIC,NULL,&g_SkinSettingsPanel},
 	{L"Skin1",CSetting::TYPE_STRING,0,0,L"Windows XP Luna"},

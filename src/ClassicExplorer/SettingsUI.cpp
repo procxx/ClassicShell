@@ -428,7 +428,10 @@ static CSetting g_Settings[]={
 	{L"NoFadeButtons",CSetting::TYPE_BOOL,IDS_NO_FADE,IDS_NO_FADE_TIP,0,CSetting::FLAG_WARM,L"TreeStyle"},
 	{L"TreeItemSpacing",CSetting::TYPE_INT,IDS_TREE_SPACING,IDS_TREE_SPACING_TIP,0,CSetting::FLAG_WARM},
 	{L"FullIndent",CSetting::TYPE_BOOL,IDS_FULL_INDENT,IDS_FULL_INDENT_TIP,0,CSetting::FLAG_WARM,L"TreeStyle"},
-	{L"AutoNavigate",CSetting::TYPE_BOOL,IDS_NAVIGATE,IDS_NAVIGATE_TIP,0,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
+	{L"AutoNavigate",CSetting::TYPE_INT,IDS_NAVIGATE,IDS_NAVIGATE_TIP,0,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
+		{L"Default",CSetting::TYPE_RADIO,IDS_NAV_DEFAULT,IDS_NAV_DEFAULT_TIP},
+		{L"KeyboardOnly",CSetting::TYPE_RADIO,IDS_NAV_KBD,IDS_NAV_KBD_TIP},
+		{L"Always",CSetting::TYPE_RADIO,IDS_NAV_ALWAYS,IDS_NAV_ALWAYS_TIP},
 	{L"AutoNavDelay",CSetting::TYPE_INT,IDS_NAV_DELAY,IDS_NAV_DELAY_TIP,100,CSetting::FLAG_WARM,L"AutoNavigate"},
 	{L"AltEnter",CSetting::TYPE_BOOL,IDS_ALT_ENTER,IDS_ALT_ENTER_TIP,1,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
 	{L"FixFolderScroll",CSetting::TYPE_BOOL,IDS_FIX_SCROLL,IDS_FIX_SCROLL_TIP,1,CSetting::FLAG_WARM},
@@ -442,6 +445,7 @@ static CSetting g_Settings[]={
 		{L"SimplePath",CSetting::TYPE_RADIO,IDS_SIMPLE_PATH,IDS_SIMPLE_PATH_TIP},
 		{L"ExtendedPath",CSetting::TYPE_RADIO,IDS_EXTENDED_PATH,IDS_EXTENDED_PATH_TIP},
 	{L"HideSearch",CSetting::TYPE_BOOL,IDS_HIDE_SEARCH,IDS_HIDE_SEARCH_TIP,0,CSetting::FLAG_WARM},
+	{L"AddressAltD",CSetting::TYPE_STRING,IDS_ALT_D,IDS_ALT_D_TIP,L"",CSetting::FLAG_WARM},
 
 {L"UpButton",CSetting::TYPE_GROUP,IDS_UP_SETTINGS},
 	{L"ShowUpButton",CSetting::TYPE_INT,IDS_SHOW_UP,IDS_SHOW_UP_TIP,2,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
@@ -476,6 +480,7 @@ static CSetting g_Settings[]={
 	{L"ShareOverlayIcon",CSetting::TYPE_ICON,IDS_SHARE_ICON,IDS_SHARE_ICON_TIP,L"%windir%\\system32\\imageres.dll,164",CSetting::FLAG_COLD,L"ShareOverlay"},
 	{L"ShareExplorer",CSetting::TYPE_BOOL,IDS_SHARE_EXPLORER,IDS_SHARE_EXPLORER_TIP,1,CSetting::FLAG_COLD,L"ShareOverlay"},
 	{L"ShowHeaders",CSetting::TYPE_BOOL,IDS_HEADERS,IDS_HEADERS_TIP,0,CSetting::FLAG_WARM},
+	{L"HideScrollTip",CSetting::TYPE_BOOL,IDS_SCROLLTIP,IDS_SCROLLTIP_TIP,0,CSetting::FLAG_WARM},
 
 {L"FileOperation",CSetting::TYPE_GROUP,IDS_FILE_SETTINGS},
 	{L"ReplaceFileUI",CSetting::TYPE_BOOL,IDS_FILE_UI,IDS_FILE_UI_TIP,1,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
@@ -521,6 +526,7 @@ void UpdateSettings( void )
 		UpdateSetting(L"ForceRefreshWin7",CComVariant(0),false,true);
 		UpdateSetting(L"FixFolderScroll",CComVariant(0),false,true);
 		UpdateSetting(L"ShowHeaders",CComVariant(0),false,true);
+		UpdateSetting(L"HideScrollTip",CComVariant(0),false,true);
 	}
 }
 

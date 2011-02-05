@@ -22,8 +22,8 @@ INT_PTR RunSettingsDialog( HWND hWndParent, DLGPROC lpDialogFunc );
 
 struct TlsData
 {
-	// one hook for each BHO thread
-	HHOOK bhoHook;
+	// the bho instance that runs on this thread
+	class CExplorerBHO *bho;
 
 	// one hook for each copy thread
 	HHOOK copyHook;

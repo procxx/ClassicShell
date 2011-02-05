@@ -102,6 +102,11 @@ Submenu_separatorV=8
 ; Submenu_separator_slices_Y - vertical slices for Submenu_separatorV
 Submenu_separator_slices_Y=15,100,15
 
+;SEARCH SECTION
+
+Search_bitmap=11
+
+
 ; OPTIONS
 
 OPTION TWO_COLUMNS="Two Columns",0
@@ -110,9 +115,10 @@ OPTION USER_IMAGE="Show User Picture",0
 OPTION USER_NAME="Show User Name",0
 OPTION CENTER_NAME="Center User Name",0, USER_NAME, 0
 OPTION SMALL_ICONS="Small Icons",0
+OPTION LARGE_FONT="Large Font",0
 OPTION DISABLE_MASK="Reduce Glass Color",1
 
-AllPrograms_options=DISABLE_MASK
+AllPrograms_options=DISABLE_MASK, LARGE_FONT
 
 [NOT CAPTION]
 Main_bitmap=2
@@ -124,6 +130,11 @@ Main_padding=4,4,4,4
 Main_large_icons=0
 Main_font="Segoe UI",normal,-9
 Caption_font="Segoe UI",normal,15
+
+
+[LARGE_FONT]
+Main_font="Segoe UI",normal,-10
+Submenu_font="Segoe UI",normal,-10
 
 
 [NOT DISABLE_MASK]

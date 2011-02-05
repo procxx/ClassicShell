@@ -6,15 +6,21 @@
 #include "FNVHash.h"
 #include "Settings.h"
 #include "Translations.h"
+#include "ResourceHelper.h"
+#include "MenuContainer.h"
 
 const int MAX_FOLDER_LEVEL=10; // don't go more than 10 levels deep
 
 int CIconManager::s_DPI;
 int CIconManager::LARGE_ICON_SIZE;
 int CIconManager::SMALL_ICON_SIZE;
-CIconManager::TLoadingStage CIconManager::s_LoadingStage;
+volatile CIconManager::TLoadingStage CIconManager::s_LoadingStage;
 std::map<unsigned int,HICON> CIconManager::s_PreloadedIcons;
+std::map<unsigned int,HBITMAP> CIconManager::s_PreloadedBitmaps;
+std::vector<CIconManager::IconLocation> CIconManager::s_IconLocations;
 CRITICAL_SECTION CIconManager::s_PreloadSection;
+CRITICAL_SECTION CIconManager::s_PostloadSection;
+HANDLE CIconManager::s_PostloadEvent;
 
 CIconManager g_IconManager; // must be after s_PreloadedIcons and s_PreloadSection because the constructor starts a thread that uses the Preloaded stuff
 
@@ -53,31 +59,48 @@ void CIconManager::Init( void )
 	if (SHGetFileInfo(L"file",FILE_ATTRIBUTE_NORMAL,&info,sizeof(info),SHGFI_USEFILEATTRIBUTES|SHGFI_ICON|SHGFI_SMALLICON))
 	{
 		ImageList_AddIcon(m_SmallIcons,info.hIcon);
+		s_IconLocations.push_back(IconLocation());
 		DestroyIcon(info.hIcon);
 	}
+
+	s_LoadingStage=LOAD_LOADING;
+	InitializeCriticalSection(&s_PreloadSection);
+	InitializeCriticalSection(&s_PostloadSection);
+	s_PostloadEvent=CreateEvent(NULL,FALSE,FALSE,NULL);
 
 	if (GetSettingBool(L"PreCacheIcons") && _wcsicmp(PathFindFileName(path),L"explorer.exe")==0)
 	{
 		// don't preload icons if running outside of the explorer
-		InitializeCriticalSection(&s_PreloadSection);
-		s_LoadingStage=LOAD_LOADING;
 		m_PreloadThread=CreateThread(NULL,0,PreloadThread,NULL,0,NULL);
 	}
 	else
 		m_PreloadThread=INVALID_HANDLE_VALUE;
+
+	if (GetSettingBool(L"DelayIcons"))
+		m_PostloadThread=CreateThread(NULL,0,PostloadThread,NULL,0,NULL);
+	else
+		m_PostloadThread=INVALID_HANDLE_VALUE;
 }
 
-void CIconManager::StopPreloading( bool bWait )
+void CIconManager::StopLoading( void )
 {
+	s_LoadingStage=LOAD_STOPPING;
+	SetEvent(s_PostloadEvent);
 	if (m_PreloadThread!=INVALID_HANDLE_VALUE)
 	{
-		s_LoadingStage=LOAD_STOPPING;
-		WaitForSingleObject(m_PreloadThread,bWait?INFINITE:0);
+		WaitForSingleObject(m_PreloadThread,INFINITE);
 		CloseHandle(m_PreloadThread);
-		DeleteCriticalSection(&s_PreloadSection);
 		m_PreloadThread=INVALID_HANDLE_VALUE;
-		s_LoadingStage=LOAD_STOPPED;
 	}
+	if (m_PostloadThread!=INVALID_HANDLE_VALUE)
+	{
+		WaitForSingleObject(m_PostloadThread,INFINITE);
+		CloseHandle(m_PostloadThread);
+		m_PostloadThread=INVALID_HANDLE_VALUE;
+	}
+	s_LoadingStage=LOAD_STOPPED;
+	DeleteCriticalSection(&s_PostloadSection);
+	DeleteCriticalSection(&s_PreloadSection);
 }
 
 CIconManager::~CIconManager( void )
@@ -89,12 +112,15 @@ CIconManager::~CIconManager( void )
 // Retrieves an icon from a shell folder and child ID
 int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLarge )
 {
-	ProcessPreloadedIcons();
+	ProcessLoadedIcons();
 
 	// get the IExtractIcon object
 	CComPtr<IExtractIcon> pExtract;
 	HRESULT hr=pFolder->GetUIObjectOf(NULL,1,&item,IID_IExtractIcon,NULL,(void**)&pExtract);
-	HICON hIcon;
+	HICON hIcon=NULL;
+	int iconSize=bLarge?LARGE_ICON_SIZE:SMALL_ICON_SIZE;
+	bool bUseFactory=false;
+	IconLocation loc;
 	unsigned int key;
 	if (SUCCEEDED(hr))
 	{
@@ -115,13 +141,11 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 		}
 		else
 		{
-			if (s_LoadingStage!=LOAD_STOPPED)
-				EnterCriticalSection(&s_PreloadSection);
+			EnterCriticalSection(&s_PreloadSection);
 			int res=-1;
 			if (m_SmallCache.find(key)!=m_SmallCache.end())
 				res=m_SmallCache[key];
-			if (s_LoadingStage!=LOAD_STOPPED)
-				LeaveCriticalSection(&s_PreloadSection);
+			LeaveCriticalSection(&s_PreloadSection);
 			if (res>=0) return res;
 		}
 
@@ -129,19 +153,51 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 		if (flags&GIL_NOTFILENAME)
 		{
 			HICON hIcon2=NULL;
-			HRESULT hr=pExtract->Extract(location,index,bLarge?&hIcon:&hIcon2,bLarge?&hIcon2:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+			HRESULT hr;
+			if (iconSize<=GetSystemMetrics(SM_CXSMICON))
+				hr=pExtract->Extract(location,index,&hIcon2,&hIcon,MAKELONG(iconSize,iconSize)); // small icon is closer
+			else
+				hr=pExtract->Extract(location,index,&hIcon,&hIcon2,MAKELONG(iconSize,iconSize)); // large icon is closer
 			if (FAILED(hr))
 				hIcon=hIcon2=NULL;
+			else
+			{
+				if (hIcon)
+				{
+					// see if we got the icon with a correct size. use an image factory if the size is too small
+					ICONINFO info;
+					GetIconInfo(hIcon,&info);
+					BITMAP info2;
+					GetObject(info.hbmColor,sizeof(info2),&info2);
+					if (info.hbmColor) DeleteObject(info.hbmColor);
+					if (info.hbmMask) DeleteObject(info.hbmMask);
+					if (info2.bmWidth<iconSize)
+					{
+						DestroyIcon(hIcon);
+						hIcon=NULL;
+						bUseFactory=true;
+					}
+				}
+				if (hIcon2) DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
+			}
 			if (hr==S_FALSE)
-				flags=0;
-			if (hIcon2) DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
+			{
+				// we are not supposed to be getting S_FALSE here, but we do (like for EXEs that don't have an icon). fallback to factory
+				bUseFactory=true;
+			}
 		}
 
 		if (!(flags&GIL_NOTFILENAME))
 		{
-			// the IExtractIcon object didn't do anything - use ExtractIconEx instead
-			if (ExtractIconEx(location,index==-1?0:index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)!=1)
-				hIcon=NULL;
+			// the IExtractIcon object didn't do anything - use ShExtractIcon instead
+			if (bLarge || m_PostloadThread==INVALID_HANDLE_VALUE)
+				hIcon=ShExtractIcon(location,index==-1?0:index,iconSize);
+			else
+			{
+				loc.location=location;
+				loc.index=index;
+				loc.key=key;
+			}
 		}
 	}
 	else
@@ -169,13 +225,11 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 		}
 		else
 		{
-			if (s_LoadingStage!=LOAD_STOPPED)
-				EnterCriticalSection(&s_PreloadSection);
+			EnterCriticalSection(&s_PreloadSection);
 			int res=-1;
 			if (m_SmallCache.find(key)!=m_SmallCache.end())
 				res=m_SmallCache[key];
-			if (s_LoadingStage!=LOAD_STOPPED)
-				LeaveCriticalSection(&s_PreloadSection);
+			LeaveCriticalSection(&s_PreloadSection);
 			if (res>=0) return res;
 		}
 
@@ -183,49 +237,116 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 		if (flags&GIL_NOTFILENAME)
 		{
 			HICON hIcon2=NULL;
-			HRESULT hr=pExtractA->Extract(location,index,bLarge?&hIcon:&hIcon2,bLarge?&hIcon2:&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+			HRESULT hr;
+			if (iconSize<=GetSystemMetrics(SM_CXSMICON))
+				hr=pExtractA->Extract(location,index,&hIcon2,&hIcon,MAKELONG(iconSize,iconSize)); // small icon is closer
+			else
+				hr=pExtractA->Extract(location,index,&hIcon,&hIcon2,MAKELONG(iconSize,iconSize)); // large icon is closer
 			if (FAILED(hr))
 				hIcon=hIcon2=NULL;
+			else
+			{
+				if (hIcon)
+				{
+					// see if we got the icon with a correct size. use an image factory if the size is too small
+					ICONINFO info;
+					GetIconInfo(hIcon,&info);
+					BITMAP info2;
+					GetObject(info.hbmColor,sizeof(info2),&info2);
+					if (info.hbmColor) DeleteObject(info.hbmColor);
+					if (info.hbmMask) DeleteObject(info.hbmMask);
+					if (info2.bmWidth<iconSize)
+					{
+						DestroyIcon(hIcon);
+						hIcon=NULL;
+						bUseFactory=true;
+					}
+				}
+				if (hIcon2) DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
+			}
 			if (hr==S_FALSE)
-				flags=0;
-			if (hIcon2) DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
+			{
+				// we are not supposed to be getting S_FALSE here, but we do (like for EXEs that don't have an icon). fallback to factory
+				bUseFactory=true;
+			}
 		}
 
 		if (!(flags&GIL_NOTFILENAME))
 		{
-			// the IExtractIcon object didn't do anything - use ExtractIconEx instead
-			if (ExtractIconExA(location,index==-1?0:index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)!=1)
-				hIcon=NULL;
+			// the IExtractIcon object didn't do anything - use ShExtractIcon instead
+			if (bLarge || m_PostloadThread==INVALID_HANDLE_VALUE)
+				hIcon=ShExtractIcon(location,index==-1?0:index,iconSize);
+			else
+			{
+				loc.location=location;
+				loc.index=index;
+				loc.key=key;
+			}
 		}
 	}
 
 	// add to the image list
-	int index=0;
+	int res=0;
+	if (bUseFactory)
+	{
+		// use the image factory to get icons that are larger than the system icon size
+		CComPtr<IShellItemImageFactory> pFactory;
+		if (SUCCEEDED(SHCreateItemWithParent(NULL,pFolder,item,IID_IShellItemImageFactory,(void**)&pFactory)) && pFactory)
+		{
+			SIZE size={iconSize,iconSize};
+			HBITMAP hBitmap;
+			if (SUCCEEDED(pFactory->GetImage(size,SIIGBF_ICONONLY,&hBitmap)))
+			{
+				res=ImageList_AddMasked(bLarge?m_LargeIcons:m_SmallIcons,hBitmap,CLR_NONE);
+				DeleteObject(hBitmap);
+			}
+		}
+		ATLASSERT(!hIcon);
+	}
 	if (hIcon)
 	{
-		index=ImageList_AddIcon(bLarge?m_LargeIcons:m_SmallIcons,hIcon);
+		res=ImageList_AddIcon(bLarge?m_LargeIcons:m_SmallIcons,hIcon);
 		DestroyIcon(hIcon);
+	}
+
+	if (!loc.location.IsEmpty())
+	{
+		// post-load
+		res=ImageList_GetImageCount(m_SmallIcons);
+		ImageList_SetImageCount(m_SmallIcons,res+1);
+		ImageList_Copy(m_SmallIcons,res,m_SmallIcons,0,ILCF_MOVE);
+		loc.bTemp=true;
 	}
 
 	// add to the cache
 	if (bLarge)
-		m_LargeCache[key]=index;
+		m_LargeCache[key]=res;
 	else
 	{
-		if (s_LoadingStage!=LOAD_STOPPED)
-			EnterCriticalSection(&s_PreloadSection);
-		m_SmallCache[key]=index;
-		if (s_LoadingStage!=LOAD_STOPPED)
-			LeaveCriticalSection(&s_PreloadSection);
+		EnterCriticalSection(&s_PreloadSection);
+		m_SmallCache[key]=res;
+		LeaveCriticalSection(&s_PreloadSection);
+
+		if (res>0)
+		{
+			EnterCriticalSection(&s_PostloadSection);
+			s_IconLocations.push_back(loc);
+			LeaveCriticalSection(&s_PostloadSection);
+		}
+
+#ifdef _DEBUG
+		int n=ImageList_GetImageCount(m_SmallIcons);
+		ATLASSERT(n==s_IconLocations.size());
+#endif
 	}
 
-	return index;
+	return res;
 }
 
 // Retrieves an icon from a file and icon index (index>=0 - icon index, index<0 - resource ID)
 int CIconManager::GetIcon( const wchar_t *location, int index, bool bLarge )
 {
-	ProcessPreloadedIcons();
+	ProcessLoadedIcons();
 
 	// check if this location+index is in the cache
 	unsigned int key=CalcFNVHash(location,CalcFNVHash(&index,4));
@@ -236,32 +357,34 @@ int CIconManager::GetIcon( const wchar_t *location, int index, bool bLarge )
 	}
 	else
 	{
-		if (s_LoadingStage!=LOAD_STOPPED)
-			EnterCriticalSection(&s_PreloadSection);
+		EnterCriticalSection(&s_PreloadSection);
 		int res=-1;
 		if (m_SmallCache.find(key)!=m_SmallCache.end())
 			res=m_SmallCache[key];
-		if (s_LoadingStage!=LOAD_STOPPED)
-			LeaveCriticalSection(&s_PreloadSection);
+		LeaveCriticalSection(&s_PreloadSection);
 		if (res>=0) return res;
 	}
 
 	// extract icon
 	HICON hIcon;
 	HMODULE hMod=*location?GetModuleHandle(PathFindFileName(location)):g_Instance;
+	int iconSize=bLarge?LARGE_ICON_SIZE:SMALL_ICON_SIZE;
 	if (hMod && index<0)
-	{
-		int iconSize=bLarge?LARGE_ICON_SIZE:SMALL_ICON_SIZE;
 		hIcon=(HICON)LoadImage(hMod,MAKEINTRESOURCE(-index),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
-	}
-	else if (ExtractIconEx(location,index==-1?0:index,bLarge?&hIcon:NULL,bLarge?NULL:&hIcon,1)!=1)
-		hIcon=NULL;
+	else
+		hIcon=ShExtractIcon(location,index==-1?0:index,iconSize);
 
 	// add to the image list
 	if (hIcon)
 	{
 		index=ImageList_AddIcon(bLarge?m_LargeIcons:m_SmallIcons,hIcon);
 		DestroyIcon(hIcon);
+		if (!bLarge)
+		{
+			EnterCriticalSection(&s_PostloadSection);
+			s_IconLocations.push_back(IconLocation());
+			LeaveCriticalSection(&s_PostloadSection);
+		}
 	}
 	else
 		index=0;
@@ -271,11 +394,14 @@ int CIconManager::GetIcon( const wchar_t *location, int index, bool bLarge )
 		m_LargeCache[key]=index;
 	else
 	{
-		if (s_LoadingStage!=LOAD_STOPPED)
-			EnterCriticalSection(&s_PreloadSection);
+		EnterCriticalSection(&s_PreloadSection);
 		m_SmallCache[key]=index;
-		if (s_LoadingStage!=LOAD_STOPPED)
-			LeaveCriticalSection(&s_PreloadSection);
+		LeaveCriticalSection(&s_PreloadSection);
+
+#ifdef _DEBUG
+		int n=ImageList_GetImageCount(m_SmallIcons);
+		ATLASSERT(n==s_IconLocations.size());
+#endif
 	}
 
 	return index;
@@ -296,24 +422,50 @@ int CIconManager::GetCustomIcon( const wchar_t *path, bool bLarge )
 	return GetIcon(text,index,bLarge);
 }
 
-void CIconManager::ProcessPreloadedIcons( void )
+void CIconManager::ProcessLoadedIcons( void )
 {
-	if (s_LoadingStage!=LOAD_STOPPED)
-		EnterCriticalSection(&s_PreloadSection);
+	EnterCriticalSection(&s_PreloadSection);
 	for (std::map<unsigned int,HICON>::const_iterator it=s_PreloadedIcons.begin();it!=s_PreloadedIcons.end();++it)
 	{
 		unsigned int key=it->first;
 		HICON hIcon=it->second;
-		if (m_SmallCache.find(key)==m_SmallCache.end())
+		std::map<unsigned int,int>::iterator cache=m_SmallCache.find(key);
+		EnterCriticalSection(&s_PostloadSection);
+		if (cache==m_SmallCache.end())
 		{
 			// add to the image list and to the cache
 			m_SmallCache[key]=ImageList_AddIcon(m_SmallIcons,hIcon);
+			s_IconLocations.push_back(IconLocation());
 		}
+		else if (s_IconLocations[cache->second].bTemp)
+		{
+			s_IconLocations[cache->second].bTemp=false;
+			ImageList_ReplaceIcon(m_SmallIcons,cache->second,hIcon);
+		}
+		LeaveCriticalSection(&s_PostloadSection);
 		DestroyIcon(hIcon);
 	}
 	s_PreloadedIcons.clear();
-	if (s_LoadingStage!=LOAD_STOPPED)
-		LeaveCriticalSection(&s_PreloadSection);
+	for (std::map<unsigned int,HBITMAP>::const_iterator it=s_PreloadedBitmaps.begin();it!=s_PreloadedBitmaps.end();++it)
+	{
+		unsigned int key=it->first;
+		HBITMAP hBitmap=it->second;
+		EnterCriticalSection(&s_PostloadSection);
+		if (m_SmallCache.find(key)==m_SmallCache.end())
+		{
+			// add to the image list and to the cache
+			m_SmallCache[key]=ImageList_AddMasked(m_SmallIcons,hBitmap,CLR_NONE);
+			s_IconLocations.push_back(IconLocation());
+		}
+		else
+		{
+			ATLASSERT(!s_IconLocations[m_SmallCache[key]].bTemp);
+		}
+		LeaveCriticalSection(&s_PostloadSection);
+		DeleteObject(hBitmap);
+	}
+	s_PreloadedBitmaps.clear();
+	LeaveCriticalSection(&s_PreloadSection);
 }
 
 // Recursive function to preload the icons for a folder
@@ -326,7 +478,10 @@ void CIconManager::LoadFolderIcons( IShellFolder *pFolder, int level )
 	PITEMID_CHILD pidl;
 	while (pEnum->Next(1,&pidl,NULL)==S_OK)
 	{
+		unsigned int key;
+		bool bUseFactory=false;
 		CComPtr<IExtractIcon> pExtract;
+		CComPtr<IExtractIconA> pExtractA;
 		if (SUCCEEDED(pFolder->GetUIObjectOf(NULL,1,&pidl,IID_IExtractIcon,NULL,(void**)&pExtract)))
 		{
 			// get the icon location
@@ -336,69 +491,141 @@ void CIconManager::LoadFolderIcons( IShellFolder *pFolder, int level )
 			if (SUCCEEDED(pExtract->GetIconLocation(0,location,_countof(location),&index,&flags)))
 			{
 				// check if this location+index is in the cache
-				unsigned int key=CalcFNVHash(location,CalcFNVHash(&index,4));
+				key=CalcFNVHash(location,CalcFNVHash(&index,4));
 				EnterCriticalSection(&s_PreloadSection);
 				bool bLoaded=g_IconManager.m_SmallCache.find(key)!=g_IconManager.m_SmallCache.end() || s_PreloadedIcons.find(key)!=s_PreloadedIcons.end();
 				LeaveCriticalSection(&s_PreloadSection);
 				if (!bLoaded)
 				{
-					// extract the icon
 					HICON hIcon, hIcon2=NULL;
-					HRESULT hr=pExtract->Extract(location,index,&hIcon2,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
-					if (SUCCEEDED(hr)) DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
-					if (hr==S_FALSE)
+					HRESULT hr=E_FAIL;
+					if (flags&GIL_NOTFILENAME)
 					{
-						// the IExtractIcon object didn't do anything - use ExtractIconEx instead
-						if (ExtractIconEx(location,index==-1?0:index,NULL,&hIcon,1)==1)
-							hr=S_OK;
+						// extract the icon
+						hr=pExtract->Extract(location,index,&hIcon2,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
+						if (hr==S_OK)
+						{
+							// see if we got the icon with a correct size. use an image factory if the size is too small
+							ICONINFO info;
+							GetIconInfo(hIcon,&info);
+							BITMAP info2;
+							GetObject(info.hbmColor,sizeof(info2),&info2);
+							if (info.hbmColor) DeleteObject(info.hbmColor);
+							if (info.hbmMask) DeleteObject(info.hbmMask);
+							if (info2.bmWidth<SMALL_ICON_SIZE)
+							{
+								DestroyIcon(hIcon);
+								hIcon=NULL;
+								hr=E_FAIL;
+								bUseFactory=true;
+							}
+							DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
+						}
+						if (hr==S_FALSE)
+						{
+							// we are not supposed to be getting S_FALSE here, but we do (like for EXEs that don't have an icon). fallback to factory
+							bUseFactory=true;
+						}
 					}
-					Sleep(10); // pause for a bit to reduce the stress on the system
+					else
+					{
+						// the IExtractIcon object didn't do anything - use ShExtractIcon instead
+						hIcon=ShExtractIcon(location,index==-1?0:index,SMALL_ICON_SIZE);
+						if (hIcon)
+						 hr=S_OK;
+					}
 					if (hr==S_OK)
 					{
 						EnterCriticalSection(&s_PreloadSection);
-						s_PreloadedIcons[key]=hIcon;
+						if (s_PreloadedIcons.find(key)!=s_PreloadedIcons.end())
+							DestroyIcon(hIcon);
+						else
+							s_PreloadedIcons[key]=hIcon;
 						LeaveCriticalSection(&s_PreloadSection);
 					}
+					Sleep(10); // pause for a bit to reduce the stress on the system
 				}
 			}
 		}
-		else
+		else if (SUCCEEDED(pFolder->GetUIObjectOf(NULL,1,&pidl,IID_IExtractIconA,NULL,(void**)&pExtractA))) // try the ANSI version
 		{
-			// try the ANSI version
-			CComPtr<IExtractIconA> pExtractA;
-			if (SUCCEEDED(pFolder->GetUIObjectOf(NULL,1,&pidl,IID_IExtractIconA,NULL,(void**)&pExtractA)))
+			// get the icon location
+			char location[_MAX_PATH];
+			int index=0;
+			UINT flags=0;
+			if (SUCCEEDED(pExtractA->GetIconLocation(0,location,_countof(location),&index,&flags)))
 			{
-				// get the icon location
-				char location[_MAX_PATH];
-				int index=0;
-				UINT flags=0;
-				if (SUCCEEDED(pExtractA->GetIconLocation(0,location,_countof(location),&index,&flags)))
+				// check if this location+index is in the cache
+				key=CalcFNVHash(location,CalcFNVHash(&index,4));
+				EnterCriticalSection(&s_PreloadSection);
+				bool bLoaded=g_IconManager.m_SmallCache.find(key)!=g_IconManager.m_SmallCache.end() || s_PreloadedIcons.find(key)!=s_PreloadedIcons.end();
+				LeaveCriticalSection(&s_PreloadSection);
+				if (!bLoaded)
 				{
-					// check if this location+index is in the cache
-					unsigned int key=CalcFNVHash(location,CalcFNVHash(&index,4));
-					EnterCriticalSection(&s_PreloadSection);
-					bool bLoaded=g_IconManager.m_SmallCache.find(key)!=g_IconManager.m_SmallCache.end() || s_PreloadedIcons.find(key)!=s_PreloadedIcons.end();
-					LeaveCriticalSection(&s_PreloadSection);
-					if (!bLoaded)
+					HICON hIcon, hIcon2=NULL;
+					HRESULT hr=E_FAIL;
+					if (flags&GIL_NOTFILENAME)
 					{
 						// extract the icon
-						HICON hIcon, hIcon2=NULL;
-						HRESULT hr=pExtractA->Extract(location,index,&hIcon2,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
-						if (SUCCEEDED(hr)) DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
-						if (hr==S_FALSE)
-						{
-							// the IExtractIcon object didn't do anything - use ExtractIconEx instead
-							if (ExtractIconExA(location,index==-1?0:index,NULL,&hIcon,1)==1)
-								hr=S_OK;
-						}
-						Sleep(10); // pause for a bit to reduce the stress on the system
+						hr=pExtractA->Extract(location,index,&hIcon2,&hIcon,MAKELONG(LARGE_ICON_SIZE,SMALL_ICON_SIZE));
 						if (hr==S_OK)
 						{
-							EnterCriticalSection(&s_PreloadSection);
-							s_PreloadedIcons[key]=hIcon;
-							LeaveCriticalSection(&s_PreloadSection);
+							// see if we got the icon with a correct size. use an image factory if the size is too small
+							ICONINFO info;
+							GetIconInfo(hIcon,&info);
+							BITMAP info2;
+							GetObject(info.hbmColor,sizeof(info2),&info2);
+							if (info.hbmColor) DeleteObject(info.hbmColor);
+							if (info.hbmMask) DeleteObject(info.hbmMask);
+							if (info2.bmWidth<SMALL_ICON_SIZE)
+							{
+								DestroyIcon(hIcon);
+								hIcon=NULL;
+								hr=E_FAIL;
+								bUseFactory=true;
+							}
+							DestroyIcon(hIcon2); // HACK!!! Even though Extract should support NULL, not all implementations do. For example shfusion.dll crashes
+						}
+						if (hr==S_FALSE)
+						{
+							// we are not supposed to be getting S_FALSE here, but we do (like for EXEs that don't have an icon). fallback to factory
+							bUseFactory=true;
 						}
 					}
+					else
+					{
+						// the IExtractIcon object didn't do anything - use ShExtractIcon instead
+						hIcon=ShExtractIcon(location,index==-1?0:index,SMALL_ICON_SIZE);
+						if (hIcon)
+							hr=S_OK;
+					}
+					if (hr==S_OK)
+					{
+						EnterCriticalSection(&s_PreloadSection);
+						if (s_PreloadedIcons.find(key)!=s_PreloadedIcons.end())
+							DestroyIcon(hIcon);
+						else
+							s_PreloadedIcons[key]=hIcon;
+						LeaveCriticalSection(&s_PreloadSection);
+					}
+					Sleep(10); // pause for a bit to reduce the stress on the system
+				}
+			}
+		}
+
+		if (bUseFactory)
+		{
+			// use the image factory to get icons that are larger than the system icon size
+			CComPtr<IShellItemImageFactory> pFactory;
+			if (SUCCEEDED(SHCreateItemWithParent(NULL,pFolder,pidl,IID_IShellItemImageFactory,(void**)&pFactory)) && pFactory)
+			{
+				SIZE size={SMALL_ICON_SIZE,SMALL_ICON_SIZE};
+				HBITMAP hBitmap;
+				if (SUCCEEDED(pFactory->GetImage(size,SIIGBF_ICONONLY,&hBitmap)))
+				{
+					EnterCriticalSection(&s_PreloadSection);
+					s_PreloadedBitmaps[key]=hBitmap;
+					LeaveCriticalSection(&s_PreloadSection);
 				}
 			}
 		}
@@ -456,4 +683,82 @@ DWORD CALLBACK CIconManager::PreloadThread( void *param )
 	}
 	CoUninitialize();
 	FreeLibraryAndExitThread(g_Instance,0); // release the DLL
+}
+
+DWORD CALLBACK CIconManager::PostloadThread( void *param )
+{
+	// this thread loads any icons marked as bTemp and bUsed
+	bool bRefresh=false;
+	while (1)
+	{
+		WaitForSingleObject(s_PostloadEvent,INFINITE);
+		bRefresh=false;
+		int t0=GetTickCount();
+		while (1)
+		{
+			if (s_LoadingStage!=LOAD_LOADING)
+				return 0;
+			IconLocation location;
+			EnterCriticalSection(&s_PostloadSection);
+			for (std::vector<IconLocation>::iterator it=s_IconLocations.begin();it!=s_IconLocations.end();++it)
+			{
+				if (it->bTemp && !it->bLoaded && it->bUsed)
+				{
+					it->bLoaded=true;
+					location=*it;
+					break;
+				}
+			}
+			LeaveCriticalSection(&s_PostloadSection);
+			if (location.location.IsEmpty())
+				break;
+			EnterCriticalSection(&s_PreloadSection);
+			bool bLoaded=s_PreloadedIcons.find(location.key)!=s_PreloadedIcons.end(); // check if it was loaded by the pre-load thread
+			LeaveCriticalSection(&s_PreloadSection);
+			if (!bLoaded)
+			{
+				HICON hIcon=ShExtractIcon(location.location,location.index==-1?0:location.index,SMALL_ICON_SIZE);
+				if (hIcon)
+				{
+					EnterCriticalSection(&s_PreloadSection);
+					if (s_PreloadedIcons.find(location.key)!=s_PreloadedIcons.end())
+						DestroyIcon(hIcon);
+					else
+						s_PreloadedIcons[location.key]=hIcon;
+					LeaveCriticalSection(&s_PreloadSection);
+				}
+			}
+			bRefresh=true;
+			int t=GetTickCount();
+			if (t-t0>100)
+			{
+				CMenuContainer::RefreshIcons();
+				t0=t;
+				bRefresh=false;
+			}
+		}
+		if (bRefresh)
+			CMenuContainer::RefreshIcons();
+	}
+}
+
+// Marks all icons as unused (also locks s_PostloadSection)
+void CIconManager::ResetUsedIcons( void )
+{
+	EnterCriticalSection(&s_PostloadSection);
+	for (std::vector<IconLocation>::iterator it=s_IconLocations.begin();it!=s_IconLocations.end();++it)
+		it->bUsed=false;
+}
+
+// Marks the icon as used
+void CIconManager::AddUsedIcon( int icon )
+{
+	s_IconLocations[icon].bUsed=true;
+}
+
+// Wakes up the post-loading thread (also unlocks s_PostloadSection)
+void CIconManager::StartPostLoading( void )
+{
+	LeaveCriticalSection(&s_PostloadSection);
+	SetEvent(s_PostloadEvent);
 }

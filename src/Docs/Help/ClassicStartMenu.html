@@ -1,20 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html><head>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Start Menu</title>
+ <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Start Menu</title>
 <style type="text/css">
 h1 {
   font-family: "Times New Roman",Times,serif;
@@ -46,6 +32,9 @@ Arabic and Hebrew</li>
 access it by Shift+Click on the start button</li>
   <li>Right-click on an item in the menu to delete, rename, sort, or
 perform other tasks</li>
+  <li>The search box helps you find your programs without getting in the way of your keyboard shortcuts<br>
+  </li>
+
   <li>Available for 32 and 64-bit operating systems</li>
   <li>Has support for skins, including additional 3rd party skins. Make your own!</li>
   <li>Fully customizable in both looks and functionality</li>
@@ -143,7 +132,7 @@ name your items whatever you want, as long as the name is unique.<br>
 <br>
 
 After you place a new item in the start menu, you can edit it's attributes. Double-click on the item to edit:<br>
-<img src="images/item_settings.png" style="width: 446px; height: 426px;" alt="Edit Menu Item" title="Edit Menu Item"><br>
+<img src="images/item_settings.png" style="width: 452px; height: 456px;" alt="Edit Menu Item" title="Edit Menu Item"><br>
 
 Here you can select a command for the item, its text, icon and other attributes. Press the <span style="font-weight: bold;">Restore Defaults</span> button to get the default text and icon for the chosen command.<br>
 <br>
@@ -174,6 +163,14 @@ The icon can be:<br style="font-weight: bold;">
 If the label or the tip attribute start with <span style="font-weight: bold;">$</span> (dollar sign), then the system will treat it as a name of a string in the <span style="font-weight: bold;">StartMenuL10N.ini</span>
 file. The actual text will depend on the current language setting. This
 is useful when creating a menu that can be used by multiple languages.<br>
+<br>
+If you check "Insert Sub-items as Buttons", instead of showing the menu
+item itself, the start menu will show the sub-items as a row of
+buttons. By default the buttons are centered. You can align them to the
+left by adding a separator as the last item, or align them to the right
+by adding a separator as the first item. One possible use is to replace
+the shutdown menu item with
+separate buttons for shutdown, restart, log off, etc.<br>
 <br>
 <h1><a name="admin"></a>Administrative Settings</h1>
 The settings are
@@ -244,16 +241,47 @@ cascading menu of all programs, similar to Windows XP:<br>
 
 
 You can enable the cascading menu by checking <span style="font-weight: bold;">Cascade All Programs menu</span> in the <span style="font-weight: bold;">Windows Start Menu</span> tab of the Settings. You can also pick a separate skin for the sub-menus from the <span style="font-weight: bold;">All Programs Skin</span> tab.<br>
-
 <br>
+<br>
+<h1><a name="search"></a>Search</h1><img style="width: 273px; height: 161px;" alt="Search Box" title="Search Box" src="images/search1.png"><br>
+<br>
+ <img style="width: 501px; height: 161px;" alt="Search Results" title="Search Results" src="images/search2.png"><br>
 
-
+The search box lets you search the contents of the start menu and the
+programs in the PATH environment variables. You can have the search box
+appear as a normal menu item and then you can get to it using the
+up/down arrow keys. You can choose to have the search box selected by
+default when you open the start menu. Or you can choose to activate the
+search box only with the Tab key, so until you press Tab you can use
+the keyboard for navigation as if the search box is not there.<br>
+<br>
+To use the search, start typing the name of the program until you see
+it in the list of results. Use the up/down arrow keys to select from
+the list. Press Enter to execute.<br>
+<br>
+You can customize the search feature from the <span style="font-weight: bold;">Search Box</span> tab in the Settings.<br>
+<ul>
+  <li>Select if you want the search to look in the Control Panel or the system PATH</li>
+  <li>Select if you want the search to match any part of the word or only the beginning of the word</li>
+  <li>Select if you want the start menu to track which programs you use most often and put them at the top of the search results</li>
+  <li>Limit the number of items to display in the search results. If
+there are more results than that, the list will not show up. Instead
+you will get a small icon that looks like <span style="font-weight: bold;">&gt;&gt;</span> and you can press Tab to see the full list of results. Or you can continue typing until you narrow down the list of results</li>
+  <li>Enable auto-complete. When this is enabled, if you start typing
+something that looks like a path (like C:\Windows, etc) you will get an
+auto-complete list for typing a command you can execute, instead of
+seeing a sub-menu of the search results</li>
+</ul><span style="font-weight: bold;">Note:</span> For the search to
+work you must have a search box item in your menu. If you are upgrading
+from an older version than 2.9.3, and have customized the start menu,
+you may be missing the search item. Go to the<span style="font-weight: bold;"> Customize Start Menu </span>tab
+in the Settings and drop Search Box into your menu. The search box
+works best when it is in the main menu, but you can place it in a
+sub-menu if you really want to.<br>
+<br>
 <br>
 <h1><a name="localization"></a>Localization</h1>
-
-
-The user
-interface (except the Settings dialog box) is localized in all 35
+The user interface (except the Settings dialog box) is localized in all 35
 languages available for Vista and Windows 7.<br>
 
 The Settings dialog box is translated in a smaller number of languages.

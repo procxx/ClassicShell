@@ -300,6 +300,10 @@
 				RelativePath=".\resource.h"
 				>
 			</File>
+			<File
+				RelativePath=".\warning.ico"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Strings"

@@ -243,6 +243,16 @@
 #define IDS_OPEN_TIP                    2165
 #define IDS_CUSTOM_TIP                  2166
 #define IDS_NEWFOLDER_TIP               2167
+#define IDS_SCROLLTIP                   2168
+#define IDS_SCROLLTIP_TIP               2169
+#define IDS_NAV_DEFAULT                 2170
+#define IDS_NAV_DEFAULT_TIP             2171
+#define IDS_NAV_KBD                     2172
+#define IDS_NAV_KBD_TIP                 2173
+#define IDS_NAV_ALWAYS                  2174
+#define IDS_NAV_ALWAYS_TIP              2175
+#define IDS_ALT_D                       2176
+#define IDS_ALT_D_TIP                   2177
 
 // Next default values for new objects
 // 

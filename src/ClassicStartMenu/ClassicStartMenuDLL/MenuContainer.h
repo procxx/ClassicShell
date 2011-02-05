@@ -65,6 +65,9 @@ enum TMenuID
 	MENU_SHUTDOWN,
 	MENU_SWITCHUSER,
 	MENU_RECENT_ITEMS,
+	MENU_SEARCH_BOX,
+
+	MENU_IGNORE=1024, // ignore this item
 };
 
 struct StdMenuItem
@@ -85,18 +88,20 @@ struct StdMenuItem
 	// user settings
 	enum
 	{
-		MENU_OPENUP      = 0x0001, // prefer to open up
-		MENU_OPENUP_REC  = 0x0002, // children prefer to open up
-		MENU_SORTZA      = 0x0004, // sort backwards
-		MENU_SORTZA_REC  = 0x0008, // children sort backwards
-		MENU_SORTONCE    = 0x0010, // save the sort order the first time the menu is opened
-		MENU_ITEMS_FIRST = 0x0020, // place the custom items before the folder items
-		MENU_TRACK       = 0x0040, // track shortcuts from this menu
-		MENU_NOTRACK     = 0x0080, // don't track shortcuts from this menu
-		MENU_NOEXPAND    = 0x0100, // don't expand this link item
-		MENU_MULTICOLUMN = 0x0200, // make this item a multi-column item
+		MENU_OPENUP       = 0x0001, // prefer to open up
+		MENU_OPENUP_REC   = 0x0002, // children prefer to open up
+		MENU_SORTZA       = 0x0004, // sort backwards
+		MENU_SORTZA_REC   = 0x0008, // children sort backwards
+		MENU_SORTONCE     = 0x0010, // save the sort order the first time the menu is opened
+		MENU_ITEMS_FIRST  = 0x0020, // place the custom items before the folder items
+		MENU_TRACK        = 0x0040, // track shortcuts from this menu
+		MENU_NOTRACK      = 0x0080, // don't track shortcuts from this menu
+		MENU_NOEXPAND     = 0x0100, // don't expand this link item
+		MENU_MULTICOLUMN  = 0x0200, // make this item a multi-column item
+		MENU_NOEXTENSIONS = 0x0400, // hide extensions
+		MENU_INLINE       = 0x0800, // inline sub-items in the parent menu
 
-		MENU_NORECENT    = 0x8000  // don't show recent items in the root menu (because a sub-menu uses MENU_RECENT_ITEMS)
+		MENU_NORECENT     = 0x8000  // don't show recent items in the root menu (because a sub-menu uses MENU_RECENT_ITEMS)
 	};
 };
 
@@ -163,6 +168,10 @@ public:
 		MESSAGE_HANDLER( WM_GETOBJECT, OnGetAccObject )
 		MESSAGE_HANDLER( MCM_REFRESH, OnRefresh )
 		MESSAGE_HANDLER( MCM_SETCONTEXTITEM, OnSetContextItem )
+		MESSAGE_HANDLER( WM_CTLCOLOREDIT, OnColorEdit )
+		MESSAGE_HANDLER( MCM_REDRAWEDIT, OnRedrawEdit )
+		MESSAGE_HANDLER( MCM_REFRESHICONS, OnRefreshIcons )
+		COMMAND_CODE_HANDLER( EN_CHANGE, OnEditChange )
 	END_MSG_MAP()
 
 	// options when creating a container
@@ -190,6 +199,8 @@ public:
 		CONTAINER_TRACK        = 0x080000, // track shortcuts from this menu
 		CONTAINER_NOSUBFOLDERS = 0x100000, // don't go into subfolders
 		CONTAINER_NONEWFOLDER  = 0x200000, // don't show the "New Folder" command
+		CONTAINER_SEARCH       = 0x400000, // this is he search results submenu
+		CONTAINER_NOEXTENSIONS = 0x800000, // hide extensions
 	};
 
 	CMenuContainer( CMenuContainer *pParent, int index, int options, const StdMenuItem *pStdItem, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName );
@@ -202,9 +213,11 @@ public:
 	static bool CloseProgramsMenu( void );
 	static void HideStartMenu( void );
 	static bool IsMenuOpened( void ) { return !s_Menus.empty(); }
+	static bool IsMenuWindow( HWND hWnd );
 	static bool IgnoreTaskbarTimers( void ) { return !s_Menus.empty() && (s_TaskbarState&ABS_AUTOHIDE); }
 	static HWND ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAllPrograms );
 	static bool ProcessMouseMessage( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
+	static void RefreshIcons( void );
 
 	// IUnknown
 	virtual STDMETHODIMP QueryInterface( REFIID riid, void **ppvObject )
@@ -261,6 +274,10 @@ protected:
 	LRESULT OnSysCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnGetAccObject( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnSetContextItem( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnColorEdit( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnRedrawEdit( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnRefreshIcons( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnEditChange( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	virtual void OnFinalMessage( HWND ) { Release(); }
 
 private:
@@ -280,6 +297,9 @@ private:
 		bool bPrograms:1; // this item is part of the Start Menu folder hierarchy
 		bool bAlignBottom:1; // two-column menu: this item is aligned to the bottom
 		bool bBreak:1; // two-column menu: this item starts the second column
+		bool bInline:1; // this item is inlined in the parent menu
+		bool bInlineFirst:1; // this item is the first from the inlined group
+		bool bInlineLast:1; // this item is the last from the inlined group
 		char priority; // used for sorting of the All Programs menu
 
 		// pair of shell items. 2 items are used to combine a user folder with a common folder (I.E. user programs/common programs)
@@ -309,6 +329,20 @@ private:
 					return drive1[-1]<drive2[-1];
 			}
 			return CompareMenuString(name,x.name)<0;
+		}
+
+		void SetName( const wchar_t *_name, bool bNoExtensions )
+		{
+			if (bNoExtensions)
+			{
+				const wchar_t *end=wcsrchr(_name,'.');
+				if (end)
+				{
+					name=CString(_name,(int)(end-_name));
+					return;
+				}
+			}
+			name=_name;
 		}
 	};
 
@@ -341,7 +375,7 @@ private:
 		CString name;
 		FILETIME time;
 
-		bool operator<( const Document &x ) { return CompareFileTime(&time,&x.time)>0; }
+		bool operator<( const Document &x ) const { return CompareFileTime(&time,&x.time)>0; }
 	};
 
 	LONG m_RefCount;
@@ -401,6 +435,27 @@ private:
 	bool m_bScrollUp, m_bScrollDown;
 	bool m_bScrollUpHot, m_bScrollDownHot;
 	bool m_bScrollTimer;
+	bool m_bNoSearchDraw;
+	bool m_bInSearchUpdate;
+	bool m_bSearchShowAll;
+	int m_SearchIndex;
+	CWindow m_SearchBox;
+	HBITMAP m_SearchIcons;
+
+	struct SearchItem
+	{
+		CString name; // all caps (if blank, the item must be ignored)
+		PIDLIST_ABSOLUTE pidl;
+		int rank;
+		mutable int icon;
+
+		bool MatchText( const wchar_t *search ) const;
+		bool operator<( const SearchItem &item ) const { return rank>item.rank || (rank==item.rank && wcscmp(name,item.name)<0); }
+	};
+
+	std::vector<SearchItem> m_SearchItems;
+	unsigned int m_ResultsHash;
+	void InitItems( const std::vector<SearchItem> &items, const wchar_t *search );
 
 	// additional commands for the context menu
 	enum
@@ -409,6 +464,7 @@ private:
 		CMD_SORT,
 		CMD_AUTOSORT,
 		CMD_NEWFOLDER,
+		CMD_NEWSHORTCUT,
 		CMD_DELETEMRU,
 
 		CMD_LAST
@@ -420,6 +476,7 @@ private:
 		ACTIVATE_SELECT, // just selects the item
 		ACTIVATE_OPEN, // opens the submenu or selects if not a menu
 		ACTIVATE_OPEN_KBD, // same as above, but when done with a keyboard
+		ACTIVATE_OPEN_SEARCH, // opens the search results submenu
 		ACTIVATE_EXECUTE, // executes the item
 		ACTIVATE_MENU, // shows context menu
 	};
@@ -433,6 +490,17 @@ private:
 		SOUND_DROP,
 	};
 
+	// search state
+	enum TSearchState
+	{
+		SEARCH_NONE, // the search is inactive
+		SEARCH_BLANK, // the search box has the focus but is blank
+		SEARCH_TEXT, // the search box has the focus and is not blank
+		SEARCH_MORE, // there are too many search results
+	};
+
+	TSearchState m_SearchState;
+
 	enum
 	{
 		// timer ID
@@ -444,6 +512,8 @@ private:
 
 		MCM_REFRESH=WM_USER+10, // posted to force the container to refresh its contents
 		MCM_SETCONTEXTITEM=WM_USER+11, // sets the item for the context menu. wParam is the nameHash of the item
+		MCM_REDRAWEDIT=WM_USER+12, // redraw the search edit box
+		MCM_REFRESHICONS=WM_USER+13, // refreshes the icon list and redraws all menus
 
 		// some constants
 		SEPARATOR_HEIGHT=8,
@@ -483,6 +553,19 @@ private:
 	void UpdateScroll( void );
 	void UpdateScroll( const POINT *pt );
 	void PlayMenuSound( TMenuSound sound );
+	bool CanSelectItem( const MenuItem &item );
+	void CollectSearchItems( void );
+	void SetSearchState( TSearchState state );
+	void UpdateSearchResults( bool bForceShowAll );
+
+	enum
+	{
+		COLLECT_RECURSIVE =1, // go into subfolders
+		COLLECT_PROGRAMS  =2, // only collect programs (.exe, .com, etc)
+		COLLECT_FOLDERS   =4, // include folder items
+	};
+
+	void CollectSearchItemsInt( IShellFolder *pFolder, PIDLIST_ABSOLUTE pidl, int flags, int &count );
 
 	static int s_MaxRecentDocuments; // limit for the number of recent documents
 	static int s_ScrollMenus; // global scroll menus setting
@@ -495,8 +578,10 @@ private:
 	static bool s_bNoDragDrop; // disables drag/drop
 	static bool s_bNoContextMenu; // disables the context menu
 	static bool s_bExpandLinks; // expand links to folders
+	static bool s_bSearchSubWord; // the search will match parts of words
 	static bool s_bLogicalSort; // use StrCmpLogical instead of CompareString
 	static bool s_bAllPrograms; // this is the All Programs menu of the Windows start menu
+	static bool s_bNoCommonFolders; // don't show the common folders (start menu and programs)
 	static char s_bActiveDirectory; // the Active Directory services are available (-1 - uninitialized)
 	static CMenuContainer *s_pDragSource; // the source of the current drag operation
 	static bool s_bRightDrag; // dragging with the right mouse button
@@ -523,9 +608,22 @@ private:
 	static CMenuContainer *s_pTipMenu;
 
 	static std::vector<CMenuContainer*> s_Menus; // all menus, in cascading order
+	static volatile HWND s_FirstMenu;
 	static std::map<unsigned int,int> s_MenuScrolls; // scroll offset for each sub menu
 
 	static CString s_MRUShortcuts[MRU_PROGRAMS_COUNT];
+
+	struct ItemRank
+	{
+		unsigned int hash; // hash of the item name in caps
+		int rank; // number of times it was used
+		bool operator<( const ItemRank &rank ) const { return hash<rank.hash; }
+	};
+
+	static std::vector<ItemRank> s_ItemRanks;
+	static void SaveItemRanks( void );
+	static void LoadItemRanks( void );
+	static void AddItemRank( unsigned int hash );
 
 	static MenuSkin s_Skin;
 
@@ -537,6 +635,8 @@ private:
 	static void MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins, bool bAlpha, bool bRtlOffset=false );
 	static void AddFirstFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSOLUTE path, std::vector<MenuItem> &items, int options, unsigned int hash0 );
 	static void AddSecondFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSOLUTE path, std::vector<MenuItem> &items, int options, unsigned int hash0 );
+	static void UpdateUsedIcons( void );
+	static LRESULT CALLBACK SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 };
 
 class CMenuFader: public CWindowImpl<CMenuFader>
@@ -571,3 +671,5 @@ private:
 
 	static std::vector<CMenuFader*> s_Faders;
 };
+
+const RECT DEFAULT_SEARCH_PADDING={4,4,4,4};

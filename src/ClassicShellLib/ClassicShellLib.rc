@@ -169,6 +169,7 @@ END
 // remains consistent on all systems.
 IDI_ICONPLAY            ICON                    "play.ico"
 IDI_ICONLOCK            ICON                    "padlock.ico"
+IDI_ICONWARNING         ICON                    "warning.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //

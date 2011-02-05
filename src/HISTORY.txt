@@ -1,4 +1,27 @@
 ===============================================================================
+== Version 2.9.3 release candidate (Feb, 2011):
+
+- Added a search box to the start menu
+
+- Improved the responsiveness of the start menu by showing the menu first and
+  loading the icons later
+
+- Added a command in the start menu to create a new shortcut
+
+- Added a way to include a row of icon buttons in the start menu
+
+- Added an option to hide extensions in the start menu
+
+- Added an option to hide the scroll tip in Explorer
+
+- Improved support for icons larger than 32x32
+
+- Added support for the "don't show common start menu items" group policy
+
+- Improved the option to always navigate to the selected folder
+
+
+===============================================================================
 == Version 2.9.2 release candidate (Dec, 2010):
 
 - Added a toolbar command for creating a new folder

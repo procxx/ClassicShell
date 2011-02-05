@@ -42,6 +42,7 @@ struct CSetting
 		FLAG_LOCKED_REG=2048, // locked by HKLM registry setting
 		FLAG_LOCKED_GP=4096, // locked by a group policy
 		FLAG_LOCKED_MASK=FLAG_LOCKED_REG|FLAG_LOCKED_GP,
+		FLAG_WARNING=8192, // show a warning icon
 	};
 
 	const wchar_t *name;
@@ -83,6 +84,8 @@ const CSetting *GetAllSettings( void );
 
 // Updates the setting with a new default value, and locked/hidden flags
 void UpdateSetting( const wchar_t *name, const CComVariant &defValue, bool bLockedGP, bool bHidden=false );
+// Updates the setting with a new tooltip and a warning flag
+void UpdateSetting( const wchar_t *name, int tipID, bool bWarning );
 
 bool GetSettingBool( const wchar_t *name );
 int GetSettingInt( const wchar_t *name );

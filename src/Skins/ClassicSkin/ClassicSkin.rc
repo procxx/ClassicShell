@@ -54,6 +54,7 @@ END
 
 1                       BITMAP                  "main_bitmap.bmp"
 2                       BITMAP                  "selection.bmp"
+3                       BITMAP                  "search.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //

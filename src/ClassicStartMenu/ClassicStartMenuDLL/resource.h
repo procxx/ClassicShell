@@ -8,6 +8,7 @@
 #define IDD_RENAMER                     103
 #define IDD_LOGOFF                      104
 #define IDD_LOGOFFR                     105
+#define IDB_SEARCH_ICONS                110
 #define IDC_STATICICON                  209
 #define IDC_COMBOCOMMAND                239
 #define IDC_EDITLABEL                   240
@@ -48,6 +49,9 @@
 #define IDC_CHECKNOTRACK                1062
 #define IDC_STATICALLPROGS              1062
 #define IDC_CHECKITEMSFIRST             1063
+#define IDC_CHECKINLINE                 1064
+#define IDC_CHECK2                      1065
+#define IDC_CHECKNOEXT                  1065
 #define IDD_CUSTOMMENU                  3001
 #define IDS_APP_TITLE                   3001
 #define IDD_SKINSETTINGS                3002
@@ -336,14 +340,57 @@
 #define IDS_SETTINGS_MENU_TIP           3282
 #define IDS_FEATURES_TIP                3283
 #define IDS_RESTORE_TIP                 3284
+#define IDS_SEARCH_BOX_TIP              3285
+#define IDS_SEARCH_BOX                  3286
+#define IDS_SHOW_SEARCH_BOX             3287
+#define IDS_SHOW_SEARCH_BOX_TIP         3288
+#define IDS_SEARCH_BOX_HIDE             3289
+#define IDS_SEARCH_BOX_HIDE_TIP         3290
+#define IDS_SEARCH_BOX_SHOW             3291
+#define IDS_SEARCH_BOX_SHOW_TIP         3292
+#define IDS_SEARCH_BOX_TAB              3293
+#define IDS_SEARCH_BOX_TAB_TIP          3294
+#define IDS_SEARCH_BOX_SEL              3295
+#define IDS_SEARCH_BOX_SEL_TIP          3296
+#define IDS_SEARCH_CP                   3297
+#define IDS_SEARCH_CP_TIP               3298
+#define IDS_SEARCH_PATH                 3299
+#define IDS_SEARCH_PATH_TIP             3300
+#define IDS_SUB_WORD                    3301
+#define IDS_SUB_WORD_TIP                3302
+#define IDS_SEARCH_TRACK                3303
+#define IDS_SEARCH_TRACK_TIP            3304
+#define IDS_SEARCH_MAX                  3305
+#define IDS_SEARCH_MAX_TIP              3306
+#define IDS_SEARCH_AUTO                 3307
+#define IDS_SEARCH_AUTO_TIP             3308
+#define IDS_INLINE_TIP                  3309
+#define IDS_NOEXTENSIONS_TIP            3310
+#define IDS_DELAY_ICONS                 3311
+#define IDS_DELAY_ICONS_TIP             3312
+#define IDS_SHOW_FAVORITES_TIP2         3313
+#define IDS_SHOW_DOCUMENTS_TIP2         3314
+#define IDS_SHOW_USERFILES_TIP2         3315
+#define IDS_SHOW_USERDOCS_TIP2          3316
+#define IDS_SHOW_USERPICS_TIP2          3317
+#define IDS_SHOW_CP_TIP2                3318
+#define IDS_SHOW_NETWORK_TIP2           3319
+#define IDS_SHOW_PRINTERS_TIP2          3320
+#define IDS_SHOW_SHUTDOWN_TIP2          3321
+#define IDS_SHOW_SEARCH_BOX_TIP2        3322
+#define IDS_SHOW_SEARCH_TIP2            3323
+#define IDS_SHOW_HELP_TIP2              3324
+#define IDS_SHOW_RUN_TIP2               3325
+#define IDS_SHOW_LOGOFF_TIP2            3326
+#define IDS_SHOW_UNDOCK_TIP2            3327
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        110
+#define _APS_NEXT_RESOURCE_VALUE        111
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1063
+#define _APS_NEXT_CONTROL_VALUE         1066
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -177,6 +177,41 @@ HICON LoadIcon( int iconSize, PIDLIST_ABSOLUTE pidl )
 	return hIcon;
 }
 
+HICON ShExtractIcon( const wchar_t *path, int index, int iconSize )
+{
+	HICON hIcon;
+
+	typedef UINT (WINAPI *FSHExtractIconsW)( LPCWSTR pszFileName, int nIconIndex, int cxIcon, int cyIcon, HICON *phIcon, UINT *pIconId, UINT nIcons, UINT flags );
+	static FSHExtractIconsW s_SHExtractIconsW;
+
+	if (!s_SHExtractIconsW)
+	{
+		HMODULE hShell32=GetModuleHandle(L"Shell32.dll");
+		if (hShell32)
+			s_SHExtractIconsW=(FSHExtractIconsW)GetProcAddress(hShell32,"SHExtractIconsW");
+	}
+
+	if (s_SHExtractIconsW)
+	{
+		UINT id;
+		if (!s_SHExtractIconsW(path,index,iconSize,iconSize,&hIcon,&id,1,LR_DEFAULTCOLOR))
+			hIcon=NULL;
+	}
+	else
+	{
+		if (ExtractIconEx(path,index,&hIcon,NULL,1)!=1)
+			return NULL;
+	}
+	return hIcon;
+}
+
+HICON ShExtractIcon( const char *path, int index, int iconSize )
+{
+	wchar_t pathW[_MAX_PATH];
+	MbsToWcs(pathW,_countof(pathW),path);
+	return ShExtractIcon(pathW,index,iconSize);
+}
+
 // Converts an icon to a bitmap. pBits may be NULL. If bDestroyIcon is true, hIcon will be destroyed
 HBITMAP BitmapFromIcon( HICON hIcon, int iconSize, unsigned int **pBits, bool bDestroyIcon )
 {
@@ -198,6 +233,27 @@ HBITMAP BitmapFromIcon( HICON hIcon, int iconSize, unsigned int **pBits, bool bD
 	if (bDestroyIcon) DestroyIcon(hIcon);
 	if (pBits) *pBits=bits;
 	return bmp;
+}
+
+// Premultiplies the alpha channel of a DIB section
+void PremultiplyAlpha( HBITMAP hBitmap )
+{
+	BITMAP info;
+	GetObject(hBitmap,sizeof(info),&info);
+	int n=info.bmWidth*info.bmHeight;
+	// pre-multiply the alpha
+	for (int i=0;i<n;i++)
+	{
+		unsigned int &pixel=((unsigned int*)info.bmBits)[i];
+		int a=(pixel>>24);
+		int r=(pixel>>16)&255;
+		int g=(pixel>>8)&255;
+		int b=(pixel)&255;
+		r=(r*a)/255;
+		g=(g*a)/255;
+		b=(b*a)/255;
+		pixel=(a<<24)|(r<<16)|(g<<8)|b;
+	}
 }
 
 // Creates a grayscale version of an icon

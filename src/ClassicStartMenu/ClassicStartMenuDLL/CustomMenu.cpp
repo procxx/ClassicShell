@@ -46,6 +46,7 @@ static StdMenuItem g_StdMenu[]=
 	{L"shutdown",MENU_SHUTDOWN},
 	{L"switch_user",MENU_SWITCHUSER},
 	{L"*recent_items",MENU_RECENT_ITEMS},
+	{L"search_box",MENU_SEARCH_BOX},
 };
 
 // {52528a6b-b9e3-4add-b60d-58 8c 2d ba 84 2d} (define homegroup GUID, so we don't need the Windows 7 SDK to compile Classic Shell)
@@ -105,6 +106,8 @@ static unsigned int ParseItemSettings( const wchar_t *name )
 		if (_wcsicmp(token,L"NOTRACK_RECENT")==0) settings|=StdMenuItem::MENU_NOTRACK;
 		if (_wcsicmp(token,L"NOEXPAND")==0) settings|=StdMenuItem::MENU_NOEXPAND;
 		if (_wcsicmp(token,L"MULTICOLUMN")==0) settings|=StdMenuItem::MENU_MULTICOLUMN;
+		if (_wcsicmp(token,L"NOEXTENSIONS")==0) settings|=StdMenuItem::MENU_NOEXTENSIONS;
+		if (_wcsicmp(token,L"INLINE")==0) settings|=StdMenuItem::MENU_INLINE;
 	}
 	return settings;
 }
@@ -281,6 +284,18 @@ const StdMenuItem *ParseCustomMenu( unsigned int &rootSettings )
 							idx++;
 						it->submenu=&g_CustomMenu[idx];
 					}
+			}
+		}
+		// ignore extra search boxes
+		bool bSearchBox=false;
+		for (std::vector<StdMenuItem>::iterator it=g_CustomMenu.begin();it!=g_CustomMenu.end();++it)
+		{
+			if (it->id==MENU_SEARCH_BOX)
+			{
+				if (!bSearchBox)
+					bSearchBox=true;
+				else
+					it->id=MENU_IGNORE;
 			}
 		}
 	}

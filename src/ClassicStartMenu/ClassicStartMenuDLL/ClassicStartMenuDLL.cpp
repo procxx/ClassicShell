@@ -51,7 +51,7 @@ enum
 // MiniDumpWithFullMemory - include heap
 MINIDUMP_TYPE MiniDumpType=MiniDumpNormal;
 
-DWORD WINAPI SaveCrashDump( void *pExceptionInfo )
+static DWORD WINAPI SaveCrashDump( void *pExceptionInfo )
 {
 	HMODULE dbghelp=NULL;
 	{
@@ -459,7 +459,7 @@ static LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
-static  LRESULT CALLBACK SubclassProgramsProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+static LRESULT CALLBACK SubclassProgramsProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	if (uMsg==WM_COMMAND && wParam==IDOK && GetSettingBool(L"CascadeAll"))
 	{
@@ -574,7 +574,7 @@ static void CleanStartMenuDLL( void )
 	CloseSettings();
 	CMenuContainer::CloseStartMenu();
 	CMenuFader::ClearAll();
-	g_IconManager.StopPreloading(true);
+	g_IconManager.StopLoading();
 	UnhookDropTarget();
 	EnableHotkeys(HOTKEYS_CLEAR);
 	HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
@@ -752,6 +752,13 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				SetForegroundWindow(g_StartButton);
 				ToggleStartMenu(g_StartButton,true);
 			}
+		}
+
+		if (msg->message==WM_KEYDOWN && msg->wParam==VK_TAB && CMenuContainer::IsMenuWindow(msg->hwnd))
+		{
+			// the taskbar steals the Tab key. we need to forward it to the menu instead
+			SendMessage(msg->hwnd,msg->message,msg->wParam,msg->lParam);
+			msg->message=WM_NULL;
 		}
 
 		if ((msg->message==WM_LBUTTONDOWN || msg->message==WM_LBUTTONDBLCLK || msg->message==WM_MBUTTONDOWN) && msg->hwnd==g_StartButton)
@@ -942,7 +949,8 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				SetMenuDefaultItem(menu,0,TRUE);
 				AppendMenu(menu,MF_SEPARATOR,0,0);
 				AppendMenu(menu,MF_STRING,CMD_OPEN,FindTranslation(L"Menu.Open",L"&Open"));
-				AppendMenu(menu,MF_STRING,CMD_OPEN_ALL,FindTranslation(L"Menu.OpenAll",L"O&pen All Users"));
+				if (!SHRestricted(REST_NOCOMMONGROUPS))
+					AppendMenu(menu,MF_STRING,CMD_OPEN_ALL,FindTranslation(L"Menu.OpenAll",L"O&pen All Users"));
 				AppendMenu(menu,MF_SEPARATOR,0,0);
 				if (GetSettingBool(L"EnableSettings"))
 					AppendMenu(menu,MF_STRING,CMD_SETTINGS,FindTranslation(L"Menu.MenuSettings",L"Settings"));

@@ -271,10 +271,17 @@ protected:
 	LRESULT OnEditItem( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 	LRESULT OnCustomDraw( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 
+	virtual void InitItems( void ) {}
+	virtual void ItemsChanged( void ) {}
 	virtual void ParseTreeItemExtra( CTreeItem *pItem, CSettingsParser &parser ) {}
 	virtual void SerializeItemExtra( CTreeItem *pItem, std::vector<wchar_t> &stringBuilder ) {}
 	virtual bool EditItem( CTreeItem *pItem, HWND tree, HTREEITEM hItem, std::vector<HMODULE> &modules );
 	void AddItem( HTREEITEM hCommand );
+
+	HTREEITEM GetRoot( void );
+	HTREEITEM GetChild( HTREEITEM hParent );
+	HTREEITEM GetNext( HTREEITEM hItem );
+	CTreeItem *GetItem( HTREEITEM hItem );
 
 	static void AppendString( std::vector<wchar_t> &stringBuilder, const wchar_t *text );
 

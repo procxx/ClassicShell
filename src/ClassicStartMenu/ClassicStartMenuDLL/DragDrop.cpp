@@ -34,6 +34,7 @@ public:
 	// IDropSource
 	virtual STDMETHODIMP QueryContinueDrag( BOOL fEscapePressed, DWORD grfKeyState )
 	{
+		bool bOutside=false;
 		if (!m_bClosed)
 		{
 			// if the mouse is outside of the menu for more than 4 seconds close the menu
@@ -46,11 +47,9 @@ public:
 				GetClassName(hWnd,name,_countof(name));
 			else
 				name[0]=0;
-			if (_wcsicmp(name,L"ClassicShell.CMenuContainer")==0)
-			{
-				m_Time=GetMessageTime();
-			}
-			else
+			bOutside=(_wcsicmp(name,L"ClassicShell.CMenuContainer")!=0);
+
+			if (bOutside)
 			{
 				int dt=GetMessageTime()-m_Time;
 				if (dt>GetSettingInt(L"DragHideDelay"))
@@ -59,20 +58,38 @@ public:
 					CMenuContainer::HideStartMenu();
 				}
 			}
+			else
+			{
+				m_Time=GetMessageTime();
+			}
 		}
 		if (m_bRight)
 		{
 			if (fEscapePressed || (grfKeyState&MK_LBUTTON))
 				return DRAGDROP_S_CANCEL;
 			if (!(grfKeyState&MK_RBUTTON))
+			{
+				if (bOutside)
+				{
+					m_bClosed=true;
+					CMenuContainer::HideStartMenu();
+				}
 				return DRAGDROP_S_DROP;
+			}
 		}
 		else
 		{
 			if (fEscapePressed || (grfKeyState&MK_RBUTTON))
 				return DRAGDROP_S_CANCEL;
 			if (!(grfKeyState&MK_LBUTTON))
+			{
+				if (bOutside)
+				{
+					m_bClosed=true;
+					CMenuContainer::HideStartMenu();
+				}
 				return DRAGDROP_S_DROP;
+			}
 		}
 		return S_OK;
 
@@ -414,7 +431,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 				}
 				else if (idx<before)
 					skip++;
-			SortMenuItem ins={L"",CalcFNVHash(L""),false};
+			SortMenuItem ins={L"",FNV_HASH0,false};
 			items.insert(items.begin()+(before-skip),ins);
 			SaveItemOrder(items);
 		}

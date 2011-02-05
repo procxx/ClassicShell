@@ -248,7 +248,7 @@ BEGIN
     LTEXT           "Icon:",IDC_STATICICON,7,74,18,12,SS_CENTERIMAGE
     EDITTEXT        IDC_EDITICON,47,74,180,12,ES_AUTOHSCROLL
     PUSHBUTTON      "...",IDC_BUTTONICON,228,74,14,12
-    ICON            "",IDC_ICONN,9,89,18,17
+    ICON            "",IDC_ICONN,9,89,20,20
     LTEXT           "Disabled:",IDC_STATICICOND,7,113,35,12,SS_CENTERIMAGE
     EDITTEXT        IDC_EDITICOND,47,113,180,12,ES_AUTOHSCROLL
     PUSHBUTTON      "...",IDC_BUTTONICOND,228,113,14,12
@@ -265,8 +265,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,9,2,0
- PRODUCTVERSION 2,9,2,0
+ FILEVERSION 2,9,3,0
+ PRODUCTVERSION 2,9,3,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -283,12 +283,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic Windows Explorer features"
-            VALUE "FileVersion", "2, 9, 2, 0"
+            VALUE "FileVersion", "2, 9, 3, 0"
             VALUE "InternalName", "ClassicExplorer.dll"
             VALUE "LegalCopyright", "Copyright (C) 2009-2010, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicExplorer.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "2, 9, 2, 0"
+            VALUE "ProductVersion", "2, 9, 3, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -395,12 +395,32 @@ BEGIN
     IDS_NO_FADE_TIP         "When this is checked, the small triangle buttons for expanding the folder will not fade out when the mouse moves away"
     IDS_FULL_INDENT         "Full-size offset for sub-folders"
     IDS_FULL_INDENT_TIP     "When this is checked, the sub-folders will be offset by the full size of the icon, instead of the half of the size"
-    IDS_NAVIGATE            "Always navigate to the selected folder"
-    IDS_NAVIGATE_TIP        "When this is checked, going up and down the tree with the keyboard will update the files on the right after a small delay"
+    IDS_NAVIGATE            "Auto-navigate to the selected folder"
+    IDS_NAVIGATE_TIP        "Select if the files on the right should update to show the current folder on the left"
     IDS_NAV_DELAY           "Auto-navigation delay"
-    IDS_NAV_DELAY_TIP       "Enter the delay (in ms) for updating the files after selecting a new folder with the keyboard"
+    IDS_NAV_DELAY_TIP       "Enter the delay (in ms) for updating the files after selecting a new folder"
     IDS_ALT_ENTER           "Enable Alt+Enter in the navigation pane"
     IDS_ALT_ENTER_TIP       "When this is checked, pressing Alt+Enter will show the properties of the selected folder"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_VIEWCONTENT_TIP     "Shows the Content view"
+    IDS_VIEWICONS1_TIP      "Shows the Small Icons view"
+    IDS_VIEWICONS2_TIP      "Shows the Medium Icons view"
+    IDS_VIEWICONS3_TIP      "Shows the Large Icons view"
+    IDS_VIEWICONS4_TIP      "Shows the Extra Large Icons view"
+    IDS_OPEN_TIP            "Opens a given folder in the current window"
+    IDS_CUSTOM_TIP          "This is a custom button. Use the command property to launch a program, or the link property to show a folder as a drop-down menu"
+    IDS_NEWFOLDER_TIP       "Creates a new folder"
+    IDS_SCROLLTIP           "Hide scroll tooltips"
+    IDS_SCROLLTIP_TIP       "When this is checked, there won't be a tooltip when you are dragging the vertical scrollbar"
+    IDS_NAV_DEFAULT         "Default behavior"
+    IDS_NAV_DEFAULT_TIP     "Don't change the default behavior of Explorer"
+    IDS_NAV_KBD             "When using the keyboard"
+    IDS_NAV_KBD_TIP         "The files will update only if you select a new folder with the keyboard"
+    IDS_NAV_ALWAYS          "Always"
+    IDS_NAV_ALWAYS_TIP      "The files will update every time the selected folder changes for any reason"
 END
 
 STRINGTABLE 
@@ -546,14 +566,8 @@ END
 
 STRINGTABLE 
 BEGIN
-    IDS_VIEWCONTENT_TIP     "Shows the Content view"
-    IDS_VIEWICONS1_TIP      "Shows the Small Icons view"
-    IDS_VIEWICONS2_TIP      "Shows the Medium Icons view"
-    IDS_VIEWICONS3_TIP      "Shows the Large Icons view"
-    IDS_VIEWICONS4_TIP      "Shows the Extra Large Icons view"
-    IDS_OPEN_TIP            "Opens a given folder in the current window"
-    IDS_CUSTOM_TIP          "This is a custom button. Use the command property to launch a program, or the link property to show a folder as a drop-down menu"
-    IDS_NEWFOLDER_TIP       "Creates a new folder"
+    IDS_ALT_D               "Additional shortcut for the address bar: Alt +"
+    IDS_ALT_D_TIP           "Enter a letter 'A' to 'Z' to be a shortcut for the address bar. In some languages the default shortcut conflicts with a menu item"
 END
 
 #endif    // English (U.S.) resources

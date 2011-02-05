@@ -144,9 +144,10 @@ OPTION USER_IMAGE="Show User Picture",0
 OPTION USER_NAME="Show User Name",0
 OPTION CENTER_NAME="Center User Name",0, USER_NAME, 0
 OPTION SMALL_ICONS="Small Icons",0
+OPTION LARGE_FONT="Large Font",0
 OPTION WHITE_SUBMENUS="White Sub-menus",0
 
-AllPrograms_options=WHITE_SUBMENUS
+AllPrograms_options=WHITE_SUBMENUS, LARGE_FONT
 
 [NOT CAPTION]
 Main_bitmap_slices_X=0,0,0,15,1,13
@@ -158,6 +159,12 @@ Main_large_icons=0
 Main_font="Segoe UI",normal,-9
 Caption_font="Segoe UI",normal,15
 Main_arrow=7
+
+
+[LARGE_FONT]
+Main_font="Segoe UI",normal,-10
+Submenu_font="Segoe UI",normal,-10
+
 
 [WHITE_SUBMENUS]
 Submenu_background=#FFFFFF

@@ -1445,9 +1445,11 @@ LRESULT CCustomTreeDlg::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 	{
 		if (::MessageBox(m_hWnd,LoadStringEx(m_bMenu?IDS_RESET_MENU_WARN:IDS_RESET_TOOLBAR_WARN),LoadStringEx(m_bMenu?IDS_RESET_MENU:IDS_RESET_TOOLBAR),MB_YESNO|MB_ICONWARNING)==IDYES)
 		{
-			CSettingsLockWrite lock;
-			m_pSetting->value=m_pSetting->defValue;
-			m_pSetting->flags|=CSetting::FLAG_DEFAULT;
+			{
+				CSettingsLockWrite lock;
+				m_pSetting->value=m_pSetting->defValue;
+				m_pSetting->flags|=CSetting::FLAG_DEFAULT;
+			}
 			SetGroup(m_pSetting-1,true);
 		}
 	}
@@ -1567,6 +1569,28 @@ void CCustomTreeDlg::AddItem( HTREEITEM hCommand )
 	TreeView_SelectItem(m_Tree,hItem);
 	TreeView_EnsureVisible(m_Tree,hItem);
 	SerializeData();
+}
+
+HTREEITEM CCustomTreeDlg::GetRoot( void )
+{
+	return TreeView_GetRoot(m_Tree);
+}
+
+HTREEITEM CCustomTreeDlg::GetChild( HTREEITEM hParent )
+{
+	return TreeView_GetChild(m_Tree,hParent);
+}
+
+HTREEITEM CCustomTreeDlg::GetNext( HTREEITEM hItem )
+{
+	return TreeView_GetNextSibling(m_Tree,hItem);
+}
+
+CTreeItem *CCustomTreeDlg::GetItem( HTREEITEM hItem )
+{
+	TVITEM item={TVIF_PARAM,hItem};
+	TreeView_GetItem(m_Tree,&item);
+	return (CTreeItem*)item.lParam;
 }
 
 void CCustomTreeDlg::EditItemInternal( CTreeItem *pItem, HTREEITEM hItem )
@@ -1704,6 +1728,7 @@ void CCustomTreeDlg::SerializeItem( HTREEITEM hItem, std::vector<wchar_t> &strin
 
 void CCustomTreeDlg::SerializeData( void )
 {
+	ItemsChanged();
 	std::vector<wchar_t> stringBuilder;
 	SerializeItem(NULL,stringBuilder);
 	stringBuilder.push_back(0);
@@ -1746,6 +1771,7 @@ void CCustomTreeDlg::SetGroup( CSetting *pGroup, bool bReset )
 		parser.ParseTree(L"Items",items);
 		if (!items.empty())
 			CreateTreeItems(parser,NULL,&items[0],0);
+		InitItems();
 	}
 	// use the tooltip from m_CommandsTree to show the "locked" tooltip for m_Tree. otherwise it will behave like an infotip and move from item to item
 	CWindow tooltip=(HWND)m_CommandsTree.SendMessage(TVM_GETTOOLTIPS);
@@ -2333,7 +2359,6 @@ LRESULT CTreeSettingsDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam,
 
 	HIMAGELIST images=GetSettingsImageList(m_Tree);
 	TreeView_SetImageList(m_Tree,images,TVSIL_NORMAL);
-	ImageList_SetOverlayImage(images,1,1);
 	int height=TreeView_GetItemHeight(m_Tree);
 	if (height<18) TreeView_SetItemHeight(m_Tree,18);
 
@@ -2920,6 +2945,11 @@ void CTreeSettingsDlg::SetGroup( CSetting *pGroup )
 			insert.item.state|=INDEXTOOVERLAYMASK(1);
 			insert.item.stateMask|=TVIS_OVERLAYMASK;
 		}
+		else if (pSetting->flags&CSetting::FLAG_WARNING)
+		{
+			insert.item.state|=INDEXTOOVERLAYMASK(2);
+			insert.item.stateMask|=TVIS_OVERLAYMASK;
+		}
 		HTREEITEM hItem=TreeView_InsertItem(m_Tree,&insert);
 		if (pSetting->type!=CSetting::TYPE_RADIO)
 			hParent=hItem;
@@ -3391,6 +3421,7 @@ CommonEnvVar g_CommonEnvVars[]={
 	{L"USERPROFILE"},
 	{L"ALLUSERSPROFILE"},
 	{L"SystemRoot"},
+	{L"SystemDrive"},
 };
 
 void UnExpandEnvStrings( const wchar_t *src, wchar_t *dst, int size )

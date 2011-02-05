@@ -67,6 +67,9 @@ Main_thin_frame=1
 Submenu_padding=2,2,2,2
 Submenu_thin_frame=1
 
+;SEARCH SECTION
+
+Search_bitmap=3
 
 
 ; OPTIONS

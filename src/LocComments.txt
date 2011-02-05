@@ -36,3 +36,19 @@
 
 2001/255=this means "disabled icon", which is the grayed-out icon shown when the command is disabled
 3001/1057=this means "the menu will try to open closer to the top of the screen, instead of closer to the bottom"
+
+3113=Don't translate "Favorites" in the second portion of the message (the one that says Warning: ...)
+3114=Don't translate "Documents" in the second portion of the message (the one that says Warning: ...)
+3115=Don't translate "User Files" in the second portion of the message (the one that says Warning: ...)
+3116=Don't translate "User Documents" in the second portion of the message (the one that says Warning: ...)
+3117=Don't translate "User Pictures" in the second portion of the message (the one that says Warning: ...)
+3118=Don't translate "Control Panel" in the second portion of the message (the one that says Warning: ...)
+3119=Don't translate "Network Connections" in the second portion of the message (the one that says Warning: ...)
+3120=Don't translate "Printers" in the second portion of the message (the one that says Warning: ...)
+3121=Don't translate "Shutdown Box" in the second portion of the message (the one that says Warning: ...)
+3122=Don't translate "Search Box" in the second portion of the message (the one that says Warning: ...)
+3123=Don't translate "Search Menu" in the second portion of the message (the one that says Warning: ...)
+3124=Don't translate "Help" in the second portion of the message (the one that says Warning: ...)
+3125=Don't translate "Run" in the second portion of the message (the one that says Warning: ...)
+3126=Don't translate "Log Off" in the second portion of the message (the one that says Warning: ...)
+3127=Don't translate "Undock" in the second portion of the message (the one that says Warning: ...)
