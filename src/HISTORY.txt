@@ -1,4 +1,12 @@
 ===============================================================================
+== Version 3.0.0 general release (Mar, 2011):
+
+- Fixed some minor problems found in the previous version
+
+- Added the contents of the GodMode folder to the search in the start menu
+
+
+===============================================================================
 == Version 2.9.3 release candidate (Feb, 2011):
 
 - Added a search box to the start menu

@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ClassicCopyExt.h : Declaration of the CClassicCopyExt
@@ -53,7 +53,7 @@ END_COM_MAP()
 
 public:
 	// IShellExtInit
-	STDMETHODIMP Initialize(LPCITEMIDLIST, LPDATAOBJECT, HKEY);
+	STDMETHODIMP Initialize(PCIDLIST_ABSOLUTE, LPDATAOBJECT, HKEY);
 
 	// IContextMenu
 	STDMETHODIMP GetCommandString(UINT_PTR, UINT, UINT*, LPSTR, UINT);

@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -62,6 +62,7 @@ static const GUID FOLDERID_VideosLibrary2={0x491E922F, 0x5643, 0x4AF4, {0xa7, 0x
 static const KNOWNFOLDERID *g_CommonLinks[]=
 {
 	&FOLDERID_ComputerFolder,
+	&FOLDERID_DesktopRoot,
 	&FOLDERID_Desktop,
 	&FOLDERID_Documents,
 	&FOLDERID_Downloads,

@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ExplorerBHO.cpp : Implementation of CExplorerBHO
@@ -123,8 +123,33 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 		if (d)
 			TreeView_SetItemHeight(hWnd,TreeView_GetItemHeight(hWnd)+d);
 
-		if (wParam==0) return 0;
+		if (wParam==0)
+			return 0;
 	}
+
+	if (uMsg==WM_SETTINGCHANGE)
+	{
+		LRESULT res=DefSubclassProc(hWnd,uMsg,wParam,lParam);
+		int indent=-1;
+		if (GetSettingBool(L"FullIndent"))
+			indent=0;
+
+		if (GetSettingInt(L"TreeStyle")==STYLE_CLASSIC)
+		{
+			HIMAGELIST images=TreeView_GetImageList(hWnd,TVSIL_NORMAL);
+			int cx, cy;
+			ImageList_GetIconSize(images,&cx,&cy);
+			indent=cx+3;
+		}
+		if (indent>=0)
+			TreeView_SetIndent(hWnd,indent);
+
+		int d=GetSettingInt(L"TreeItemSpacing");
+		if (d)
+			TreeView_SetItemHeight(hWnd,TreeView_GetItemHeight(hWnd)+d);
+		return res;
+	}
+
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
@@ -271,7 +296,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM 
 				{
 					// show the free space of the drive containing the current folder
 					// also works for network locations
-					LPITEMIDLIST pidl;
+					PIDLIST_ABSOLUTE pidl;
 					if (SUCCEEDED(pFolder->GetCurFolder(&pidl)))
 					{
 						if (SHGetPathFromIDList(pidl,buf))
@@ -308,7 +333,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM 
 		{
 			CComQIPtr<IFolderView> pView2=pView;
 			CComPtr<IPersistFolder2> pFolder;
-			LPITEMIDLIST pidl;
+			PIDLIST_ABSOLUTE pidl;
 			if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) && SUCCEEDED(pFolder->GetCurFolder(&pidl)))
 			{
 				CComQIPtr<IShellFolder2> pFolder2=pFolder;
@@ -573,9 +598,9 @@ LRESULT CALLBACK CExplorerBHO::ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARA
 				// add desktop
 				ITEMIDLIST shEmpty={{0}};
 				wchar_t *pName;
-				if (SUCCEEDED(SHGetNameFromIDList(&shEmpty,SIGDN_DESKTOPABSOLUTEEDITING,&pName)))
+				if (SUCCEEDED(SHGetNameFromIDList((PIDLIST_ABSOLUTE)&shEmpty,SIGDN_DESKTOPABSOLUTEEDITING,&pName)))
 				{
-					ComboItem item={ILClone(&shEmpty),0,CString(pName)};
+					ComboItem item={ILCloneFull((PIDLIST_ABSOLUTE)&shEmpty),0,CString(pName)};
 					pThis->m_ComboItems.push_back(item);
 					CoTaskMemFree(pName);
 				}
@@ -595,7 +620,7 @@ LRESULT CALLBACK CExplorerBHO::ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARA
 						{
 							wchar_t *pName;
 							StrRetToStr(&str,child,&pName);
-							ComboItem item={child,1,CString(pName)};
+							ComboItem item={(PIDLIST_ABSOLUTE)child,1,CString(pName)};
 							item.sortName=item.name;
 							pThis->m_ComboItems.push_back(item);
 							CoTaskMemFree(pName);
@@ -653,12 +678,12 @@ LRESULT CALLBACK CExplorerBHO::ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARA
 			if (pThis->m_CurPidl)
 			{
 				// enumerate all parent items
-				LPITEMIDLIST pidl=ILCloneFull(pThis->m_CurPidl);
-				LPITEMIDLIST pidlStart=pidl;
+				PIDLIST_ABSOLUTE pidl=ILCloneFull(pThis->m_CurPidl);
+				PIDLIST_ABSOLUTE pidlStart=pidl;
 				int index=0;
 				for (int i=0;i<(int)pThis->m_ComboItems.size();i++)
 				{
-					LPITEMIDLIST p=ILFindChild(pThis->m_ComboItems[i].pidl,pidl);
+					PIDLIST_ABSOLUTE p=(PIDLIST_ABSOLUTE)ILFindChild(pThis->m_ComboItems[i].pidl,pidl);
 					if (p)
 					{
 						index=i;
@@ -677,7 +702,7 @@ LRESULT CALLBACK CExplorerBHO::ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARA
 				{
 					wchar_t *pName=NULL;
 					CComPtr<IShellFolder> pFolder;
-					LPCITEMIDLIST child;
+					PCITEMID_CHILD child;
 					if (SUCCEEDED(SHBindToParent(pidl,IID_IShellFolder,(void**)&pFolder,&child)))
 					{
 						STRRET str;
@@ -734,7 +759,7 @@ LRESULT CALLBACK CExplorerBHO::ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARA
 			{
 				COMBOBOXEXITEM item={CBEIF_LPARAM,index};
 				pThis->m_ComboBox.SendMessage(CBEM_GETITEM,0,(LPARAM)&item);
-				pThis->m_NavigatePidl=ILCloneFull((LPITEMIDLIST)item.lParam);
+				pThis->m_NavigatePidl=ILCloneFull((PIDLIST_ABSOLUTE)item.lParam);
 				PostMessage(hWnd,pThis->m_NavigateMsg,0,0);
 			}
 			pThis->ClearComboItems();
@@ -759,7 +784,7 @@ LRESULT CALLBACK CExplorerBHO::ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARA
 			{
 				COMBOBOXEXITEM item={CBEIF_LPARAM,index};
 				pThis->m_ComboBox.SendMessage(CBEM_GETITEM,0,(LPARAM)&item);
-				pThis->m_NavigatePidl=ILCloneFull((LPITEMIDLIST)item.lParam);
+				pThis->m_NavigatePidl=ILCloneFull((PIDLIST_ABSOLUTE)item.lParam);
 				pThis->ClearComboItems();
 				PostMessage(hWnd,pThis->m_NavigateMsg,0,0);
 				pThis->m_ComboBox.SendMessage(CB_SHOWDROPDOWN,FALSE);
@@ -1106,19 +1131,19 @@ bool ShowTreeProperties( HWND hwndTree )
 {
 	// find the PIDL of the selected item (combine all child PIDLs from the current item and its parents)
 	HTREEITEM hItem=TreeView_GetSelection(hwndTree);
-	LPITEMIDLIST pidl=NULL;
+	PIDLIST_ABSOLUTE pidl=NULL;
 	while (hItem)
 	{
 		TVITEMEX info={TVIF_PARAM,hItem};
 		TreeView_GetItem(hwndTree,&info);
-		LPITEMIDLIST **pidl1=(LPITEMIDLIST**)info.lParam;
+		PIDLIST_RELATIVE **pidl1=(PIDLIST_RELATIVE**)info.lParam;
 		if (!pidl1 || !*pidl1 || !**pidl1)
 		{
 			if (pidl) ILFree(pidl);
 			pidl=NULL;
 			break;
 		}
-		LPITEMIDLIST pidl2=pidl?ILCombine(**pidl1,pidl):ILClone(**pidl1);
+		PIDLIST_ABSOLUTE pidl2=pidl?ILCombine((PIDLIST_ABSOLUTE)**pidl1,pidl):(PIDLIST_ABSOLUTE)ILClone(**pidl1);
 		if (pidl) ILFree(pidl);
 		pidl=pidl2;
 		hItem=TreeView_GetParent(hwndTree,hItem);

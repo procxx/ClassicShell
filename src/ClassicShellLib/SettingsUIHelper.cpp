@@ -1,6 +1,7 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
+#define STRICT_TYPED_ITEMIDS
 #include <windows.h>
 #include <atlbase.h>
 #include <atlwin.h>
@@ -15,6 +16,8 @@
 #include <uxtheme.h>
 #include <map>
 #include <algorithm>
+
+const GUID FOLDERID_DesktopRoot={'DESK', 'TO', 'P', {'D', 'E', 'S', 'K', 'T', 'O', 'P', 0x00}};
 
 static bool IsVariantTrue( const CComVariant &var )
 {
@@ -72,9 +75,8 @@ HICON CTreeItem::LoadIcon( bool bSmall, std::vector<HMODULE> &modules ) const
 			wchar_t buf[_MAX_PATH];
 			Strcpy(buf,_countof(buf),c);
 			DoEnvironmentSubst(buf,_countof(buf));
-			SFGAOF flags=0;
-			if (FAILED(SHParseDisplayName(buf,NULL,&pidl,0,&flags)))
-				pidl=NULL;
+
+			ShParseDisplayName(buf,&pidl,0,NULL);
 		}
 		if (pidl)
 		{
@@ -875,24 +877,31 @@ void CEditCustomItemDlg::InitDialog( CWindow commandCombo, const CStdCommand *pS
 
 	for (int i=0;pCommonLinks[i];i++)
 	{
-		PIDLIST_ABSOLUTE path;
-		if (FAILED(SHGetKnownFolderIDList(*pCommonLinks[i],0,NULL,&path)) || !path) continue;
-		wchar_t *pName;
-		if (SUCCEEDED(SHGetNameFromIDList(path,SIGDN_PARENTRELATIVEEDITING,&pName)))
+		if (*pCommonLinks[i]==FOLDERID_DesktopRoot)
 		{
-			wchar_t *pPath;
-			if (SUCCEEDED(SHGetNameFromIDList(path,SIGDN_DESKTOPABSOLUTEPARSING,&pPath)))
-			{
-				wchar_t text[_MAX_PATH*2];
-				int len=Sprintf(text,_countof(text),L"%s | ",pName);
-				if (!PathUnExpandEnvStrings(pPath,text+len,_countof(text)-len))
-					Strcpy(text+len,_countof(text)-len,pPath);
-				linkCombo.SendMessage(CB_ADDSTRING,0,(LPARAM)text);
-				CoTaskMemFree(pPath);
-			}
-			CoTaskMemFree(pName);
+			linkCombo.SendMessage(CB_ADDSTRING,0,(LPARAM)L"Main Desktop | ::{Desktop}");
 		}
-		ILFree(path);
+		else
+		{
+			PIDLIST_ABSOLUTE path;
+			if (FAILED(SHGetKnownFolderIDList(*pCommonLinks[i],0,NULL,&path)) || !path) continue;
+			wchar_t *pName;
+			if (SUCCEEDED(SHGetNameFromIDList(path,SIGDN_PARENTRELATIVEEDITING,&pName)))
+			{
+				wchar_t *pPath;
+				if (SUCCEEDED(SHGetNameFromIDList(path,SIGDN_DESKTOPABSOLUTEPARSING,&pPath)))
+				{
+					wchar_t text[_MAX_PATH*2];
+					int len=Sprintf(text,_countof(text),L"%s | ",pName);
+					if (!PathUnExpandEnvStrings(pPath,text+len,_countof(text)-len))
+						Strcpy(text+len,_countof(text)-len,pPath);
+					linkCombo.SendMessage(CB_ADDSTRING,0,(LPARAM)text);
+					CoTaskMemFree(pPath);
+				}
+				CoTaskMemFree(pName);
+			}
+			ILFree(path);
+		}
 	}
 
 	linkCombo.SetWindowText(m_pItem->link);
@@ -3391,17 +3400,17 @@ const wchar_t *SeparateArguments( const wchar_t *command, wchar_t *program )
 		wchar_t prog2[_MAX_PATH];
 		memcpy(prog2,command,len*2);
 		prog2[len]=0;
-		HANDLE h=CreateFile(prog2,0,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,NULL,OPEN_EXISTING,0,NULL);
+		WIN32_FIND_DATA data;
+		HANDLE h=FindFirstFile(prog2,&data);
 		if (h!=INVALID_HANDLE_VALUE)
 		{
 			// found a valid file
-			CloseHandle(h);
+			FindClose(h);
 			memcpy(program,prog2,len*2+2);
 			if (*space)
 				args=space+1;
 			else
 				args=NULL;
-			break;
 		}
 	}
 

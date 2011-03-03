@@ -1,5 +1,5 @@
 // ## MenuContainer.h
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // MenuPaint.cpp - handles the painting functionality of CMenuContainer
@@ -1328,20 +1328,20 @@ LRESULT CMenuContainer::OnPaint( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 			GetWindowRect(&rc);
 			m_SearchBox.GetWindowRect(&rc);
 			::MapWindowPoints(NULL,m_hWnd,(POINT*)&rc,2);
-			int dx=rc.left;
-			if (IsLanguageRTL())
-			{
-				SetLayout(hdcPaint,0);
-				dx=ps.rcPaint.right-rc.right;
-			}
-			OffsetViewportOrgEx(hdcPaint,dx,rc.top,NULL);
-			m_SearchBox.SendMessage(WM_PRINTCLIENT,(WPARAM)hdcPaint,PRF_CLIENT);
-			OffsetViewportOrgEx(hdcPaint,-dx,-rc.top,NULL);
-			if (IsLanguageRTL())
-			{
-				SetLayout(hdcPaint,LAYOUT_RTL);
-			}
+
+			// print the editbox to a new bitmap, and then blit to hdcPaint. printing directly into hdcPaint doesn't quite work with RTL
+			HDC hdcSearch=CreateCompatibleDC(hdcPaint);
+			HBITMAP bmpSearch=CreateCompatibleBitmap(hdcPaint,rc.right-rc.left,rc.bottom-rc.top);
+			HBITMAP bmp0=(HBITMAP)SelectObject(hdcSearch,bmpSearch);
+
+			if (IsLanguageRTL()) SetLayout(hdcSearch,0);
+			m_SearchBox.SendMessage(WM_PRINTCLIENT,(WPARAM)hdcSearch,PRF_CLIENT);
+			if (IsLanguageRTL()) SetLayout(hdcSearch,LAYOUT_RTL);
+			BitBlt(hdcPaint,rc.left,rc.top,rc.right-rc.left,rc.bottom-rc.top,hdcSearch,0,0,SRCCOPY);
 			BufferedPaintSetAlpha(hBufferedPaint,&rc,255);
+			SelectObject(hdcSearch,bmp0);
+			DeleteDC(hdcSearch);
+			DeleteObject(bmpSearch);
 		}
 		if (opacity==MenuSkin::OPACITY_GLASS || opacity==MenuSkin::OPACITY_ALPHA)
 		{

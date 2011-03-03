@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
@@ -363,3 +363,6 @@ const wchar_t *SeparateArguments( const wchar_t *command, wchar_t *program );
 
 // Replaces some common paths with environment variables
 void UnExpandEnvStrings( const wchar_t *src, wchar_t *dst, int size );
+
+// Special GUID for the real desktop
+extern const GUID FOLDERID_DesktopRoot;

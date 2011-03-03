@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -617,7 +617,7 @@ static CStdCommand g_StdCommands[]={
 	{L"SEPARATOR",L"SEPARATOR",IDS_SEPARATOR_TIP},
 	{L"COLUMN_BREAK",L"COLUMN_BREAK",IDS_BREAK_TIP},
 	{L"COLUMN_PADDING",L"COLUMN_PADDING",IDS_PADDING_TIP},
-	{L"programs",L"Programs",IDS_PROGRAMS_TIP,L"ProgramsMenu",L"$Menu.Programs",L"",L"shell32.dll,326",&FOLDERID_Programs},
+	{L"programs",L"Programs",IDS_PROGRAMS_TIP,L"ProgramsMenu",L"$Menu.Programs",L"",L"shell32.dll,326",&FOLDERID_Programs,NULL,StdMenuItem::MENU_TRACK},
 	{L"favorites",L"Favorites",IDS_FAVORITES_TIP,L"FavoritesItem",L"$Menu.Favorites",L"",L"shell32.dll,322",&FOLDERID_Favorites},
 	{L"documents",L"Documents",IDS_DOCUMENTS_TIP,L"DocumentsItem",L"$Menu.Documents",L"",L"shell32.dll,327",&FOLDERID_Recent,NULL,StdMenuItem::MENU_ITEMS_FIRST},
 	{L"settings",L"Settings",IDS_SETTINGS_MENU_TIP,L"SettingsMenu",L"$Menu.Settings",L"",L"shell32.dll,330"},
@@ -771,6 +771,7 @@ static const KNOWNFOLDERID *g_CommonLinks[]=
 {
 	&FOLDERID_CommonAdminTools,
 	&FOLDERID_ComputerFolder,
+	&FOLDERID_DesktopRoot,
 	&FOLDERID_Desktop,
 	&FOLDERID_Documents,
 	&FOLDERID_Downloads,

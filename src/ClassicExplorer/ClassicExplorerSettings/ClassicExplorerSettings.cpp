@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include <windows.h>
@@ -48,6 +48,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 {
 	INITCOMMONCONTROLSEX init={sizeof(init),ICC_STANDARD_CLASSES};
 	InitCommonControlsEx(&init);
+	SetProcessDPIAware();
 
 	// prevent multiple instances from running on the same desktop
 	// the assumption is that multiple desktops for the same user will have different name (but may repeat across users)

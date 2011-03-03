@@ -71,6 +71,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="LocalizeCS.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -146,6 +147,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="LocalizeCS.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -173,6 +175,10 @@
 		</File>
 		<File
 			RelativePath=".\LocalizeCS.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\LocalizeCS.manifest"
 			>
 		</File>
 		<File

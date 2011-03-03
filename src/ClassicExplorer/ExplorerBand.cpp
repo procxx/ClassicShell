@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ExplorerBand.cpp : Implementation of CExplorerBand
@@ -246,11 +246,10 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 			else if (item.link)
 			{
 				PIDLIST_ABSOLUTE pidl=NULL;
-				SFGAOF flags=0;
 				wchar_t path[_MAX_PATH];
 				Strcpy(path,_countof(path),item.link);
 				DoEnvironmentSubst(path,_countof(path));
-				if (SUCCEEDED(SHParseDisplayName(path,NULL,&pidl,0,&flags)) && pidl)
+				if (SUCCEEDED(ShParseDisplayName(path,&pidl,0,NULL)))
 				{
 					CComPtr<IShellItemImageFactory> pFactory;
 					if (SUCCEEDED(SHCreateItemFromIDList(pidl,IID_IShellItemImageFactory,(void**)&pFactory)) && pFactory)
@@ -301,9 +300,9 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 				wchar_t path[_MAX_PATH];
 				Strcpy(path,_countof(path),item.link);
 				DoEnvironmentSubst(path,_countof(path));
-				PIDLIST_RELATIVE pidl;
+				PIDLIST_ABSOLUTE pidl;
 				SFGAOF flags=0;
-				if (SUCCEEDED(SHParseDisplayName(path,NULL,&pidl,SFGAO_FOLDER,&flags)))
+				if (SUCCEEDED(ShParseDisplayName(path,&pidl,SFGAO_FOLDER,&flags)))
 				{
 					ILFree(pidl);
 					if (flags&SFGAO_FOLDER)
@@ -417,7 +416,7 @@ void CBandWindow::NewFolder( void )
 	{
 		// check if this is a filesystem folder (InvokeCommand may crash for non-folders)
 		CComPtr<IPersistFolder2> pFolder;
-		LPITEMIDLIST pidl;
+		PIDLIST_ABSOLUTE pidl;
 		if (FAILED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) || FAILED(pFolder->GetCurFolder(&pidl)))
 			return;
 		wchar_t path[_MAX_PATH];
@@ -514,9 +513,8 @@ void CBandWindow::ExecuteCommandFile( const wchar_t *pText )
 		// navigate to the given folder
 		wchar_t path[_MAX_PATH];
 		GetToken(pText,path,_countof(path),L" \t\r\n");
-		PIDLIST_RELATIVE pidl;
-		SFGAOF flags=0;
-		if (m_pBrowser && SUCCEEDED(SHParseDisplayName(path,NULL,&pidl,0,&flags)))
+		PIDLIST_ABSOLUTE pidl;
+		if (m_pBrowser && SUCCEEDED(ShParseDisplayName(path,&pidl,0,NULL)))
 		{
 			UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
 			m_pBrowser->BrowseObject(pidl,flags|SBSP_ABSOLUTE);
@@ -636,7 +634,7 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 	if (SUCCEEDED(m_pBrowser->QueryActiveShellView(&pView)))
 	{
 		CComPtr<IPersistFolder2> pFolder;
-		LPITEMIDLIST pidl;
+		PIDLIST_ABSOLUTE pidl;
 		CComQIPtr<IFolderView> pView2=pView;
 		if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) && SUCCEEDED(pFolder->GetCurFolder(&pidl)))
 		{
@@ -652,7 +650,7 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 					PITEMID_CHILD child;
 					if (pEnum->Next(1,&child,NULL)==S_OK)
 					{
-						LPITEMIDLIST full=ILCombine(pidl,child);
+						PIDLIST_ABSOLUTE full=ILCombine(pidl,child);
 						SHGetPathFromIDList(full,file);
 						ILFree(child);
 						ILFree(full);
@@ -676,7 +674,7 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 							while (pEnum->Next(1,&child,NULL)==S_OK)
 							{
 								wchar_t fname[_MAX_PATH];
-								LPITEMIDLIST full=ILCombine(pidl,child);
+								PIDLIST_ABSOLUTE full=ILCombine(pidl,child);
 								SHGetPathFromIDList(full,fname);
 								ILFree(child);
 								ILFree(full);
@@ -745,9 +743,8 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 		const wchar_t *params=SeparateArguments(pBuf,exe);
 		if (_wcsicmp(exe,L"open")==0)
 		{
-			PIDLIST_RELATIVE pidl;
-			SFGAOF flags=0;
-			if (m_pBrowser && SUCCEEDED(SHParseDisplayName((LPWSTR)params,NULL,&pidl,0,&flags)))
+			PIDLIST_ABSOLUTE pidl;
+			if (m_pBrowser && SUCCEEDED(ShParseDisplayName((LPWSTR)params,&pidl,0,NULL)))
 			{
 				UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
 				m_pBrowser->BrowseObject(pidl,flags|SBSP_ABSOLUTE);
@@ -830,9 +827,8 @@ LRESULT CBandWindow::OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 			wchar_t path[_MAX_PATH];
 			Strcpy(path,_countof(path),m_Items[idx].link);
 			DoEnvironmentSubst(path,_countof(path));
-			PIDLIST_RELATIVE pidl;
-			SFGAOF flags=0;
-			if (m_pBrowser && SUCCEEDED(SHParseDisplayName(path,NULL,&pidl,0,&flags)))
+			PIDLIST_ABSOLUTE pidl;
+			if (m_pBrowser && SUCCEEDED(ShParseDisplayName(path,&pidl,0,NULL)))
 			{
 				UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
 				m_pBrowser->BrowseObject(pidl,flags|SBSP_ABSOLUTE);
@@ -1091,7 +1087,7 @@ HRESULT STDMETHODCALLTYPE CMenuCallback::CallbackSM( LPSMDATA psmd, UINT uMsg, W
 				m_bExecuted=true;
 				SFGAOF flags=SFGAO_FOLDER|SFGAO_LINK;
 
-				if (SUCCEEDED(psmd->psf->GetAttributesOf(1,(LPCITEMIDLIST*)&psmd->pidlItem,&flags)))
+				if (SUCCEEDED(psmd->psf->GetAttributesOf(1,&psmd->pidlItem,&flags)))
 				{
 					PIDLIST_ABSOLUTE pidl=NULL;
 					if (flags&SFGAO_LINK)
@@ -1099,7 +1095,7 @@ HRESULT STDMETHODCALLTYPE CMenuCallback::CallbackSM( LPSMDATA psmd, UINT uMsg, W
 						flags=0;
 						// resolve link
 						CComPtr<IShellLink> pLink;
-						if (SUCCEEDED(psmd->psf->GetUIObjectOf(NULL,1,(LPCITEMIDLIST*)&psmd->pidlItem,IID_IShellLink,NULL,(void**)&pLink)) && pLink)
+						if (SUCCEEDED(psmd->psf->GetUIObjectOf(NULL,1,&psmd->pidlItem,IID_IShellLink,NULL,(void**)&pLink)) && pLink)
 							pLink->GetIDList(&pidl);
 						if (pidl)
 						{
@@ -1194,13 +1190,12 @@ LRESULT CBandWindow::OnDropDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 			TPMPARAMS params={sizeof(params),pButton->rcButton};
 			m_Toolbar.MapWindowPoints(NULL,&params.rcExclude); // must use MapWindowPoints to handle RTL correctly
 
-			LPITEMIDLIST pidl;
+			PIDLIST_ABSOLUTE pidl;
 			CComPtr<IShellFolder> pFolder;
 			wchar_t buf[1024];
 			Strcpy(buf,_countof(buf),pItem->link);
 			DoEnvironmentSubst(buf,_countof(buf));
-			SFGAOF flags=0;
-			if (SUCCEEDED(SHParseDisplayName(buf,NULL,&pidl,0,&flags)))
+			if (SUCCEEDED(ShParseDisplayName(buf,&pidl,0,NULL)))
 				SHBindToObject(NULL,pidl,NULL,IID_IShellFolder,(void **)&pFolder);
 			if (pFolder)
 			{
@@ -1346,11 +1341,10 @@ HMENU CBandWindow::CreateDropMenuRec( const StdToolbarItem *pItem, std::vector<H
 				{
 					HICON hIcon=NULL;
 					PIDLIST_ABSOLUTE pidl=NULL;
-					SFGAOF flags=0;
 					wchar_t path[_MAX_PATH];
 					Strcpy(path,_countof(path),pItem->link);
 					DoEnvironmentSubst(path,_countof(path));
-					if (SUCCEEDED(SHParseDisplayName(path,NULL,&pidl,0,&flags)) && pidl)
+					if (SUCCEEDED(ShParseDisplayName(path,&pidl,0,NULL)))
 					{
 						if (!name)
 						{
@@ -1422,11 +1416,11 @@ void CBandWindow::UpdateToolbar( void )
 				pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder);
 				if (pFolder)
 				{
-					LPITEMIDLIST pidl;
+					PIDLIST_ABSOLUTE pidl;
 					pFolder->GetCurFolder(&pidl);
 					if (ILIsEmpty(pidl))
 						bDesktop=true; // only the top level has empty PIDL
-					CoTaskMemFree(pidl);
+					ILFree(pidl);
 				}
 			}
 		}

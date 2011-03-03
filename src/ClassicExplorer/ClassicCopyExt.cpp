@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ClassicCopyExt.cpp : Implementation of CClassicCopyExt
@@ -12,7 +12,7 @@
 
 void InitClassicCopyThread( void );
 
-STDMETHODIMP CClassicCopyExt::Initialize( LPCITEMIDLIST pidlFolder, LPDATAOBJECT pDataObj, HKEY hProgID )
+STDMETHODIMP CClassicCopyExt::Initialize( PCIDLIST_ABSOLUTE pidlFolder, LPDATAOBJECT pDataObj, HKEY hProgID )
 {
 	InitClassicCopyThread();
 	return S_OK;

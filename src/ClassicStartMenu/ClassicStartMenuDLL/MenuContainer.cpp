@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // MenuContainer.cpp - contains the main logic of CMenuContainer
@@ -199,15 +199,14 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 		}
 		if (wParam==VK_UP || wParam==VK_DOWN)
 		{
-			// forward up/down keys to the auto-complete
-			if (DefSubclassProc(hWnd,uMsg,wParam,lParam)==0)
-				return 0;
-			// forward up/down keys to the sub-menu or the parent
+			// forward up/down keys
 			CMenuContainer *pSearchMenu=s_Menus[s_Menus.size()-1];
 			if (pSearchMenu->m_Options&CONTAINER_SEARCH)
-				LRESULT res=pSearchMenu->SendMessage(uMsg,wParam,lParam);
+				return pSearchMenu->SendMessage(uMsg,wParam,lParam); // forward to the search menu
+			else if (DefSubclassProc(hWnd,uMsg,wParam,lParam)==0) // forward up/down keys to the auto-complete
+				return 0;
 			else
-				return pParent->SendMessage(uMsg,wParam,lParam);
+				return pParent->SendMessage(uMsg,wParam,lParam); // forward to the parent
 		}
 		if (wParam==VK_RETURN)
 		{
@@ -583,7 +582,10 @@ void CMenuContainer::InitItems( void )
 		if (m_Path1a[0])
 		{
 			CComPtr<IShellFolder> pFolder;
-			s_pDesktop->BindToObject(m_Path1a[0],NULL,IID_IShellFolder,(void**)&pFolder);
+			if (ILIsEmpty(m_Path1a[0]))
+				pFolder=s_pDesktop;
+			else
+				s_pDesktop->BindToObject(m_Path1a[0],NULL,IID_IShellFolder,(void**)&pFolder);
 			m_pDropFoldera[0]=pFolder;
 			AddFirstFolder(pFolder,m_Path1a[0],m_Items,m_Options,FNV_HASH0);
 		}
@@ -706,7 +708,7 @@ void CMenuContainer::InitItems( void )
 			{
 				if (s_MRUShortcuts[i].IsEmpty()) break;
 				PIDLIST_ABSOLUTE pItem;
-				if (SUCCEEDED(s_pDesktop->ParseDisplayName(NULL,NULL,(wchar_t*)(const wchar_t*)s_MRUShortcuts[i],NULL,(PIDLIST_RELATIVE*)&pItem,NULL)))
+				if (SUCCEEDED(ShParseDisplayName((wchar_t*)(const wchar_t*)s_MRUShortcuts[i],&pItem,0,NULL)))
 				{
 					CComPtr<IShellFolder> pFolder;
 					PCUITEMID_CHILD pidl;
@@ -859,12 +861,12 @@ void CMenuContainer::InitItems( void )
 			}
 			else if (pItem->link)
 			{
-				SFGAOF flags=SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK;
+				SFGAOF flags=0;
 				wchar_t buf[1024];
 				Strcpy(buf,_countof(buf),item.pStdItem->link);
 				DoEnvironmentSubst(buf,_countof(buf));
 				bool bLibrary=_wcsicmp(PathFindExtension(buf),L".library-ms")==0;
-				if (SUCCEEDED(s_pDesktop->ParseDisplayName(NULL,NULL,buf,NULL,(PIDLIST_RELATIVE*)&item.pItem1,&flags)))
+				if (SUCCEEDED(ShParseDisplayName(buf,&item.pItem1,SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK,&flags)))
 				{
 					if (bLibrary) flags&=~SFGAO_STREAM;
 					item.bLink=(flags&SFGAO_LINK)!=0;
@@ -915,7 +917,7 @@ void CMenuContainer::InitItems( void )
 				SHGetFileInfo((LPCWSTR)item.pItem1,0,&info,sizeof(info),SHGFI_PIDL|SHGFI_DISPLAYNAME);
 				item.name=info.szDisplayName;
 			}
-			else
+			else if (item.id!=MENU_SEPARATOR && item.id!=MENU_SEARCH_BOX && !item.bInline)
 				item.name=LoadStringEx(IDS_NO_TEXT);
 
 			item.bPrograms=(item.id==MENU_PROGRAMS || item.id==MENU_FAVORITES);
@@ -2079,7 +2081,7 @@ void CMenuContainer::CollectSearchItems( void )
 			pPath=GetToken(pPath,token,_countof(token),L";");
 			PathRemoveBackslash(token);
 			PIDLIST_ABSOLUTE pidl;
-			if (SUCCEEDED(s_pDesktop->ParseDisplayName(NULL,NULL,token,NULL,(PIDLIST_RELATIVE*)&pidl,NULL)))
+			if (SUCCEEDED(ShParseDisplayName(token,&pidl,0,NULL)))
 			{
 				CComPtr<IShellFolder> pFolder;
 				if (SUCCEEDED(s_pDesktop->BindToObject(pidl,NULL,IID_IShellFolder,(void**)&pFolder)))
@@ -2122,6 +2124,17 @@ void CMenuContainer::CollectSearchItems( void )
 				CComPtr<IShellFolder> pFolder;
 				if (SUCCEEDED(s_pDesktop->BindToObject(pidl,NULL,IID_IShellFolder,(void**)&pFolder)))
 					CollectSearchItemsInt(pFolder,pidl,COLLECT_RECURSIVE,count);
+				ILFree(pidl);
+			}
+		}
+		// GodMode items
+		{
+			PIDLIST_ABSOLUTE pidl;
+			if (SUCCEEDED(ShParseDisplayName(L"shell:::{ED7BA470-8E54-465E-825C-99712043E01C}",&pidl,0,NULL)))
+			{
+				CComPtr<IShellFolder> pFolder;
+				if (SUCCEEDED(s_pDesktop->BindToObject(pidl,NULL,IID_IShellFolder,(void**)&pFolder)))
+					CollectSearchItemsInt(pFolder,pidl,0,count);
 				ILFree(pidl);
 			}
 		}
@@ -2458,6 +2471,7 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 	if (wParam==VK_UP)
 	{
 		// previous item
+		int best=-1;
 		if (index<0)
 		{
 			// no item is selected - find the first selectable item in the last column then go up
@@ -2471,12 +2485,12 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 					break;
 				}
 			}
+			best=index;
 		}
 		int row=m_Items[index].row;
 		int col=m_Items[index].column;
 		int x0=m_Items[index].itemRect.left;
 		int dist=0x7FFFFFFF;
-		int best=-1;
 		for (int i=1;i<n;i++)
 		{
 			int idx=(index+n-i)%n;
@@ -2501,25 +2515,25 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 	if (wParam==VK_DOWN)
 	{
 		// next item
+		int best=-1;
 		if (index<0)
 		{
 			// no item is selected - find the last selectable item then go down
-			int col=(m_bTwoColumns?1:0);
 			index=0;
 			for (int i=n-1;i>=0;i--)
 			{
-				if (m_Items[i].column==col && CanSelectItem(m_Items[i]) && (!m_Items[i].bInline || m_Items[i].bInlineFirst))
+				if (CanSelectItem(m_Items[i]) && (!m_Items[i].bInline || m_Items[i].bInlineFirst))
 				{
 					index=i;
 					break;
 				}
 			}
+			best=index;
 		}
 		int row=m_Items[index].row;
 		int col=m_Items[index].column;
 		int x0=m_Items[index].itemRect.left;
 		int dist=0x7FFFFFFF;
-		int best=-1;
 		for (int i=1;i<n;i++)
 		{
 			int idx=(index+i)%n;
@@ -2879,7 +2893,7 @@ LRESULT CMenuContainer::OnMouseMove( UINT uMsg, WPARAM wParam, LPARAM lParam, BO
 			if ((m_Submenu>=0 && index!=m_Submenu) || (m_Submenu<0 && m_Items[index].bFolder))
 			{
 				// initialize the hover timer
-				if (m_HoverItem!=index)
+				if (m_HoverItem!=index && m_SearchState!=SEARCH_TEXT && m_SearchState!=SEARCH_MORE)
 				{
 					m_HoverItem=index;
 					SetTimer(TIMER_HOVER,s_HoverTime);
@@ -2963,7 +2977,7 @@ bool CMenuContainer::GetDescription( int index, wchar_t *text, int size )
 			if (c[0]!='&' || c[1]=='&')
 				text[len++]=*c;
 		text[len]=0;
-		bLabel=true;
+		bLabel=len>0;
 		text+=len;
 		size-=len;
 	}
@@ -3524,7 +3538,11 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	// to check the version we have to swap the low and high bytes returned by GetVersion(). Would have been so much easier if GetVersion
 	// returns the bytes in the correct order rather than being retarded like this.
 	if (MAKEWORD(HIBYTE(version),LOBYTE(version))>=0x601)
-		s_TaskbarState|=ABS_ALWAYSONTOP;
+	{
+		// also check the WS_EX_TOPMOST style - maybe some tool like DisableTaskbarOnTop is messing with it
+		if (::GetWindowLong(g_TaskBar,GWL_EXSTYLE)&WS_EX_TOPMOST)
+			s_TaskbarState|=ABS_ALWAYSONTOP;
+	}
 
 	appbar.hWnd=g_TaskBar;
 	// get the taskbar orientation - top/bottom/left/right. the documentation says only the bounding rectangle (rc) is returned, but seems
@@ -3955,7 +3973,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	HWND owner=NULL;
 	if (bAllPrograms && (appbar.uEdge==ABE_LEFT || appbar.uEdge==ABE_RIGHT))
 		owner=g_TopMenu;
-	if (!pStartMenu->Create(owner,&rc,NULL,bAllPrograms?s_SubmenuStyle:dwStyle,WS_EX_TOOLWINDOW|(bTopMost?WS_EX_TOPMOST:0)|(s_bRTL?WS_EX_LAYOUTRTL:0)))
+	if (!pStartMenu->Create(owner,&rc,NULL,bAllPrograms?s_SubmenuStyle:dwStyle,WS_EX_TOOLWINDOW|((bTopMost || !s_bBehindTaskbar)?WS_EX_TOPMOST:0)|(s_bRTL?WS_EX_LAYOUTRTL:0)))
 	{
 		FreeMenuSkin(s_Skin);
 		return NULL;
@@ -4011,9 +4029,13 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	}
 	SetForegroundWindow(pStartMenu->m_hWnd);
 	SwitchToThisWindow(pStartMenu->m_hWnd,FALSE); // just in case
-	// position the start button on top
 	if (s_bBehindTaskbar)
+	{
+		// position the start button on top
 		::SetWindowPos(startButton,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+		// position the start menu behind the start button
+		pStartMenu->SetWindowPos(startButton,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+	}
 
 	if (bErr && GetSettingBool(L"ReportSkinErrors") && !*MenuSkin::s_SkinError)
 	{

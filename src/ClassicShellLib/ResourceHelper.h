@@ -1,8 +1,9 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
 
+#include <shobjidl.h>
 #include <vector>
 
 // Loads all strings from hLngInstance
@@ -36,3 +37,6 @@ HICON CreateDisabledIcon( HICON hIcon, int iconSize );
 
 // Returns the version of a given module
 DWORD GetVersionEx( HINSTANCE hInstance );
+
+// Wrapper for IShellFolder::ParseDisplayName
+HRESULT ShParseDisplayName( wchar_t *pszName, PIDLIST_ABSOLUTE *ppidl, SFGAOF sfgaoIn, SFGAOF *psfgaoOut );

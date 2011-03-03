@@ -1,5 +1,5 @@
 // ## MenuContainer.h
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // MenuCommands.cpp - handles the commands and actions of CMenuContainer
@@ -153,6 +153,12 @@ static DWORD WINAPI NewShortcutThread( void *param )
 		DeleteFile(pParams->fname);
 	}
 	delete pParams;
+	return 0;
+}
+
+static DWORD WINAPI SleepThread( void *param )
+{
+	SetSuspendState((BOOL)param,FALSE,FALSE);
 	return 0;
 }
 
@@ -657,7 +663,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		else
 		{
 			LockSetForegroundWindow(LSFW_UNLOCK);
-			FadeOutItem(index);
+			if (item.id!=MENU_SLEEP && item.id!=MENU_HIBERNATE)
+				FadeOutItem(index);
 			// flush all messages to close the menus
 			// m_hWnd is not valid after this point
 			MSG msg;
@@ -765,10 +772,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			ExitWindowsEx(EWX_SHUTDOWN,0);
 			break;
 		case MENU_SLEEP:
-			SetSuspendState(FALSE,FALSE,FALSE);
+			CreateThread(NULL,0,SleepThread,(void*)FALSE,0,NULL);
 			break;
 		case MENU_HIBERNATE:
-			SetSuspendState(TRUE,FALSE,FALSE);
+			CreateThread(NULL,0,SleepThread,(void*)TRUE,0,NULL);
 			break;
 		case MENU_DISCONNECT: // disconnect the current Terminal Services session (remote desktop)
 			WTSDisconnectSession(WTS_CURRENT_SERVER_HANDLE,WTS_CURRENT_SESSION,FALSE);

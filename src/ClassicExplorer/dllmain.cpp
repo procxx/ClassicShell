@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // dllmain.cpp : Implementation of DllMain.
@@ -158,7 +158,7 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 		ParseTranslations(fname,language);
 
 		HINSTANCE resInstance=NULL;
-		if (language)
+		if (!language.IsEmpty())
 		{
 			wchar_t fname[_MAX_PATH];
 			Sprintf(fname,_countof(fname),L"%s" INI_PATH L"%s.dll",path,language);

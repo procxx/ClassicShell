@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ExplorerBHO.h : Declaration of the CExplorerBHO
@@ -117,10 +117,10 @@ private:
 	HWND m_Rebar;
 	HICON m_IconNormal, m_IconHot, m_IconPressed, m_IconDisabled;
 	HICON m_CurIcon;
-	LPITEMIDLIST m_CurPidl;
+	PIDLIST_ABSOLUTE m_CurPidl;
 	wchar_t m_CurPath[1024]; // the current path
 	CWindow m_ComboBox;
-	LPITEMIDLIST m_NavigatePidl;
+	PIDLIST_ABSOLUTE m_NavigatePidl;
 	UINT m_NavigateMsg; // private message that is posted to the progress bar to navigate ti m_NavigatePidl
 	HHOOK m_Hook;
 	HHOOK m_HookKbd;
@@ -129,7 +129,7 @@ private:
 
 	struct ComboItem
 	{
-		LPITEMIDLIST pidl;
+		PIDLIST_ABSOLUTE pidl;
 		int indent;
 		CString name;
 		CString sortName;

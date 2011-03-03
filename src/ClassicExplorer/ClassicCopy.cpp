@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -220,6 +220,85 @@ void CClassicCopyFile::EnumAccChildren( IAccessible *pAcc, CString *pLog )
 	}
 }
 
+HICON CreateAlphaCursor(void)
+{
+	HDC hMemDC;
+	DWORD dwWidth, dwHeight;
+	BITMAPV5HEADER bi;
+	HBITMAP hBitmap, hOldBitmap;
+	void *lpBits;
+	DWORD x,y;
+	HICON hAlphaCursor = NULL;
+
+	dwWidth  = 32;  // width of cursor
+	dwHeight = 32;  // height of cursor
+
+	ZeroMemory(&bi,sizeof(BITMAPV5HEADER));
+	bi.bV5Size           = sizeof(BITMAPV5HEADER);
+	bi.bV5Width           = dwWidth;
+	bi.bV5Height          = dwHeight;
+	bi.bV5Planes = 1;
+	bi.bV5BitCount = 32;
+	bi.bV5Compression = BI_BITFIELDS;
+	// The following mask specification specifies a supported 32 BPP
+	// alpha format for Windows XP.
+	bi.bV5RedMask   =  0x00FF0000;
+	bi.bV5GreenMask =  0x0000FF00;
+	bi.bV5BlueMask  =  0x000000FF;
+	bi.bV5AlphaMask =  0xFF000000; 
+
+	HDC hdc;
+	hdc = GetDC(NULL);
+
+	// Create the DIB section with an alpha channel.
+	hBitmap = CreateDIBSection(hdc, (BITMAPINFO *)&bi, DIB_RGB_COLORS, 
+		(void **)&lpBits, NULL, (DWORD)0);
+
+	hMemDC = CreateCompatibleDC(hdc);
+	ReleaseDC(NULL,hdc);
+
+	// Draw something on the DIB section.
+	hOldBitmap = (HBITMAP)SelectObject(hMemDC, hBitmap);
+	PatBlt(hMemDC,0,0,dwWidth,dwHeight,WHITENESS);
+	SetTextColor(hMemDC,RGB(0,0,0));
+	SetBkMode(hMemDC,TRANSPARENT);
+	TextOut(hMemDC,0,9,L"rgba",4);
+	SelectObject(hMemDC, hOldBitmap);
+	DeleteDC(hMemDC);
+
+	// Create an empty mask bitmap.
+	HBITMAP hMonoBitmap = CreateBitmap(dwWidth,dwHeight,1,1,NULL);
+
+	// Set the alpha values for each pixel in the cursor so that
+	// the complete cursor is semi-transparent.
+	DWORD *lpdwPixel;
+	lpdwPixel = (DWORD *)lpBits;
+	for (x=0;x<dwWidth;x++)
+		for (y=0;y<dwHeight;y++)
+		{
+			// Clear the alpha bits
+			*lpdwPixel &= 0x00FFFFFF;
+			// Set the alpha bits to 0x9F (semi-transparent)
+			*lpdwPixel |= 0x1F000000;
+			lpdwPixel++;
+		}
+
+	ICONINFO ii;
+	ii.fIcon = TRUE;  // Change fIcon to TRUE to create an alpha icon
+	ii.xHotspot = 0;
+	ii.yHotspot = 0;
+	ii.hbmMask = hMonoBitmap;
+	ii.hbmColor = hBitmap;
+
+	// Create the alpha cursor with the alpha DIB section.
+	hAlphaCursor = CreateIconIndirect(&ii);
+
+	DeleteObject(hBitmap);          
+	DeleteObject(hMonoBitmap); 
+
+	return hAlphaCursor;
+}
+
 void CClassicCopyFile::GetFileInfo( IAccessible *pAcc, bool bSrc )
 {
 	long count;
@@ -297,18 +376,27 @@ void CClassicCopyFile::GetFileInfo( IAccessible *pAcc, bool bSrc )
 	// get file icon
 	HICON hIcon=NULL;
 	PIDLIST_ABSOLUTE pidl=NULL;
-	SFGAOF flags=0;
-	if (SUCCEEDED(SHParseDisplayName(path,NULL,&pidl,0,&flags)) && pidl)
+	if (SUCCEEDED(SHParseDisplayName(path,NULL,&pidl,0,NULL)) && pidl)
 	{
-		hIcon=LoadIcon(GetSystemMetrics(SM_CXICON),pidl);
-		if (!hIcon)
+		int iconSize=GetSystemMetrics(SM_CXICON);
+		HBITMAP hBitmap=NULL;
+		CComPtr<IShellItemImageFactory> pFactory;
+		if (SUCCEEDED(SHCreateItemFromIDList(pidl,IID_IShellItemImageFactory,(void**)&pFactory)) && pFactory)
 		{
-			SHFILEINFO info;
-			memset(&info,0,sizeof(info));
-			if (SHGetFileInfo((LPCWSTR)pidl,0,&info,sizeof(info),SHGFI_ICON|SHGFI_LARGEICON|SHGFI_PIDL))
-				hIcon=info.hIcon;
+			SIZE size={iconSize,iconSize};
+			if (FAILED(pFactory->GetImage(size,SIIGBF_ICONONLY,&hBitmap)))
+				hBitmap=NULL;
 		}
+
 		ILFree(pidl);
+		if (hBitmap)
+		{
+			HBITMAP hMonoBitmap=CreateBitmap(iconSize,iconSize,1,1,NULL);
+			ICONINFO info={TRUE,0,0,hMonoBitmap,hBitmap};
+			hIcon=CreateIconIndirect(&info);
+			DeleteObject(hMonoBitmap);
+			DeleteObject(hBitmap);
+		}
 	}
 	if (!hIcon) return;
 

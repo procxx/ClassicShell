@@ -1,10 +1,12 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
+#define STRICT_TYPED_ITEMIDS
 #include <windows.h>
 #include "StringSet.h"
 #include "StringUtils.h"
 #include "Translations.h"
+#include "ResourceHelper.h"
 #include <shlobj.h>
 #include <vector>
 
@@ -301,4 +303,39 @@ DWORD GetVersionEx( HINSTANCE hInstance )
 
 	VS_FIXEDFILEINFO *pVer=(VS_FIXEDFILEINFO*)((char*)pRes+40);
 	return ((HIWORD(pVer->dwProductVersionMS)&255)<<24)|((LOWORD(pVer->dwProductVersionMS)&255)<<16)|HIWORD(pVer->dwProductVersionLS);
+}
+
+// Wrapper for IShellFolder::ParseDisplayName
+HRESULT ShParseDisplayName( wchar_t *pszName, PIDLIST_ABSOLUTE *ppidl, SFGAOF sfgaoIn, SFGAOF *psfgaoOut )
+{
+	static ITEMIDLIST ilRoot={0};
+	static CComPtr<IShellFolder> pDesktop;
+	if (_wcsicmp(pszName,L"::{Desktop}")==0)
+	{
+		*ppidl=ILCloneFull((PIDLIST_ABSOLUTE)&ilRoot);
+		if (psfgaoOut)
+		{
+			*psfgaoOut=0;
+			if (sfgaoIn&SFGAO_FOLDER)
+				*psfgaoOut|=SFGAO_FOLDER;
+		}
+		return S_OK;
+	}
+	else
+	{
+		*ppidl=NULL;
+		if (!pDesktop)
+		{
+			HRESULT hr=SHGetDesktopFolder(&pDesktop);
+			if (FAILED(hr))
+				return hr;
+		}
+		SFGAOF flags=sfgaoIn;
+		HRESULT hr=pDesktop->ParseDisplayName(NULL,NULL,pszName,NULL,(PIDLIST_RELATIVE*)ppidl,psfgaoOut?&flags:NULL);
+		if (FAILED(hr))
+			return hr;
+		if (psfgaoOut)
+			*psfgaoOut=flags;
+		return hr;
+	}
 }

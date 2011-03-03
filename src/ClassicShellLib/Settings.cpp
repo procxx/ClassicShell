@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2010, Ivo Beltchev
+// Classic Shell (c) 2009-2011, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include <windows.h>
@@ -1339,8 +1339,10 @@ void EditSettings( const wchar_t *title, bool bModal )
 {
 	if (g_SettingsDlg.m_hWnd)
 	{
-		SetForegroundWindow(g_SettingsDlg);
-		g_SettingsDlg.SetActiveWindow();
+		HWND top=GetWindow(g_SettingsDlg,GW_ENABLEDPOPUP);
+		if (!top) top=g_SettingsDlg.m_hWnd;
+		SetForegroundWindow(top);
+		SetActiveWindow(top);
 	}
 	else
 	{

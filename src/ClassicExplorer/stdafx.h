@@ -4,11 +4,9 @@
 
 #pragma once
 
-#ifndef STRICT
-#define STRICT
-#endif
-
 #include "targetver.h"
+
+#define STRICT_TYPED_ITEMIDS
 
 #define _ATL_APARTMENT_THREADED
 #define _ATL_NO_AUTOMATIC_NAMESPACE
