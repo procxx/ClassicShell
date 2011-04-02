@@ -1,0 +1,10 @@
+; ClassicIE9DLL.def : Declares the module parameters.
+
+LIBRARY      "ClassicIE9DLL_64.DLL"
+
+EXPORTS
+	DllCanUnloadNow		PRIVATE
+	DllGetClassObject	PRIVATE
+	DllRegisterServer	PRIVATE
+	DllUnregisterServer	PRIVATE
+	DllInstall		PRIVATE

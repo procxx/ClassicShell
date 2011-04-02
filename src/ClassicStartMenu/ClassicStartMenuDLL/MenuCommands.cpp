@@ -71,6 +71,33 @@ static void SetShutdownPrivileges( void )
 	}
 }
 
+static void DoSearchSubst( wchar_t *buf, int size, const wchar_t *search )
+{
+	wchar_t search2[256];
+	char utf8[1024];
+	WcsToMbs(utf8,_countof(utf8),search,CP_UTF8);
+	int len=0;
+	for (const char *c=utf8;*c;c++)
+	{
+		if ((*c>='a' && *c<='z') || (*c>='A' && *c<='Z') || (*c>='0' && *c<='9'))
+		{
+			search2[len++]=*c;
+		}
+		else if (len<_countof(search2)-4)
+		{
+			len+=Sprintf(search2+len,_countof(search2)-len,L"%%%02X",(unsigned char)*c);
+		}
+		else
+			break;
+	}
+	search2[len]=0;
+	DWORD_PTR args[100]={(DWORD_PTR)search,(DWORD_PTR)search2};
+	wchar_t *pBuf=buf;
+	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_ARGUMENT_ARRAY|FORMAT_MESSAGE_FROM_STRING,buf,0,0,(LPWSTR)&pBuf,0,(va_list*)args);
+	Strcpy(buf,size,pBuf);
+	LocalFree(pBuf);
+}
+
 static void ExecuteCommand( const wchar_t *command )
 {
 	wchar_t exe[_MAX_PATH];
@@ -587,7 +614,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 		if (type!=ACTIVATE_OPEN_SEARCH)
 			pMenu->SetFocus();
-		if (type==ACTIVATE_OPEN_KBD || type==ACTIVATE_OPEN_SEARCH)
+		if (type==ACTIVATE_OPEN_KBD || (type==ACTIVATE_OPEN_SEARCH && m_ResultsHash!=1))
 			pMenu->SetHotItem(0);
 		else
 			pMenu->SetHotItem(-1);
@@ -658,6 +685,13 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		// regular command item
 		if (type!=ACTIVATE_EXECUTE) return;
 
+		CString search;
+		for (CMenuContainer *pSearchMenu=this;pSearchMenu;pSearchMenu=pSearchMenu->m_pParent)
+			if (pSearchMenu->m_SearchBox.m_hWnd)
+			{
+				pSearchMenu->m_SearchBox.GetWindowText(search);
+				break;
+			}
 		if (bKeepOpen)
 			LockSetForegroundWindow(LSFW_LOCK);
 		else
@@ -767,6 +801,9 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		case MENU_SWITCHUSER: // switch_user
 			WTSDisconnectSession(WTS_CURRENT_SERVER_HANDLE,WTS_CURRENT_SESSION,FALSE); // same as "disconnect"
 			break;
+		case MENU_LOCK: // lock
+			LockWorkStation();
+			break;
 		case MENU_SHUTDOWN: // shutdown, don't ask
 			SetShutdownPrivileges();
 			ExitWindowsEx(EWX_SHUTDOWN,0);
@@ -794,6 +831,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				wchar_t buf[1024];
 				Strcpy(buf,_countof(buf),item.pStdItem->command);
 				DoEnvironmentSubst(buf,_countof(buf));
+				if (!search.IsEmpty() && (wcswcs(buf,L"%1") || wcswcs(buf,L"%2")))
+					DoSearchSubst(buf,_countof(buf),search);
 				ExecuteCommand(buf);
 				return;
 			}

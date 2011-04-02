@@ -36,9 +36,9 @@ void CIconManager::Init( void )
 
 	{
 		// get the DPI setting
-		HDC hdc=::GetDC(NULL);
+		HDC hdc=GetDC(NULL);
 		s_DPI=GetDeviceCaps(hdc,LOGPIXELSY);
-		::ReleaseDC(NULL,hdc);
+		ReleaseDC(NULL,hdc);
 	}
 
 	SMALL_ICON_SIZE=GetSettingInt(L"SmallIconSize");

@@ -13,8 +13,11 @@ void ParseTranslations( const wchar_t *fname, const wchar_t *forceLang )
 {
 	g_Translations.Reset();
 
-	if (!g_Translations.LoadText(fname)) return;
-	g_Translations.ParseText();
+	if (fname)
+	{
+		if (!g_Translations.LoadText(fname)) return;
+		g_Translations.ParseText();
+	}
 
 	wchar_t languages[100]={0};
 	if (forceLang && *forceLang)

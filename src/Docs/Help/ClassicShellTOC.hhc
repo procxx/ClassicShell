@@ -92,6 +92,25 @@
 			</OBJECT>
 	</UL>
 	<LI> <OBJECT type="text/sitemap">
+		<param name="Name" value="Classic IE9">
+		<param name="Local" value="ClassicIE9.html">
+		<param name="ImageNumber" value="1">
+		</OBJECT>
+	<UL>
+		<LI> <OBJECT type="text/sitemap">
+			<param name="Name" value="Installation">
+			<param name="Local" value="ClassicIE9.html#install">
+			</OBJECT>
+		<LI> <OBJECT type="text/sitemap">
+			<param name="Name" value="Settings">
+			<param name="Local" value="ClassicIE9.html#settings">
+			</OBJECT>
+		<LI> <OBJECT type="text/sitemap">
+			<param name="Name" value="Administrative Settings">
+			<param name="Local" value="ClassicIE9.html#admin">
+			</OBJECT>
+	</UL>
+	<LI> <OBJECT type="text/sitemap">
 		<param name="Name" value="License Agreement">
 		<param name="Local" value="License.html">
 		<param name="ImageNumber" value="11">

@@ -19,9 +19,32 @@
 // CExplorerBHO - a browser helper object that implements Alt+Enter for the folder tree
 
 const UINT_PTR TIMER_NAVIGATE='CLSH';
-const int DEFAULT_NAV_DELAY=100;
 
 int CExplorerBHO::s_AutoNavDelay;
+
+static PIDLIST_ABSOLUTE GetSelectedItem( HWND hwndTree )
+{
+	// find the PIDL of the selected item (combine all child PIDLs from the current item and its parents)
+	HTREEITEM hItem=TreeView_GetSelection(hwndTree);
+	PIDLIST_ABSOLUTE pidl=NULL;
+	while (hItem)
+	{
+		TVITEMEX info={TVIF_PARAM,hItem};
+		TreeView_GetItem(hwndTree,&info);
+		PIDLIST_RELATIVE **pidl1=(PIDLIST_RELATIVE**)info.lParam;
+		if (!pidl1 || !*pidl1 || !**pidl1)
+		{
+			if (pidl) ILFree(pidl);
+			pidl=NULL;
+			break;
+		}
+		PIDLIST_ABSOLUTE pidl2=pidl?ILCombine((PIDLIST_ABSOLUTE)**pidl1,pidl):(PIDLIST_ABSOLUTE)ILClone(**pidl1);
+		if (pidl) ILFree(pidl);
+		pidl=pidl2;
+		hItem=TreeView_GetParent(hwndTree,hItem);
+	}
+	return pidl;
+}
 
 LRESULT CALLBACK CExplorerBHO::SubclassTreeParentProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
@@ -52,9 +75,31 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 	}
 	if (uMsg==WM_TIMER && wParam==TIMER_NAVIGATE)
 	{
-		// time to navigate to the new folder (simulate pressing Space)
-		PostMessage(hWnd,WM_KEYDOWN,VK_SPACE,0);
+		// time to navigate to the selected folder (only if different from the current folder)
 		KillTimer(hWnd,TIMER_NAVIGATE);
+		PIDLIST_ABSOLUTE pidl=GetSelectedItem(hWnd);
+		if (pidl)
+		{
+			bool bSameFolder=false;
+			CExplorerBHO *pThis=GetTlsData()->bho;
+			CComPtr<IShellView> pView;
+			if (pThis->m_pBrowser && SUCCEEDED(pThis->m_pBrowser->QueryActiveShellView(&pView)))
+			{
+				CComQIPtr<IFolderView> pView2=pView;
+
+				CComPtr<IPersistFolder2> pFolder;
+				PIDLIST_ABSOLUTE pidl2;
+				if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) && SUCCEEDED(pFolder->GetCurFolder(&pidl2)) && pidl2)
+				{
+					if (ILIsEqual(pidl,pidl2))
+						bSameFolder=true;
+					ILFree(pidl2);
+				}
+			}
+			ILFree(pidl);
+			if (!bSameFolder)
+				PostMessage(hWnd,WM_KEYDOWN,VK_SPACE,0);
+		}
 		return 0;
 	}
 
@@ -1129,25 +1174,7 @@ STDMETHODIMP CExplorerBHO::OnQuit( void )
 
 bool ShowTreeProperties( HWND hwndTree )
 {
-	// find the PIDL of the selected item (combine all child PIDLs from the current item and its parents)
-	HTREEITEM hItem=TreeView_GetSelection(hwndTree);
-	PIDLIST_ABSOLUTE pidl=NULL;
-	while (hItem)
-	{
-		TVITEMEX info={TVIF_PARAM,hItem};
-		TreeView_GetItem(hwndTree,&info);
-		PIDLIST_RELATIVE **pidl1=(PIDLIST_RELATIVE**)info.lParam;
-		if (!pidl1 || !*pidl1 || !**pidl1)
-		{
-			if (pidl) ILFree(pidl);
-			pidl=NULL;
-			break;
-		}
-		PIDLIST_ABSOLUTE pidl2=pidl?ILCombine((PIDLIST_ABSOLUTE)**pidl1,pidl):(PIDLIST_ABSOLUTE)ILClone(**pidl1);
-		if (pidl) ILFree(pidl);
-		pidl=pidl2;
-		hItem=TreeView_GetParent(hwndTree,hItem);
-	}
+	PIDLIST_ABSOLUTE pidl=GetSelectedItem(hwndTree);
 	if (pidl)
 	{
 		// show properties

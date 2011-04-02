@@ -237,12 +237,15 @@ HBITMAP BitmapFromIcon( HICON hIcon, int iconSize, unsigned int **pBits, bool bD
 	return bmp;
 }
 
-// Premultiplies the alpha channel of a DIB section
-void PremultiplyAlpha( HBITMAP hBitmap )
+// Premultiplies a DIB section by the alpha channel and a given color
+void PremultiplyBitmap( HBITMAP hBitmap, COLORREF rgb )
 {
 	BITMAP info;
 	GetObject(hBitmap,sizeof(info),&info);
 	int n=info.bmWidth*info.bmHeight;
+	int mr=(rgb)&255;
+	int mg=(rgb>>8)&255;
+	int mb=(rgb>>16)&255;
 	// pre-multiply the alpha
 	for (int i=0;i<n;i++)
 	{
@@ -251,9 +254,9 @@ void PremultiplyAlpha( HBITMAP hBitmap )
 		int r=(pixel>>16)&255;
 		int g=(pixel>>8)&255;
 		int b=(pixel)&255;
-		r=(r*a)/255;
-		g=(g*a)/255;
-		b=(b*a)/255;
+		r=(r*a*mr)/(255*255);
+		g=(g*a*mg)/(255*255);
+		b=(b*a*mb)/(255*255);
 		pixel=(a<<24)|(r<<16)|(g<<8)|b;
 	}
 }

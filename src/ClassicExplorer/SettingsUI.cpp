@@ -502,9 +502,9 @@ static CSetting g_Settings[]={
 
 void UpdateSettings( void )
 {
-	HDC hdc=::GetDC(NULL);
+	HDC hdc=GetDC(NULL);
 	int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
-	::ReleaseDC(NULL,hdc);
+	ReleaseDC(NULL,hdc);
 	UpdateSetting(L"SmallIconSize",CComVariant((dpi>=120)?24:16),false);
 	UpdateSetting(L"LargeIconSize",CComVariant((dpi>=120)?32:24),false);
 	UpdateSetting(L"UpIconSize",CComVariant((dpi>=120)?36:30),false);
@@ -535,7 +535,7 @@ static bool g_bCopyHook0; // initial state of the copy hook before the settings 
 
 void InitSettings( void )
 {
-	InitSettings(g_Settings,false);
+	InitSettings(g_Settings,COMPONENT_EXPLORER);
 	g_bCopyHook0=GetSettingBool(L"ReplaceFileUI") || GetSettingBool(L"ReplaceFolderUI") || GetSettingBool(L"EnableMore");
 }
 

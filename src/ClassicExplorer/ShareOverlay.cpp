@@ -66,7 +66,7 @@ STDMETHODIMP CShareOverlay::IsMemberOf( LPCWSTR pwszPath, DWORD dwAttrib )
 	// IShellFolder::ParseDisplayName returns the wrong attributes for the contents of the Recycle Bin (on Windows7 only)
 	PIDLIST_ABSOLUTE pidl=NULL;
 	HRESULT res=S_FALSE;
-	if (m_pDesktop)
+	if (pwszPath && m_pDesktop)
 	{
 		if (SUCCEEDED(m_pDesktop->ParseDisplayName(NULL,NULL,(LPWSTR)pwszPath,NULL,(PIDLIST_RELATIVE*)&pidl,NULL)))
 		{

@@ -52,7 +52,7 @@
             <ComponentRef Id="IvoSoft" />
             <ComponentRef Id="HelpLink" />
             <ComponentRef Id="StartMenuDir" />
-            <Feature Id="ClassicExplorer" Level="1" Title="Classic Explorer" ConfigurableDirectory="APPLICATIONFOLDER" AllowAdvertise="no" Description="Classic Explorer adds a toolbar to Windows Explorer, replaces the copy UI and fixes some usability problems">
+            <Feature Id="ClassicExplorer" Level="1" Title="Classic Explorer" ConfigurableDirectory="APPLICATIONFOLDER" AllowAdvertise="no" Description="!(loc.ExplorerDesc)">
                 <ComponentRef Id="ClassicExplorer32.dll" />
                 <?if $(var.x64)=1 ?>
                 <ComponentRef Id="ClassicExplorer64.dll" />
@@ -61,7 +61,7 @@
                 <ComponentRef Id="ClassicExplorerSettings.exe" />
                 <ComponentRef Id="ExplorerSettingsLink" />
             </Feature>
-            <Feature Id="ClassicStartMenu" Level="1" Title="Classic Start Menu" ConfigurableDirectory="APPLICATIONFOLDER" AllowAdvertise="no" Description="Classic Start Menu is a highly customizable replacement for the Windows start menu">
+            <Feature Id="ClassicStartMenu" Level="1" Title="Classic Start Menu" ConfigurableDirectory="APPLICATIONFOLDER" AllowAdvertise="no" Description="!(loc.StartMenuDesc)">
                 <ComponentRef Id="ClassicStartMenu.exe" />
                 <ComponentRef Id="ClassicStartMenuDLL.dll" />
                 <ComponentRef Id="StartMenuL10N.ini" />
@@ -74,6 +74,16 @@
                 <ComponentRef Id="WindowsXPLuna.skin" />
                 <ComponentRef Id="AutoRun" />
                 <ComponentRef Id="MenuSettingsLink" />
+            </Feature>
+            <Feature Id="ClassicIE9" Level="2" Title="Classic IE9" ConfigurableDirectory="APPLICATIONFOLDER" AllowAdvertise="no" Description="!(loc.IE9Desc)">
+                <ComponentRef Id="ClassicIE9DLL_32.dll" />
+                <ComponentRef Id="ClassicIE9_32.exe" />
+                <?if $(var.x64)=1 ?>
+                <ComponentRef Id="ClassicIE9DLL_64.dll" />
+                <ComponentRef Id="ClassicIE9_64.exe" />
+                <?endif ?>
+                <ComponentRef Id="IE9SettingsLink" />
+                <Condition Level="1">IE_BUILD&gt;=90000</Condition>
             </Feature>
         </Feature>
         <UI>
@@ -372,9 +382,22 @@
             <Component Id="ClassicExplorerSettings.exe" Guid="CBD00200-FAED-48F6-B8C1-F033BDB00A28" Win64="$(var.CS_WIN64)">
                 <File Id="ClassicExplorerSettings.exe" KeyPath="yes" Source="..\ClassicExplorer\Release\ClassicExplorerSettings.exe" Checksum="yes" Vital="yes" />
             </Component>
+            <Component Id="ClassicIE9DLL_32.dll" Guid="C85DEB7F-FB76-42E9-B1F4-7A7C7DCBD482" Win64="$(var.CS_WIN64)">
+                <File Id="ClassicIE9DLL_32.dll" KeyPath="yes" Source="..\ClassicIE9\Setup\ClassicIE9DLL_32.dll" Checksum="yes" SelfRegCost="0" Vital="yes" />
+            </Component>
+            <Component Id="ClassicIE9_32.exe" Guid="0D0BF4CF-9753-4867-9DE5-69D3DA19DC41" Win64="$(var.CS_WIN64)">
+                <File Id="ClassicIE9_32.exe" KeyPath="yes" Source="..\ClassicIE9\Release\ClassicIE9_32.exe" Checksum="yes" Vital="yes" />
+                <Shortcut Id="IE9Settings" Name="IE9 Settings" Advertise="no" Description="!(loc.IE9SettingsDesc)" Target="[APPLICATIONFOLDER]ClassicIE9_32.exe" WorkingDirectory="APPLICATIONFOLDER" />
+            </Component>
             <?if $(var.x64)=1 ?>
             <Component Id="ClassicExplorer64.dll" Guid="A82DBFC3-E19B-4E02-AF50-50363C2B0714" Win64="yes">
                 <File Id="ClassicExplorer64.dll" KeyPath="yes" Source="..\ClassicExplorer\Setup64\ClassicExplorer64.dll" Checksum="yes" SelfRegCost="0" Vital="yes" />
+            </Component>
+            <Component Id="ClassicIE9DLL_64.dll" Guid="6EC7C9A0-BB8E-4B4F-9F63-D03EFEB65B41" Win64="yes">
+                <File Id="ClassicIE9DLL_64.dll" KeyPath="yes" Source="..\ClassicIE9\Setup64\ClassicIE9DLL_64.dll" Checksum="yes" SelfRegCost="0" Vital="yes" />
+            </Component>
+            <Component Id="ClassicIE9_64.exe" Guid="89BDF7B9-D8F4-46BE-9F29-344B384D753C" Win64="yes">
+                <File Id="ClassicIE9_64.exe" KeyPath="yes" Source="..\ClassicIE9\Release64\ClassicIE9_64.exe" Checksum="yes" Vital="yes" />
             </Component>
             <Component Id="ClassicStartMenu.exe" Guid="F74C0FF3-A8C0-4B6E-AFD2-F9467DE4D90B" Win64="yes">
                 <File Id="ClassicStartMenu.exe" KeyPath="yes" Checksum="yes" Source="..\ClassicStartMenu\Setup64\ClassicStartMenu.exe" Vital="yes" />
@@ -460,6 +483,11 @@
                 <CreateFolder />
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>
+            <Component Id="IE9SettingsLink" Guid="10C0226C-22A9-49E4-AA65-C96AD7A504CC">
+                <Shortcut Id="IE9SettingsLink" Name="IE9 Settings" Advertise="no" Description="!(loc.IE9SettingsDesc)" Target="[APPLICATIONFOLDER]ClassicIE9_32.exe" WorkingDirectory="APPLICATIONFOLDER" />
+                <CreateFolder />
+                <Condition>START_MENU_FOLDER=1</Condition>
+            </Component>
         </DirectoryRef>
         <Icon Id="icon.ico" SourceFile="..\ClassicShellSetup\ClassicShell.ico" />
         <Property Id="ARPPRODUCTICON" Value="icon.ico" />
@@ -474,6 +502,9 @@
         <Property Id="ARPNOMODIFY" Value="1" />
         <Property Id="ARPNOREPAIR" Value="1" />
         <Property Id="START_MENU_FOLDER" Value="1" />
+        <Property Id="IE_BUILD" Value="0">
+            <RegistrySearch Id="IEBuild" Root="HKLM" Key="Software\Microsoft\Internet Explorer" Name="Build" Type="raw" />
+        </Property>
         <CustomAction Id="ViewReadme" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
         <CustomAction Id="LaunchStartMenu" Impersonate="yes" ExeCommand="" FileKey="ClassicStartMenu.exe" Return="asyncNoWait" />
         <CustomAction Id="CloseStartMenu" Impersonate="yes" BinaryKey="SetupHelper.exe" Return="ignore" ExeCommand="exitSM" />

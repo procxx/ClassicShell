@@ -71,6 +71,7 @@ static StdMenuOption g_StdOptions[]=
 	{MENU_USERPICTURES,MENU_ENABLED}, // check policy
 	{MENU_SLEEP,MENU_ENABLED}, // check power caps
 	{MENU_HIBERNATE,MENU_ENABLED}, // check power caps
+	{MENU_SWITCHUSER,MENU_ENABLED}, // check group policy
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -121,6 +122,25 @@ DWORD CMenuContainer::s_SubmenuStyle;
 CLIPFORMAT CMenuContainer::s_ShellFormat;
 MenuSkin CMenuContainer::s_Skin;
 std::vector<CMenuFader*> CMenuFader::s_Faders;
+
+static BOOL CALLBACK FindAutoComplete( HWND hwnd, LPARAM lParam )
+{
+	wchar_t name[256];
+	GetClassName(hwnd,name,_countof(name));
+	if (_wcsicmp(name,L"Auto-Suggest Dropdown")==0 && IsWindowVisible(hwnd))
+	{
+		*(bool*)lParam=true;
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static bool IsAutoCompleteActive( void )
+{
+	bool found=false;
+	EnumThreadWindows(GetCurrentThreadId(),FindAutoComplete,(LPARAM)&found);
+	return found;
+}
 
 bool CMenuContainer::SearchItem::MatchText( const wchar_t *search ) const
 {
@@ -201,10 +221,10 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 		{
 			// forward up/down keys
 			CMenuContainer *pSearchMenu=s_Menus[s_Menus.size()-1];
-			if (pSearchMenu->m_Options&CONTAINER_SEARCH)
-				return pSearchMenu->SendMessage(uMsg,wParam,lParam); // forward to the search menu
-			else if (DefSubclassProc(hWnd,uMsg,wParam,lParam)==0) // forward up/down keys to the auto-complete
+			if (IsAutoCompleteActive() && DefSubclassProc(hWnd,uMsg,wParam,lParam)==0) // forward up/down keys to the auto-complete
 				return 0;
+			else if (pSearchMenu->m_Options&CONTAINER_SEARCH)
+				return pSearchMenu->SendMessage(uMsg,wParam,lParam); // forward to the search menu
 			else
 				return pParent->SendMessage(uMsg,wParam,lParam); // forward to the parent
 		}
@@ -212,7 +232,7 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 		{
 			// forward Enter to the submenu, or execute the current string
 			CMenuContainer *pSearchMenu=s_Menus[s_Menus.size()-1];
-			if ((pSearchMenu->m_Options&CONTAINER_SEARCH) && pSearchMenu->m_Items[0].id!=MENU_EMPTY)
+			if ((pSearchMenu->m_Options&CONTAINER_SEARCH) && pSearchMenu->m_Items[0].id!=MENU_EMPTY && pSearchMenu->m_HotItem>=0 && !IsAutoCompleteActive())
 				pSearchMenu->SendMessage(WM_KEYDOWN,VK_RETURN);
 			else
 			{
@@ -233,6 +253,16 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 				box.SetWindowText(L"");
 			return 0;
 		}
+	}
+	if (uMsg==WM_SYSCHAR)
+	{
+		CMenuContainer *pSearchMenu=s_Menus[s_Menus.size()-1];
+		if (pSearchMenu->m_Options&CONTAINER_SEARCH)
+		{
+			if (!pSearchMenu->SendMessage(WM_CHAR,wParam,lParam))
+				return 0;
+		}
+		pParent->SendMessage(WM_CHAR,wParam,lParam);
 	}
 	if (uMsg==WM_CHAR && (wParam==VK_RETURN || wParam==VK_ESCAPE || wParam==VK_TAB))
 	{
@@ -272,6 +302,7 @@ CMenuContainer::CMenuContainer( CMenuContainer *pParent, int index, int options,
 	m_RefCount=1;
 	m_bSubMenu=(index>=0); // this may be true even if pParent is NULL (in case you want to show only sub-menus somewhere, use index=0 and pParent=NULL)
 	m_HoverItem=-1;
+	m_ClickIndex=GetKeyState(VK_LBUTTON)<0?-2:-1;
 	m_pParent=pParent;
 	m_ParentIndex=pParent?index:-1;
 	m_Options=options;
@@ -480,6 +511,186 @@ void CMenuContainer::AddSecondFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABS
 			}
 		}
 		ILFree(pidl);
+	}
+}
+
+void CMenuContainer::AddStandardItems( void )
+{
+	if (m_pStdItem && m_pStdItem->id!=MENU_NO)
+	{
+		bool bItemsFirst=(m_Options&(CONTAINER_ITEMS_FIRST|CONTAINER_SEARCH))==CONTAINER_ITEMS_FIRST;
+		if (!m_Items.empty())
+		{
+			MenuItem item={MENU_SEPARATOR};
+			if (m_pStdItem->id==MENU_COLUMN_PADDING)
+				item.bAlignBottom=true;
+			if (bItemsFirst)
+				m_Items.insert(m_Items.begin(),item);
+			else
+				m_Items.push_back(item);
+		}
+		size_t menuIdx=bItemsFirst?0:m_Items.size();
+		bool bBreak=false, bAlignBottom=false, bInlineFirst=false;
+		const StdMenuItem *pInlineParent=NULL;
+		for (const StdMenuItem *pItem=m_pStdItem;;pItem++)
+		{
+			if (pItem->id==MENU_LAST)
+			{
+				if (pInlineParent)
+				{
+					pItem=pInlineParent;
+					pInlineParent=NULL;
+					continue;
+				}
+				break;
+			}
+			if (pItem->id==MENU_IGNORE)
+				continue;
+			int stdOptions=MENU_ENABLED|MENU_EXPANDED;
+			for (int i=0;i<_countof(g_StdOptions);i++)
+				if (g_StdOptions[i].id==pItem->id)
+				{
+					stdOptions=g_StdOptions[i].options;
+					break;
+				}
+
+				if (!(stdOptions&MENU_ENABLED)) continue;
+
+				if (pItem->id==MENU_COLUMN_BREAK)
+				{
+					bBreak=true;
+					continue;
+				}
+				if (pItem->id==MENU_COLUMN_PADDING)
+				{
+					bAlignBottom=true;
+					continue;
+				}
+
+				if (!pInlineParent && pItem->submenu && (pItem->settings&StdMenuItem::MENU_INLINE))
+				{
+					pInlineParent=pItem;
+					pItem=pInlineParent->submenu-1;
+					bInlineFirst=true;
+					continue;
+				}
+
+				MenuItem item={pItem->id,pItem};
+				if (pInlineParent)
+					item.bInline=true;
+
+				item.bBreak=bBreak;
+				item.bAlignBottom=bAlignBottom;
+				item.bInlineFirst=bInlineFirst;
+				bBreak=bAlignBottom=bInlineFirst=false;
+
+				ATLASSERT(pItem->folder1 || !pItem->folder2);
+				if (pItem->folder1)
+				{
+					SHGetKnownFolderIDList(*pItem->folder1,0,NULL,&item.pItem1);
+					if (pItem->folder2)
+						SHGetKnownFolderIDList(*pItem->folder2,0,NULL,&item.pItem2);
+					wchar_t recentPath[_MAX_PATH];
+					SHGetPathFromIDList(item.pItem1,recentPath);
+					item.bFolder=(stdOptions&MENU_EXPANDED)!=0;
+				}
+				else if (pItem->link)
+				{
+					SFGAOF flags=0;
+					wchar_t buf[1024];
+					Strcpy(buf,_countof(buf),item.pStdItem->link);
+					DoEnvironmentSubst(buf,_countof(buf));
+					bool bLibrary=_wcsicmp(PathFindExtension(buf),L".library-ms")==0;
+					if (SUCCEEDED(ShParseDisplayName(buf,&item.pItem1,SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK,&flags)))
+					{
+						if (bLibrary) flags&=~SFGAO_STREAM;
+						item.bLink=(flags&SFGAO_LINK)!=0;
+						item.bFolder=((flags&SFGAO_FOLDER) && !(item.pStdItem->settings&StdMenuItem::MENU_NOEXPAND) && (!(flags&(SFGAO_STREAM|SFGAO_LINK)) || (s_bExpandLinks && item.bLink)));
+					}
+				}
+				if ((pItem->submenu && (stdOptions&MENU_EXPANDED)) || pItem->id==MENU_RECENT_ITEMS)
+					item.bFolder=true;
+
+				// get icon
+				if (pItem->iconPath)
+				{
+					if (_wcsicmp(pItem->iconPath,L"none")==0)
+						item.icon=I_IMAGENONE; 
+					else
+						item.icon=g_IconManager.GetCustomIcon(pItem->iconPath,(m_Options&CONTAINER_LARGE)!=0);
+				}
+				else if (item.pItem1)
+				{
+					CComPtr<IShellFolder> pFolder2;
+					PCUITEMID_CHILD pidl;
+					if (SUCCEEDED(SHBindToParent(item.pItem1,IID_IShellFolder,(void**)&pFolder2,&pidl)))
+						item.icon=g_IconManager.GetIcon(pFolder2,pidl,(m_Options&CONTAINER_LARGE)!=0);
+				}
+
+				// get name
+				if (pItem->label)
+				{
+					if (item.id==MENU_LOGOFF)
+					{
+						// construct the text Log Off <username>...
+						wchar_t user[256]={0};
+						ULONG size=_countof(user);
+						if (!GetUserNameEx(NameDisplay,user,&size))
+						{
+							// GetUserNameEx may fail (for example on Home editions). use the login name
+							size=_countof(user);
+							GetUserName(user,&size);
+						}
+						item.name.Format(pItem->label,user);
+					}
+					else
+						item.name=pItem->label;
+				}
+				else if (item.pItem1)
+				{
+					SHFILEINFO info={0};
+					SHGetFileInfo((LPCWSTR)item.pItem1,0,&info,sizeof(info),SHGFI_PIDL|SHGFI_DISPLAYNAME);
+					item.name=info.szDisplayName;
+				}
+				else if (item.id!=MENU_SEPARATOR && item.id!=MENU_SEARCH_BOX && !item.bInline)
+					item.name=LoadStringEx(IDS_NO_TEXT);
+
+				item.bPrograms=(item.id==MENU_PROGRAMS || item.id==MENU_FAVORITES);
+				if (item.bInline)
+				{
+					item.bFolder=false;
+				}
+				m_Items.insert(m_Items.begin()+menuIdx,1,item);
+				menuIdx++;
+		}
+	}
+}
+
+void CMenuContainer::UpdateAccelerators( int first, int last )
+{
+	int recentType=GetSettingInt(L"RecentProgKeys");
+
+	for (int i=first;i<last;i++)
+	{
+		MenuItem &item=m_Items[i];
+		if (item.id==MENU_SEPARATOR || item.id==MENU_EMPTY  || item.id==MENU_EMPTY_TOP || item.id==MENU_SEARCH_BOX || item.name.IsEmpty() || (item.id==MENU_RECENT && recentType!=1))
+			continue;
+
+		const wchar_t *name=item.name;
+		wchar_t buf[2]={name[0],0};
+		while (1)
+		{
+			const wchar_t *c=wcschr(name,'&');
+			if (!c || !c[1]) break;
+			if (c[1]!='&')
+			{
+				buf[0]=c[1];
+				break;
+			}
+			name=c+1;
+		}
+		CharUpper(buf); // always upper case
+		item.accelerator=buf[0];
 	}
 }
 
@@ -781,154 +992,7 @@ void CMenuContainer::InitItems( void )
 
 	m_ScrollCount=(int)m_Items.size();
 
-	// add standard items
-	if (m_pStdItem && m_pStdItem->id!=MENU_NO)
-	{
-		if (!m_Items.empty())
-		{
-			MenuItem item={MENU_SEPARATOR};
-			if (m_pStdItem->id==MENU_COLUMN_PADDING)
-				item.bAlignBottom=true;
-			if (m_Options&CONTAINER_ITEMS_FIRST)
-				m_Items.insert(m_Items.begin(),item);
-			else
-				m_Items.push_back(item);
-		}
-		size_t menuIdx=(m_Options&CONTAINER_ITEMS_FIRST)?0:m_Items.size();
-		bool bBreak=false, bAlignBottom=false, bInlineFirst=false;
-		const StdMenuItem *pInlineParent=NULL;
-		for (const StdMenuItem *pItem=m_pStdItem;;pItem++)
-		{
-			if (pItem->id==MENU_LAST)
-			{
-				if (pInlineParent)
-				{
-					pItem=pInlineParent;
-					pInlineParent=NULL;
-					continue;
-				}
-				break;
-			}
-			if (pItem->id==MENU_IGNORE)
-				continue;
-			int stdOptions=MENU_ENABLED|MENU_EXPANDED;
-			for (int i=0;i<_countof(g_StdOptions);i++)
-				if (g_StdOptions[i].id==pItem->id)
-				{
-					stdOptions=g_StdOptions[i].options;
-					break;
-				}
-
-			if (!(stdOptions&MENU_ENABLED)) continue;
-
-			if (pItem->id==MENU_COLUMN_BREAK)
-			{
-				bBreak=true;
-				continue;
-			}
-			if (pItem->id==MENU_COLUMN_PADDING)
-			{
-				bAlignBottom=true;
-				continue;
-			}
-
-			if (!pInlineParent && pItem->submenu && (pItem->settings&StdMenuItem::MENU_INLINE))
-			{
-				pInlineParent=pItem;
-				pItem=pInlineParent->submenu-1;
-				bInlineFirst=true;
-				continue;
-			}
-
-			MenuItem item={pItem->id,pItem};
-			if (pInlineParent)
-				item.bInline=true;
-
-			item.bBreak=bBreak;
-			item.bAlignBottom=bAlignBottom;
-			item.bInlineFirst=bInlineFirst;
-			bBreak=bAlignBottom=bInlineFirst=false;
-
-			ATLASSERT(pItem->folder1 || !pItem->folder2);
-			if (pItem->folder1)
-			{
-				SHGetKnownFolderIDList(*pItem->folder1,0,NULL,&item.pItem1);
-				if (pItem->folder2)
-					SHGetKnownFolderIDList(*pItem->folder2,0,NULL,&item.pItem2);
-				wchar_t recentPath[_MAX_PATH];
-				SHGetPathFromIDList(item.pItem1,recentPath);
-				item.bFolder=(stdOptions&MENU_EXPANDED)!=0;
-			}
-			else if (pItem->link)
-			{
-				SFGAOF flags=0;
-				wchar_t buf[1024];
-				Strcpy(buf,_countof(buf),item.pStdItem->link);
-				DoEnvironmentSubst(buf,_countof(buf));
-				bool bLibrary=_wcsicmp(PathFindExtension(buf),L".library-ms")==0;
-				if (SUCCEEDED(ShParseDisplayName(buf,&item.pItem1,SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK,&flags)))
-				{
-					if (bLibrary) flags&=~SFGAO_STREAM;
-					item.bLink=(flags&SFGAO_LINK)!=0;
-					item.bFolder=((flags&SFGAO_FOLDER) && !(item.pStdItem->settings&StdMenuItem::MENU_NOEXPAND) && (!(flags&(SFGAO_STREAM|SFGAO_LINK)) || (s_bExpandLinks && item.bLink)));
-				}
-			}
-			if ((pItem->submenu && (stdOptions&MENU_EXPANDED)) || pItem->id==MENU_RECENT_ITEMS)
-				item.bFolder=true;
-
-			// get icon
-			if (pItem->iconPath)
-			{
-				if (_wcsicmp(pItem->iconPath,L"none")==0)
-					item.icon=I_IMAGENONE; 
-				else
-					item.icon=g_IconManager.GetCustomIcon(pItem->iconPath,(m_Options&CONTAINER_LARGE)!=0);
-			}
-			else if (item.pItem1)
-			{
-				CComPtr<IShellFolder> pFolder2;
-				PCUITEMID_CHILD pidl;
-				if (SUCCEEDED(SHBindToParent(item.pItem1,IID_IShellFolder,(void**)&pFolder2,&pidl)))
-					item.icon=g_IconManager.GetIcon(pFolder2,pidl,(m_Options&CONTAINER_LARGE)!=0);
-			}
-
-			// get name
-			if (pItem->label)
-			{
-				if (item.id==MENU_LOGOFF)
-				{
-					// construct the text Log Off <username>...
-					wchar_t user[256]={0};
-					ULONG size=_countof(user);
-					if (!GetUserNameEx(NameDisplay,user,&size))
-					{
-						// GetUserNameEx may fail (for example on Home editions). use the login name
-						size=_countof(user);
-						GetUserName(user,&size);
-					}
-					item.name.Format(pItem->label,user);
-				}
-				else
-					item.name=pItem->label;
-			}
-			else if (item.pItem1)
-			{
-				SHFILEINFO info={0};
-				SHGetFileInfo((LPCWSTR)item.pItem1,0,&info,sizeof(info),SHGFI_PIDL|SHGFI_DISPLAYNAME);
-				item.name=info.szDisplayName;
-			}
-			else if (item.id!=MENU_SEPARATOR && item.id!=MENU_SEARCH_BOX && !item.bInline)
-				item.name=LoadStringEx(IDS_NO_TEXT);
-
-			item.bPrograms=(item.id==MENU_PROGRAMS || item.id==MENU_FAVORITES);
-			if (item.bInline)
-			{
-				item.bFolder=false;
-			}
-			m_Items.insert(m_Items.begin()+menuIdx,1,item);
-			menuIdx++;
-		}
-	}
+	AddStandardItems();
 
 	if (m_Items.empty())
 	{
@@ -946,28 +1010,7 @@ void CMenuContainer::InitItems( void )
 	if (m_bSubMenu)
 		m_ScrollCount=(int)m_Items.size();
 
-	// find accelerators
-	for (std::vector<MenuItem>::iterator it=m_Items.begin();it!=m_Items.end();++it)
-	{
-		if (it->id==MENU_SEPARATOR || it->id==MENU_EMPTY  || it->id==MENU_EMPTY_TOP || it->id==MENU_SEARCH_BOX || it->name.IsEmpty() || (it->id==MENU_RECENT && recentType!=1))
-			continue;
-
-		const wchar_t *name=it->name;
-		wchar_t buf[2]={name[0],0};
-		while (1)
-		{
-			const wchar_t *c=wcschr(name,'&');
-			if (!c || !c[1]) break;
-			if (c[1]!='&')
-			{
-				buf[0]=c[1];
-				break;
-			}
-			name=c+1;
-		}
-		CharUpper(buf); // always upper case
-		it->accelerator=buf[0];
-	}
+	UpdateAccelerators(0,(int)m_Items.size());
 	UpdateUsedIcons();
 }
 
@@ -1019,16 +1062,11 @@ void CMenuContainer::InitItems( const std::vector<SearchItem> &items, const wcha
 		m_Items.resize(MAX_MENU_ITEMS);
 	}
 
-	if (m_Items.empty())
-	{
-		// add (Empty) item to the empty submenus
-		MenuItem item={m_bSubMenu?MENU_EMPTY:MENU_EMPTY_TOP};
-		item.icon=I_IMAGENONE;
-		item.name=FindTranslation(L"Menu.Empty",L"(Empty)");
-		m_Items.push_back(item);
-	}
-
 	m_ScrollCount=(int)m_Items.size();
+
+	AddStandardItems();
+
+	UpdateAccelerators(m_ScrollCount,(int)m_Items.size());
 	UpdateUsedIcons();
 }
 
@@ -1591,7 +1629,7 @@ void CMenuContainer::InitWindow( void )
 			else
 				m_SearchBox.SetFont(m_Font[0]);
 			m_SearchIcons=(HBITMAP)LoadImage(g_Instance,MAKEINTRESOURCE(IDB_SEARCH_ICONS),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
-			PremultiplyAlpha(m_SearchIcons);
+			PremultiplyBitmap(m_SearchIcons,0xFFFFFF);
 		}
 	}
 
@@ -2221,6 +2259,8 @@ void CMenuContainer::UpdateSearchResults( bool bForceShowAll )
 		m_bSearchShowAll=false;
 	}
 	SetSearchState(state);
+	if (hash==0 && state==SEARCH_TEXT && m_Items[m_SearchIndex].pStdItem->submenu)
+		hash=1; // if there are no search results, but we have search providers, still show the menu
 	if (m_ResultsHash!=hash)
 	{
 		m_ResultsHash=hash;
@@ -2242,7 +2282,7 @@ void CMenuContainer::UpdateSearchResults( bool bForceShowAll )
 			CMenuContainer *pSearchMenu=s_Menus[s_Menus.size()-1];
 			pSearchMenu->InitItems(m_SearchItems,pText);
 			pSearchMenu->InitWindow();
-			pSearchMenu->SetHotItem(0);
+			pSearchMenu->SetHotItem(m_ResultsHash==1?-1:0);
 		}
 	}
 	m_bInSearchUpdate=false;
@@ -2497,12 +2537,15 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 			if (!CanSelectItem(m_Items[idx]))
 				continue;
 			int d=0x7FFFFFFE;
-			if (m_Items[idx].column==col && m_Items[idx].row<row)
+			if (!(m_Options&CONTAINER_SEARCH))
 			{
-				d=((row-m_Items[idx].row)<<16)+abs(m_Items[idx].itemRect.left-x0);
+				if (m_Items[idx].column==col && m_Items[idx].row<row)
+				{
+					d=((row-m_Items[idx].row)<<16)+abs(m_Items[idx].itemRect.left-x0);
+				}
+				else if (m_Items[idx].bInline && !m_Items[idx].bInlineFirst)
+					continue;
 			}
-			else if (m_Items[idx].bInline && !m_Items[idx].bInlineFirst)
-				continue;
 			if (d<dist)
 			{
 				dist=d;
@@ -2540,12 +2583,15 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 			if (!CanSelectItem(m_Items[idx]))
 				continue;
 			int d=0x7FFFFFFE;
-			if (m_Items[idx].column==col && m_Items[idx].row>row)
+			if (!(m_Options&CONTAINER_SEARCH))
 			{
-				d=((m_Items[idx].row-row)<<16)+abs(m_Items[idx].itemRect.left-x0);
+				if (m_Items[idx].column==col && m_Items[idx].row>row)
+				{
+					d=((m_Items[idx].row-row)<<16)+abs(m_Items[idx].itemRect.left-x0);
+				}
+				else if (m_Items[idx].bInline && !m_Items[idx].bInlineFirst)
+					continue;
 			}
-			else if (m_Items[idx].bInline && !m_Items[idx].bInlineFirst)
-				continue;
 			if (d<dist)
 			{
 				dist=d;
@@ -2862,6 +2908,8 @@ LRESULT CMenuContainer::OnMouseMove( UINT uMsg, WPARAM wParam, LPARAM lParam, BO
 		TrackMouseEvent(&track);
 		m_bTrackMouse=true;
 	}
+	if (!(wParam&MK_LBUTTON) && m_ClickIndex==-2)
+		m_ClickIndex=-1;
 	if (m_HotPos==GetMessagePos())
 		return 0; // HACK - ignore the mouse if it hasn't moved since last time. otherwise the mouse can override the keyboard navigation
 	m_HotPos=GetMessagePos();
@@ -3067,12 +3115,13 @@ LRESULT CMenuContainer::OnLButtonDblClick( UINT uMsg, WPARAM wParam, LPARAM lPar
 
 LRESULT CMenuContainer::OnLButtonUp( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	if (GetCapture()!=m_hWnd)
+	if (GetCapture()==m_hWnd)
+		ReleaseCapture();
+	else if (m_ClickIndex!=-2)
 		return 0;
-	ReleaseCapture();
 	POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
 	int index=HitTest(pt);
-	if (index!=m_ClickIndex)
+	if (index!=m_ClickIndex && m_ClickIndex!=-2)
 	{
 		SetHotItem(-1);
 		return 0;
@@ -3720,6 +3769,19 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 				break;
 			case MENU_HIBERNATE:
 				g_StdOptions[i].options=powerCaps.HiberFilePresent?MENU_ENABLED|MENU_EXPANDED:0;
+				break;
+			case MENU_SWITCHUSER:
+				{
+					g_StdOptions[i].options=MENU_ENABLED|MENU_EXPANDED;
+					CComPtr<IShellDispatch2> pShellDisp;
+					if (SUCCEEDED(CoCreateInstance(CLSID_Shell,NULL,CLSCTX_SERVER,IID_IShellDispatch2,(void**)&pShellDisp)))
+					{
+						long val;
+						if (SUCCEEDED(pShellDisp->IsRestricted(CComBSTR(L"System"),CComBSTR(L"HideFastUserSwitching"),&val)) && val)
+							g_StdOptions[i].options=0;
+					}
+				}
+				
 				break;
 		}
 		LOG_MENU(LOG_OPEN,L"ItemOptions[%d]=%d",i,g_StdOptions[i].options);

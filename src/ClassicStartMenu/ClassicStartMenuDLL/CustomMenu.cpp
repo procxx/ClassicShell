@@ -45,6 +45,7 @@ static StdMenuItem g_StdMenu[]=
 	{L"restart",MENU_RESTART},
 	{L"shutdown",MENU_SHUTDOWN},
 	{L"switch_user",MENU_SWITCHUSER},
+	{L"lock",MENU_LOCK},
 	{L"*recent_items",MENU_RECENT_ITEMS},
 	{L"search_box",MENU_SEARCH_BOX},
 };

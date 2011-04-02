@@ -29,8 +29,8 @@ HICON ShExtractIcon( const char *path, int index, int iconSize );
 // Converts an icon to a bitmap. pBits may be NULL. If bDestroyIcon is true, hIcon will be destroyed
 HBITMAP BitmapFromIcon( HICON hIcon, int iconSize, unsigned int **pBits, bool bDestroyIcon );
 
-// Premultiplies the alpha channel of a DIB section
-void PremultiplyAlpha( HBITMAP hBitmap );
+// Premultiplies a DIB section by the alpha channel and a given color
+void PremultiplyBitmap( HBITMAP hBitmap, COLORREF rgb );
 
 // Creates a grayscale version of an icon
 HICON CreateDisabledIcon( HICON hIcon, int iconSize );

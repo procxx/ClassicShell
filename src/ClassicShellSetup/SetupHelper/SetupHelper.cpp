@@ -64,7 +64,7 @@ struct IniFile
 const IniFile g_Inis[]=
 {
 	{L"ExplorerL10N.ini",true},
-	{L"StartMenuItems.ini",false},
+	{L"StartMenuL10N.ini",false},
 };
 
 int CalcIniChecksum( wchar_t *const *params, int count )
@@ -214,7 +214,7 @@ int ExitStartMenu( void )
 
 int MakeEnglishDll( wchar_t *const *params, int count )
 {
-	if (count<3) return 2;
+	if (count<4) return 2;
 
 	AttachConsole(ATTACH_PARENT_PROCESS);
 
@@ -258,7 +258,7 @@ int MakeEnglishDll( wchar_t *const *params, int count )
 	}
 
 	int res=1;
-	HMODULE hExplorer=NULL, hMenu=NULL;
+	HMODULE hExplorer=NULL, hMenu=NULL, hIE9=NULL;
 	WORD language=MAKELANGID(LANG_ENGLISH,SUBLANG_ENGLISH_US);
 
 	// get version, strings and dialog from ClassicExplorer32.dll
@@ -346,6 +346,26 @@ int MakeEnglishDll( wchar_t *const *params, int count )
 		UpdateResource(hEn,RT_DIALOG,MAKEINTRESOURCE(id),language,pRes,SizeofResource(hMenu,hResInfo));
 	}
 
+	// get strings from ClassicIE9DLL.dll
+	hIE9=LoadLibraryEx(params[3],NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+	if (!hIE9)
+	{
+		Printf("Failed to open %S (err: %d)\n",params[3],GetLastError());
+		goto qqq;
+	}
+
+	// copy strings
+	for (int i=5000;i<6000;i+=16)
+	{
+		int id=i/16;
+		HRSRC hResInfo=FindResource(hIE9,MAKEINTRESOURCE(id),RT_STRING);
+		if (!hResInfo) continue;
+		HGLOBAL hRes=LoadResource(hIE9,hResInfo);
+		void *pRes=LockResource(hRes);
+		if (!pRes) continue;
+		UpdateResource(hEn,RT_STRING,MAKEINTRESOURCE(id),language,pRes,SizeofResource(hIE9,hResInfo));
+	}
+
 	res=0;
 qqq:
 	if (!EndUpdateResource(hEn,res!=0) && res==0)
@@ -355,6 +375,7 @@ qqq:
 	}
 	if (hExplorer) FreeLibrary(hExplorer);
 	if (hMenu) FreeLibrary(hMenu);
+	if (hIE9) FreeLibrary(hIE9);
 
 	return res;
 }
@@ -539,7 +560,7 @@ int RestoreRunKey( wchar_t *const *params, int count )
 //   crcmsi <msi path> // creates a file with checksum of both msi files
 //   ini <install path> level // backs up and deletes the ini files
 //   exitSM // exits the start menu if it is running
-//   makeEN <explorer dll> <start menu dll> // extracts the localization resources and creates a sample en-US.DLL
+//   makeEN <explorer dll> <start menu dll> <ie9 dll> // extracts the localization resources and creates a sample en-US.DLL
 //   run store|restore // stores or restores the Run registry key (used to work around a bug in the 2.8.1/2 uninstaller)
 
 int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrCmdLine, int nCmdShow )

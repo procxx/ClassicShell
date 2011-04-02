@@ -3,7 +3,6 @@
 
 #pragma once
 
-// 
 class ISettingsPanel
 {
 public:
@@ -21,11 +20,13 @@ struct CSetting
 		TYPE_BOOL=1,
 		TYPE_INT,
 		TYPE_HOTKEY,
+		TYPE_COLOR,
 
 		// string types
 		TYPE_STRING,
 		TYPE_ICON,
 		TYPE_SOUND,
+		TYPE_FONT,
 		TYPE_MULTISTRING,
 	};
 
@@ -57,6 +58,8 @@ struct CSetting
 	CComVariant value; // current value
 	CComVariant tempValue; // the value is stored here when editing begins and restored if the editing is canceled
 	unsigned int tempFlags;
+
+	bool IsEnabled( void ) const;
 };
 
 // Images in the tree image list
@@ -69,9 +72,18 @@ enum {
 	// additional flags
 	SETTING_STATE_DISABLED=1,
 	SETTING_STATE_CHECKED=2,
+
+	SETTING_IMAGE_COLOR=13, // 10 blank images to use for custom colors
 };
 
-void InitSettings( CSetting *pSettings, bool bMenu );
+enum TSettingsComponent
+{
+	COMPONENT_EXPLORER,
+	COMPONENT_MENU,
+	COMPONENT_IE9,
+};
+
+void InitSettings( CSetting *pSettings, TSettingsComponent component );
 void LoadSettings( void );
 void UpdateDefaultSettings( void );
 void EditSettings( const wchar_t *title, bool bModal );

@@ -78,11 +78,57 @@ static bool IsVariantTrue( const CComVariant &var )
 	return (var.vt==VT_I4 && var.intVal==1);
 }
 
+bool CSetting::IsEnabled( void ) const
+{
+	if (flags&CSetting::FLAG_LOCKED_MASK)
+		return false;
+
+	if (depend)
+	{
+		int len=Strlen(depend);
+		int val=0;
+		wchar_t operation='~';
+		const wchar_t operations[]=L"=~<>";
+		for (const wchar_t *c=operations;*c;c++)
+		{
+			const wchar_t *p=wcschr(depend,*c);
+			if (p)
+			{
+				operation=*c;
+				len=(int)(p-depend);
+				val=_wtol(p+1);
+				break;
+			}
+		}
+		for (const CSetting *pSetting=GetAllSettings();pSetting->name;pSetting++)
+		{
+			if (_wcsnicmp(pSetting->name,depend,len)==0)
+			{
+				if (!pSetting->IsEnabled())
+					return false;
+				if ((pSetting->type==CSetting::TYPE_BOOL || pSetting->type==CSetting::TYPE_INT) && pSetting->value.vt==VT_I4)
+				{
+					if (operation=='=' && pSetting->value.intVal!=val)
+						return false;
+					if (operation=='~' && pSetting->value.intVal==val)
+						return false;
+					if (operation=='<' && pSetting->value.intVal>=val)
+						return false;
+					if (operation=='>' && pSetting->value.intVal<=val)
+						return false;
+				}
+				break;
+			}
+		}
+	}
+	return true;
+}
+
 class CSettingsManager
 {
 public:
 	~CSettingsManager( void );
-	void Init( CSetting *pSettings, bool bMenu, const wchar_t *regPath );
+	void Init( CSetting *pSettings, TSettingsComponent component );
 
 	bool GetSettingBool( const wchar_t *name ) const;
 	bool GetSettingBool( const wchar_t *name, bool &bDef ) const;
@@ -99,21 +145,39 @@ public:
 	CSetting *GetSettings( void ) const { return m_pSettings; }
 	HIMAGELIST GetImageList( HWND tree );
 	const wchar_t *GetRegPath( void ) const { return m_RegPath; }
-	bool GetMenu( void ) const { return m_bMenu; }
+	const wchar_t *GetXMLName( void ) const { return m_XMLName; }
 
 private:
 	CSetting *m_pSettings;
 	HIMAGELIST m_ImageList;
 	const wchar_t *m_RegPath;
-	bool m_bMenu;
+	const wchar_t *m_CompName;
+	const wchar_t *m_XMLName;
 };
 
 static CSettingsManager g_SettingsManager;
 
-void CSettingsManager::Init( CSetting *pSettings, bool bMenu, const wchar_t *regPath )
+void CSettingsManager::Init( CSetting *pSettings, TSettingsComponent component )
 {
-	m_bMenu=bMenu;
-	m_RegPath=regPath;
+	switch (component)
+	{
+		case COMPONENT_EXPLORER:
+			m_RegPath=L"Software\\IvoSoft\\ClassicExplorer";
+			m_CompName=L"Explorer";
+			m_XMLName=L"Explorer Settings.xml";
+			break;
+		case COMPONENT_MENU:
+			m_RegPath=L"Software\\IvoSoft\\ClassicStartMenu";
+			m_CompName=L"StartMenu";
+			m_XMLName=L"Menu Settings.xml";
+			break;
+		case COMPONENT_IE9:
+			m_RegPath=L"Software\\IvoSoft\\ClassicIE9";
+			m_CompName=L"IE9";
+			m_XMLName=L"IE9 Settings.xml";
+			break;
+	}
+	
 	m_pSettings=pSettings;
 	InitializeSRWLock(&g_SettingsLock);
 	CSettingsLockWrite lock;
@@ -126,7 +190,7 @@ void CSettingsManager::Init( CSetting *pSettings, bool bMenu, const wchar_t *reg
 		{
 			ATLASSERT(pSetting->defValue.vt==VT_I4 && (pSetting->defValue.intVal==0 || pSetting->defValue.intVal==1));
 		}
-		else if (pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY)
+		else if (pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR)
 		{
 			ATLASSERT(pSetting->defValue.vt==VT_I4);
 		}
@@ -182,7 +246,7 @@ int CSettingsManager::GetSettingInt( const wchar_t *name ) const
 {
 	for (const CSetting *pSetting=m_pSettings;pSetting->name;pSetting++)
 	{
-		if ((pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY) && _wcsicmp(pSetting->name,name)==0)
+		if ((pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR) && _wcsicmp(pSetting->name,name)==0)
 		{
 			CSettingsLockRead lock;
 			ATLASSERT(pSetting->value.vt==VT_I4);
@@ -262,7 +326,7 @@ void CSettingsManager::LoadSettings( void )
 						pSetting->flags|=CSetting::FLAG_LOCKED_REG;
 						pSetting->flags&=~CSetting::FLAG_DEFAULT;
 					}
-					if (pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY)
+					if (pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR)
 					{
 						pSetting->value=CComVariant((int)val);
 						pSetting->flags|=CSetting::FLAG_LOCKED_REG;
@@ -328,7 +392,7 @@ void CSettingsManager::LoadSettings( void )
 				if (pSetting->flags&CSetting::FLAG_LOCKED_REG)
 					continue;
 				DWORD val;
-				if ((pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY)
+				if ((pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR)
 					&& regSettings.QueryDWORDValue(pSetting->name,val)==ERROR_SUCCESS)
 				{
 					if (pSetting->type==CSetting::TYPE_BOOL)
@@ -408,7 +472,7 @@ void CSettingsManager::SaveSettings( void )
 			regSettings.DeleteValue(pSetting->name);
 			continue;
 		}
-		if (pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY)
+		if (pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR)
 		{
 			DWORD val=0;
 			if (pSetting->value.vt==VT_I4)
@@ -478,7 +542,7 @@ bool CSettingsManager::LoadSettingsXml( const wchar_t *fname )
 		CComQIPtr<IXMLDOMElement> element=node;
 		if (!element || element->getAttribute(CComBSTR(L"component"),&value)!=S_OK || value.vt!=VT_BSTR)
 			return false;
-		if (_wcsicmp(value.bstrVal,m_bMenu?L"StartMenu":L"Explorer")!=0)
+		if (_wcsicmp(value.bstrVal,m_CompName)!=0)
 			return false;
 
 		value.Clear();
@@ -547,7 +611,7 @@ bool CSettingsManager::LoadSettingsXml( const wchar_t *fname )
 								pSetting->value=value;
 								pSetting->flags&=~CSetting::FLAG_DEFAULT;
 							}
-							else if (pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY)
+							else if (pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR)
 							{
 								int val=_wtol(value.bstrVal);
 								if (pSetting->type==CSetting::TYPE_BOOL)
@@ -620,7 +684,7 @@ bool CSettingsManager::SaveSettingsXml( const wchar_t *fname )
 		pDoc->appendChild(pRoot,&nu);
 	}
 
-	pRoot->setAttribute(CComBSTR(L"component"),CComVariant(m_bMenu?L"StartMenu":L"Explorer"));
+	pRoot->setAttribute(CComBSTR(L"component"),CComVariant(m_CompName));
 
 	wchar_t version[100];
 	DWORD ver=GetVersionEx(_AtlBaseModule.GetResourceInstance());
@@ -719,7 +783,7 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 	if (m_ImageList) return m_ImageList;
 	int size=TreeView_GetItemHeight(tree);
 	if (size>16 && size<20) size=16; // avoid weird sizes that can distort the icons
-	m_ImageList=ImageList_Create(size,size,ILC_COLOR32|ILC_MASK|((GetWindowLong(tree,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)?ILC_MIRROR:0),0,13);
+	m_ImageList=ImageList_Create(size,size,ILC_COLOR32|ILC_MASK|((GetWindowLong(tree,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)?ILC_MIRROR:0),0,23);
 	BITMAPINFO dib={sizeof(dib)};
 	dib.bmiHeader.biWidth=size;
 	dib.bmiHeader.biHeight=-size;
@@ -747,7 +811,7 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 			DrawIconEx(hdcMask,0,0,icon,size,size,0,NULL,DI_MASK);
 			DestroyIcon(icon);
 		}
-		else if (i==2)
+		else if (i==2 || i==3)
 		{
 			HMODULE hShell32=GetModuleHandle(L"shell32.dll");
 			if (hShell32)
@@ -756,10 +820,6 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 				DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
 				DestroyIcon(icon);
 			}
-		}
-		else if (i==3)
-		{
-			ImageList_DrawEx(m_ImageList,2,hdc,0,0,size,size,CLR_NONE,GetSysColor(COLOR_WINDOW),ILD_BLEND|ILD_NORMAL);
 		}
 		else if (i==12)
 		{
@@ -804,6 +864,20 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 		SelectObject(hdc,bmp0);
 		SelectObject(hdcMask,bmp1);
 		ImageList_Add(m_ImageList,bmp,bmpMask);
+	}
+
+	// create color images
+	{
+		HBITMAP bmp0=(HBITMAP)SelectObject(hdc,bmp);
+		HBITMAP bmp1=(HBITMAP)SelectObject(hdcMask,bmpMask);
+		RECT rc={0,0,size,size};
+		FillRect(hdc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
+		FillRect(hdcMask,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
+		SelectObject(hdc,bmp0);
+		SelectObject(hdcMask,bmp1);
+
+		for (int i=0;i<10;i++)
+			ImageList_Add(m_ImageList,bmp,bmpMask);
 	}
 
 	DeleteObject(bmp);
@@ -1191,7 +1265,7 @@ LRESULT CSettingsDlg::OnBackup( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& 
 	{
 		// save
 		wchar_t path[_MAX_PATH];
-		Strcpy(path,_countof(path),g_SettingsManager.GetMenu()?L"Menu Settings.xml":L"Explorer Settings.xml");
+		Strcpy(path,_countof(path),g_SettingsManager.GetXMLName());
 		OPENFILENAME ofn={sizeof(ofn)};
 		ofn.hwndOwner=m_hWnd;
 		wchar_t filters[256];
@@ -1399,9 +1473,9 @@ bool IsSettingsMessage( MSG *msg )
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void InitSettings( CSetting *pSettings, bool bMenu )
+void InitSettings( CSetting *pSettings, TSettingsComponent component )
 {
-	g_SettingsManager.Init(pSettings,bMenu,bMenu?L"Software\\IvoSoft\\ClassicStartMenu":L"Software\\IvoSoft\\ClassicExplorer");
+	g_SettingsManager.Init(pSettings,component);
 }
 
 void LoadSettings( void )

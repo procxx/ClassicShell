@@ -1,4 +1,16 @@
 ===============================================================================
+== Version 3.1.0 general release (Apr, 2011):
+
+- Added a new component called Classic IE9. It lets you customize the title bar
+  and the status bar of Internet Explorer 9
+
+- Added ability to use external search programs from the search box of the
+  start menu
+
+- Added support for the Lock command in the start menu
+
+
+===============================================================================
 == Version 3.0.0 general release (Mar, 2011):
 
 - Fixed some minor problems found in the previous version

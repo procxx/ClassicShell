@@ -3,9 +3,13 @@
   <String Id="Error32bit" Overridable="yes">This installer is only for 32-bit version of Windows. For 64-bit Windows you need to run ClassicShellSetup64.</String>
   <String Id="ErrorVista" Overridable="yes">Classic Shell requires Windows Vista or above.</String>
   <String Id="ErrorNewVersion" Overridable="yes">A newer version of [ProductName] is already installed. The setup will now exit.</String>
+  <String Id="ExplorerDesc" Overridable="yes">Classic Explorer adds a toolbar to Windows Explorer, replaces the copy UI and fixes some usability problems</String>
+  <String Id="StartMenuDesc" Overridable="yes">Classic Start Menu is a highly customizable replacement for the Windows start menu</String>
+  <String Id="IE9Desc" Overridable="yes">Classic IE9 lets you customize the title bar and the status bar of Internet Explorer 9</String>
   <String Id="HelpDesc" Overridable="yes">View the Classic Shell documentation</String>
   <String Id="ExplorerSettingsDesc" Overridable="yes">Edit the settings of Classic Explorer</String>
   <String Id="StartSettingsDesc" Overridable="yes">Edit the settings of the classic start menu</String>
+  <String Id="IE9SettingsDesc" Overridable="yes">Edit the settings of the Iternet Explorer 9 title bar and status bar</String>
   <String Id="StartMenuFolder" Overridable="yes">Create a start menu folder</String>
   <String Id="ViewReadme" Overridable="yes">View Readme file</String>
 </WixLocalization>

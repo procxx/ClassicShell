@@ -1,5 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html><head>
+
  <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Start Menu</title>
 <style type="text/css">
 h1 {
@@ -13,7 +14,7 @@ body {
   font-family: Arial,Helvetica,sans-serif;
 }
 
-</style></head><body>
+</style></head><body><span style="font-weight: bold;"></span><span style="font-weight: bold;"></span>
 <h1><a target="_blank" href="http://classicshell.sourceforge.net/"><img src="images/ClassicShell.png" style="border: 0px solid ; width: 64px; height: 64px;" alt="Classic Shell on Source Forge" title="Classic Shell on Source Forge"></a>&nbsp;
 Classic Start Menu</h1><span style="font-style: italic; color: rgb(0, 112, 192); font-weight: bold;"></span><span style="color: rgb(79, 129, 189); font-weight: bold;"><br>
 Classic Start Menu</span> is a
@@ -243,9 +244,9 @@ cascading menu of all programs, similar to Windows XP:<br>
 You can enable the cascading menu by checking <span style="font-weight: bold;">Cascade All Programs menu</span> in the <span style="font-weight: bold;">Windows Start Menu</span> tab of the Settings. You can also pick a separate skin for the sub-menus from the <span style="font-weight: bold;">All Programs Skin</span> tab.<br>
 <br>
 <br>
-<h1><a name="search"></a>Search</h1><img style="width: 273px; height: 161px;" alt="Search Box" title="Search Box" src="images/search1.png"><br>
+<h1><a name="search"></a>Search</h1><img src="images/search1.png" style="width: 273px; height: 161px;" alt="Search Box" title="Search Box"><br>
 <br>
- <img style="width: 501px; height: 161px;" alt="Search Results" title="Search Results" src="images/search2.png"><br>
+ <img src="images/search2.png" style="width: 501px; height: 161px;" alt="Search Results" title="Search Results"><br>
 
 The search box lets you search the contents of the start menu and the
 programs in the PATH environment variables. You can have the search box
@@ -278,6 +279,27 @@ you may be missing the search item. Go to the<span style="font-weight: bold;"> C
 in the Settings and drop Search Box into your menu. The search box
 works best when it is in the main menu, but you can place it in a
 sub-menu if you really want to.<br>
+<br>
+You can register additional "search providers", which you can use to
+search for the text from the search box. You run the search program
+either by selecting it from the menu, or by
+pressing Alt+key. In this example use Alt+A for Agent Ransack and Alt+G
+for Google Search.<br>
+<img src="images/search3.png" style="width: 400px; height: 120px;" alt="Search providers" title="Search providers"><br>
+<br>
+This is done by adding sub-items of the SearchBoxItem in the <span style="font-weight: bold;">Customize Start Menu</span> tab:<br>
+<img src="images/search4.png" style="width: 226px; height: 246px;" alt="Search settings" title="Search settings"><br>
+<br>
+Open each of the sub-items and enter a command to start the search program. If you use <span style="font-weight: bold;">%1</span> in the command, it will be replaced by the contents of the search box. If you use <span style="font-weight: bold;">%2</span>
+it will be replaced by the url-style encoded search text. Enter a
+label, tip, and icon to complete your menu entry. In the label text you
+can use <span style="font-weight: bold;">&amp;</span> to mark the accelerator character (for example <span style="font-weight: bold;">Search with &amp;Google</span>).<br>
+<br>
+Here are a few possible commands:<br>
+Search with Agent Ransack: <span style="font-weight: bold;">"C:\Program Files\Agent Ransack\AgentRansack.exe" -r -f "%1"</span><br>
+Search with Everything: <span style="font-weight: bold;">"C:\Program Files\Everything\Everything.exe" -search "%1"</span><br>
+Search with Google: <span style="font-weight: bold;">http://www.google.com/#q=%2</span><br>
+Search with Bing: <span style="font-weight: bold;">http://www.bing.com/search?q=%2</span><br>
 <br>
 <br>
 <h1><a name="localization"></a>Localization</h1>

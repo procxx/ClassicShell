@@ -226,7 +226,7 @@ int CSettingsParser::ParseTreeRec( const wchar_t *str, std::vector<TreeItem> &it
 		for (size_t i=start;i<end;i++)
 		{
 			wchar_t buf[266];
-			swprintf_s(buf,L"%s.Items",items[i].name);
+			Sprintf(buf,_countof(buf),L"%s.Items",items[i].name);
 			const wchar_t *str2=FindSetting(buf);
 			if (str2)
 			{

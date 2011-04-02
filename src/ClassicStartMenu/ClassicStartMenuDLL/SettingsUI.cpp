@@ -649,6 +649,7 @@ static CStdCommand g_StdCommands[]={
 	{L"restart",L"Restart",IDS_RESTART_TIP,L"RestartItem",L"$Menu.Restart",NULL,L""},
 	{L"shutdown",L"Shutdown",IDS_SHUTDOWN_TIP,L"ShutdownItem",L"$Menu.Shutdown",NULL,L""},
 	{L"switch_user",L"Switch User",IDS_SWITCH_TIP,L"SwitchUserItem",L"$Menu.SwitchUser",NULL,L""},
+	{L"lock",L"Lock",IDS_LOCK_TIP,L"LockItem",L"$Menu.Lock",NULL,L""},
 	{L"recent_items",L"Recent Items",IDS_RECENT_TIP,L"RecentItems",NULL,NULL,L""},
 	{L"",L"Custom Command",IDS_CUSTOM_TIP,L"CustomItem",NULL,NULL,L""},
 	{NULL},
@@ -693,7 +694,7 @@ L"DisconnectItem.Icon=shell32.dll,329\n"
 L"ShutdownBoxItem.Command=shutdown_box\n"
 L"ShutdownBoxItem.Label=$Menu.ShutdownBox\n"
 L"ShutdownBoxItem.Icon=shell32.dll,329\n"
-L"ShutdownBoxItem.Items=SwitchUserItem, SleepItem, HibernateItem, RestartItem, ShutdownItem\n"
+L"ShutdownBoxItem.Items=SwitchUserItem, LockItem, SleepItem, HibernateItem, RestartItem, ShutdownItem\n"
 L"SearchBoxItem.Command=search_box\n"
 L"SearchBoxItem.Label=$Menu.SearchBox\n"
 L"SearchBoxItem.Icon=none\n"
@@ -745,6 +746,9 @@ L"SearchPeopleItem.Icon=shell32.dll,269\n"
 L"SwitchUserItem.Command=switch_user\n"
 L"SwitchUserItem.Label=$Menu.SwitchUser\n"
 L"SwitchUserItem.Icon=none\n"
+L"LockItem.Command=lock\n"
+L"LockItem.Label=$Menu.Lock\n"
+L"LockItem.Icon=none\n"
 L"SleepItem.Command=sleep\n"
 L"SleepItem.Label=$Menu.Sleep\n"
 L"SleepItem.Icon=none\n"
@@ -1525,9 +1529,9 @@ CSetting g_Settings[]={
 
 void UpdateSettings( void )
 {
-	HDC hdc=::GetDC(NULL);
+	HDC hdc=GetDC(NULL);
 	int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
-	::ReleaseDC(NULL,hdc);
+	ReleaseDC(NULL,hdc);
 	int iconSize=24;
 	if (dpi<=96)
 		iconSize=16;
@@ -1632,7 +1636,7 @@ void UpdateSettings( void )
 
 void InitSettings( void )
 {
-	InitSettings(g_Settings,L"Software\\IvoSoft\\ClassicStartMenu");
+	InitSettings(g_Settings,COMPONENT_MENU);
 }
 
 void ClosingSettings( HWND hWnd, int flags, int command )

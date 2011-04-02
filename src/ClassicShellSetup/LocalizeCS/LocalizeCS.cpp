@@ -158,7 +158,7 @@ int ExtractStrings( const wchar_t *dllName, const wchar_t *csvName )
 	WriteFile(hCSV,title,Strlen(title)*2,&q,NULL);
 
 	// copy strings
-	for (int i=2000;i<5000;i+=16)
+	for (int i=2000;i<6000;i+=16)
 	{
 		int id=i/16;
 		HRSRC hResInfo=FindResource(hDLL,MAKEINTRESOURCE(id),RT_STRING);

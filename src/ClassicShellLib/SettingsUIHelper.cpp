@@ -2159,6 +2159,8 @@ public:
 		EDIT_ICON,
 		EDIT_SOUND,
 		EDIT_HOTKEY,
+		EDIT_COLOR,
+		EDIT_FONT,
 	};
 
 	BEGIN_MSG_MAP( CTreeSettingsDlg )
@@ -2332,6 +2334,8 @@ static LRESULT CALLBACK SubclassEditProc( HWND hWnd, UINT uMsg, WPARAM wParam, L
 		if (uMsg==WM_RBUTTONUP || uMsg==WM_CONTEXTMENU)
 			return 0;
 	}
+	if (uMsg==WM_CHAR && wParam==VK_RETURN)
+		return 0;
 	if (uMsg==WM_GETDLGCODE && wParam==VK_RETURN)
 		return DLGC_WANTALLKEYS;
 	if (uMsg==WM_KEYDOWN)
@@ -2489,6 +2493,82 @@ LRESULT CTreeSettingsDlg::OnBrowse( WORD wNotifyCode, WORD wID, HWND hWndCtl, BO
 		m_EditBox.SetFocus();
 		m_bIgnoreFocus=false;
 	}
+	else if (m_EditMode==EDIT_COLOR)
+	{
+		m_bIgnoreFocus=true;
+		CString str;
+		m_EditBox.GetWindowText(str);
+		str.TrimLeft(); str.TrimRight();
+		wchar_t *end;
+		int val=wcstol(str,&end,16)&0xFFFFFF;
+		static COLORREF customColors[16];
+		CHOOSECOLOR choose={sizeof(choose),m_hWnd,NULL,val,customColors};
+		choose.Flags=CC_ANYCOLOR|CC_FULLOPEN|CC_RGBINIT;
+		if (ChooseColor(&choose))
+		{
+			wchar_t text[100];
+			Sprintf(text,_countof(text),L"%06X",choose.rgbResult);
+			m_EditBox.SetWindowText(text);
+			ApplyEditBox();
+			UpdateGroup(m_pEditSetting);
+			m_Tree.Invalidate();
+		}
+		SendMessage(WM_NEXTDLGCTL,(LPARAM)m_EditBox.m_hWnd,TRUE);
+		m_EditBox.SetFocus();
+		m_bIgnoreFocus=false;
+	}
+	else if (m_EditMode==EDIT_FONT)
+	{
+		m_bIgnoreFocus=true;
+		CString text;
+		m_EditBox.GetWindowText(text);
+
+		HDC hdc=::GetDC(NULL);
+		int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
+		::ReleaseDC(NULL,hdc);
+
+		LOGFONT font={0};
+		const wchar_t *str=text;
+		while (*str==' ')
+			str++;
+		str=GetToken(str,font.lfFaceName,_countof(font.lfFaceName),L",");
+		int len=Strlen(font.lfFaceName);
+		while (len>0 && font.lfFaceName[len-1]==' ')
+			font.lfFaceName[--len]=0;
+		while (*str==' ')
+			str++;
+		wchar_t token[256];
+		str=GetToken(str,token,_countof(token),L",");
+		len=Strlen(token);
+		while (len>0 && token[len-1]==' ')
+			token[--len]=0;
+		font.lfWeight=FW_NORMAL;
+		if (_wcsicmp(token,L"bold")==0)
+			font.lfWeight=FW_BOLD;
+		else if (_wcsicmp(token,L"italic")==0)
+			font.lfItalic=1;
+		else if (_wcsicmp(token,L"bold_italic")==0)
+			font.lfWeight=FW_BOLD, font.lfItalic=1;
+		str=GetToken(str,token,_countof(token),L", \t");
+		font.lfHeight=-(_wtol(token)*dpi+36)/72;
+
+		CHOOSEFONT choose={sizeof(choose),m_hWnd,NULL,&font};
+		choose.Flags=CF_NOSCRIPTSEL;
+		if (*font.lfFaceName)
+			choose.Flags|=CF_INITTOLOGFONTSTRUCT;
+		if (ChooseFont(&choose))
+		{
+			wchar_t text[256];
+			const wchar_t *type=font.lfItalic?L"italic":L"normal";
+			if (font.lfWeight==FW_BOLD)
+				type=font.lfItalic?L"bold_italic":L"bold";
+			Sprintf(text,_countof(text),L"%s, %s, %d",font.lfFaceName,type,(-font.lfHeight*72+dpi/2)/dpi);
+			m_EditBox.SetWindowText(text);
+		}
+		SendMessage(WM_NEXTDLGCTL,(LPARAM)m_EditBox.m_hWnd,TRUE);
+		m_EditBox.SetFocus();
+		m_bIgnoreFocus=false;
+	}
 	return 0;
 }
 
@@ -2510,7 +2590,7 @@ LRESULT CTreeSettingsDlg::OnCustomDraw( int idCtrl, LPNMHDR pnmh, BOOL& bHandled
 	{
 		TVITEM item={TVIF_IMAGE|TVIF_STATE,(HTREEITEM)pDraw->nmcd.dwItemSpec,0,TVIS_SELECTED};
 		TreeView_GetItem(m_Tree,&item);
-		if ((item.iImage&SETTING_STATE_DISABLED) && (!(item.state&TVIS_SELECTED) || IsAppThemed()))
+		if ((item.state&TVIS_CUT) && (!(item.state&TVIS_SELECTED) || IsAppThemed()))
 			pDraw->clrText=GetSysColor(COLOR_GRAYTEXT);
 	}
 	return CDRF_DODEFAULT;
@@ -2519,9 +2599,9 @@ LRESULT CTreeSettingsDlg::OnCustomDraw( int idCtrl, LPNMHDR pnmh, BOOL& bHandled
 void CTreeSettingsDlg::ToggleItem( HTREEITEM hItem, bool bDefault )
 {
 	if (!hItem) return;
-	TVITEM item={TVIF_PARAM|TVIF_IMAGE,hItem};
+	TVITEM item={TVIF_PARAM|TVIF_IMAGE|TVIF_STATE,hItem,0,TVIS_CUT};
 	TreeView_GetItem(m_Tree,&item);
-	if (item.iImage&SETTING_STATE_DISABLED)
+	if (item.state&TVIS_CUT)
 		return;
 	CSetting *pSetting=(CSetting*)item.lParam;
 	if (bDefault)
@@ -2642,7 +2722,7 @@ LRESULT CTreeSettingsDlg::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam
 
 	if (!hItem) return 0;
 
-	TVITEM item={TVIF_PARAM|TVIF_IMAGE,hItem};
+	TVITEM item={TVIF_PARAM|TVIF_IMAGE|TVIF_STATE,hItem,0,TVIS_CUT};
 	TreeView_GetItem(m_Tree,&item);
 	CSetting *pSetting=(CSetting*)item.lParam;
 
@@ -2652,17 +2732,17 @@ LRESULT CTreeSettingsDlg::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam
 		if (pSetting->type==CSetting::TYPE_BOOL)
 		{
 			AppendMenu(menu,MF_STRING,1,LoadStringEx(IDS_TOGGLE_SETTING));
-			if (item.iImage&SETTING_STATE_DISABLED)
+			if (item.state&TVIS_CUT)
 				EnableMenuItem(menu,1,MF_BYCOMMAND|MF_GRAYED);
 		}
 		AppendMenu(menu,MF_STRING,2,LoadStringEx(IDS_DEFAULT_SETTING));
-		if ((item.iImage&SETTING_STATE_DISABLED) || (pSetting->flags&CSetting::FLAG_DEFAULT))
+		if ((item.state&TVIS_CUT) || (pSetting->flags&CSetting::FLAG_DEFAULT))
 			EnableMenuItem(menu,2,MF_BYCOMMAND|MF_GRAYED);
 	}
 	else
 	{
 		AppendMenu(menu,MF_STRING,1,LoadStringEx(IDS_SELECT_SETTING));
-		if (item.iImage&SETTING_STATE_DISABLED)
+		if (item.state&TVIS_CUT)
 			EnableMenuItem(menu,1,MF_BYCOMMAND|MF_GRAYED);
 	}
 	if (pSetting->type==CSetting::TYPE_SOUND)
@@ -2717,10 +2797,10 @@ LRESULT CTreeSettingsDlg::OnSelChanged( int idCtrl, LPNMHDR pnmh, BOOL& bHandled
 	HTREEITEM hItem=TreeView_GetSelection(m_Tree);
 	if (hItem)
 	{
-		TVITEM item={TVIF_PARAM|TVIF_IMAGE,hItem};
+		TVITEM item={TVIF_PARAM|TVIF_STATE,hItem,0,TVIS_CUT};
 		TreeView_GetItem(m_Tree,&item);
 		CSetting *pSetting=(CSetting*)item.lParam;
-		ItemSelected(item.hItem,pSetting,(item.iImage&SETTING_STATE_DISABLED)==0);
+		ItemSelected(item.hItem,pSetting,(item.state&TVIS_CUT)==0);
 	}
 	else
 		ItemSelected(NULL,NULL,false);
@@ -2739,6 +2819,16 @@ void CTreeSettingsDlg::ApplyEditBox( void )
 		if (m_pEditSetting->type==CSetting::TYPE_INT)
 		{
 			int val=_wtol(str);
+			if (m_pEditSetting->value.vt!=VT_I4 || m_pEditSetting->value.intVal!=val)
+			{
+				m_pEditSetting->value=CComVariant(val);
+				m_pEditSetting->flags&=~CSetting::FLAG_DEFAULT;
+			}
+		}
+		else if (m_pEditSetting->type==CSetting::TYPE_COLOR)
+		{
+			wchar_t *end;
+			int val=wcstol(str,&end,16)&0xFFFFFF;
 			if (m_pEditSetting->value.vt!=VT_I4 || m_pEditSetting->value.intVal!=val)
 			{
 				m_pEditSetting->value=CComVariant(val);
@@ -2786,7 +2876,7 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 				val=pSetting->value.intVal;
 			Sprintf(text,_countof(text),L"%d",val);
 		}
-		else if (pSetting->type==CSetting::TYPE_STRING || pSetting->type==CSetting::TYPE_ICON || pSetting->type==CSetting::TYPE_SOUND)
+		else if (pSetting->type==CSetting::TYPE_STRING || pSetting->type==CSetting::TYPE_ICON || pSetting->type==CSetting::TYPE_SOUND || pSetting->type==CSetting::TYPE_FONT)
 		{
 			if (pSetting->value.vt==VT_BSTR)
 				Strcpy(text,_countof(text),pSetting->value.bstrVal);
@@ -2796,8 +2886,10 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 				mode=EDIT_STRING;
 			else if (pSetting->type==CSetting::TYPE_ICON)
 				mode=EDIT_ICON;
-			else
+			else if (pSetting->type==CSetting::TYPE_SOUND)
 				mode=EDIT_SOUND;
+			else
+				mode=EDIT_FONT;
 		}
 		else if (pSetting->type==CSetting::TYPE_HOTKEY)
 		{
@@ -2810,6 +2902,14 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 			}
 			if (bEnabled)
 				mode=EDIT_HOTKEY;
+		}
+		else if (pSetting->type==CSetting::TYPE_COLOR)
+		{
+			mode=EDIT_COLOR;
+			int val=0;
+			if (pSetting->value.vt==VT_I4)
+				val=pSetting->value.intVal;
+			Sprintf(text,_countof(text),L"%06X",val);
 		}
 	}
 
@@ -2829,7 +2929,7 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 		m_pEditSetting=pSetting;
 	}
 
-	if (mode==EDIT_ICON || mode==EDIT_SOUND)
+	if (mode==EDIT_ICON || mode==EDIT_SOUND || mode==EDIT_FONT || mode==EDIT_COLOR)
 	{
 		RECT rc2=rc;
 		int h=rc2.bottom-rc2.top;
@@ -2887,14 +2987,14 @@ void CTreeSettingsDlg::UpdateEditPosition( void )
 	DeleteDC(hdc);
 	DWORD margins=(DWORD)m_EditBox.SendMessage(EM_GETMARGINS);
 	size.cx+=HIWORD(margins)+LOWORD(margins)+12;
-	if (m_EditMode==EDIT_ICON)
+	if (m_EditMode==EDIT_ICON || m_EditMode==EDIT_FONT || m_EditMode==EDIT_COLOR)
 		size.cx+=h;
 	if (m_EditMode==EDIT_SOUND)
 		size.cx+=h*2;
 	if (size.cx<w)
 		rc.right=rc.left+size.cx;
 
-	if (m_EditMode==EDIT_ICON || m_EditMode==EDIT_SOUND)
+	if (m_EditMode==EDIT_ICON || m_EditMode==EDIT_SOUND || m_EditMode==EDIT_FONT || m_EditMode==EDIT_COLOR)
 	{
 		RECT rc2=rc;
 		rc2.left=rc2.right-h;
@@ -2977,49 +3077,11 @@ void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 		hItem=hItem?TreeView_GetNextSibling(m_Tree,hItem):TreeView_GetRoot(m_Tree);
 
 		wchar_t text[256];
-		TVITEM item={TVIF_STATE|TVIF_IMAGE,hItem,0,TVIS_BOLD,text};
+		TVITEM item={TVIF_STATE|TVIF_IMAGE,hItem,0,TVIS_BOLD|TVIS_CUT,text};
 		TreeView_GetItem(m_Tree,&item);
 
 		// check if the item is enabled
-		bool bEnabled=true;
-		if (pSetting->flags&CSetting::FLAG_LOCKED_MASK)
-			bEnabled=false;
-		else if (pSetting->depend)
-		{
-			int len=Strlen(pSetting->depend);
-			int val=0;
-			wchar_t operation='~';
-			const wchar_t operations[]=L"=~<>";
-			for (const wchar_t *c=operations;*c;c++)
-			{
-				const wchar_t *p=wcschr(pSetting->depend,*c);
-				if (p)
-				{
-					operation=*c;
-					len=(int)(p-pSetting->depend);
-					val=_wtol(p+1);
-					break;
-				}
-			}
-			for (const CSetting *pSetting2=GetAllSettings();pSetting2->name;pSetting2++)
-			{
-				if ((pSetting2->type==CSetting::TYPE_BOOL || pSetting2->type==CSetting::TYPE_INT) && _wcsnicmp(pSetting2->name,pSetting->depend,len)==0)
-				{
-					if (pSetting2->value.vt==VT_I4)
-					{
-						if (operation=='=' && pSetting2->value.intVal!=val)
-							bEnabled=false;
-						if (operation=='~' && pSetting2->value.intVal==val)
-							bEnabled=false;
-						if (operation=='<' && pSetting2->value.intVal>=val)
-							bEnabled=false;
-						if (operation=='>' && pSetting2->value.intVal<=val)
-							bEnabled=false;
-					}
-					break;
-				}
-			}
-		}
+		bool bEnabled=pSetting->IsEnabled();
 
 		// check if the item is default
 		bool bDefault=(pSetting->flags&CSetting::FLAG_DEFAULT)!=0;
@@ -3055,20 +3117,69 @@ void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 				Sprintf(text,_countof(text),L"%s: %d",str,val);
 				item.mask|=TVIF_TEXT;
 			}
+			else if (pSetting->type==CSetting::TYPE_COLOR)
+			{
+				CString str=LoadStringEx(pSetting->nameID);
+				int val=0;
+				if (pSetting->value.vt==VT_I4)
+					val=pSetting->value.intVal;
+				Sprintf(text,_countof(text),L"%s: %06X",str,val);
+				item.mask|=TVIF_TEXT;
+			}
 		}
 
 		// calculate state
 		int image=SETTING_STATE_SETTING;
 		if (pSetting->type==CSetting::TYPE_BOOL)
 			image=SETTING_STATE_CHECKBOX|(IsVariantTrue(pSetting->value)?SETTING_STATE_CHECKED:0);
-		if (!bEnabled) image|=SETTING_STATE_DISABLED;
+		if (pSetting->type==CSetting::TYPE_COLOR)
+		{
+			image=SETTING_IMAGE_COLOR+(pSetting->flags>>24);
+
+			HIMAGELIST images=GetSettingsImageList(m_Tree);
+			int cx, cy;
+			ImageList_GetIconSize(images,&cx,&cy);
+
+			BITMAPINFO dib={sizeof(dib)};
+			dib.bmiHeader.biWidth=cx;
+			dib.bmiHeader.biHeight=cy;
+			dib.bmiHeader.biPlanes=1;
+			dib.bmiHeader.biBitCount=32;
+			dib.bmiHeader.biCompression=BI_RGB;
+			HDC hdc=CreateCompatibleDC(NULL);
+			HDC hdcMask=CreateCompatibleDC(NULL);
+			HBITMAP bmp=CreateDIBSection(hdc,&dib,DIB_RGB_COLORS,NULL,NULL,0);
+			HBITMAP bmpMask=CreateDIBSection(hdcMask,&dib,DIB_RGB_COLORS,NULL,NULL,0);
+
+			HBITMAP bmp0=(HBITMAP)SelectObject(hdc,bmp);
+			HBITMAP bmp1=(HBITMAP)SelectObject(hdcMask,bmpMask);
+			SetDCBrushColor(hdc,pSetting->value.intVal&0xFFFFFF);
+			SetDCPenColor(hdc,0);
+			SelectObject(hdc,GetStockObject(DC_BRUSH));
+			SelectObject(hdc,GetStockObject(DC_PEN));
+			Rectangle(hdc,0,0,cx,cy);
+			RECT rc={0,0,cx,cy};
+			FillRect(hdcMask,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
+			SelectObject(hdc,bmp0);
+			SelectObject(hdcMask,bmp1);
+			ImageList_Replace(images,image,bmp,bmpMask);
+			DeleteObject(bmp);
+			DeleteObject(bmpMask);
+			DeleteDC(hdc);
+			DeleteDC(hdcMask);
+		}
+		int state=bDefault?0:TVIS_BOLD;
+		if (!bEnabled)
+		{
+			if (pSetting->type!=CSetting::TYPE_COLOR) image|=SETTING_STATE_DISABLED;
+			state|=TVIS_CUT;
+		}
 		if (item.iImage==image)
 			item.mask&=~TVIF_IMAGE;
 		else
 			item.iImage=item.iSelectedImage=image;
 
-		int state=bDefault?0:TVIS_BOLD;
-		if ((item.state&TVIS_BOLD)==state)
+		if ((item.state&(TVIS_BOLD|TVIS_CUT))==state)
 			item.mask&=~TVIF_STATE;
 		else
 			item.state=state;
@@ -3090,18 +3201,24 @@ void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 				val=pSetting->value.intVal;
 			for (HTREEITEM hRadio=TreeView_GetChild(m_Tree,hItem);hRadio;hRadio=TreeView_GetNextSibling(m_Tree,hRadio))
 			{
-				TVITEM radio={TVIF_IMAGE|TVIF_PARAM,hRadio};
+				TVITEM radio={TVIF_IMAGE|TVIF_PARAM|TVIF_STATE,hRadio,0,TVIS_CUT};
 				TreeView_GetItem(m_Tree,&radio);
 				int v=(int)((CSetting*)radio.lParam-pSetting-1);
 
 				int image=SETTING_STATE_RADIO;
 				if (v==val) image|=SETTING_STATE_CHECKED;
-				if (!bEnabled) image|=SETTING_STATE_DISABLED;
+				int state=0;
+				if (!bEnabled)
+				{
+					if (pSetting->type!=CSetting::TYPE_COLOR) image|=SETTING_STATE_DISABLED;
+					state=TVIS_CUT;
+				}
 
-				if (radio.iImage!=image)
+				if (radio.iImage!=image || radio.state!=state)
 				{
 					radio.iImage=radio.iSelectedImage=image;
-					radio.mask=TVIF_IMAGE|TVIF_SELECTEDIMAGE;
+					radio.mask=TVIF_IMAGE|TVIF_SELECTEDIMAGE|TVIF_STATE;
+					radio.state=state;
 					TreeView_SetItem(m_Tree,&radio);
 					RECT rc;
 					TreeView_GetItemRect(m_Tree,hRadio,&rc,FALSE);

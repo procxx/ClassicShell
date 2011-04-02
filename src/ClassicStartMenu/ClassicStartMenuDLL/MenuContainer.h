@@ -64,6 +64,7 @@ enum TMenuID
 	MENU_RESTART,
 	MENU_SHUTDOWN,
 	MENU_SWITCHUSER,
+	MENU_LOCK,
 	MENU_RECENT_ITEMS,
 	MENU_SEARCH_BOX,
 
@@ -408,7 +409,7 @@ private:
 	CComPtr<IDropTargetHelper> m_pDropTargetHelper; // to show images while dragging
 	CComPtr<IDataObject> m_pDragObject;
 
-	int m_ClickIndex; // the index of the last clicked item
+	int m_ClickIndex; // the index of the last clicked item (-2 until the mouse enters the menu for the first time)
 	DWORD m_HotPos; // last mouse position over a hot item (used to ignore WM_MOUSEMOVE when the mouse didn't really move)
 	int m_HoverItem; // item under the mouse (used for opening a submenu when the mouse hovers over an item)
 	int m_ContextItem; // force this to be the hot item while a context menu is up
@@ -557,6 +558,8 @@ private:
 	void CollectSearchItems( void );
 	void SetSearchState( TSearchState state );
 	void UpdateSearchResults( bool bForceShowAll );
+	void AddStandardItems( void );
+	void UpdateAccelerators( int first, int last );
 
 	enum
 	{

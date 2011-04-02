@@ -34,6 +34,8 @@
 4041=this is item in the Backup menu
 4042=this is item in the Backup menu
 
+5002=%d.%d.%d will be replaced by the version number
+
 2001/255=this means "disabled icon", which is the grayed-out icon shown when the command is disabled
 3001/1057=this means "the menu will try to open closer to the top of the screen, instead of closer to the bottom"
 

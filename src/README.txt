@@ -1,5 +1,5 @@
 CLASSIC SHELL
-Version 3.0.0
+Version 3.1.0
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.
@@ -81,7 +81,21 @@ Classic Explorer is a plugin for Windows Explorer that:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-3) The source code
+3) Classic IE9
+
+Classic IE9 is a plugin for Internet Explorer 9 that:
+
+*	Adds a caption to the title bar so you can see the full title of the page
+
+*	Shows the security zone in the status bar
+
+*	Shows the loading progress in the status bar
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+4) The source code
 
 Classic Shell is open source, and the source code is licensed under the terms of the
 MIT open source license. See the LICENSE.txt file in the main directory.

@@ -1,0 +1,83 @@
+HKCR
+{
+	ClassicIE9.ClassicIE9BHO.1 = s 'ClassicIE9BHO Class'
+	{
+		CLSID = s '{EA801577-E6AD-4BD5-8F71-4BE0154331A4}'
+	}
+	ClassicIE9.ClassicIE9BHO = s 'ClassicIE9BHO Class'
+	{
+		CLSID = s '{EA801577-E6AD-4BD5-8F71-4BE0154331A4}'
+		CurVer = s 'ClassicIE9.ClassicIE9BHO.1'
+	}
+	NoRemove CLSID
+	{
+		ForceRemove {EA801577-E6AD-4BD5-8F71-4BE0154331A4} = s 'ClassicIE9BHO Class'
+		{
+			ProgID = s 'ClassicIE9.ClassicIE9BHO.1'
+			VersionIndependentProgID = s 'ClassicIE9.ClassicIE9BHO'
+			ForceRemove 'Programmable'
+			InprocServer32 = s '%MODULE%'
+			{
+				val ThreadingModel = s 'Apartment'
+			}
+			'TypeLib' = s '{FDA50A1E-B8CE-49DE-8D17-B034A84AA280}'
+		}
+	}
+}
+
+HKLM
+{
+	NoRemove SOFTWARE
+	{
+		NoRemove Microsoft
+		{
+			NoRemove Windows
+			{
+				NoRemove CurrentVersion
+				{
+					NoRemove Explorer
+					{
+						NoRemove 'Browser Helper Objects'
+						{
+							ForceRemove {EA801577-E6AD-4BD5-8F71-4BE0154331A4}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+HKLM
+{
+	NoRemove SOFTWARE
+	{
+		NoRemove Microsoft
+		{
+			NoRemove 'Internet Explorer'
+			{
+				NoRemove 'Low Rights'
+				{
+					NoRemove ElevationPolicy
+					{
+						ForceRemove '{56753E59-AF1D-4FBA-9E15-31557124ADA2}'
+						{
+							val AppPath = s '%MODULEPATH%'
+							val AppName = s 'ClassicIE9_32.exe'
+							val Policy = d '3'
+						}
+					}
+				}
+				NoRemove Extensions
+				{
+					ForceRemove '{56753E59-AF1D-4FBA-9E15-31557124ADA2}'
+					{
+						val CLSID = s '{1FBA04EE-3024-11d2-8F1F-0000F87ABD16}'
+						val MenuText = s '%MENUTEXT%'
+						val Exec = s '%MODULEPATH%\ClassicIE9_32.exe'
+					}
+				}
+			}
+		}
+	}
+}
