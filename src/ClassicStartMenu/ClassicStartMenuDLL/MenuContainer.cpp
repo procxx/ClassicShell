@@ -240,7 +240,8 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 				CWindow(hWnd).GetWindowText(text);
 				wchar_t exe[_MAX_PATH];
 				const wchar_t *args=SeparateArguments(text,exe);
-				ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL);
+				if ((DWORD_PTR)ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL)>32 && !args && LOWORD(GetVersion())!=0x0006)
+					SHAddToRecentDocs(SHARD_PATH,exe); // // on Windows 7 the executed documents are not automatically added to the recent document list
 			}
 			return 0;
 		}
@@ -285,6 +286,14 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 	{
 		box.SetWindowText(L"");
 		pParent->SetSearchState(SEARCH_NONE);
+	}
+	if (uMsg==WM_CONTEXTMENU && (lParam&0xFFFFFFFF)==0xFFFFFFFF)
+	{
+		CMenuContainer *pSearchMenu=s_Menus[s_Menus.size()-1];
+		if (pSearchMenu->m_Options&CONTAINER_SEARCH)
+		{
+			return pSearchMenu->SendMessage(WM_CONTEXTMENU,wParam,lParam);
+		}
 	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
@@ -1994,6 +2003,16 @@ void CMenuContainer::RefreshIcons( void )
 		::PostMessage(first,MCM_REFRESHICONS,0,0);
 }
 
+LRESULT CMenuContainer::OnSetHotItem( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	int index=(int)wParam;
+	while (index<(int)m_Items.size() && !CanSelectItem(m_Items[index]))
+		index++;
+	if (index<(int)m_Items.size())
+		SetHotItem(index);
+	return 0;
+}
+
 // Extensions to look for in the PATH directories
 static const wchar_t *pProgramExtensions[]=
 {
@@ -2499,13 +2518,37 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		return 0;
 	}
 
+	int index=m_HotItem;
+
+	if (index>=0 && m_SearchState==SEARCH_NONE)
+	{
+		if (wParam==VK_F2)
+		{
+			if (m_Items[index].id==MENU_NO && m_Items[index].pItem1 && !m_Items[index].pItem2)
+			{
+				ActivateItem(index,ACTIVATE_RENAME,NULL);
+				PostMessage(MCM_SETHOTITEM,index);
+			}
+			return 0;
+		}
+		if (wParam==VK_DELETE)
+		{
+			if ((m_Items[index].id==MENU_NO || m_Items[index].id==MENU_RECENT) && m_Items[index].pItem1 && !m_Items[index].pItem2)
+			{
+				ActivateItem(index,ACTIVATE_DELETE,NULL);
+				PostMessage(MCM_SETHOTITEM,index);
+			}
+			return 0;
+		}
+	}
+
 	if (wParam!=VK_UP && wParam!=VK_DOWN && wParam!=VK_LEFT && wParam!=VK_RIGHT && wParam!=VK_ESCAPE && wParam!=VK_RETURN)
 		return TRUE;
 
-	int index=m_HotItem;
 	if (index<0 && m_SearchState!=SEARCH_NONE)
 		index=m_SearchIndex;
 	if (index<0) index=-1;
+
 	int n=(int)m_Items.size();
 
 	if (wParam==VK_UP)
@@ -2715,6 +2758,21 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 	return 0;
 }
 
+LRESULT CMenuContainer::OnSysKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	if (wParam==VK_RETURN && m_HotItem>=0 && m_SearchState==SEARCH_NONE)
+	{
+		int index=m_HotItem;
+		if ((m_Items[index].id==MENU_NO || m_Items[index].id==MENU_RECENT) && m_Items[index].pItem1 && !m_Items[index].pItem2)
+		{
+			POINT pt={0,0};
+			ActivateItem(index,ACTIVATE_PROPERTIES,&pt);
+			PostMessage(MCM_SETHOTITEM,index);
+		}
+	}
+	return 0;
+}
+
 LRESULT CMenuContainer::OnChar( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
 	if (wParam>=0xD800 && wParam<=0xDBFF)
@@ -2768,6 +2826,7 @@ LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		NotifyWinEvent(EVENT_SYSTEM_MENUPOPUPEND,m_hWnd,OBJID_CLIENT,CHILDID_SELF);
 		m_pAccessible->Reset();
 		m_pAccessible->Release();
+		m_pAccessible=NULL;
 	}
 	RevokeDragDrop(m_hWnd);
 	// remember the scroll position
@@ -3360,9 +3419,10 @@ void CMenuContainer::DeleteMRUShortcut( const wchar_t *path )
 	{
 		if (_wcsicmp(s_MRUShortcuts[i],path)==0)
 		{
-			for (;i<MRU_PROGRAMS_COUNT-1;i++)
-				s_MRUShortcuts[i]=s_MRUShortcuts[i+1];
-			break;
+			for (int j=i;j<MRU_PROGRAMS_COUNT-1;j++)
+				s_MRUShortcuts[j]=s_MRUShortcuts[j+1];
+			s_MRUShortcuts[MRU_PROGRAMS_COUNT-1].Empty();
+			i--;
 		}
 	}
 
@@ -3957,10 +4017,12 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 			{
 				rc.left=rc.right=taskbarRect.right+margin.left;
 				options|=CONTAINER_LEFT;
+				s_bExpandRight=true;
 			}
 			else
 			{
 				rc.left=rc.right=taskbarRect.left+margin.right;
+				s_bExpandRight=false;
 			}
 			options|=CONTAINER_TOP;
 			animFlags|=AW_VER_POSITIVE;

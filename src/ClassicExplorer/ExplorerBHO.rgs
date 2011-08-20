@@ -39,7 +39,10 @@ HKLM
 					{
 						NoRemove 'Browser Helper Objects'
 						{
-							ForceRemove {449D0D6E-2412-4E61-B68F-1CB625CD9E52}
+							ForceRemove '{449D0D6E-2412-4E61-B68F-1CB625CD9E52}'
+							{
+								val NoInternetExplorer = d '1'
+							}
 						}
 					}
 				}

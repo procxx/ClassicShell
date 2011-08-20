@@ -112,8 +112,6 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 		totalWidth2=width2+s_Skin.Main_padding2.left+s_Skin.Main_padding2.right;
 	int totalWidth=totalWidth1+totalWidth2;
 
-	total+=textHeight+slicesX[3]+slicesX[5];
-
 	int totalHeight=height1+(m_bSubMenu?(s_Skin.Submenu_padding.top+s_Skin.Submenu_padding.bottom):(s_Skin.Main_padding.top+s_Skin.Main_padding.bottom));
 	if (m_bTwoColumns)
 	{

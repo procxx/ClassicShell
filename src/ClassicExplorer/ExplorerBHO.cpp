@@ -77,6 +77,8 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 	{
 		// time to navigate to the selected folder (only if different from the current folder)
 		KillTimer(hWnd,TIMER_NAVIGATE);
+		if (GetFocus()!=hWnd)
+			return 0;
 		PIDLIST_ABSOLUTE pidl=GetSelectedItem(hWnd);
 		if (pidl)
 		{

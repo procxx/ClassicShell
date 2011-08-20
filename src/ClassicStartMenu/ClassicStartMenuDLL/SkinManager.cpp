@@ -108,6 +108,8 @@ void MenuSkin::Reset( void )
 	Submenu_pager=NULL;
 	Submenu_pager_arrows=NULL;
 	Search_bitmap=NULL;
+	Options.clear();
+	Variations.clear();
 }
 
 static void GetErrorMessage( wchar_t *err, int size, DWORD code )
@@ -713,7 +715,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	}
 	else
 	{
-		skin.Main_selection.color=GetSysColor(COLOR_MENUHILIGHT);
+		skin.Main_selection.color=GetSysColor(COLOR_HIGHLIGHT);
 	}
 
 	str=parser.FindSetting(L"Main_selection2");
@@ -1192,7 +1194,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	}
 	else
 	{
-		skin.Submenu_selection.color=GetSysColor(COLOR_MENUHILIGHT);
+		skin.Submenu_selection.color=GetSysColor(COLOR_HIGHLIGHT);
 	}
 
 	if (bRTL && !skin.Submenu_selectionColor && skin.Submenu_selection.bmp)

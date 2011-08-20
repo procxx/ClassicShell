@@ -196,6 +196,9 @@ static DWORD WINAPI SleepThread( void *param )
 // ACTIVATE_OPEN_SEARCH - opens the search results submenu
 // ACTIVATE_EXECUTE - executes the item. it can be a shell item or a command item
 // ACTIVATE_MENU - shows the context menu for the item
+// ACTIVATE_RENAME - renames the item
+// ACTIVATE_DELETE - deletes the item
+// ACTIVATE_PROPERTIES - shows the properties of the item
 void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *pPt )
 {
 	LOG_MENU(LOG_EXECUTE,L"Activate Item, ptr=%p, index=%d, type=%d",this,index,type);
@@ -423,7 +426,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 
 		BOOL animate;
-		if ((animFlags&(AW_BLEND|AW_SLIDE))==0 || m_Submenu>=0)
+		if ((animFlags&(AW_BLEND|AW_SLIDE))==0 || (m_Submenu>=0 && !GetSettingBool(L"SubMenuAnimationAlways")))
 			animate=FALSE;
 		else
 			SystemParametersInfo(SPI_GETMENUANIMATION,NULL,&animate,0);
@@ -997,6 +1000,36 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 		if (res<0) res=0;
 	}
+	else if (type==ACTIVATE_RENAME || type==ACTIVATE_DELETE || type==ACTIVATE_PROPERTIES)
+	{
+		if (type==ACTIVATE_DELETE && item.id==MENU_RECENT)
+			res=CMD_DELETEMRU;
+		else
+		{
+			const char *name;
+			switch (type)
+			{
+				case ACTIVATE_RENAME: name="rename"; break;
+				case ACTIVATE_DELETE: name="delete"; break;
+				case ACTIVATE_PROPERTIES: name="properties"; break;
+			}
+			char command[256];
+			int n=GetMenuItemCount(menu);
+			for (int i=0;i<n;i++)
+			{
+				int id=GetMenuItemID(menu,i);
+				if (id>=CMD_LAST && SUCCEEDED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+				{
+					if (_stricmp(command,name)==0)
+					{
+						res=id;
+						break;
+					}
+				}
+			}
+			if (res<0) res=0;
+		}
+	}
 	else
 	{
 		// show the context menu
@@ -1445,6 +1478,24 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		::SetForegroundWindow(g_OwnerWindow);
 		::SetWindowPos(g_OwnerWindow,HWND_TOPMOST,rc.left,rc.top,rc.right-rc.left,rc.bottom-rc.top,0);
 		HRESULT hr=pMenu->InvokeCommand((LPCMINVOKECOMMANDINFO)&info);
+
+		// on Windows 7 the executed documents are not automatically added to the recent document list
+		if (SUCCEEDED(hr) && item.pItem1 && _stricmp(command,"open")==0 && !item.bFolder && LOWORD(GetVersion())!=0x0006)
+		{
+			PIDLIST_ABSOLUTE path=item.pItem1;
+			// assume it is a link and try to get the target path
+			CComPtr<IShellLink> pLink;
+			if (pFolder)
+				pFolder->GetUIObjectOf(g_OwnerWindow,1,&pidl,IID_IShellLink,NULL,(void**)&pLink);
+			if (pLink)
+				pLink->GetIDList(&path);
+			if (path)
+			{
+				SHAddToRecentDocs(SHARD_PIDL,path);
+				if (path!=item.pItem1)
+					ILFree(path);
+			}
+		}
 		if (type==ACTIVATE_EXECUTE && SUCCEEDED(hr))
 		{
 			if ((item.id==MENU_RECENT || (m_Options&CONTAINER_TRACK)) && s_bRecentItems)

@@ -1441,6 +1441,7 @@ CSetting g_Settings[]={
 		{L"Slide",CSetting::TYPE_RADIO,IDS_ANIM_SLIDE,IDS_ANIM_SLIDE_TIP},
 		{L"Random",CSetting::TYPE_RADIO,IDS_ANIM_RANDOM,IDS_ANIM_RANDOM_TIP},
 	{L"SubMenuAnimationSpeed",CSetting::TYPE_INT,IDS_SUB_ANIM_SPEED,IDS_SUB_ANIM_SPEED_TIP,200,0,L"SubMenuAnimation"},
+	{L"SubMenuAnimationAlways",CSetting::TYPE_BOOL,IDS_SUB_ANIM_ALWAYS,IDS_SUB_ANIM_ALWAYS_TIP,0,0,L"SubMenuAnimation"},
 	{L"MainMenuScrollSpeed",CSetting::TYPE_INT,IDS_SCROLL_SPEED,IDS_SCROLL_SPEED_TIP,3},
 	{L"SubMenuScrollSpeed",CSetting::TYPE_INT,IDS_SUB_SCROLL_SPEED,IDS_SUB_SCROLL_SPEED_TIP,3},
 	{L"MenuFadeSpeed",CSetting::TYPE_INT,IDS_FADE_SPEED,IDS_FADE_SPEED_TIP,400},
@@ -1579,7 +1580,7 @@ void UpdateSettings( void )
 
 	DWORD logoff1=SHRestricted(REST_STARTMENULOGOFF);
 	DWORD logoff2=SHRestricted(REST_FORCESTARTMENULOGOFF);
-	UpdateSetting(L"LogOff",CComVariant((logoff1==2 || logoff2)?1:0),logoff1 || logoff2);
+	UpdateSetting(L"LogOff",CComVariant((logoff1!=1 && (logoff1==2 || logoff2))?1:0),logoff1 || logoff2);
 
 	bool bNoClose=SHRestricted(REST_NOCLOSE)!=0;
 	UpdateSetting(L"Shutdown",CComVariant(bNoClose?0:1),bNoClose);

@@ -130,6 +130,7 @@ private:
 	void NewFolder( void );
 	void ExecuteCommandFile( const wchar_t *pText );
 	void ExecuteCustomCommand( const wchar_t *pCommand );
+	void ViewByProperty( IFolderView2 *pView, const wchar_t *pProperty, bool bGroup );
 };
 
 

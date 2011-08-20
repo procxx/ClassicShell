@@ -213,8 +213,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,1,0,0
- PRODUCTVERSION 3,1,0,0
+ FILEVERSION 3,2,0,0
+ PRODUCTVERSION 3,2,0,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -231,12 +231,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "3, 1, 0, 0"
+            VALUE "FileVersion", "3, 2, 0, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009-2011, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 1, 0, 0"
+            VALUE "ProductVersion", "3, 2, 0, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -682,7 +682,13 @@ BEGIN
     IDS_SHOW_RUN_TIP2       "Enable the Run item\nWarning: You don't have a Run item in your custom menu, so this setting will be ignored"
     IDS_SHOW_LOGOFF_TIP2    "Enable the Log Off item\nWarning: You don't have a Log Off item in your custom menu, so this setting will be ignored"
     IDS_SHOW_UNDOCK_TIP2    "Enable the Undock item (for laptops only)\nWarning: You don't have a Undock item in your custom menu, so this setting will be ignored"
+END
+
+STRINGTABLE 
+BEGIN
     IDS_LOCK_TIP            "Locks the computer"
+    IDS_SUB_ANIM_ALWAYS     "Always animate sub-menus"
+    IDS_SUB_ANIM_ALWAYS_TIP "When this is checked, the sub-menus will animate every time they open"
 END
 
 #endif    // English (U.S.) resources

@@ -21,6 +21,7 @@ static CSetting g_Settings[]={
 
 {L"TitleBar",CSetting::TYPE_GROUP,IDS_TITLE_SETTINGS},
 	{L"ShowCaption",CSetting::TYPE_BOOL,IDS_SHOW_CAPTION,IDS_SHOW_CAPTION_TIP,1,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
+	{L"ShowIcon",CSetting::TYPE_BOOL,IDS_SHOW_ICON,IDS_SHOW_ICON_TIP,1,CSetting::FLAG_WARM|CSetting::FLAG_BASIC,L"ShowCaption"},
 	{L"CenterCaption",CSetting::TYPE_BOOL,IDS_CENTER_CAPTION,IDS_CENTER_CAPTION_TIP,0,CSetting::FLAG_WARM|CSetting::FLAG_BASIC,L"ShowCaption"},
 	{L"CaptionFont",CSetting::TYPE_FONT,IDS_CAPTION_FONT,IDS_CAPTION_FONT_TIP,L"Segoe UI, normal, 9",CSetting::FLAG_WARM,L"ShowCaption"},
 	{L"TextColor",CSetting::TYPE_COLOR,IDS_TEXT_COLOR,IDS_TEXT_COLOR_TIP,0,CSetting::FLAG_WARM,L"ShowCaption"},

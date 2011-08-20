@@ -1,4 +1,16 @@
 ===============================================================================
+== Version 3.2.0 general release (Aug, 2011):
+
+- Fixed some minor problems found in the previous release
+
+- Added new setting to show the title in IE9 with no icon
+
+- Added a new "sortby" command to Explorer to sort the folder by given property
+
+- Added support for F2, Del and Alt+Enter keys in the start menu
+
+
+===============================================================================
 == Version 3.1.0 general release (Apr, 2011):
 
 - Added a new component called Classic IE9. It lets you customize the title bar

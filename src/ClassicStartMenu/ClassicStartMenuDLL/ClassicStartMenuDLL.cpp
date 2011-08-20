@@ -442,6 +442,7 @@ static LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam
 			CMenuContainer::CloseProgramsMenu();
 		}
 		g_bAllProgramsTimer=false;
+		KillTimer(g_ProgramsButton,'CLSM');
 	}
 	if (uMsg==WM_DESTROY)
 		g_TopMenu=NULL;
@@ -633,8 +634,7 @@ STARTMENUAPI LRESULT CALLBACK HookProgMan( int code, WPARAM wParam, LPARAM lPara
 // Returns true if the mouse is on the taskbar portion of the start button
 static bool PointAroundStartButton( void )
 {
-	DWORD pos=GetMessagePos();
-	POINT pt={(short)LOWORD(pos),(short)HIWORD(pos)};
+	CPoint pt(GetMessagePos());
 	RECT rc;
 	GetWindowRect(g_TaskBar,&rc);
 	if (!PtInRect(&rc,pt))
@@ -761,6 +761,13 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			msg->message=WM_NULL;
 		}
 
+		if (msg->message==WM_SYSKEYDOWN && msg->wParam==VK_RETURN && CMenuContainer::IsMenuWindow(msg->hwnd))
+		{
+			// the taskbar steals the Alt+Enter key. we need to forward it to the menu instead
+			SendMessage(msg->hwnd,msg->message,msg->wParam,msg->lParam);
+			msg->message=WM_NULL;
+		}
+
 		if ((msg->message==WM_LBUTTONDOWN || msg->message==WM_LBUTTONDBLCLK || msg->message==WM_MBUTTONDOWN) && msg->hwnd==g_StartButton)
 		{
 			FindWindowsMenu();
@@ -850,7 +857,9 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 		{
 			g_bAllProgramsTimer=false;
 			KillTimer(g_ProgramsButton,'CLSM');
-			PostMessage(g_AllPrograms,WM_COMMAND,IDOK,(LPARAM)g_ProgramsButton);
+			DWORD pos=GetMessagePos();
+			if (pos==g_LastHoverPos)
+				PostMessage(g_AllPrograms,WM_COMMAND,IDOK,(LPARAM)g_ProgramsButton);
 			msg->message=WM_NULL;
 		}
 		if (msg->message==WM_MOUSELEAVE && msg->hwnd==g_ProgramsButton)

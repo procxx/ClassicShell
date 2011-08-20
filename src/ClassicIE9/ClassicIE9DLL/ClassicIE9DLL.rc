@@ -54,8 +54,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,1,0,0
- PRODUCTVERSION 3,1,0,0
+ FILEVERSION 3,2,0,0
+ PRODUCTVERSION 3,2,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -72,12 +72,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Customizations for the title bar and status bar of IE9"
-            VALUE "FileVersion", "3, 1, 0, 0"
+            VALUE "FileVersion", "3, 2, 0, 0"
             VALUE "InternalName", "ClassicIE9DLL.dll"
             VALUE "LegalCopyright", "Copyright (C) 2009-2011, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicIE9DLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 1, 0, 0"
+            VALUE "ProductVersion", "3, 2, 0, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -124,7 +124,7 @@ BEGIN
     IDS_SETTINGS_TITLE_VER  "Classic IE9 Settings %d.%d.%d"
     IDS_NEW_SETTINGS        "The new settings will take effect after you restart Internet Explorer."
     IDS_TITLE_SETTINGS      "Title Bar"
-    IDS_SHOW_CAPTION        "Show caption"
+    IDS_SHOW_CAPTION        "Show caption in the title bar"
     IDS_SHOW_CAPTION_TIP    "When this is checked, Internet Explorer 9 will show the page title in the title bar"
     IDS_CENTER_CAPTION      "Center caption"
 END
@@ -162,6 +162,8 @@ BEGIN
     IDS_SHOW_ZONE_TIP       "When this is checked, the status bar will show the current security zone"
     IDS_SHOW_PROTECTED      "Show protected mode"
     IDS_SHOW_PROTECTED_TIP  "When this is checked, the status bar will show if the browser is running in protected mode"
+    IDS_SHOW_ICON           "Show icon in the title bar"
+    IDS_SHOW_ICON_TIP       "When this is checked, Internet Explorer 9 will show the page icon in the title bar"
 END
 
 #endif    // English (U.S.) resources

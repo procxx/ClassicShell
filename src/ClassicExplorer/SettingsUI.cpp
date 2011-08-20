@@ -47,6 +47,8 @@ static CStdCommand g_StdCommands[]={
 	{L"viewicons_large",L"View Large Icons",IDS_VIEWICONS3_TIP,L"Icons3Item",NULL,NULL,L""},
 	{L"viewicons_extralarge",L"View Extra Large Icons",IDS_VIEWICONS4_TIP,L"Icons4Item",NULL,NULL,L""},
 	{L"open <folder name>",L"Open",IDS_OPEN_TIP,L"OpenFolderItem",NULL,NULL,L""},
+	{L"sortby <property>",L"Sort By",IDS_SORT_TIP,L"SortFolderItem",NULL,NULL,L""},
+	{L"groupby <property>",L"Group By",IDS_GROUP_TIP,L"GroupFolderItem",NULL,NULL,L""},
 	{L"",L"Custom Command",IDS_CUSTOM_TIP,L"CustomItem",NULL,NULL,L""},
 	{NULL},
 };

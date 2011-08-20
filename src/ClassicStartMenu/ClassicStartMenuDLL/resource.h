@@ -384,6 +384,8 @@
 #define IDS_SHOW_LOGOFF_TIP2            3326
 #define IDS_SHOW_UNDOCK_TIP2            3327
 #define IDS_LOCK_TIP                    3328
+#define IDS_SUB_ANIM_ALWAYS             3329
+#define IDS_SUB_ANIM_ALWAYS_TIP         3330
 
 // Next default values for new objects
 // 

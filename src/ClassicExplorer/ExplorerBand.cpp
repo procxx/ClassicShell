@@ -16,6 +16,7 @@
 #include "SettingsUIHelper.h"
 #include "FNVHash.h"
 #include <shdeprecated.h>
+#include <propkey.h>
 #include <algorithm>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -751,6 +752,16 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 				ILFree(pidl);
 			}
 		}
+		else if (_wcsicmp(exe,L"sortby")==0)
+		{
+			CComQIPtr<IFolderView2> pView2=pView;
+			ViewByProperty(pView2,params,false);
+		}
+		else if (_wcsicmp(exe,L"groupby")==0)
+		{
+			CComQIPtr<IFolderView2> pView2=pView;
+			ViewByProperty(pView2,params,true);
+		}
 		else if (bArg3 || bArg4 || bArg5)
 		{
 			// create a process instead of using ShellExecute
@@ -808,6 +819,63 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 		}
 		if (pBuf!=buf)
 			LocalFree(pBuf);
+	}
+}
+
+void CBandWindow::ViewByProperty( IFolderView2 *pView, const wchar_t *pProperty, bool bGroup )
+{
+	SORTCOLUMN column={0};
+	column.direction=SORT_ASCENDING;
+	if (pProperty)
+	{
+		if (pProperty[0]=='-')
+		{
+			column.direction=SORT_DESCENDING;
+			pProperty++;
+		}
+		if (_wcsicmp(pProperty,L"name")==0)
+			column.propkey=PKEY_ItemNameDisplay;
+		else if (_wcsicmp(pProperty,L"type")==0)
+			column.propkey=PKEY_ItemTypeText;
+		else if (_wcsicmp(pProperty,L"size")==0)
+			column.propkey=PKEY_Size;
+		else if (_wcsicmp(pProperty,L"date")==0)
+			column.propkey=PKEY_DateModified;
+		else
+		{
+			wchar_t token[256];
+			pProperty=GetToken(pProperty,token,_countof(token),L" ,");
+			if (IIDFromString(token,&column.propkey.fmtid)!=S_OK)
+				return;
+			pProperty=GetToken(pProperty,token,_countof(token),L" ,");
+			column.propkey.pid=_wtol(token);
+		}
+	}
+
+	if (bGroup)
+	{
+		PROPERTYKEY prop;
+		BOOL ascending;
+		if (pProperty && SUCCEEDED(pView->GetGroupBy(&prop,&ascending)))
+		{
+			if (prop==column.propkey && ascending)
+				column.direction=SORT_DESCENDING;
+		}
+		pView->SetGroupBy(column.propkey,column.direction==SORT_ASCENDING);
+	}
+	else
+	{
+		int count;
+		if (pProperty && SUCCEEDED(pView->GetSortColumnCount(&count)) && count>0)
+		{
+			std::vector<SORTCOLUMN> columns(count);
+			if (SUCCEEDED(pView->GetSortColumns(&columns[0],count)))
+			{
+				if (columns[0].propkey==column.propkey)
+					column.direction=-columns[0].direction;
+			}
+		}
+		pView->SetSortColumns(&column,1);
 	}
 }
 

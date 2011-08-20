@@ -44,6 +44,8 @@
 #define IDS_SHOW_ZONE_TIP               5032
 #define IDS_SHOW_PROTECTED              5033
 #define IDS_SHOW_PROTECTED_TIP          5034
+#define IDS_SHOW_ICON                   5035
+#define IDS_SHOW_ICON_TIP               5036
 
 // Next default values for new objects
 // 

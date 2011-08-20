@@ -2334,6 +2334,8 @@ static LRESULT CALLBACK SubclassEditProc( HWND hWnd, UINT uMsg, WPARAM wParam, L
 		if (uMsg==WM_RBUTTONUP || uMsg==WM_CONTEXTMENU)
 			return 0;
 	}
+	if (uMsg==WM_CHAR && wParam==VK_SPACE && GetKeyState(VK_CONTROL)<0)
+		return SendMessage(GetParent(hWnd),WM_KEYDOWN,wParam,lParam);
 	if (uMsg==WM_CHAR && wParam==VK_RETURN)
 		return 0;
 	if (uMsg==WM_GETDLGCODE && wParam==VK_RETURN)

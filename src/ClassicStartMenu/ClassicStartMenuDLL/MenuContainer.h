@@ -163,15 +163,17 @@ public:
 		MESSAGE_HANDLER( WM_SETCURSOR, OnSetCursor )
 		MESSAGE_HANDLER( WM_CONTEXTMENU, OnContextMenu )
 		MESSAGE_HANDLER( WM_KEYDOWN, OnKeyDown )
+		MESSAGE_HANDLER( WM_SYSKEYDOWN, OnSysKeyDown )
 		MESSAGE_HANDLER( WM_CHAR, OnChar )
 		MESSAGE_HANDLER( WM_TIMER, OnTimer )
 		MESSAGE_HANDLER( WM_SYSCOMMAND, OnSysCommand )
 		MESSAGE_HANDLER( WM_GETOBJECT, OnGetAccObject )
+		MESSAGE_HANDLER( WM_CTLCOLOREDIT, OnColorEdit )
 		MESSAGE_HANDLER( MCM_REFRESH, OnRefresh )
 		MESSAGE_HANDLER( MCM_SETCONTEXTITEM, OnSetContextItem )
-		MESSAGE_HANDLER( WM_CTLCOLOREDIT, OnColorEdit )
 		MESSAGE_HANDLER( MCM_REDRAWEDIT, OnRedrawEdit )
 		MESSAGE_HANDLER( MCM_REFRESHICONS, OnRefreshIcons )
+		MESSAGE_HANDLER( MCM_SETHOTITEM, OnSetHotItem )
 		COMMAND_CODE_HANDLER( EN_CHANGE, OnEditChange )
 	END_MSG_MAP()
 
@@ -270,6 +272,7 @@ protected:
 	LRESULT OnSetCursor( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnSysKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnChar( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnSysCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
@@ -278,6 +281,7 @@ protected:
 	LRESULT OnColorEdit( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnRedrawEdit( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnRefreshIcons( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnSetHotItem( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnEditChange( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	virtual void OnFinalMessage( HWND ) { Release(); }
 
@@ -480,6 +484,9 @@ private:
 		ACTIVATE_OPEN_SEARCH, // opens the search results submenu
 		ACTIVATE_EXECUTE, // executes the item
 		ACTIVATE_MENU, // shows context menu
+		ACTIVATE_RENAME, // renames the item
+		ACTIVATE_DELETE, // deletes the item
+		ACTIVATE_PROPERTIES, // shows the properties of the item
 	};
 
 	// sound events
@@ -515,6 +522,7 @@ private:
 		MCM_SETCONTEXTITEM=WM_USER+11, // sets the item for the context menu. wParam is the nameHash of the item
 		MCM_REDRAWEDIT=WM_USER+12, // redraw the search edit box
 		MCM_REFRESHICONS=WM_USER+13, // refreshes the icon list and redraws all menus
+		MCM_SETHOTITEM=WM_USER+14, // sets the hot item
 
 		// some constants
 		SEPARATOR_HEIGHT=8,

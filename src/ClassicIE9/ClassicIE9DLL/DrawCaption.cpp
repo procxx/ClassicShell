@@ -84,7 +84,7 @@ static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam
 		int iconSize=GetSystemMetrics(SM_CXSMICON);
 
 		bool bMaximized=IsZoomed(parent)!=0;
-		bool bActive=parent==GetActiveWindow();
+		bool bActive=(parent==GetActiveWindow());
 		RECT rc;
 		GetClientRect(hWnd,&rc);
 
@@ -134,6 +134,7 @@ static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam
 			font=CreateFontIndirect(&lFont);
 		}
 
+		bool bIcon=GetSettingBool(L"ShowIcon");
 		bool bCenter=GetSettingBool(L"CenterCaption");
 		bool bGlow=GetSettingBool(bMaximized?L"MaxGlow":L"Glow");
 
@@ -160,16 +161,24 @@ static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam
 					rc.left+=g_CustomCaption[0].leftPadding;
 					int y=g_CustomCaption[0].topPadding;
 					if (y>rc.bottom-iconSize) y=rc.bottom-iconSize;
-					DrawIconEx(hdcPaint,rc.left,y,hIcon,iconSize,iconSize,0,NULL,DI_NORMAL|DI_NOMIRROR);
+					if (bIcon)
+					{
+						DrawIconEx(hdcPaint,rc.left,y,hIcon,iconSize,iconSize,0,NULL,DI_NORMAL|DI_NOMIRROR);
+						rc.left+=iconSize;
+					}
+					rc.left+=g_CustomCaption[0].iconPadding;
 					rc.bottom++;
-					rc.left+=iconSize+g_CustomCaption[0].iconPadding;
 				}
 				else
 				{
 					// when the window is maximized, the caption bar is partially off-screen, so align the icon to the bottom
 					rc.left+=g_CustomCaption[1].leftPadding;
-					DrawIconEx(hdcPaint,rc.left,rc.bottom-iconSize-g_CustomCaption[1].topPadding,hIcon,iconSize,iconSize,0,NULL,DI_NORMAL|DI_NOMIRROR);
-					rc.left+=iconSize+g_CustomCaption[1].iconPadding;
+					if (bIcon)
+					{
+						DrawIconEx(hdcPaint,rc.left,rc.bottom-iconSize-g_CustomCaption[1].topPadding,hIcon,iconSize,iconSize,0,NULL,DI_NORMAL|DI_NOMIRROR);
+						rc.left+=iconSize;
+					}
+					rc.left+=g_CustomCaption[1].iconPadding;
 				}
 				rc.top=rc.bottom-g_SysButtonSize.cy;
 				HFONT font0=(HFONT)SelectObject(hdcPaint,font);
@@ -218,8 +227,12 @@ static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam
 			rc.top=rc.bottom-g_SysButtonSize.cy;
 
 			rc.left+=g_CustomCaption[2].leftPadding;
-			DrawIconEx(hdc,rc.left,rc.bottom-iconSize-g_CustomCaption[2].topPadding,hIcon,iconSize,iconSize,0,NULL,DI_NORMAL|DI_NOMIRROR);
-			rc.left+=iconSize+g_CustomCaption[2].iconPadding;
+			if (bIcon)
+			{
+				DrawIconEx(hdc,rc.left,rc.bottom-iconSize-g_CustomCaption[2].topPadding,hIcon,iconSize,iconSize,0,NULL,DI_NORMAL|DI_NOMIRROR);
+				rc.left+=iconSize;
+			}
+			rc.left+=g_CustomCaption[2].iconPadding;
 
 			HFONT font0=(HFONT)SelectObject(hdc,font);
 			RECT rcText={0,0,0,0};

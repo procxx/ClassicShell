@@ -104,8 +104,6 @@ bool CSetting::IsEnabled( void ) const
 		{
 			if (_wcsnicmp(pSetting->name,depend,len)==0)
 			{
-				if (!pSetting->IsEnabled())
-					return false;
 				if ((pSetting->type==CSetting::TYPE_BOOL || pSetting->type==CSetting::TYPE_INT) && pSetting->value.vt==VT_I4)
 				{
 					if (operation=='=' && pSetting->value.intVal!=val)
@@ -928,6 +926,7 @@ public:
 	END_RESIZE_MAP
 
 	bool GetOnTop( void ) const { return m_bOnTop; }
+	void ShowHelp( void ) const;
 
 protected:
 	// Handler prototypes:
@@ -1386,13 +1385,18 @@ LRESULT CSettingsDlg::OnDropDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 
 LRESULT CSettingsDlg::OnHelp( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 {
+	ShowHelp();
+	return 0;
+}
+
+void CSettingsDlg::ShowHelp( void ) const
+{
 	wchar_t path[_MAX_PATH];
 	GetModuleFileName(_AtlBaseModule.GetResourceInstance(),path,_countof(path));
 	*PathFindFileName(path)=0;
 	wchar_t topic[_MAX_PATH];
 	Sprintf(topic,_countof(topic),L"%s%sClassicShell.chm::/%s.html",path,GetDocRelativePath(),PathFindFileName(g_SettingsManager.GetRegPath()));
 	HtmlHelp(GetDesktopWindow(),topic,HH_DISPLAY_TOPIC,NULL);
-	return 0;
 }
 
 bool CSettingsDlg::IsTabValid( void )
@@ -1467,6 +1471,10 @@ bool IsSettingsMessage( MSG *msg )
 	{
 		g_SettingsDlg.SendMessage(WM_KEYDOWN,VK_TAB,msg->lParam);
 		return true;
+	}
+	if (msg->message==WM_KEYDOWN && msg->wParam==VK_F1 && GetKeyState(VK_CONTROL)>=0 && GetKeyState(VK_SHIFT)>=0 && GetKeyState(VK_MENU)>=0)
+	{
+		g_SettingsDlg.ShowHelp();
 	}
 	return IsDialogMessage(g_SettingsDlg,msg)!=0;
 }
@@ -1545,7 +1553,7 @@ void UpdateSetting( const wchar_t *name, const CComVariant &defValue, bool bLock
 				pSetting->value=defValue;
 			return;
 		}
-		ATLASSERT(0);
+	ATLASSERT(0);
 }
 
 // Updates the setting with a new tooltip and a warning flag
@@ -1562,7 +1570,7 @@ void UpdateSetting( const wchar_t *name, int tipID, bool bWarning )
 			pSetting->tipID=tipID;
 			return;
 		}
-		ATLASSERT(0);
+	ATLASSERT(0);
 }
 
 const CSetting *GetAllSettings( void )

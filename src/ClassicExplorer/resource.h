@@ -253,6 +253,8 @@
 #define IDS_NAV_ALWAYS_TIP              2175
 #define IDS_ALT_D                       2176
 #define IDS_ALT_D_TIP                   2177
+#define IDS_SORT_TIP                    2178
+#define IDS_GROUP_TIP                   2179
 
 // Next default values for new objects
 // 

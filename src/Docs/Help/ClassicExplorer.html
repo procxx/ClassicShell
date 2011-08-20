@@ -1,6 +1,5 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html><head>
-
   <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Explorer</title>
   <style type="text/css">
 h1 {
@@ -165,7 +164,7 @@ doesn't show that).<br>
 <strong>Another note:</strong> It goes without saying <span style="font-style: italic;">(but I&#8217;ll say it anyway!)</span>
 that you have to turn on the status bar from the View menu if you want
 to see the file sizes. The status bar is different from the blue
-Details Pane you see at the bottom of Explorer. You can turn of the
+Details Pane you see at the bottom of Explorer. You can turn off the
 Details Pane from the Organize menu.<br>
 <br>
 <br>
@@ -228,6 +227,11 @@ The command can be:<br>
   <li><span style="font-weight: bold;">left blank</span> - then if the link attribute is used, it will act as a command</li>
 <li><span style="font-weight: bold;">one of the predefined commands</span> - from the dropdown</li>
   <li><span style="font-weight: bold;">open &lt;some folder&gt;</span> - this will open the folder in the current browser</li>
+  <li><span style="font-weight: bold;">sortby &lt;property&gt;</span> - this will sort the folder by the given property - <span style="font-weight: bold;">name, type, size </span>or<span style="font-weight: bold;"> date</span>. Use '-' in front of the property to sort in descending order: <span style="font-weight: bold;">"sortby -name"</span>. You can use other properties if you know their code. For example <span style="font-weight: bold;">"sortby {B725F130-47EF-101A-A5F1-02608C9EEBAC}, 10"</span> is the same as <span style="font-weight: bold;">"sortby name"</span>. For more property codes refer to the file <span style="font-weight: bold;">propkey.h</span> in the Windows SDK (also found <a href="http://msdn.microsoft.com/en-us/library/cc251929%28v=prot.10%29.aspx">here</a> - scroll down to the "Full property table"). Not all property codes are valid or supported (for example the <span style="font-weight: bold;">album year</span> property <span style="font-weight: bold;">{56A3372E-CE9C-11D2-9F0E-006097C686F6}, 5</span> only works when showing music albums)</li>
+  <li><span style="font-weight: bold;">groupby &lt;property&gt;</span> - similar to <span style="font-weight: bold;">sortby</span>, but groups the files by a given property. Use the command <span style="font-weight: bold;">groupby</span> with no property to disable the grouping<br>
+  </li>
+
+
   
   <li><span style="font-weight: bold;">custom executable string</span>
 - this can be a name of a program and its arguments, or even a URL
@@ -251,7 +255,7 @@ contains no byte order mark. %3 and %4 can't both be used by the same command<br
     <li><span style="font-weight: bold;">Note to developers: </span>When
 %3 or %4 is used, it is the responsibility of the command to delete the
 temporary file when it finishes. Otherwise the temp file will be left
-behind and waste disk space. Also the if the command is a console application
+behind and waste disk space. Also if the command is a console application
 or a batch file it will be launched in silent mode with no console
 window</li>
 
@@ -310,18 +314,28 @@ the child window with class <span style="font-weight: bold;">ClassicShell.CBandW
 
 <br>
 <h1><a name="examples"></a>Examples for Custom Commands</h1>
+<h3>0) Use quotes when necessary</h3>In order to support paths that
+contain spaces, you should use quotes around the path parameters. The
+quotes are not always required, like in examples 1 and 2 below. Make
+sure you test your commands with paths containing spaces to avoid
+surprises.<br>
+<br>
 <h3>1) Print the current folder</h3>
+
 Use this command: <span style="font-weight: bold;">cmd.exe /k echo %1</span>. %1 will be replaced by the path of the current folder.<br>
 <br>
 <h3>2) Open the selected file in Notepad</h3>
-Use this command: <span style="font-weight: bold;">%SystemRoot%\notepad.exe %2</span>. %2 will be replaced by the full name of the selected file.<br>
+Use this command: <span style="font-weight: bold;">%SystemRoot%\notepad.exe %2</span>.
+%2 will be replaced by the full name of the selected file. It doesn't
+need to be in quotes because Notepad uses the whole command line as a
+file name.<br>
 <br>
 <h3>3) Copy selected files to the parent folder<br>
 </h3>
-Create a batch file called <span style="font-weight: bold;">C:\CopyParent.bat</span>:<br><span style="font-family: monospace;">FOR /F "delims=" %%i in (%1) do copy /Y "%%i" ..</span><br style="font-family: monospace;">
-<span style="font-family: monospace;">delete %1</span><br style="font-family: monospace;">
+Create a batch file called <span style="font-weight: bold;">C:\CopyParent.bat</span>:<br><span style="font-family: monospace;">for /F "delims=" %%i in (%1) do copy /Y "%%i" ..</span><br style="font-family: monospace;">
+<span style="font-family: monospace;">delete "%1</span>"<br style="font-family: monospace;">
 <br>
-Use this command: <span style="font-weight: bold;">C:\</span><span style="font-weight: bold;">CopyParent</span><span style="font-weight: bold;">.bat %3</span>.
+Use this command: <span style="font-weight: bold;">C:\</span><span style="font-weight: bold;">CopyParent</span><span style="font-weight: bold;">.bat "%3"</span>.
 %3 will be replaced by a text file containing the full names of all
 selected files. The batch file will read each line of that text file,
 and copy each of the selected files to the parent folder. At the end
@@ -330,10 +344,10 @@ temp file.<br>
 <br>
 <h3>4) Select all text files</h3>
 Create a batch file called <span style="font-weight: bold;">C:\SelectText.bat</span>:<br>
-<span style="font-weight: bold; font-family: monospace;">echo select &gt; %1</span><br style="font-weight: bold; font-family: monospace;">
-<span style="font-weight: bold; font-family: monospace;">dir *.txt /b &gt;&gt; %1</span><br style="font-weight: bold; font-family: monospace;">
+<span style="font-weight: bold; font-family: monospace;">echo select &gt; "%1</span>"<br style="font-weight: bold; font-family: monospace;">
+<span style="font-weight: bold; font-family: monospace;">dir *.txt /b &gt;&gt; "%1</span>"<br style="font-weight: bold; font-family: monospace;">
 <br>
-Use this command: <span style="font-weight: bold;">C:\SelectText.bat %5.</span>
+Use this command: <span style="font-weight: bold;">C:\SelectText.bat "%5".</span>
 %5 will be replaced by a blank text file, where the command must output
 the word "select" and a list of files it wants to select. The "dir
 *.txt /b" command provides that list.<br>
@@ -370,7 +384,29 @@ features that are supported for processes other than Explorer. At the
 moment these features are: the shared overlay icon and the replacements
 for the copy dialogs.<br>
 <br>
+
+<br>
+
+<h1><a name="dependencies"></a>Dependencies on Windows settings<br>
+</h1>
+Some Classic Explorer settings require specific Windows settings to be enabled:<br>
+<ul>
+  <li><span style="font-weight: bold;">Windows Vista navigation pane style</span> - requires Windows to be using Aero or Basic theme</li>
+  <li><span style="font-weight: bold;">Auto-navigate to the selected folder</span>
+- this setting can be set to "Always" only when Explorer is set to
+"Automatically expand to current folder". Look for it in the <span style="font-weight: bold;">General</span> tab of <span style="font-weight: bold;">Tools -&gt; Folder Options</span></li>
+  <li><span style="font-weight: bold;">Show caption in the title bar</span>
+- the caption will show either the full path name or only the name of
+the current folder. To see the full path you need to enable "Display
+the full path in the title bar (Classic theme only)" in the <span style="font-weight: bold;">View</span> tab of <span style="font-weight: bold;">Tools -&gt; Folder Options</span></li>
+  <li><span style="font-weight: bold;">All status bar settings</span> - require the status bar to be visible (not to be confused with the Details Pane). Check <span style="font-weight: bold;">View -&gt; Status bar</span></li>
+</ul>
+
+<br>
+
 <h1><a name="localization"></a>Localization</h1>
+
+
 
 
 The user

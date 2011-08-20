@@ -48,6 +48,10 @@
 			<param name="Local" value="ClassicExplorer.html#admin">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
+			<param name="Name" value="Dependencies on Windows settings">
+			<param name="Local" value="ClassicExplorer.html#dependencies">
+			</OBJECT>
+		<LI> <OBJECT type="text/sitemap">
 			<param name="Name" value="Localization">
 			<param name="Local" value="ClassicExplorer.html#localization">
 			</OBJECT>

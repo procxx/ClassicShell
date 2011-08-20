@@ -90,7 +90,7 @@ HRESULT STDMETHODCALLTYPE CClassicIE9BHO::SetSite( IUnknown *pUnkSite )
 
 			pProvider->QueryService(SID_SShellBrowser,IID_IShellBrowser,(void**)&m_pBrowser);
 
-			if (m_pBrowser)
+			if (m_pBrowser && GetSettingBool(L"ShowCaption"))
 			{
 				HWND hwnd;
 				if (SUCCEEDED(m_pBrowser->GetWindow(&hwnd)))
