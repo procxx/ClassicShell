@@ -43,11 +43,29 @@ static BOOL CALLBACK FindSettingsEnum( HWND hwnd, LPARAM lParam )
 	return !bFound;
 }
 
+void ZoneConfigure( HWND hWnd, const wchar_t *url )
+{
+	// use undocumented function 383 from shlwapi
+	typedef void (WINAPI* FZoneConfigureW)(HWND,LPCWSTR);
+	FZoneConfigureW ZoneConfigureW;
+
+	HMODULE	hShlwapi=LoadLibrary(L"shlwapi.dll");
+	if(hShlwapi)
+	{
+		ZoneConfigureW=(FZoneConfigureW)GetProcAddress(hShlwapi,MAKEINTRESOURCEA(383));
+		if(ZoneConfigureW)
+			ZoneConfigureW(hWnd,url);
+		FreeLibrary(hShlwapi);
+	}
+}
+
 int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow )
 {
-	if (wcscmp(lpCmdLine,L"security")==0)
+	if (wcsncmp(lpCmdLine,L"zone ",5)==0)
 	{
-		ShellExecute(NULL,NULL,L"inetcpl.cpl",L"@0,1",NULL,SW_SHOWNORMAL);
+		wchar_t token[100];
+		const wchar_t *url=GetToken(lpCmdLine+5,token,_countof(token),L" ");
+		ZoneConfigure((HWND)_wtol(token),url);
 		return 0;
 	}
 
@@ -68,15 +86,40 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 			if (SendMessage(caption,message,0,0)!=0)
 				return 0;
 
-			DWORD thread=GetWindowThreadProcessId(topWindow,NULL);
-			SetWindowsHookEx(WH_GETMESSAGE,HookInject,hHookModule,thread);
-			PostMessage(topWindow,WM_NULL,0,0); // make sure there is one message in the queue
-
-			for (int i=0;i<20;i++)
+			DWORD processId;
+			DWORD threadId=GetWindowThreadProcessId(topWindow,&processId);
 			{
-				Sleep(100);
-				if (SendMessage(caption,message,0,0)!=0)
-					return 0;
+				HANDLE hToken;
+				if (OpenProcessToken(GetCurrentProcess(),TOKEN_ADJUST_PRIVILEGES|TOKEN_QUERY,&hToken))
+				{
+					TOKEN_PRIVILEGES tp={1};
+					if (LookupPrivilegeValue(NULL,L"SeDebugPrivilege",&tp.Privileges[0].Luid))
+						tp.Privileges[0].Attributes=SE_PRIVILEGE_ENABLED;
+					AdjustTokenPrivileges(hToken,FALSE,&tp,sizeof(TOKEN_PRIVILEGES),NULL,NULL); 
+					CloseHandle(hToken);
+				}
+			}
+
+			HANDLE hProcess=OpenProcess(PROCESS_ALL_ACCESS,FALSE,processId);
+			if (hProcess)
+			{
+				wchar_t path[_MAX_PATH];
+				GetModuleFileName(hHookModule,path,_countof(path));
+				void *remotePath=VirtualAllocEx(hProcess,NULL,sizeof(path),MEM_COMMIT,PAGE_READWRITE);
+				if (remotePath)
+				{
+					if (WriteProcessMemory(hProcess,remotePath,path,sizeof(path),NULL))
+					{
+						HANDLE hThread=CreateRemoteThread(hProcess,NULL,0,(LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandle(L"kernel32.dll"),"LoadLibraryW"),remotePath,0,NULL);
+						if (hThread)
+						{
+							WaitForSingleObject(hThread,INFINITE);
+							CloseHandle(hThread);
+						}
+					}
+					VirtualFreeEx(hProcess,remotePath,sizeof(path),MEM_RELEASE);
+				}
+				CloseHandle(hProcess);
 			}
 		}
 		return 0;

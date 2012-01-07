@@ -2159,6 +2159,7 @@ public:
 		EDIT_ICON,
 		EDIT_SOUND,
 		EDIT_HOTKEY,
+		EDIT_HOTKEY_ANY,
 		EDIT_COLOR,
 		EDIT_FONT,
 	};
@@ -2314,8 +2315,11 @@ static LRESULT CALLBACK SubclassEditProc( HWND hWnd, UINT uMsg, WPARAM wParam, L
 				if (s_bCtrl) g_HotKey|=(HOTKEYF_CONTROL<<8);
 				if (s_bAlt) g_HotKey|=(HOTKEYF_ALT<<8);
 				if (s_bShift) g_HotKey|=(HOTKEYF_SHIFT<<8);
-				if (!s_bAlt && !(s_bCtrl && s_bShift))
-					g_HotKey=0;
+				if (dwRefData==1)
+				{
+					if (!s_bAlt && !(s_bCtrl && s_bShift))
+						g_HotKey=0;
+				}
 			}
 			GetKeyName(g_HotKey,text,_countof(text),s_bCtrl,s_bAlt,s_bShift);
 			SetWindowText(hWnd,text);
@@ -2837,7 +2841,7 @@ void CTreeSettingsDlg::ApplyEditBox( void )
 				m_pEditSetting->flags&=~CSetting::FLAG_DEFAULT;
 			}
 		}
-		else if (m_pEditSetting->type==CSetting::TYPE_HOTKEY)
+		else if (m_pEditSetting->type==CSetting::TYPE_HOTKEY || m_pEditSetting->type==CSetting::TYPE_HOTKEY_ANY)
 		{
 			if (m_pEditSetting->value.vt!=VT_I4 || m_pEditSetting->value.intVal!=g_HotKey)
 			{
@@ -2893,7 +2897,7 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 			else
 				mode=EDIT_FONT;
 		}
-		else if (pSetting->type==CSetting::TYPE_HOTKEY)
+		else if (pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_HOTKEY_ANY)
 		{
 			text[0]=0;
 			g_HotKey=0;
@@ -2903,7 +2907,7 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 				GetKeyName(pSetting->value.intVal,text,_countof(text),false,false,false);
 			}
 			if (bEnabled)
-				mode=EDIT_HOTKEY;
+				mode=pSetting->type==CSetting::TYPE_HOTKEY_ANY?EDIT_HOTKEY_ANY:EDIT_HOTKEY;
 		}
 		else if (pSetting->type==CSetting::TYPE_COLOR)
 		{
@@ -2960,7 +2964,7 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 		m_EditBox.SendMessage(EM_SETREADONLY,!bEnabled,0);
 		m_EditBox.SetWindowPos(NULL,&rc,SWP_NOZORDER|SWP_SHOWWINDOW);
 		SendMessage(WM_NEXTDLGCTL,(LPARAM)m_EditBox.m_hWnd,TRUE);
-		SetWindowSubclass(m_EditBox,SubclassEditProc,'CLSH',(mode==EDIT_HOTKEY)?1:0);
+		SetWindowSubclass(m_EditBox,SubclassEditProc,'CLSH',(mode==EDIT_HOTKEY)?1:((mode==EDIT_HOTKEY_ANY)?2:0));
 	}
 	else
 		m_EditBox.ShowWindow(SW_HIDE);
@@ -3019,8 +3023,16 @@ const CSetting *CTreeSettingsDlg::GetNextSetting( const CSetting *pSetting )
 	if (pSetting->type==CSetting::TYPE_RADIO)
 		return pSetting;
 
-	while (pSetting->name && ((pSetting->flags&CSetting::FLAG_HIDDEN) || (m_bBasic && !(pSetting->flags&CSetting::FLAG_BASIC))))
-		pSetting++;
+	if (m_bBasic)
+	{
+		while (pSetting->name && (pSetting->type==CSetting::TYPE_GROUP || (pSetting->flags&CSetting::FLAG_HIDDEN) || !(pSetting->flags&CSetting::FLAG_BASIC)))
+			pSetting++;
+	}
+	else
+	{
+		while (pSetting->name && pSetting->type!=CSetting::TYPE_GROUP && (pSetting->flags&CSetting::FLAG_HIDDEN))
+			pSetting++;
+	}
 
 	if (pSetting->name && pSetting->type!=CSetting::TYPE_GROUP)
 		return pSetting;
@@ -3091,7 +3103,7 @@ void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 		// calculate text
 		if (pSetting!=m_pEditSetting)
 		{
-			if (pSetting->type==CSetting::TYPE_HOTKEY)
+			if (pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_HOTKEY_ANY)
 			{
 				wchar_t val[100];
 				val[0]=0;
@@ -3480,103 +3492,4 @@ HWND CLanguageSettingsPanel::Activate( CSetting *pGroup, const RECT &rect, bool 
 	s_Dialog.SetGroup(pGroup);
 	s_Dialog.SetWindowPos(HWND_TOP,&rect,SWP_SHOWWINDOW);
 	return s_Dialog.m_hWnd;
-}
-
-// Separates the arguments from the program
-// May return NULL if no arguments are found
-const wchar_t *SeparateArguments( const wchar_t *command, wchar_t *program )
-{
-	if (command[0]=='"')
-	{
-		// quoted program - just GetToken will work
-		return GetToken(command,program,_MAX_PATH,L" ");
-	}
-
-	// skip leading spaces
-	while (*command==' ')
-		command++;
-	const wchar_t *args=wcschr(command,' ');
-	if (!args)
-	{
-		// no spaces - the whole thing is a program
-		Strcpy(program,_MAX_PATH,command);
-		return NULL;
-	}
-
-	int len=(int)(args-command);
-	if (len>_MAX_PATH-1) len=_MAX_PATH-1;
-	memcpy(program,command,len*2);
-	program[len]=0;
-
-	const wchar_t *space=command;
-	while (*space)
-	{
-		space=wcschr(space+1,' ');
-		if (!space)
-			space=command+Strlen(command);
-		len=(int)(space-command);
-		if (len>=_MAX_PATH) break;
-		wchar_t prog2[_MAX_PATH];
-		memcpy(prog2,command,len*2);
-		prog2[len]=0;
-		WIN32_FIND_DATA data;
-		HANDLE h=FindFirstFile(prog2,&data);
-		if (h!=INVALID_HANDLE_VALUE)
-		{
-			// found a valid file
-			FindClose(h);
-			memcpy(program,prog2,len*2+2);
-			if (*space)
-				args=space+1;
-			else
-				args=NULL;
-		}
-	}
-
-	while (args && *args==' ')
-		args++;
-	return args;
-}
-
-struct CommonEnvVar
-{
-	const wchar_t *name;
-	wchar_t value[_MAX_PATH];
-	int len;
-};
-
-CommonEnvVar g_CommonEnvVars[]={
-	{L"USERPROFILE"},
-	{L"ALLUSERSPROFILE"},
-	{L"SystemRoot"},
-	{L"SystemDrive"},
-};
-
-void UnExpandEnvStrings( const wchar_t *src, wchar_t *dst, int size )
-{
-	static bool bInit=false;
-	if (!bInit)
-	{
-		bInit=true;
-		for (int i=0;i<_countof(g_CommonEnvVars);i++)
-		{
-			int len=GetEnvironmentVariable(g_CommonEnvVars[i].name,g_CommonEnvVars[i].value,_MAX_PATH);
-			if (len<=_MAX_PATH)
-				g_CommonEnvVars[i].len=len;
-		}
-	}
-
-	for (int i=0;i<_countof(g_CommonEnvVars);i++)
-	{
-		int len=g_CommonEnvVars[i].len;
-		if (_wcsnicmp(src,g_CommonEnvVars[i].value,len)==0)
-		{
-			const wchar_t *name=g_CommonEnvVars[i].name;
-			if (Strlen(src)-len+Strlen(name)+3>size)
-				break; // not enough space
-			Sprintf(dst,size,L"%%%s%%%s",name,src+len);
-			return;
-		}
-	}
-	Strcpy(dst,size,src);
 }

@@ -20,6 +20,7 @@ const RECT DEFAULT_ICON_PADDING={3,3,3,3};
 const RECT DEFAULT_TEXT_PADDING={1,0,4,0};
 const int DEFAULT_ARROW_SIZE=4;
 const SIZE DEFAULT_ARROW_PADDING={8,4};
+const int DEFAULT_SEPARATOR_WIDTH=4;
 
 MenuSkin::MenuSkin( void )
 {
@@ -1249,7 +1250,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	else
 		memset(skin.Submenu_separator_slices_X,0,sizeof(skin.Submenu_separator_slices_X));
 	str=parser.FindSetting(L"Submenu_separatorV");
-	skin.Submenu_separatorWidth=0;
+	skin.Submenu_separatorWidth=DEFAULT_SEPARATOR_WIDTH;
 	if (str && (flags&LOADMENU_RESOURCES))
 	{
 		int id=_wtol(str);

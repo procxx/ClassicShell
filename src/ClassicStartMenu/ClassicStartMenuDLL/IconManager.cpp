@@ -71,7 +71,7 @@ void CIconManager::Init( void )
 	if (GetSettingBool(L"PreCacheIcons") && _wcsicmp(PathFindFileName(path),L"explorer.exe")==0)
 	{
 		// don't preload icons if running outside of the explorer
-		m_PreloadThread=CreateThread(NULL,0,PreloadThread,NULL,0,NULL);
+		m_PreloadThread=CreateThread(NULL,0,PreloadThread,(void*)GetSettingInt(L"Favorites"),0,NULL);
 	}
 	else
 		m_PreloadThread=INVALID_HANDLE_VALUE;
@@ -675,6 +675,7 @@ DWORD CALLBACK CIconManager::PreloadThread( void *param )
 	{
 		PIDLIST_ABSOLUTE path;
 		if (FAILED(SHGetKnownFolderIDList(g_CacheFolders[i],0,NULL,&path)) || !path) continue;
+		if (g_CacheFolders[i]==FOLDERID_Favorites && ((int)param)!=2) continue;
 		CComPtr<IShellFolder> pFolder;
 		if (SUCCEEDED(pDesktop->BindToObject(path,NULL,IID_IShellFolder,(void**)&pFolder)) && pFolder)
 			LoadFolderIcons(pFolder,g_CacheFolders[i]==FOLDERID_ControlPanelFolder?MAX_FOLDER_LEVEL:0);

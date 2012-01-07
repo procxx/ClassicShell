@@ -9,6 +9,7 @@
 #include "Translations.h"
 #include "ResourceHelper.h"
 #include "dllmain.h"
+#include "ClassicIE9DLL.h"
 
 #pragma comment(linker, \
 	"\"/manifestdependency:type='Win32' "\
@@ -92,6 +93,7 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 
 		if (resInstance)
 			FreeLibrary(resInstance);
+		InitClassicIE9(hInstance);
 	}
 
 	return _AtlModule.DllMain(dwReason, lpReserved); 

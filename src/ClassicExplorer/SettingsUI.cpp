@@ -21,6 +21,7 @@ static CStdCommand g_StdCommands[]={
 	{L"cut",L"Cut",IDS_CUT_TIP,L"CutItem",NULL,L"$Toolbar.Cut",L"shell32.dll,16762"},
 	{L"copy",L"Copy",IDS_COPY_TIP,L"CopyItem",NULL,L"$Toolbar.Copy",L"shell32.dll,243"},
 	{L"paste",L"Paste",IDS_PASTE_TIP,L"PasteItem",NULL,L"$Toolbar.Paste",L"shell32.dll,16763"},
+	{L"paste_shortcut",L"Paste Shortcut",IDS_PASTE_SHORTCUT_TIP,L"PasteShortcutItem",NULL,L"$Toolbar.PasteShortcut",L"shell32.dll,16763"},
 	{L"delete",L"Delete",IDS_DELETE_TIP,L"DeleteItem",NULL,L"$Toolbar.Delete",L"shell32.dll,240"},
 	{L"properties",L"Properties",IDS_PROPERTIES_TIP,L"PropertiesItem",NULL,L"$Toolbar.Properties",L"shell32.dll,253"},
 	{L"email",L"Email",IDS_EMAIL_TIP,L"EmailItem",NULL,L"$Toolbar.Email",L"shell32.dll,265"},
@@ -460,6 +461,7 @@ static CSetting g_Settings[]={
 	{L"UpIconHot",CSetting::TYPE_ICON,IDS_UP_HOT,IDS_UP_HOT_TIP,L",6",CSetting::FLAG_WARM,L"ShowUpButton"},
 	{L"UpIconDisabled",CSetting::TYPE_ICON,IDS_UP_DISABLED,IDS_UP_DISABLED_TIP,L",7",CSetting::FLAG_WARM,L"ShowUpButton"},
 	{L"UpIconSize",CSetting::TYPE_INT,IDS_UP_SIZE,IDS_UP_SIZE_TIP,0,CSetting::FLAG_WARM,L"ShowUpButton"}, // 30 for DPI<120 and 36 for DPI>=120
+	{L"UpHotkey",CSetting::TYPE_HOTKEY_ANY,IDS_UP_HOTKEY,IDS_UP_HOTKEY_TIP,0,CSetting::FLAG_WARM},
 
 {L"Toolbar",CSetting::TYPE_GROUP,IDS_TOOLBAR_SETTINGS},
 	{L"UseBigButtons",CSetting::TYPE_BOOL,IDS_BIG_BUTTONS,IDS_BIG_BUTTONS_TIP,1,CSetting::FLAG_WARM},
@@ -510,7 +512,19 @@ void UpdateSettings( void )
 	UpdateSetting(L"SmallIconSize",CComVariant((dpi>=120)?24:16),false);
 	UpdateSetting(L"LargeIconSize",CComVariant((dpi>=120)?32:24),false);
 	UpdateSetting(L"UpIconSize",CComVariant((dpi>=120)?36:30),false);
-	if (LOWORD(GetVersion())!=0x0006)
+	DWORD version=LOWORD(GetVersion());
+	if (version==0x0006)
+	{
+		// Vista
+		g_ContentName[0]=0;
+		UpdateSetting(L"ShowFreeSpace",CComVariant(0),false);
+		UpdateSetting(L"MoreProgressDelay",CComVariant(0),false);
+		UpdateSetting(L"ForceRefreshWin7",CComVariant(0),false,true);
+		UpdateSetting(L"FixFolderScroll",CComVariant(0),false,true);
+		UpdateSetting(L"ShowHeaders",CComVariant(0),false,true);
+		UpdateSetting(L"HideScrollTip",CComVariant(0),false,true);
+	}
+	else if (version==0x0106)
 	{
 		// Windows 7
 		UpdateSetting(L"ShowFreeSpace",CComVariant(1),false);
@@ -522,14 +536,13 @@ void UpdateSettings( void )
 	}
 	else
 	{
-		// Vista
-		g_ContentName[0]=0;
-		UpdateSetting(L"ShowFreeSpace",CComVariant(0),false);
-		UpdateSetting(L"MoreProgressDelay",CComVariant(0),false);
-		UpdateSetting(L"ForceRefreshWin7",CComVariant(0),false,true);
-		UpdateSetting(L"FixFolderScroll",CComVariant(0),false,true);
-		UpdateSetting(L"ShowHeaders",CComVariant(0),false,true);
-		UpdateSetting(L"HideScrollTip",CComVariant(0),false,true);
+		// Windows 8
+		UpdateSetting(L"ShowCaption",CComVariant(0),false,true);
+		UpdateSetting(L"ShowIcon",CComVariant(0),false,true);
+		HideSettingGroup(L"StatusBar");
+		UpdateSetting(L"ShowFreeSpace",CComVariant(0),false,true);
+		HideSettingGroup(L"UpButton");
+		UpdateSetting(L"ShowUpButton",CComVariant(0),false,true);
 	}
 }
 

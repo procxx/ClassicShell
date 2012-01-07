@@ -105,6 +105,23 @@ static void ExecuteCommand( const wchar_t *command )
 	ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL);
 }
 
+void CMenuContainer::ExecuteCommandElevated( const wchar_t *command )
+{
+	wchar_t cmdLine[1024];
+	Sprintf(cmdLine,_countof(cmdLine),L"-runas %s",command);
+
+	wchar_t exe[_MAX_PATH];
+	GetModuleFileName(_AtlBaseModule.GetModuleInstance(),exe,_countof(exe));
+	PathRemoveFileSpec(exe);
+	PathAppend(exe,L"ClassicStartMenu.exe");
+
+	RECT rc;
+	GetWindowRect(&rc);
+	::SetForegroundWindow(g_OwnerWindow);
+	::SetWindowPos(g_OwnerWindow,HWND_TOPMOST,rc.left,rc.top,rc.right-rc.left,rc.bottom-rc.top,0);
+	ShellExecute(g_OwnerWindow,L"runas",exe,cmdLine,NULL,SW_SHOWNORMAL);
+}
+
 // Dialog proc for the Log Off dialog box
 static INT_PTR CALLBACK LogOffDlgProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
@@ -209,8 +226,15 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			if (!(m_Options&CONTAINER_SEARCH))
 				SetFocus();
 			SetHotItem(-1);
+			return;
 		}
-		return;
+		else if (type==ACTIVATE_MENU)
+		{
+			index=0;
+			type=ACTIVATE_MENU_BACKGROUND;
+		}
+		else
+			return;
 	}
 
 	MenuItem &item=m_Items[index];
@@ -633,6 +657,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	if (type==ACTIVATE_EXECUTE)
 	{
 		if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP) return;
+		if (item.bFolder && !GetSettingBool(L"EnableExplorer"))
+				return;
 		if (item.id==MENU_SEARCH_BOX)
 		{
 			// the search button was pressed
@@ -671,7 +697,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 	}
 
-	if (type==ACTIVATE_MENU)
+	if (type==ACTIVATE_MENU || type==ACTIVATE_MENU_BACKGROUND)
 	{
 		// when showing the context menu close all submenus
 		if (!(m_Options&CONTAINER_SEARCH))
@@ -681,7 +707,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				s_Menus[i]->DestroyWindow();
 	}
 
-	SetHotItem(index);
+	if (type!=ACTIVATE_MENU_BACKGROUND)
+		SetHotItem(index);
 
 	if ((!item.pItem1 || (type==ACTIVATE_EXECUTE && item.pStdItem && item.pStdItem->command && *item.pStdItem->command)) && !((item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP) && type==ACTIVATE_MENU))
 	{
@@ -752,7 +779,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 					wchar_t buf[1024];
 					Strcpy(buf,_countof(buf),command);
 					DoEnvironmentSubst(buf,_countof(buf));
-					ExecuteCommand(buf);
+					if (bShift && bCtrl)
+						ExecuteCommandElevated(buf);
+					else
+						ExecuteCommand(buf);
 				}
 			}
 			break;
@@ -836,7 +866,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				DoEnvironmentSubst(buf,_countof(buf));
 				if (!search.IsEmpty() && (wcswcs(buf,L"%1") || wcswcs(buf,L"%2")))
 					DoSearchSubst(buf,_countof(buf),search);
-				ExecuteCommand(buf);
+				if (bShift && bCtrl)
+					ExecuteCommandElevated(buf);
+				else
+					ExecuteCommand(buf);
 				return;
 			}
 		}
@@ -851,7 +884,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	CComPtr<IShellFolder> pFolder;
 	PCUITEMID_CHILD pidl;
 
-	if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP)
+	if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP || type==ACTIVATE_MENU_BACKGROUND)
 	{
 		s_pDesktop->BindToObject(m_Path1a[0],NULL,IID_IShellFolder,(void**)&pFolder);
 	}
@@ -892,12 +925,15 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 						command[0]=0;
 					if (_stricmp(command,"open")==0)
 					{
-						if (!s_bNoCommonFolders)
-							InsertMenu(menu,i+1,MF_BYPOSITION|MF_STRING,CMD_OPEN_ALL,FindTranslation(L"Menu.OpenAll",L"O&pen All Users"));
-						InsertMenu(menu,i+2,MF_BYPOSITION|MF_SEPARATOR,0,0);
-						i+=2;
-						n+=2;
-						continue;
+						if (GetSettingBool(L"EnableExplorer"))
+						{
+							if (!s_bNoCommonFolders)
+								InsertMenu(menu,i+1,MF_BYPOSITION|MF_STRING,CMD_OPEN_ALL,FindTranslation(L"Menu.OpenAll",L"O&pen All Users"));
+							InsertMenu(menu,i+2,MF_BYPOSITION|MF_SEPARATOR,0,0);
+							i+=2;
+							n+=2;
+							continue;
+						}
 					}
 					else if (_stricmp(command,"rename")==0 || _stricmp(command,"delete")==0)
 					{
@@ -983,6 +1019,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (bShift && bCtrl)
 		{
 			// find the runas verb if available
+			res=-1;
 			char command[256];
 			int n=GetMenuItemCount(menu);
 			for (int i=0;i<n;i++)
@@ -996,6 +1033,19 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 						break;
 					}
 				}
+			}
+			if (res==-1)
+			{
+				STRRET str;
+				if (SUCCEEDED(pFolder->GetDisplayNameOf(pidl,SHGDN_FORPARSING,&str)))
+				{
+					wchar_t *name;
+					StrRetToStr(&str,pidl,&name);
+					ExecuteCommandElevated(name);
+					CoTaskMemFree(name);
+					return;
+				}
+				res=0;
 			}
 		}
 		if (res<0) res=0;
@@ -1032,18 +1082,39 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	}
 	else
 	{
+		if (!GetSettingBool(L"EnableExplorer"))
+		{
+			// disable the Open verb
+			char command[256];
+			int n=GetMenuItemCount(menu);
+			for (int i=0;i<n;i++)
+			{
+				int id=GetMenuItemID(menu,i);
+				if (id>=CMD_LAST && SUCCEEDED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+				{
+					if ((item.bFolder && _stricmp(command,"open")==0) || _stricmp(command,"opencontaining")==0)
+					{
+						EnableMenuItem(menu,i,MF_BYPOSITION|MF_GRAYED);
+					}
+				}
+			}
+		}
+
 		// show the context menu
 		m_pMenu2=pMenu;
 		m_pMenu3=pMenu;
 		HBITMAP shellBmp=NULL;
 		HBITMAP newFolderBmp=NULL;
 		HBITMAP newShortcutBmp=NULL;
-		if ((item.id==MENU_NO || item.id==MENU_EMPTY) && (m_Options&CONTAINER_DROP))// clicked on a movable item
+		if ((item.id==MENU_NO || item.id==MENU_EMPTY || type==ACTIVATE_MENU_BACKGROUND) && (m_Options&CONTAINER_DROP))// clicked on a movable item or the background
 		{
-			AppendMenu(menu,MF_SEPARATOR,0,0);
 			HMENU menu2=menu;
-			if (GetSettingBool(L"CascadingMenu"))
-				menu2=CreatePopupMenu();
+			if (GetMenuItemCount(menu)>0)
+			{
+				AppendMenu(menu,MF_SEPARATOR,0,0);
+				if (GetSettingBool(L"CascadingMenu"))
+					menu2=CreatePopupMenu();
+			}
 			bool bSort=false, bNew=false;
 			int n=0;
 			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)

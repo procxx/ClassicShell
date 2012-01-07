@@ -112,6 +112,7 @@ private:
 	bool m_bNoBreadcrumbs;
 	bool m_bRemapBands;
 	int m_UpButtonIndex;
+	int m_UpHotkey;
 	CToolbar m_Toolbar;
 	HWND m_TopWindow;
 	HWND m_Rebar;

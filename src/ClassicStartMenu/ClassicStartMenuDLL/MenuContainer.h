@@ -431,6 +431,7 @@ private:
 	int m_TextTopOffset[2]; // offset from the top of the item to the top of the text
 	RECT m_rUser1; // the user image (0,0,0,0 if the user image is not shown)
 	RECT m_rUser2; // the user name (0,0,0,0 if the user name is not shown)
+	RECT m_rPadding; // padding in the menu where right-click is possible
 
 	int m_ScrollCount; // number of items to scroll in the pager
 	int m_ScrollHeight; // 0 - don't scroll
@@ -484,6 +485,7 @@ private:
 		ACTIVATE_OPEN_SEARCH, // opens the search results submenu
 		ACTIVATE_EXECUTE, // executes the item
 		ACTIVATE_MENU, // shows context menu
+		ACTIVATE_MENU_BACKGROUND, // shows context menu for the menu itself
 		ACTIVATE_RENAME, // renames the item
 		ACTIVATE_DELETE, // deletes the item
 		ACTIVATE_PROPERTIES, // shows the properties of the item
@@ -568,6 +570,7 @@ private:
 	void UpdateSearchResults( bool bForceShowAll );
 	void AddStandardItems( void );
 	void UpdateAccelerators( int first, int last );
+	void ExecuteCommandElevated( const wchar_t *command );
 
 	enum
 	{

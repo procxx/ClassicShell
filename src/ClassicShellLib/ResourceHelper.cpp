@@ -342,3 +342,101 @@ HRESULT ShParseDisplayName( wchar_t *pszName, PIDLIST_ABSOLUTE *ppidl, SFGAOF sf
 		return hr;
 	}
 }
+
+// Separates the arguments from the program
+// May return NULL if no arguments are found
+const wchar_t *SeparateArguments( const wchar_t *command, wchar_t *program )
+{
+	if (command[0]=='"')
+	{
+		// quoted program - just GetToken will work
+		return GetToken(command,program,_MAX_PATH,L" ");
+	}
+
+	// skip leading spaces
+	while (*command==' ')
+		command++;
+	const wchar_t *args=wcschr(command,' ');
+	if (!args)
+	{
+		// no spaces - the whole thing is a program
+		Strcpy(program,_MAX_PATH,command);
+		return NULL;
+	}
+
+	int len=(int)(args-command);
+	if (len>_MAX_PATH-1) len=_MAX_PATH-1;
+	memcpy(program,command,len*2);
+	program[len]=0;
+
+	const wchar_t *space=command;
+	while (*space)
+	{
+		space=wcschr(space+1,' ');
+		if (!space)
+			space=command+Strlen(command);
+		len=(int)(space-command);
+		if (len>=_MAX_PATH) break;
+		wchar_t prog2[_MAX_PATH];
+		memcpy(prog2,command,len*2);
+		prog2[len]=0;
+		WIN32_FIND_DATA data;
+		HANDLE h=FindFirstFile(prog2,&data);
+		if (h!=INVALID_HANDLE_VALUE)
+		{
+			// found a valid file
+			FindClose(h);
+			memcpy(program,prog2,len*2+2);
+			if (*space)
+				args=space+1;
+			else
+				args=NULL;
+		}
+	}
+
+	while (args && *args==' ')
+		args++;
+	return args;
+}
+struct CommonEnvVar
+{
+	const wchar_t *name;
+	wchar_t value[_MAX_PATH];
+	int len;
+};
+
+CommonEnvVar g_CommonEnvVars[]={
+	{L"USERPROFILE"},
+	{L"ALLUSERSPROFILE"},
+	{L"SystemRoot"},
+	{L"SystemDrive"},
+};
+
+void UnExpandEnvStrings( const wchar_t *src, wchar_t *dst, int size )
+{
+	static bool bInit=false;
+	if (!bInit)
+	{
+		bInit=true;
+		for (int i=0;i<_countof(g_CommonEnvVars);i++)
+		{
+			int len=GetEnvironmentVariable(g_CommonEnvVars[i].name,g_CommonEnvVars[i].value,_MAX_PATH);
+			if (len<=_MAX_PATH)
+				g_CommonEnvVars[i].len=len;
+		}
+	}
+
+	for (int i=0;i<_countof(g_CommonEnvVars);i++)
+	{
+		int len=g_CommonEnvVars[i].len;
+		if (_wcsnicmp(src,g_CommonEnvVars[i].value,len)==0)
+		{
+			const wchar_t *name=g_CommonEnvVars[i].name;
+			if (Strlen(src)-len+Strlen(name)+3>size)
+				break; // not enough space
+			Sprintf(dst,size,L"%%%s%%%s",name,src+len);
+			return;
+		}
+	}
+	Strcpy(dst,size,src);
+}

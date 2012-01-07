@@ -11,6 +11,7 @@
 #include <dbghelp.h>
 #include "StringUtils.h"
 #include "Settings.h"
+#include "ResourceHelper.h"
 
 #include "ClassicStartMenuDLL\ClassicStartMenuDLL.h"
 #include "ClassicStartMenuDLL\SettingsUI.h"
@@ -140,6 +141,29 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	GetModuleFileName(NULL,path,_countof(path));
 	*PathFindFileName(path)=0;
 	SetCurrentDirectory(path);
+	const wchar_t *pRunAs=wcsstr(lpstrCmdLine,L"-runas");
+	if (pRunAs)
+	{
+		CoInitialize(NULL);
+		wchar_t exe[_MAX_PATH];
+		const wchar_t *args=SeparateArguments(pRunAs+7,exe);
+		if ((DWORD_PTR)ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL)>32 && !args && LOWORD(GetVersion())!=0x0006)
+		{
+			// on Windows 7 the executed documents are not automatically added to the recent document list
+			CComPtr<IShellLink> pLink;
+			if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink,NULL,CLSCTX_INPROC_SERVER,IID_IShellLink,(LPVOID*)&pLink)))
+			{
+				// assume it is a link and try to get the target path
+				CComQIPtr<IPersistFile> pFile=pLink;
+				if (pFile && SUCCEEDED(pFile->Load(exe,STGM_READ)))
+					pLink->GetPath(exe,_countof(exe),NULL,0);
+			}
+			SHAddToRecentDocs(SHARD_PATH,exe);
+		}
+
+		CoUninitialize();
+		return 0;
+	}
 	int open=CMD_NONE;
 	if (wcsstr(lpstrCmdLine,L"-togglenew")!=NULL) open=CMD_TOGGLE_NEW;
 	else if (wcsstr(lpstrCmdLine,L"-toggle")!=NULL) open=MSG_TOGGLE;

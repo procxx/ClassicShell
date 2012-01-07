@@ -1260,18 +1260,44 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 	}
 
 	// draw vertical separators
-	if (bmpSeparatorV && m_ColumnOffsets.size()>1)
+	if (m_bSubMenu && m_ColumnOffsets.size()>1)
 	{
-		HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpSeparatorV);
-		RECT rSrc={0,0,sepWidth,sepSlicesY[0]+sepSlicesY[1]+sepSlicesY[2]};
-		RECT rMargins={0,sepSlicesY[0],0,sepSlicesY[2]};
-		for (size_t i=1;i<m_ColumnOffsets.size();i++)
+		if (bmpSeparatorV)
 		{
-			int x=m_rContent.left+m_ColumnOffsets[i];
-			RECT rc={x-sepWidth,m_rContent.top,x,m_rContent.bottom};
-			MarginsBlit(hdc2,hdc,rSrc,rc,rMargins,bSepV32);
+			HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpSeparatorV);
+			RECT rSrc={0,0,sepWidth,sepSlicesY[0]+sepSlicesY[1]+sepSlicesY[2]};
+			RECT rMargins={0,sepSlicesY[0],0,sepSlicesY[2]};
+			for (size_t i=1;i<m_ColumnOffsets.size();i++)
+			{
+				int x=m_rContent.left+m_ColumnOffsets[i];
+				RECT rc={x-sepWidth,m_rContent.top,x,m_rContent.bottom};
+				MarginsBlit(hdc2,hdc,rSrc,rc,rMargins,bSepV32);
+			}
+			SelectObject(hdc2,bmp0);
 		}
-		SelectObject(hdc2,bmp0);
+		else
+		{
+			int offset=0;
+			if (s_Theme)
+			{
+				SIZE size;
+				if (SUCCEEDED(GetThemePartSize(s_Theme,hdc,TP_SEPARATOR,TS_NORMAL,NULL,TS_MIN,&size)))
+					offset=(sepWidth-size.cx)/2;
+			}
+			else
+			{
+				offset=(sepWidth-2)/2;
+			}
+			for (size_t i=1;i<m_ColumnOffsets.size();i++)
+			{
+				int x=m_rContent.left+m_ColumnOffsets[i]+offset;
+				RECT rc={x-sepWidth,m_rContent.top,x,m_rContent.bottom};
+				if (s_Theme)
+					DrawThemeBackground(s_Theme,hdc,TP_SEPARATOR,TS_NORMAL,&rc,NULL);
+				else
+					DrawEdge(hdc,&rc,EDGE_ETCHED,BF_LEFT);
+			}
+		}
 	}
 
 	// draw insert mark

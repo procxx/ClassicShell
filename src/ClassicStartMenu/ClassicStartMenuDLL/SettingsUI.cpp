@@ -1425,6 +1425,7 @@ CSetting g_Settings[]={
 		{L"HiddenDigits",CSetting::TYPE_RADIO,IDS_KEY_HIDDEN,IDS_KEY_HIDDEN_TIP,0,0,L"RecentPrograms"},
 
 {L"GeneralBehavior",CSetting::TYPE_GROUP,IDS_BEHAVIOR_SETTINGS},
+	{L"EnableDragDrop",CSetting::TYPE_BOOL,IDS_DRAG_DROP,IDS_DRAG_DROP_TIP,1},
 	{L"ExpandFolderLinks",CSetting::TYPE_BOOL,IDS_EXPAND_LINKS,IDS_EXPAND_LINKS_TIP,1},
 	{L"MenuDelay",CSetting::TYPE_INT,IDS_MENU_DELAY,IDS_MENU_DELAY_TIP,-1,CSetting::FLAG_BASIC}, // system delay time
 	{L"InfotipDelay",CSetting::TYPE_STRING,IDS_TIP_DELAY,IDS_TIP_DELAY_TIP,L"400,4000"},
@@ -1495,11 +1496,12 @@ CSetting g_Settings[]={
 	{L"SkinVariation1",CSetting::TYPE_STRING,0,0,L""},
 	{L"SkinOptions1",CSetting::TYPE_STRING,0,0,L""},
 
-{L"Security",CSetting::TYPE_GROUP,IDS_SECURITY_SETTINGS},
-	{L"EnableDragDrop",CSetting::TYPE_BOOL,IDS_DRAG_DROP,IDS_DRAG_DROP_TIP,1},
+{L"ContextMenu",CSetting::TYPE_GROUP,IDS_CONTEXT_MENU_SETTINGS},
 	{L"EnableContextMenu",CSetting::TYPE_BOOL,IDS_CONTEXT_MENU,IDS_CONTEXT_MENU_TIP,1},
 	{L"ShowNewFolder",CSetting::TYPE_BOOL,IDS_NEW_FOLDER,IDS_NEW_FOLDER_TIP,1,0,L"EnableContextMenu"},
 	{L"EnableExit",CSetting::TYPE_BOOL,IDS_EXIT,IDS_EXIT_TIP,1},
+	{L"EnableExplorer",CSetting::TYPE_BOOL,IDS_EXPLORER,IDS_EXPLORER_TIP,1},
+	{L"ExplorerPath",CSetting::TYPE_STRING,IDS_EXPLORER_PATH,IDS_EXPLORER_PATH_TIP,L"computer",0,L"EnableExplorer"},
 
 {L"Sounds",CSetting::TYPE_GROUP,IDS_SOUND_SETTINGS},
 	{L"SoundMain",CSetting::TYPE_SOUND,IDS_SOUND_MAIN,IDS_SOUND_MAIN_TIP,L"MenuPopup"},
@@ -1516,6 +1518,7 @@ CSetting g_Settings[]={
 	{L"InitiallySelect",CSetting::TYPE_INT,IDS_ALL_SELECT,IDS_ALL_SELECT_TIP,0,0,L"CascadeAll"},
 		{L"SelectSearch",CSetting::TYPE_RADIO,IDS_SELECT_SEARCH,IDS_SELECT_SEARCH_TIP},
 		{L"SelectButton",CSetting::TYPE_RADIO,IDS_SELECT_BUTTON,IDS_SELECT_BUTTON_TIP},
+	{L"HideUserPic",CSetting::TYPE_BOOL,IDS_HIDE_PIC,IDS_HIDE_PIC_TIP,0},
 
 {L"AllProgramsSkin",CSetting::TYPE_GROUP,IDS_ALL_SKIN_SETTINGS,0,0,0,NULL,&g_SkinSettingsPanelAll},
 	{L"Skin2",CSetting::TYPE_STRING,0,0,L""},
@@ -1530,6 +1533,7 @@ CSetting g_Settings[]={
 
 void UpdateSettings( void )
 {
+	DWORD version=LOWORD(GetVersion());
 	HDC hdc=GetDC(NULL);
 	int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
 	ReleaseDC(NULL,hdc);
@@ -1567,7 +1571,7 @@ void UpdateSettings( void )
 	BOOL comp;
 	if (!IsAppThemed())
 		skin=L"Classic Skin";
-	else if (LOWORD(GetVersion())==0x0006)
+	else if (version==0x0006)
 		skin=L"Windows Vista Aero";
 	else if (SUCCEEDED(DwmIsCompositionEnabled(&comp)) && comp)
 		skin=L"Windows 7 Aero";

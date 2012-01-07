@@ -255,6 +255,9 @@
 #define IDS_ALT_D_TIP                   2177
 #define IDS_SORT_TIP                    2178
 #define IDS_GROUP_TIP                   2179
+#define IDS_PASTE_SHORTCUT_TIP          2180
+#define IDS_UP_HOTKEY                   2181
+#define IDS_UP_HOTKEY_TIP               2182
 
 // Next default values for new objects
 // 

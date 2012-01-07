@@ -40,3 +40,10 @@ DWORD GetVersionEx( HINSTANCE hInstance );
 
 // Wrapper for IShellFolder::ParseDisplayName
 HRESULT ShParseDisplayName( wchar_t *pszName, PIDLIST_ABSOLUTE *ppidl, SFGAOF sfgaoIn, SFGAOF *psfgaoOut );
+
+// Separates the arguments from the program
+// May return NULL if no arguments are found
+const wchar_t *SeparateArguments( const wchar_t *command, wchar_t *program );
+
+// Replaces some common paths with environment variables
+void UnExpandEnvStrings( const wchar_t *src, wchar_t *dst, int size );

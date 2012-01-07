@@ -206,7 +206,7 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	}
 
 	// check Windows version
-	if ((GetVersion()&255)<6)
+	if (LOBYTE(GetVersion())<6)
 	{
 		if (!bQuiet)
 		{

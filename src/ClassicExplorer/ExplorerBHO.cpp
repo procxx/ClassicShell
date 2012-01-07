@@ -215,7 +215,7 @@ LRESULT CALLBACK CExplorerBHO::HookExplorer( int nCode, WPARAM wParam, LPARAM lP
 			{
 				DWORD_PTR settings=0;
 				DWORD version=LOWORD(GetVersion());
-				if (version==0x0106 && GetSettingBool(L"FixFolderScroll"))
+				if (version!=0x0006 && GetSettingBool(L"FixFolderScroll"))
 					settings|=1;
 				SetWindowSubclass(hWnd,SubclassTreeProc,'CLSH',settings);
 				PostMessage(hWnd,TVM_SETEXTENDEDSTYLE,TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000,0);
@@ -253,6 +253,25 @@ LRESULT CALLBACK CExplorerBHO::HookKeyboard( int nCode, WPARAM wParam, LPARAM lP
 					SendMessage(pTlsData->bho->m_Breadcrumbs,WM_KEYDOWN,VK_SPACE,0);
 					SendMessage(pTlsData->bho->m_Breadcrumbs,WM_KEYUP,VK_SPACE,0);
 					return 0;
+				}
+			}
+		}
+		if (wParam==(pTlsData->bho->m_UpHotkey&255) && !(lParam&0x80000000))
+		{
+			// Backspace goes to the parent folder, but only if no window has the caret
+			GUITHREADINFO info={sizeof(info)};
+			if (GetGUIThreadInfo(GetCurrentThreadId(),&info) && !info.hwndCaret)
+			{
+				bool bShift1=(pTlsData->bho->m_UpHotkey&(HOTKEYF_SHIFT<<8))!=0;
+				bool bCtrl1=(pTlsData->bho->m_UpHotkey&(HOTKEYF_CONTROL<<8))!=0;
+				bool bAlt1=(pTlsData->bho->m_UpHotkey&(HOTKEYF_ALT<<8))!=0;
+				bool bShift2=GetKeyState(VK_SHIFT)<0;
+				bool bCtrl2=GetKeyState(VK_CONTROL)<0;
+				bool bAlt2=GetKeyState(VK_MENU)<0;
+				if (bShift1==bShift2 && bCtrl1==bCtrl2 && bAlt1==bAlt2)
+				{
+					pTlsData->bho->m_pBrowser->BrowseObject(NULL,SBSP_SAMEBROWSER|SBSP_PARENT);
+					return 1;
 				}
 			}
 		}
@@ -527,91 +546,92 @@ LRESULT CALLBACK CExplorerBHO::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM w
 // Subclass the breadcrumbs to make them show the full path
 LRESULT CALLBACK CExplorerBHO::BreadcrumbSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
-	if (uMsg==WM_SETFOCUS)
+	CExplorerBHO *pThis=(CExplorerBHO*)uIdSubclass;
+	if (*pThis->m_CurPath)
 	{
-		if (wParam)
+		if (uMsg==WM_SETFOCUS)
 		{
-			// see if the focus comes from the combo box. if so, most likely Escape was pressed, so just focus the main frame
-			HWND from=(HWND)wParam;
-			HWND combo=FindChildWindow(GetParent(GetParent(hWnd)),WC_COMBOBOXEX);
-			if (combo && (combo==from || IsChild(combo,from)))
+			if (wParam)
 			{
-				SetFocus(GetAncestor(hWnd,GA_ROOT));
-				return 0;
+				// see if the focus comes from the combo box. if so, most likely Escape was pressed, so just focus the main frame
+				HWND from=(HWND)wParam;
+				HWND combo=FindChildWindow(GetParent(GetParent(hWnd)),WC_COMBOBOXEX);
+				if (combo && (combo==from || IsChild(combo,from)))
+				{
+					SetFocus(GetAncestor(hWnd,GA_ROOT));
+					return 0;
+				}
 			}
-		}
-		// when the breadcrumbs are focused, switch to the combobox by simulating a mouse click
-		RECT rc;
-		GetClientRect(hWnd,&rc);
-		LPARAM pos=MAKELONG(rc.right-1,rc.bottom/2);
-		DefSubclassProc(hWnd,WM_LBUTTONDOWN,MK_LBUTTON,pos);
-		DefSubclassProc(hWnd,WM_LBUTTONUP,0,pos);
-		return 0;
-	}
-	if (uMsg==WM_LBUTTONDOWN || uMsg==WM_LBUTTONDBLCLK || uMsg==WM_LBUTTONUP)
-	{
-		// unless the mouse is clicked on the icon, replace the mouse position with a point on the far right.
-		// this will cause Explorer to switch to the combobox even when a breadcrumb is clicked
-		CExplorerBHO *pThis=(CExplorerBHO*)uIdSubclass;
-
-		int iconSize=GetSystemMetrics(SM_CXSMICON);
-		if (!pThis->m_CurIcon || (short)LOWORD(lParam)>iconSize+3)
-		{
+			// when the breadcrumbs are focused, switch to the combobox by simulating a mouse click
 			RECT rc;
 			GetClientRect(hWnd,&rc);
-			lParam=MAKELONG(rc.right-1,rc.bottom/2);
+			LPARAM pos=MAKELONG(rc.right-1,rc.bottom/2);
+			DefSubclassProc(hWnd,WM_LBUTTONDOWN,MK_LBUTTON,pos);
+			DefSubclassProc(hWnd,WM_LBUTTONUP,0,pos);
+			return 0;
 		}
-	}
-
-	if (uMsg==WM_PAINT)
-	{
-		// make the breadcrumbs control draw the full path like the XP address bar
-		CExplorerBHO *pThis=(CExplorerBHO*)uIdSubclass;
-		RECT rc;
-		GetClientRect(hWnd,&rc);
-
-		PAINTSTRUCT ps;
-		HDC hdc=BeginPaint(hWnd,&ps);
-
-		// we need to use buffered painting because DrawThemeTextEx with DTT_COMPOSITED requires it
-		// on Vista DTT_COMPOSITED is required so that the black text doesn't get transparent. On Windows 7 regular DrawText seems to work fine
-		BP_PAINTPARAMS paintParams={sizeof(paintParams)};
-		paintParams.dwFlags=BPPF_ERASE;
-		HDC hdcPaint=NULL;
-		HPAINTBUFFER hBufferedPaint=BeginBufferedPaint(hdc,&rc,BPBF_TOPDOWNDIB,&paintParams,&hdcPaint);
-		if (hdcPaint)
+		if (uMsg==WM_LBUTTONDOWN || uMsg==WM_LBUTTONDBLCLK || uMsg==WM_LBUTTONUP)
 		{
-			rc.top++;
-			SendMessage(GetParent(GetParent(hWnd)),WM_PRINTCLIENT,(WPARAM)hdcPaint,PRF_CLIENT);
-
-			// draw icon
+			// unless the mouse is clicked on the icon, replace the mouse position with a point on the far right.
+			// this will cause Explorer to switch to the combobox even when a breadcrumb is clicked
 			int iconSize=GetSystemMetrics(SM_CXSMICON);
-			if (pThis->m_CurIcon)
-				DrawIconEx(hdcPaint,rc.left+3,(rc.top+rc.bottom-iconSize)/2,pThis->m_CurIcon,iconSize,iconSize,0,NULL,DI_NORMAL);
-			rc.left+=iconSize+8; // Not a good idea to hard-code number of pixels, but seems to work fine for different DPI settings
-
-			// draw path
-			HFONT font=(HFONT)SendMessage(hWnd,WM_GETFONT,0,0);
-			HFONT font0=(HFONT)SelectObject(hdcPaint,font);
-			SetBkMode(hdcPaint,TRANSPARENT);
-			SetTextColor(hdcPaint,GetSysColor(COLOR_WINDOWTEXT));
-			HTHEME theme=GetWindowTheme(hWnd);
-			BOOL dwm;
-			if (theme && SUCCEEDED(DwmIsCompositionEnabled(&dwm)) && dwm)
+			if (!pThis->m_CurIcon || (short)LOWORD(lParam)>iconSize+3)
 			{
-				DTTOPTS opts={sizeof(opts),DTT_COMPOSITED|DTT_TEXTCOLOR};
-				opts.crText=GetSysColor(COLOR_WINDOWTEXT);
-				DrawThemeTextEx(theme,hdcPaint,0,0,pThis->m_CurPath,-1,DT_NOPREFIX|DT_VCENTER|DT_SINGLELINE,&rc,&opts);
+				RECT rc;
+				GetClientRect(hWnd,&rc);
+				lParam=MAKELONG(rc.right-1,rc.bottom/2);
 			}
-			else
-			{
-				DrawText(hdcPaint,pThis->m_CurPath,-1,&rc,DT_NOPREFIX|DT_VCENTER|DT_SINGLELINE);
-			}
-			SelectObject(hdcPaint,font0);
-			EndBufferedPaint(hBufferedPaint,TRUE);
 		}
-		EndPaint(hWnd,&ps);
-		return 0;
+
+		if (uMsg==WM_PAINT)
+		{
+			// make the breadcrumbs control draw the full path like the XP address bar
+			RECT rc;
+			GetClientRect(hWnd,&rc);
+
+			PAINTSTRUCT ps;
+			HDC hdc=BeginPaint(hWnd,&ps);
+
+			// we need to use buffered painting because DrawThemeTextEx with DTT_COMPOSITED requires it
+			// on Vista DTT_COMPOSITED is required so that the black text doesn't get transparent. On Windows 7 regular DrawText seems to work fine
+			BP_PAINTPARAMS paintParams={sizeof(paintParams)};
+			paintParams.dwFlags=BPPF_ERASE;
+			HDC hdcPaint=NULL;
+			HPAINTBUFFER hBufferedPaint=BeginBufferedPaint(hdc,&rc,BPBF_TOPDOWNDIB,&paintParams,&hdcPaint);
+			if (hdcPaint)
+			{
+				rc.top++;
+				SendMessage(GetParent(GetParent(hWnd)),WM_PRINTCLIENT,(WPARAM)hdcPaint,PRF_CLIENT);
+
+				// draw icon
+				int iconSize=GetSystemMetrics(SM_CXSMICON);
+				if (pThis->m_CurIcon)
+					DrawIconEx(hdcPaint,rc.left+3,(rc.top+rc.bottom-iconSize)/2,pThis->m_CurIcon,iconSize,iconSize,0,NULL,DI_NORMAL);
+				rc.left+=iconSize+8; // Not a good idea to hard-code number of pixels, but seems to work fine for different DPI settings
+
+				// draw path
+				HFONT font=(HFONT)SendMessage(hWnd,WM_GETFONT,0,0);
+				HFONT font0=(HFONT)SelectObject(hdcPaint,font);
+				SetBkMode(hdcPaint,TRANSPARENT);
+				SetTextColor(hdcPaint,GetSysColor(COLOR_WINDOWTEXT));
+				HTHEME theme=GetWindowTheme(hWnd);
+				BOOL dwm;
+				if (theme && SUCCEEDED(DwmIsCompositionEnabled(&dwm)) && dwm)
+				{
+					DTTOPTS opts={sizeof(opts),DTT_COMPOSITED|DTT_TEXTCOLOR};
+					opts.crText=GetSysColor(COLOR_WINDOWTEXT);
+					DrawThemeTextEx(theme,hdcPaint,0,0,pThis->m_CurPath,-1,DT_NOPREFIX|DT_VCENTER|DT_SINGLELINE,&rc,&opts);
+				}
+				else
+				{
+					DrawText(hdcPaint,pThis->m_CurPath,-1,&rc,DT_NOPREFIX|DT_VCENTER|DT_SINGLELINE);
+				}
+				SelectObject(hdcPaint,font0);
+				EndBufferedPaint(hBufferedPaint,TRUE);
+			}
+			EndPaint(hWnd,&ps);
+			return 0;
+		}
 	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
@@ -780,7 +800,7 @@ LRESULT CALLBACK CExplorerBHO::ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARA
 				if (SHGetFileInfo((LPCTSTR)it->pidl,0,&info,sizeof(info),SHGFI_PIDL|SHGFI_SYSICONINDEX|SHGFI_SMALLICON))
 					item.iImage=item.iSelectedImage=info.iIcon;
 				int idx=(int)pThis->m_ComboBox.SendMessage(CBEM_INSERTITEM,'CLSH',(LPARAM)&item);
-				if (ILIsEqual(it->pidl,pThis->m_CurPidl))
+				if (pThis->m_CurPidl && ILIsEqual(it->pidl,pThis->m_CurPidl))
 					pThis->m_ComboBox.SendMessage(CB_SETCURSEL,idx);
 			}
 
@@ -843,7 +863,7 @@ LRESULT CALLBACK CExplorerBHO::ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARA
 	if (uMsg==pThis->m_NavigateMsg)
 	{
 		// navigate to the selected item
-		if (wParam==0 && pThis->m_NavigatePidl && !ILIsEqual(pThis->m_NavigatePidl,pThis->m_CurPidl))
+		if (wParam==0 && pThis->m_NavigatePidl && !(pThis->m_CurPidl && ILIsEqual(pThis->m_NavigatePidl,pThis->m_CurPidl)))
 			pThis->m_pBrowser->BrowseObject(pThis->m_NavigatePidl,SBSP_SAMEBROWSER|SBSP_ABSOLUTE);
 		else
 			SetFocus(hWnd);
@@ -878,6 +898,18 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 			{
 				if (m_dwEventCookie==0xFEFEFEFE) // ATL's event cookie is 0xFEFEFEFE when the sink is not advised
 					DispEventAdvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
+				CRegKey regKey;
+				if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
+				{
+					DWORD val;
+					if (regKey.QueryDWORDValue(L"ShowedToolbar",val)!=ERROR_SUCCESS || !val)
+					{
+						CComVariant name(L"{553891B7-A0D5-4526-BE18-D3CE461D6310}");
+						CComVariant show(true);
+						if (SUCCEEDED(m_pWebBrowser->ShowBrowserBar(&name,&show,NULL)))
+							regKey.SetDWORDValue(L"ShowedToolbar",1);
+					}
+				}
 			}
 
 			HWND status;
@@ -889,11 +921,12 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 					SetProp(m_TopWindow,g_LoadedSettingsAtom,(HANDLE)1);
 					LoadSettings();
 				}
-				bool bWin7=(LOWORD(GetVersion())!=0x0006);
+				bool bWin7=(LOWORD(GetVersion())==0x0106);
+				bool bWin8=(LOWORD(GetVersion())==0x0206);
 
-				m_UpButtonIndex=GetSettingInt(L"ShowUpButton");
-				bool bShowCaption=GetSettingBool(L"ShowCaption");
-				bool bShowIcon=GetSettingBool(L"ShowIcon");
+				m_UpButtonIndex=bWin8?0:GetSettingInt(L"ShowUpButton");
+				bool bShowCaption=!bWin8 && GetSettingBool(L"ShowCaption");
+				bool bShowIcon=!bWin8 && GetSettingBool(L"ShowIcon");
 
 				if (m_TopWindow && (bShowCaption || bShowIcon))
 				{
@@ -914,10 +947,11 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 				bool bRedrawRebar=false;
 
 				m_Rebar=rebar;
+				m_AltD=0;
 				if (rebar && GetSettingBool(L"HideSearch"))
 				{
-					// to remove the Search box, first find the band with ID=2. Then disable the child control and hide the band
-					int idx=(int)SendMessage(rebar,RB_IDTOINDEX,2,0);
+					// to remove the Search box, first find the band with ID=2 (or 4 for Win8). Then disable the child control and hide the band
+					int idx=(int)SendMessage(rebar,RB_IDTOINDEX,bWin8?4:2,0);
 					if (idx>=0)
 					{
 						REBARBANDINFO info={sizeof(info),RBBIM_CHILD};
@@ -999,10 +1033,6 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 							m_AltD+='A'-'a';
 						if (m_AltD<'A' || m_AltD>'Z')
 							m_AltD=0;
-						if (m_AltD && !m_HookKbd)
-						{
-							m_HookKbd=SetWindowsHookEx(WH_KEYBOARD,HookKeyboard,NULL,GetCurrentThreadId());
-						}
 					}
 					m_Breadcrumbs=breadcrumbs;
 					if (GetSettingBool(L"DisableBreadcrumbs"))
@@ -1025,7 +1055,13 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 				if (bRedrawRebar)
 					RedrawWindow(rebar,NULL,NULL,RDW_UPDATENOW|RDW_ALLCHILDREN);
 
-				if (GetSettingBool(L"ShowFreeSpace"))
+				m_UpHotkey=GetSettingInt(L"UpHotkey");
+				if ((m_AltD || m_UpHotkey) && !m_HookKbd)
+				{
+					m_HookKbd=SetWindowsHookEx(WH_KEYBOARD,HookKeyboard,NULL,GetCurrentThreadId());
+				}
+
+				if (!bWin8 && GetSettingBool(L"ShowFreeSpace"))
 				{
 					DWORD FreeSpace=GetSettingBool(L"ShowInfoTip")?SPACE_INFOTIP:0;
 					if (bWin7)
@@ -1128,9 +1164,8 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 
 				CComPtr<IPersistFolder2> pFolder;
 				pFolderView->GetFolder(IID_IPersistFolder2,(void**)&pFolder);
-				if (pFolder)
+				if (pFolder && SUCCEEDED(pFolder->GetCurFolder(&m_CurPidl)) && m_CurPidl)
 				{
-					pFolder->GetCurFolder(&m_CurPidl);
 					if (ILIsEmpty(m_CurPidl))
 						bDesktop=true; // only the top level has empty PIDL
 
@@ -1151,7 +1186,10 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 						if (SUCCEEDED(SHGetFileInfo((LPCTSTR)m_CurPidl,0,&info,sizeof(info),SHGFI_ICON|SHGFI_SMALLICON|SHGFI_PIDL)))
 							m_CurIcon=info.hIcon;
 					}
-
+				}
+				else
+				{
+					m_CurPidl=NULL;
 				}
 			}
 		}

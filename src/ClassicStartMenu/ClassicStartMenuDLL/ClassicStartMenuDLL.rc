@@ -213,8 +213,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,2,0,0
- PRODUCTVERSION 3,2,0,0
+ FILEVERSION 3,3,0,0
+ PRODUCTVERSION 3,3,0,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -231,12 +231,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "3, 2, 0, 0"
+            VALUE "FileVersion", "3, 3, 0, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009-2011, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 2, 0, 0"
+            VALUE "ProductVersion", "3, 3, 0, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -548,7 +548,7 @@ BEGIN
     IDS_SMOOTH_STD_TIP      "The text will use the the standard anti-aliasing smoothing"
     IDS_SMOOTH_CLEAR        "Clear Type"
     IDS_SMOOTH_CLEAR_TIP    "The text will use the ClearType smoothing"
-    IDS_SECURITY_SETTINGS   "Security"
+    IDS_CONTEXT_MENU_SETTINGS "Context Menu"
     IDS_DRAG_DROP           "Enable Drag and Drop"
     IDS_DRAG_DROP_TIP       "When this is checked, the user will be allowed to drag and drop items in the start menu"
     IDS_CONTEXT_MENU        "Enable right-click menu"
@@ -689,6 +689,12 @@ BEGIN
     IDS_LOCK_TIP            "Locks the computer"
     IDS_SUB_ANIM_ALWAYS     "Always animate sub-menus"
     IDS_SUB_ANIM_ALWAYS_TIP "When this is checked, the sub-menus will animate every time they open"
+    IDS_EXPLORER            "Enable Windows Explorer"
+    IDS_EXPLORER_TIP        "Uncheck this to prevent opening folders in Windows Explorer"
+    IDS_EXPLORER_PATH       "Default Explorer Path"
+    IDS_EXPLORER_PATH_TIP   "Set the default path for the Windows Explorer command in the Start Button menu. Leave blank to remove the Windows Explorer command. The special locations 'computer', 'desktop' and 'libraries' are also supported"
+    IDS_HIDE_PIC            "Hide User Picture"
+    IDS_HIDE_PIC_TIP        "When this is cheched, the user picture is removed from the Windows start menu"
 END
 
 #endif    // English (U.S.) resources

@@ -1,4 +1,24 @@
 ===============================================================================
+== Version 3.3.0 general release (Jan, 2012):
+
+- Fixed some minor problems found in the previous release
+
+- Improved compatibility with Windows 8 and removed the features that are no
+  longer necessary or possible
+
+- Added customizable "Windows Explorer" item to the start button context menu
+
+- Added a new "paste shortcuts" command to Explorer
+
+- Added an option to hide the user picture from the Windows start menu
+
+- Ctrl+Shift+Enter can launch commands and documents as administrator from
+  the start menu
+
+- Added a customizable hotkey for the Up button
+
+
+===============================================================================
 == Version 3.2.0 general release (Aug, 2011):
 
 - Fixed some minor problems found in the previous release

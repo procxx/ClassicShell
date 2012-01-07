@@ -9,13 +9,14 @@
 #include <dwmapi.h>
 
 static _declspec(thread) SIZE g_SysButtonSize; // the size of the system buttons (close, minimize) for this thread's window
-static WNDPROC g_OldCaptionProc;
+static WNDPROC g_OldClassCaptionProc;
 static HBITMAP g_GlowBmp;
 static HBITMAP g_GlowBmpMax;
 static LONG g_bInjected; // the process is injected
 static bool g_bVista; // running on Vista
 static int g_DPI;
 static UINT g_Message; // private message to detect if the caption is subclassed
+static ATOM g_SubclassAtom;
 
 struct CustomCaption
 {
@@ -46,11 +47,21 @@ void GetSysButtonSize( HWND hWnd )
 }
 
 // Subclasses the main IE frame to redraw the caption when the text changes
-static LRESULT CALLBACK SubclassFrameProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+static LRESULT CALLBACK SubclassFrameProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
+	if (uMsg==g_Message)
+	{
+		GetSysButtonSize(hWnd);
+		HWND caption=FindWindowEx(hWnd,NULL,L"Client Caption",NULL);
+		if (caption)
+			InvalidateRect(caption,NULL,FALSE);
+		return 0;
+	}
 	if (uMsg==WM_SETTEXT || uMsg==WM_ACTIVATE)
 	{
-		InvalidateRect((HWND)dwRefData,NULL,FALSE);
+		HWND caption=FindWindowEx(hWnd,NULL,L"Client Caption",NULL);
+		if (caption)
+			InvalidateRect(caption,NULL,FALSE);
 	}
 	if (uMsg==WM_SIZE || uMsg==WM_SETTINGCHANGE)
 	{
@@ -61,11 +72,16 @@ static LRESULT CALLBACK SubclassFrameProc( HWND hWnd, UINT uMsg, WPARAM wParam, 
 			UpdateSettings();
 		}
 	}
-	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+	while (1)
+	{
+		WNDPROC proc=(WNDPROC)GetProp(hWnd,MAKEINTATOM(g_SubclassAtom));
+		if (proc)
+			return CallWindowProc(proc,hWnd,uMsg,wParam,lParam);
+	}
 }
 
 // Subclasses the caption window to draw the icon and the text
-static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
 	if (uMsg==g_Message)
 		return 1;
@@ -268,36 +284,52 @@ static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam
 		CloseThemeData(theme);
 		return 0;
 	}
-	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+	while (1)
+	{
+		WNDPROC proc=(WNDPROC)GetProp(hWnd,MAKEINTATOM(g_SubclassAtom));
+		if (proc)
+			return CallWindowProc(proc,hWnd,uMsg,wParam,lParam);
+	}
 }
 
-static BOOL CALLBACK FindIE9Frames( HWND hwnd, LPARAM lParam )
+// Replacement proc for the "Client Caption" class that hooks the main frame and the caption windows
+static LRESULT CALLBACK ClassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
-	HWND caption=FindWindowEx(hwnd,NULL,L"Client Caption",NULL);
-	if (caption)
+	if (uMsg==WM_CREATE)
 	{
-		SetWindowSubclass(caption,SubclassCaptionProc,'CLSH',0);
-		SetWindowSubclass(hwnd,SubclassFrameProc,'CLSH',(DWORD_PTR)caption);
-		GetSysButtonSize(hwnd);
-		InvalidateRect(caption,NULL,FALSE);
-		*(HWND*)lParam=caption;
+		WNDPROC proc=(WNDPROC)SetWindowLongPtr(hWnd,GWLP_WNDPROC,(LONG_PTR)SubclassCaptionProc);
+		SetProp(hWnd,MAKEINTATOM(g_SubclassAtom),(HANDLE)proc);
+		HWND frame=GetParent(hWnd);
+		proc=(WNDPROC)SetWindowLongPtr(frame,GWLP_WNDPROC,(LONG_PTR)SubclassFrameProc);
+		SetProp(frame,MAKEINTATOM(g_SubclassAtom),(HANDLE)proc);
+		PostMessage(frame,g_Message,0,0);
+	}
+	return CallWindowProc(g_OldClassCaptionProc,hWnd,uMsg,wParam,lParam);
+}
+
+static BOOL CALLBACK EnumTopWindows( HWND hwnd, LPARAM lParam )
+{
+	DWORD processId;
+	DWORD threadId=GetWindowThreadProcessId(hwnd,&processId);
+	if (processId==GetCurrentProcessId())
+	{
+		HWND caption=FindWindowEx(hwnd,NULL,L"Client Caption",NULL);
+		if (caption)
+		{
+			LogMessage("InitClassicIE9: process=%d, caption=%X\r\n",GetCurrentProcessId(),(DWORD)caption);
+			if (!g_OldClassCaptionProc)
+				g_OldClassCaptionProc=(WNDPROC)SetClassLongPtr(caption,GCLP_WNDPROC,(LONG_PTR)ClassCaptionProc);
+			WNDPROC proc=(WNDPROC)SetWindowLongPtr(caption,GWLP_WNDPROC,(LONG_PTR)SubclassCaptionProc);
+			SetProp(caption,MAKEINTATOM(g_SubclassAtom),(HANDLE)proc);
+			proc=(WNDPROC)SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)SubclassFrameProc);
+			SetProp(hwnd,MAKEINTATOM(g_SubclassAtom),(HANDLE)proc);
+			PostMessage(hwnd,g_Message,0,0);
+		}
 	}
 	return TRUE;
 }
 
-// Replacement proc for the "Client Caption" class that hooks the main frame and the caption windows
-static LRESULT CALLBACK CaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
-{
-	if (uMsg==WM_CREATE)
-	{
-		SetWindowSubclass(hWnd,SubclassCaptionProc,'CLSH',0);
-		SetWindowSubclass(GetParent(hWnd),SubclassFrameProc,'CLSH',(DWORD_PTR)hWnd);
-		GetSysButtonSize(GetParent(hWnd));
-	}
-	return CallWindowProc(g_OldCaptionProc,hWnd,uMsg,wParam,lParam);
-}
-
-void InitClassicIE9( void )
+void InitClassicIE9( HMODULE hModule )
 {
 	CRegKey regKey;
 	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicIE9")==ERROR_SUCCESS)
@@ -323,28 +355,14 @@ void InitClassicIE9( void )
 		}
 	}
 
-	g_bVista=(LOWORD(GetVersion())==6);
-#ifdef _WIN64
-	LoadLibrary(L"ClassicIE9DLL_64.dll");
-#else
-	LoadLibrary(L"ClassicIE9DLL_32.dll");
-#endif
-	HWND caption=NULL;
-	EnumThreadWindows(GetCurrentThreadId(),FindIE9Frames,(LPARAM)&caption);
-	LogMessage("InitClassicIE9: process=%d, caption=%X\r\n",GetCurrentProcessId(),(DWORD)caption);
+	g_bVista=(LOWORD(GetVersion())==0x0006);
 	g_Message=RegisterWindowMessage(L"ClassicIE9.Injected");
+	g_SubclassAtom=GlobalAddAtom(L"ClassicIE9.Subclass");
 	ChangeWindowMessageFilter(g_Message,MSGFLT_ADD);
-	g_OldCaptionProc=(WNDPROC)SetClassLongPtr(caption,GCLP_WNDPROC,(LONG_PTR)CaptionProc);
 	g_GlowBmp=(HBITMAP)LoadImage(g_Instance,MAKEINTRESOURCE(IDB_GLOW),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
 	PremultiplyBitmap(g_GlowBmp,GetSettingInt(L"GlowColor"));
 	g_GlowBmpMax=(HBITMAP)LoadImage(g_Instance,MAKEINTRESOURCE(IDB_GLOW),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
 	PremultiplyBitmap(g_GlowBmpMax,GetSettingInt(L"MaxGlowColor"));
-}
 
-// WH_GETMESSAGE hook for the explorer's GUI thread. The ClassicIE9 exe uses this hook to inject code into the Internet Explorer process
-CSIE9API LRESULT CALLBACK HookInject( int code, WPARAM wParam, LPARAM lParam )
-{
-	if (code==HC_ACTION && !InterlockedExchange(&g_bInjected,1))
-		InitClassicIE9();
-	return CallNextHookEx(NULL,code,wParam,lParam);
+	EnumWindows(EnumTopWindows,0);
 }

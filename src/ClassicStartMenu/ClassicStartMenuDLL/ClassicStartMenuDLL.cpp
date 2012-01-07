@@ -410,6 +410,19 @@ void EnableHotkeys( THotkeys enable )
 	}
 }
 
+static LRESULT CALLBACK SubclassUserPicProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+{
+	if (uMsg==WM_WINDOWPOSCHANGING && !(((WINDOWPOS*)lParam)->flags&SWP_NOMOVE))
+	{
+		if (GetSettingBool(L"HideUserPic"))
+		{
+			((WINDOWPOS*)lParam)->x=-32000;
+			((WINDOWPOS*)lParam)->y=-32000;
+		}
+	}
+	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+}
+
 static LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	if (uMsg==WM_ACTIVATE && GetSettingBool(L"CascadeAll"))
@@ -518,6 +531,7 @@ static void FindWindowsMenu( void )
 		if (g_TopMenu)
 		{
 			g_UserPic=FindWindow(L"Desktop User Picture",NULL);
+			SetWindowSubclass(g_UserPic,SubclassUserPicProc,'CLSH',0);
 			SetWindowSubclass(g_TopMenu,SubclassTopMenuProc,'CLSH',0);
 			SetWindowSubclass(g_AllPrograms,SubclassProgramsProc,'CLSH',0);
 		}
@@ -584,6 +598,7 @@ static void CleanStartMenuDLL( void )
 	RemoveWindowSubclass(g_TaskBar,SubclassTaskBarProc,'CLSH');
 	if (g_TopMenu)
 	{
+		RemoveWindowSubclass(g_UserPic,SubclassUserPicProc,'CLSH');
 		RemoveWindowSubclass(g_TopMenu,SubclassTopMenuProc,'CLSH');
 		RemoveWindowSubclass(g_AllPrograms,SubclassProgramsProc,'CLSH');
 	}
@@ -946,6 +961,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 					CMD_EXIT,
 					CMD_OPEN,
 					CMD_OPEN_ALL,
+					CMD_EXPLORER,
 				};
 
 				// right-click on the start button - open the context menu (Settings, Help, Exit)
@@ -953,14 +969,23 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				POINT p={(short)LOWORD(msg->lParam),(short)HIWORD(msg->lParam)};
 				ClientToScreen(msg->hwnd,&p);
 				HMENU menu=CreatePopupMenu();
-				AppendMenu(menu,MF_STRING,0,LoadStringEx(IDS_MENU_TITLE));
-				EnableMenuItem(menu,0,MF_BYPOSITION|MF_DISABLED);
-				SetMenuDefaultItem(menu,0,TRUE);
-				AppendMenu(menu,MF_SEPARATOR,0,0);
-				AppendMenu(menu,MF_STRING,CMD_OPEN,FindTranslation(L"Menu.Open",L"&Open"));
-				if (!SHRestricted(REST_NOCOMMONGROUPS))
-					AppendMenu(menu,MF_STRING,CMD_OPEN_ALL,FindTranslation(L"Menu.OpenAll",L"O&pen All Users"));
-				AppendMenu(menu,MF_SEPARATOR,0,0);
+				CString title=LoadStringEx(IDS_MENU_TITLE);
+				if (!title.IsEmpty())
+				{
+					AppendMenu(menu,MF_STRING,0,title);
+					EnableMenuItem(menu,0,MF_BYPOSITION|MF_DISABLED);
+					SetMenuDefaultItem(menu,0,TRUE);
+					AppendMenu(menu,MF_SEPARATOR,0,0);
+				}
+				if (GetSettingBool(L"EnableExplorer"))
+				{
+					if (!GetSettingString(L"ExplorerPath").IsEmpty())
+						AppendMenu(menu,MF_STRING,CMD_EXPLORER,FindTranslation(L"Menu.Explorer",L"Windows Explorer"));
+					AppendMenu(menu,MF_STRING,CMD_OPEN,FindTranslation(L"Menu.Open",L"&Open"));
+					if (!SHRestricted(REST_NOCOMMONGROUPS))
+						AppendMenu(menu,MF_STRING,CMD_OPEN_ALL,FindTranslation(L"Menu.OpenAll",L"O&pen All Users"));
+					AppendMenu(menu,MF_SEPARATOR,0,0);
+				}
 				if (GetSettingBool(L"EnableSettings"))
 					AppendMenu(menu,MF_STRING,CMD_SETTINGS,FindTranslation(L"Menu.MenuSettings",L"Settings"));
 				AppendMenu(menu,MF_STRING,CMD_HELP,FindTranslation(L"Menu.MenuHelp",L"Help"));
@@ -1003,6 +1028,30 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 						ShellExecute(NULL,L"open",path,NULL,NULL,SW_SHOWNORMAL);
 						CoTaskMemFree(path);
 					}
+				}
+				if (res==CMD_EXPLORER)
+				{
+					CString path=GetSettingString(L"ExplorerPath");
+					ITEMIDLIST blank={0};
+					SHELLEXECUTEINFO execute={sizeof(execute)};
+					execute.lpVerb=L"open";
+					execute.lpFile=path;
+					execute.nShow=SW_SHOWNORMAL;
+					if (_wcsicmp(path,L"computer")==0)
+						execute.lpFile=L"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}";
+					else if (_wcsicmp(path,L"libraries")==0)
+						execute.lpFile=L"::{031E4825-7B94-4DC3-B131-E946B44C8DD5}";
+					else if (_wcsicmp(path,L"desktop")==0)
+					{
+						execute.fMask=SEE_MASK_IDLIST;
+						execute.lpIDList=&blank;
+						execute.lpFile=NULL;
+					}
+					else
+					{
+						execute.fMask=SEE_MASK_DOENVSUBST;
+					}
+					ShellExecuteEx(&execute);
 				}
 			}
 		}

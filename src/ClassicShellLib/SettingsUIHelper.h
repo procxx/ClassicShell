@@ -357,12 +357,5 @@ HIMAGELIST GetSettingsImageList( HWND tree );
 bool BrowseForIcon( HWND hWndParent, wchar_t *path, int &id );
 const wchar_t *GetSettingsRegPath( void );
 
-// Separates the arguments from the program
-// May return NULL if no arguments are found
-const wchar_t *SeparateArguments( const wchar_t *command, wchar_t *program );
-
-// Replaces some common paths with environment variables
-void UnExpandEnvStrings( const wchar_t *src, wchar_t *dst, int size );
-
 // Special GUID for the real desktop
 extern const GUID FOLDERID_DesktopRoot;

@@ -29,9 +29,9 @@ static CSetting g_Settings[]={
 	{L"InactiveColor",CSetting::TYPE_COLOR,IDS_INTEXT_COLOR,IDS_INTEXT_COLOR_TIP,0,CSetting::FLAG_WARM|(2<<24),L"ShowCaption"},
 	{L"InactiveMaxColor",CSetting::TYPE_COLOR,IDS_MAXINTEXT_COLOR,IDS_MAXINTEXT_COLOR_TIP,0,CSetting::FLAG_WARM|(3<<24),L"ShowCaption"},
 	{L"Glow",CSetting::TYPE_BOOL,IDS_GLOW,IDS_GLOW_TIP,0,CSetting::FLAG_WARM,L"ShowCaption"},
-	{L"GlowColor",CSetting::TYPE_COLOR,IDS_GLOW_COLOR,IDS_GLOW_COLOR_TIP,0xFFFFFF,CSetting::FLAG_WARM|(4<<24),L"Glow"},
+	{L"GlowColor",CSetting::TYPE_COLOR,IDS_GLOW_COLOR,IDS_GLOW_COLOR_TIP,0xFFFFFF,CSetting::FLAG_WARM|(4<<24),L"#Glow"},
 	{L"MaxGlow",CSetting::TYPE_BOOL,IDS_MAXGLOW,IDS_MAXGLOW_TIP,0,CSetting::FLAG_WARM,L"ShowCaption"},
-	{L"MaxGlowColor",CSetting::TYPE_COLOR,IDS_MAXGLOW_COLOR,IDS_MAXGLOW_COLOR_TIP,0xFFFFFF,CSetting::FLAG_WARM|(5<<24),L"MaxGlow"},
+	{L"MaxGlowColor",CSetting::TYPE_COLOR,IDS_MAXGLOW_COLOR,IDS_MAXGLOW_COLOR_TIP,0xFFFFFF,CSetting::FLAG_WARM|(5<<24),L"#MaxGlow"},
 
 {L"StatusBar",CSetting::TYPE_GROUP,IDS_STATUS_SETTINGS},
 	{L"ShowProgress",CSetting::TYPE_BOOL,IDS_SHOW_PROGRESS,IDS_SHOW_PROGRESS_TIP,1,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
@@ -46,13 +46,16 @@ static CSetting g_Settings[]={
 
 void UpdateSettings( void )
 {
-	bool bVista=(LOWORD(GetVersion())==0x0006);
+	DWORD version=LOWORD(GetVersion());
+	bool bVista=(version==0x0006);
+	bool bWin8=(version==0x0206);
 
 	BOOL bComposition;
 	if (FAILED(DwmIsCompositionEnabled(&bComposition)))
 		bComposition=FALSE;
 	UpdateSetting(L"Glow",CComVariant(bComposition?1:0),false);
 	UpdateSetting(L"MaxGlow",CComVariant((bComposition && !bVista)?1:0),false);
+	UpdateSetting(L"CenterCaption",CComVariant(bWin8?1:0),false);
 
 	// create a dummy window to get a theme
 	HWND hwnd=CreateWindow(L"#32770",L"",WS_OVERLAPPEDWINDOW,0,0,0,0,NULL,NULL,NULL,0);

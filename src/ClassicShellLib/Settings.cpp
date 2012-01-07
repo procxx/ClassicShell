@@ -85,6 +85,11 @@ bool CSetting::IsEnabled( void ) const
 
 	if (depend)
 	{
+		bool checkEnabled=(*depend=='#');
+		const wchar_t *name=depend;
+		if (checkEnabled)
+			name++;
+
 		int len=Strlen(depend);
 		int val=0;
 		wchar_t operation='~';
@@ -102,8 +107,10 @@ bool CSetting::IsEnabled( void ) const
 		}
 		for (const CSetting *pSetting=GetAllSettings();pSetting->name;pSetting++)
 		{
-			if (_wcsnicmp(pSetting->name,depend,len)==0)
+			if (_wcsnicmp(pSetting->name,name,len)==0)
 			{
+				if (checkEnabled && !pSetting->IsEnabled())
+					return false;
 				if ((pSetting->type==CSetting::TYPE_BOOL || pSetting->type==CSetting::TYPE_INT) && pSetting->value.vt==VT_I4)
 				{
 					if (operation=='=' && pSetting->value.intVal!=val)
@@ -188,7 +195,7 @@ void CSettingsManager::Init( CSetting *pSettings, TSettingsComponent component )
 		{
 			ATLASSERT(pSetting->defValue.vt==VT_I4 && (pSetting->defValue.intVal==0 || pSetting->defValue.intVal==1));
 		}
-		else if (pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR)
+		else if (pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY  || pSetting->type==CSetting::TYPE_HOTKEY_ANY || pSetting->type==CSetting::TYPE_COLOR)
 		{
 			ATLASSERT(pSetting->defValue.vt==VT_I4);
 		}
@@ -244,7 +251,7 @@ int CSettingsManager::GetSettingInt( const wchar_t *name ) const
 {
 	for (const CSetting *pSetting=m_pSettings;pSetting->name;pSetting++)
 	{
-		if ((pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR) && _wcsicmp(pSetting->name,name)==0)
+		if ((pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_HOTKEY_ANY || pSetting->type==CSetting::TYPE_COLOR) && _wcsicmp(pSetting->name,name)==0)
 		{
 			CSettingsLockRead lock;
 			ATLASSERT(pSetting->value.vt==VT_I4);
@@ -324,7 +331,7 @@ void CSettingsManager::LoadSettings( void )
 						pSetting->flags|=CSetting::FLAG_LOCKED_REG;
 						pSetting->flags&=~CSetting::FLAG_DEFAULT;
 					}
-					if (pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR)
+					if (pSetting->type==CSetting::TYPE_INT || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_HOTKEY_ANY || pSetting->type==CSetting::TYPE_COLOR)
 					{
 						pSetting->value=CComVariant((int)val);
 						pSetting->flags|=CSetting::FLAG_LOCKED_REG;
@@ -390,7 +397,7 @@ void CSettingsManager::LoadSettings( void )
 				if (pSetting->flags&CSetting::FLAG_LOCKED_REG)
 					continue;
 				DWORD val;
-				if ((pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR)
+				if ((pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_HOTKEY_ANY || pSetting->type==CSetting::TYPE_COLOR)
 					&& regSettings.QueryDWORDValue(pSetting->name,val)==ERROR_SUCCESS)
 				{
 					if (pSetting->type==CSetting::TYPE_BOOL)
@@ -470,7 +477,7 @@ void CSettingsManager::SaveSettings( void )
 			regSettings.DeleteValue(pSetting->name);
 			continue;
 		}
-		if (pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR)
+		if (pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_HOTKEY_ANY || pSetting->type==CSetting::TYPE_COLOR)
 		{
 			DWORD val=0;
 			if (pSetting->value.vt==VT_I4)
@@ -609,7 +616,7 @@ bool CSettingsManager::LoadSettingsXml( const wchar_t *fname )
 								pSetting->value=value;
 								pSetting->flags&=~CSetting::FLAG_DEFAULT;
 							}
-							else if (pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_COLOR)
+							else if (pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_HOTKEY_ANY || pSetting->type==CSetting::TYPE_COLOR)
 							{
 								int val=_wtol(value.bstrVal);
 								if (pSetting->type==CSetting::TYPE_BOOL)
@@ -736,7 +743,7 @@ bool CSettingsManager::SaveSettingsXml( const wchar_t *fname )
 			setting->appendChild(text,&nu);
 			continue;
 		}
-		else if (pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type>=CSetting::TYPE_HOTKEY || pSetting->type>=CSetting::TYPE_STRING)
+		else if (pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type>=CSetting::TYPE_HOTKEY || pSetting->type>=CSetting::TYPE_HOTKEY_ANY || pSetting->type>=CSetting::TYPE_STRING)
 		{
 			SaveSettingValue(pDoc,pRoot,pSetting->name,pSetting->value);
 		}
@@ -1116,7 +1123,7 @@ void CSettingsDlg::AddTabs( int name )
 	int idx=0;
 	for (const CSetting *pSetting=m_pSettings;pSetting->name;pSetting++)
 	{
-		if (pSetting->type!=CSetting::TYPE_GROUP)
+		if (pSetting->type!=CSetting::TYPE_GROUP || (pSetting->flags&CSetting::FLAG_HIDDEN))
 			continue;
 		if (!m_bBasic && pSetting->nameID==IDS_BASIC_SETTINGS)
 			continue;
@@ -1568,6 +1575,18 @@ void UpdateSetting( const wchar_t *name, int tipID, bool bWarning )
 			else
 				pSetting->flags&=~CSetting::FLAG_WARNING;
 			pSetting->tipID=tipID;
+			return;
+		}
+	ATLASSERT(0);
+}
+
+void HideSettingGroup( const wchar_t *name )
+{
+	ATLASSERT(g_LockState==2); // must be locked for writing
+	for (CSetting *pSetting=g_SettingsManager.GetSettings();pSetting->name;pSetting++)
+		if (pSetting->type==CSetting::TYPE_GROUP && wcscmp(pSetting->name,name)==0)
+		{
+			pSetting->flags|=CSetting::FLAG_HIDDEN;
 			return;
 		}
 	ATLASSERT(0);

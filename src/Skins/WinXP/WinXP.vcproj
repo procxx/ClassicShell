@@ -172,6 +172,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\separator_submenuV.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\SkinDescription.txt"
 				>
 			</File>

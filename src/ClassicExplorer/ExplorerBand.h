@@ -24,6 +24,7 @@ public:
 		ID_CUT,
 		ID_COPY,
 		ID_PASTE,
+		ID_PASTE_SHORTCUT,
 		ID_DELETE,
 		ID_PROPERTIES,
 		ID_EMAIL,
@@ -58,11 +59,14 @@ public:
 
 	DECLARE_WND_CLASS(L"ClassicShell.CBandWindow")
 
+	enum { BWM_UPDATEBUTTONS=WM_USER };
+
 	BEGIN_MSG_MAP( CBandWindow )
 		MESSAGE_HANDLER( WM_CREATE, OnCreate )
 		MESSAGE_HANDLER( WM_DESTROY, OnDestroy )
 		MESSAGE_HANDLER( WM_CLEAR, OnUpdateUI )
 		MESSAGE_HANDLER( WM_COMMAND, OnCommand )
+		MESSAGE_HANDLER( BWM_UPDATEBUTTONS, OnUpdateButtons )
 		NOTIFY_CODE_HANDLER( NM_RCLICK, OnRClick )
 		NOTIFY_CODE_HANDLER( TBN_GETINFOTIP, OnGetInfoTip )
 		NOTIFY_CODE_HANDLER( TBN_DROPDOWN, OnDropDown )
@@ -85,6 +89,7 @@ protected:
 	LRESULT OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnUpdateUI( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnUpdateButtons( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnRClick( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 	LRESULT OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 	LRESULT OnDropDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
@@ -119,6 +124,7 @@ private:
 	};
 
 	std::vector<StdToolbarItem> m_Items;
+	std::vector<TBBUTTON> m_Buttons;
 	CSettingsParser m_Parser;
 
 	void ParseToolbar( void );
@@ -131,6 +137,8 @@ private:
 	void ExecuteCommandFile( const wchar_t *pText );
 	void ExecuteCustomCommand( const wchar_t *pCommand );
 	void ViewByProperty( IFolderView2 *pView, const wchar_t *pProperty, bool bGroup );
+
+	static LRESULT CALLBACK ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 };
 
 

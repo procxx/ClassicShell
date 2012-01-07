@@ -265,8 +265,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,2,0,0
- PRODUCTVERSION 3,2,0,0
+ FILEVERSION 3,3,0,0
+ PRODUCTVERSION 3,3,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -283,12 +283,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic Windows Explorer features"
-            VALUE "FileVersion", "3, 2, 0, 0"
+            VALUE "FileVersion", "3, 3, 0, 0"
             VALUE "InternalName", "ClassicExplorer.dll"
             VALUE "LegalCopyright", "Copyright (C) 2009-2011, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicExplorer.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 2, 0, 0"
+            VALUE "ProductVersion", "3, 3, 0, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -570,6 +570,9 @@ BEGIN
     IDS_ALT_D_TIP           "Enter a letter 'A' to 'Z' to be a shortcut for the address bar. In some languages the default shortcut conflicts with a menu item"
     IDS_SORT_TIP            "Sorts the folder by the given property (name, type, size or date). Use '-' before the property to sort in descending order. Read the help for more options."
     IDS_GROUP_TIP           "Groups the folder by the given property (name, type, size or date). Use '-' before the property to group in descending order. Read the help for more options."
+    IDS_PASTE_SHORTCUT_TIP  "Creates shortcuts for the files in the clipboard"
+    IDS_UP_HOTKEY           "Additional shortcut for the Up button"
+    IDS_UP_HOTKEY_TIP       "Select a shortcut for navigating to the parent folder"
 END
 
 #endif    // English (U.S.) resources

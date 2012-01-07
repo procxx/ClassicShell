@@ -9,7 +9,6 @@
 #define CSIE9API __declspec(dllimport)
 #endif
 
-// WH_GETMESSAGE hook for the explorer's GUI thread. The ClassicIE9 exe uses this hook to inject code into the Internet Explorer process
-CSIE9API LRESULT CALLBACK HookInject( int code, WPARAM wParam, LPARAM lParam );
+void InitClassicIE9( HMODULE hModule );
 CSIE9API void ShowIE9Settings( void );
 CSIE9API void LogMessage( const char *text, ... );

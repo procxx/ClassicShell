@@ -59,6 +59,10 @@ Submenu_offset=5
 Submenu_separator=17
 Submenu_separator_slices_X=50,75,50
 
+; Submenu_separatorV - bitmap to use as a vertical separator between multiple columns
+Submenu_separatorV=18
+Submenu_separator_slices_Y=50,75,50
+
 
 ; OPTIONS
 
@@ -82,7 +86,7 @@ Submenu_font="Segoe UI",normal,-10
 [USER_IMAGE]
 User_image_size=48
 User_frame_position=10,8
-User_bitmap=18
+User_bitmap=19
 User_image_offset=2,2
 
 [USER_IMAGE OR USER_NAME]

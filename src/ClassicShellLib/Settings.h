@@ -20,6 +20,7 @@ struct CSetting
 		TYPE_BOOL=1,
 		TYPE_INT,
 		TYPE_HOTKEY,
+		TYPE_HOTKEY_ANY,
 		TYPE_COLOR,
 
 		// string types
@@ -98,6 +99,8 @@ const CSetting *GetAllSettings( void );
 void UpdateSetting( const wchar_t *name, const CComVariant &defValue, bool bLockedGP, bool bHidden=false );
 // Updates the setting with a new tooltip and a warning flag
 void UpdateSetting( const wchar_t *name, int tipID, bool bWarning );
+
+void HideSettingGroup( const wchar_t *name );
 
 bool GetSettingBool( const wchar_t *name );
 int GetSettingInt( const wchar_t *name );

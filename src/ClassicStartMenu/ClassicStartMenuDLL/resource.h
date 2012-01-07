@@ -242,7 +242,7 @@
 #define IDS_SMOOTH_STD_TIP              3184
 #define IDS_SMOOTH_CLEAR                3185
 #define IDS_SMOOTH_CLEAR_TIP            3186
-#define IDS_SECURITY_SETTINGS           3187
+#define IDS_CONTEXT_MENU_SETTINGS       3187
 #define IDS_DRAG_DROP                   3188
 #define IDS_DRAG_DROP_TIP               3189
 #define IDS_CONTEXT_MENU                3190
@@ -386,6 +386,12 @@
 #define IDS_LOCK_TIP                    3328
 #define IDS_SUB_ANIM_ALWAYS             3329
 #define IDS_SUB_ANIM_ALWAYS_TIP         3330
+#define IDS_EXPLORER                    3331
+#define IDS_EXPLORER_TIP                3332
+#define IDS_EXPLORER_PATH               3333
+#define IDS_EXPLORER_PATH_TIP           3334
+#define IDS_HIDE_PIC                    3335
+#define IDS_HIDE_PIC_TIP                3336
 
 // Next default values for new objects
 // 

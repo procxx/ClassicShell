@@ -146,22 +146,6 @@ HRESULT WINAPI CClassicIE9BHO::UpdateRegistry( BOOL bRegister )
 	return _AtlModule.UpdateRegistryFromResource(rgs,bRegister,mapEntries); 
 }
 
-void ZoneConfigure( HWND hWnd, const wchar_t *url )
-{
-	// use undocumented function 383 from shlwapi
-	typedef void (WINAPI* FZoneConfigureW)(HWND,LPCWSTR);
-	FZoneConfigureW ZoneConfigureW;
-
-	HMODULE	hShlwapi=LoadLibrary(L"shlwapi.dll");
-	if(hShlwapi)
-	{
-		ZoneConfigureW=(FZoneConfigureW)GetProcAddress(hShlwapi,MAKEINTRESOURCEA(383));
-		if(ZoneConfigureW)
-			ZoneConfigureW(hWnd,url);
-		FreeLibrary(hShlwapi);
-	}
-}
-
 LRESULT CALLBACK CClassicIE9BHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	if (uMsg==SB_SETPARTS)
@@ -230,8 +214,11 @@ LRESULT CALLBACK CClassicIE9BHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARA
 
 	if (uMsg==SB_SETTEXT)
 	{
-		if ((wParam&255)==1) wParam=PART_ZOOM;
-		else if ((wParam&255)>PART_OFFSET) wParam-=PART_OFFSET;
+		if (!SendMessage(hWnd,SB_ISSIMPLE,0,0))
+		{
+			if ((wParam&255)==1) wParam=PART_ZOOM;
+			else if ((wParam&255)>PART_OFFSET) wParam-=PART_OFFSET;
+		}
 	}
 
 	if (uMsg==WM_LBUTTONDBLCLK)
@@ -244,11 +231,38 @@ LRESULT CALLBACK CClassicIE9BHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARA
 			CClassicIE9BHO *pThis=(CClassicIE9BHO*)uIdSubclass;
 			CComBSTR url;
 			if (pThis->m_pWebBrowser && SUCCEEDED(pThis->m_pWebBrowser->get_LocationURL(&url)))
-				ZoneConfigure(hWnd,url);
+			{
+				wchar_t buf[1024];
+				Sprintf(buf,_countof(buf),L"zone %u %s",(unsigned)GetAncestor(hWnd,GA_ROOT),(const wchar_t*)url);
+				StartBroker(buf);
+			}
 
 			return 0;
 		}
 	}
+
+	if (uMsg==SB_SIMPLE)
+	{
+		CClassicIE9BHO *pThis=(CClassicIE9BHO*)uIdSubclass;
+		if (wParam)
+		{
+			ShowWindow(pThis->m_ProgressBar,SW_HIDE);
+		}
+		else
+		{
+			RECT rc;
+			DefSubclassProc(hWnd,SB_GETRECT,PART_PROGRESS,(LPARAM)&rc);
+			rc.left+=2;
+			rc.right-=2;
+			rc.top+=1;
+			rc.bottom-=1;
+			if (rc.left<rc.right)
+				SetWindowPos(pThis->m_ProgressBar,NULL,rc.left,rc.top,rc.right-rc.left,rc.bottom-rc.top,SWP_NOZORDER|SWP_SHOWWINDOW);
+			else
+				ShowWindow(pThis->m_ProgressBar,SW_HIDE);
+		}
+	}
+
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 

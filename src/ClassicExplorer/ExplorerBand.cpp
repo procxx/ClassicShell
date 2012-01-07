@@ -32,6 +32,7 @@ static struct
 	{L"cut",CBandWindow::ID_CUT},
 	{L"copy",CBandWindow::ID_COPY},
 	{L"paste",CBandWindow::ID_PASTE},
+	{L"paste_shortcut",CBandWindow::ID_PASTE_SHORTCUT},
 	{L"delete",CBandWindow::ID_DELETE},
 	{L"properties",CBandWindow::ID_PROPERTIES},
 	{L"email",CBandWindow::ID_EMAIL},
@@ -181,6 +182,27 @@ void CBandWindow::ParseToolbar( void )
 	}
 }
 
+LRESULT CALLBACK CBandWindow::ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+{
+	if (uMsg==WM_SETTINGCHANGE)
+	{
+		// HACK: Looks like WM_SETTINGCHANGE breaks the toolbar if it contains a split dropdown button (most likely something to do with metrics or themes)
+		// So we delete all buttons and post a message recreate them
+		int count=(int)SendMessage(hWnd,TB_BUTTONCOUNT,0,0);
+		if (count>0)
+		{
+			CBandWindow *pThis=(CBandWindow*)uIdSubclass;
+			for (int i=count-1;i>=0;i--)
+			{
+				SendMessage(hWnd,TB_GETBUTTON,i,(LPARAM)&pThis->m_Buttons[i]);
+				SendMessage(hWnd,TB_DELETEBUTTON,i,0);
+			}
+			::PostMessage((HWND)dwRefData,CBandWindow::BWM_UPDATEBUTTONS,0,0);
+		}
+	}
+	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+}
+
 LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
 	ParseToolbar();
@@ -201,6 +223,7 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	m_Toolbar.SendMessage(TB_SETEXTENDEDSTYLE,0,TBSTYLE_EX_MIXEDBUTTONS|TBSTYLE_EX_DRAWDDARROWS|TBSTYLE_EX_HIDECLIPPEDBUTTONS);
 	m_Toolbar.SendMessage(TB_BUTTONSTRUCTSIZE,sizeof(TBBUTTON));
 	m_Toolbar.SendMessage(TB_SETMAXTEXTROWS,1);
+	SetWindowSubclass(m_Toolbar,ToolbarSubclassProc,(UINT_PTR)this,(DWORD_PTR)m_hWnd);
 
 	int iconSize=GetSettingInt(GetSettingBool(L"UseBigButtons")?L"LargeIconSize":L"SmallIconSize");
 	if (iconSize<8) iconSize=8;
@@ -220,11 +243,11 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	bool bSame=GetSettingBool(L"SameSizeButtons");
 
 	// create buttons
-	std::vector<TBBUTTON> buttons(mainCount);
+	m_Buttons.resize(mainCount);
 	for (int i=0;i<mainCount;i++)
 	{
 		const StdToolbarItem &item=m_Items[i];
-		TBBUTTON &button=buttons[i];
+		TBBUTTON &button=m_Buttons[i];
 
 		button.idCommand=i+1;
 		button.dwData=i;
@@ -324,8 +347,8 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	if (old) ImageList_Destroy(old);
 	old=(HIMAGELIST)m_Toolbar.SendMessage(TB_SETDISABLEDIMAGELIST,0,(LPARAM)m_ImgDisabled);
 	if (old) ImageList_Destroy(old);
-	if (!buttons.empty())
-		m_Toolbar.SendMessage(TB_ADDBUTTONS,buttons.size(),(LPARAM)&buttons[0]);
+	if (!m_Buttons.empty())
+		m_Toolbar.SendMessage(TB_ADDBUTTONS,(WPARAM)m_Buttons.size(),(LPARAM)&m_Buttons[0]);
 	SendMessage(WM_CLEAR);
 	return 0;
 }
@@ -407,6 +430,37 @@ void CBandWindow::SendEmail( void )
 	}
 }
 
+static bool GetPidlPath( PIDLIST_ABSOLUTE pidl, wchar_t *path )
+{
+	path[0]=0;
+	if (SHGetPathFromIDList(pidl,path) && *path)
+		return true;
+	if (LOWORD(GetVersion())!=0x0006)
+	{
+		// maybe it is a library - try the default save folder
+		CComPtr<IShellItem> pShellItem;
+		if (SUCCEEDED(SHCreateItemFromIDList(pidl,IID_IShellItem,(void**)&pShellItem)))
+		{
+			CComPtr<IShellLibrary> pLibrary;
+			if (SUCCEEDED(pLibrary.CoCreateInstance(CLSID_ShellLibrary,NULL,CLSCTX_INPROC_SERVER)) && SUCCEEDED(pLibrary->LoadLibraryFromItem(pShellItem,STGM_READ)))
+			{
+				pShellItem=NULL;
+				if (SUCCEEDED(pLibrary->GetDefaultSaveFolder(DSFT_DETECT,IID_IShellItem,(void**)&pShellItem)) && pShellItem)
+				{
+					wchar_t *pPath;
+					if (SUCCEEDED(pShellItem->GetDisplayName(SIGDN_FILESYSPATH,&pPath)))
+					{
+						Strcpy(path,_MAX_PATH,pPath);
+						CoTaskMemFree(pPath);
+						return true;
+					}
+				}
+			}
+		}
+	}
+	return false;
+}
+
 void CBandWindow::NewFolder( void )
 {
 	CComPtr<IShellView> pView;
@@ -421,8 +475,7 @@ void CBandWindow::NewFolder( void )
 		if (FAILED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) || FAILED(pFolder->GetCurFolder(&pidl)))
 			return;
 		wchar_t path[_MAX_PATH];
-		path[0]=0;
-		bool bFolder=(SHGetPathFromIDList(pidl,path) && *path); // it is a folder if it has a path
+		bool bFolder=GetPidlPath(pidl,path); // it is a folder if it has a path
 		ILFree(pidl);
 		if (!bFolder)
 			return;
@@ -640,7 +693,7 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 		if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) && SUCCEEDED(pFolder->GetCurFolder(&pidl)))
 		{
 			// get current path
-			SHGetPathFromIDList(pidl,path);
+			GetPidlPath(pidl,path);
 			if (bArg2)
 			{
 				CComPtr<IEnumIDList> pEnum;
@@ -769,7 +822,7 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 			PROCESS_INFORMATION processInfo;
 			memset(&processInfo,0,sizeof(processInfo));
 			DWORD flags=CREATE_NO_WINDOW;
-			if (CreateProcess(exe,pBuf,NULL,NULL,TRUE,flags,NULL,path,&startupInfo,&processInfo))
+			if (CreateProcess(exe,pBuf,NULL,NULL,TRUE,flags,NULL,*path?path:NULL,&startupInfo,&processInfo))
 			{
 				CloseHandle(processInfo.hThread);
 				if (bArg5)
@@ -877,6 +930,13 @@ void CBandWindow::ViewByProperty( IFolderView2 *pView, const wchar_t *pProperty,
 		}
 		pView->SetSortColumns(&column,1);
 	}
+}
+
+LRESULT CBandWindow::OnUpdateButtons( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	if (!m_Buttons.empty() && m_Toolbar.SendMessage(TB_BUTTONCOUNT)==0)
+		m_Toolbar.SendMessage(TB_ADDBUTTONS,(WPARAM)m_Buttons.size(),(LPARAM)&m_Buttons[0]);
+	return 0;
 }
 
 // Executes a cut/copy/paste/delete command
@@ -1001,6 +1061,8 @@ LRESULT CBandWindow::OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 		SendShellTabCommand(28699);
 	if (id==ID_REDO)
 		SendShellTabCommand(28704);
+	if (id==ID_PASTE_SHORTCUT)
+		parent.SendMessage(WM_COMMAND,28700);
 
 	if (id==ID_VIEW_TILES)
 		SendShellTabCommand(28748);
@@ -1485,10 +1547,12 @@ void CBandWindow::UpdateToolbar( void )
 				if (pFolder)
 				{
 					PIDLIST_ABSOLUTE pidl;
-					pFolder->GetCurFolder(&pidl);
-					if (ILIsEmpty(pidl))
-						bDesktop=true; // only the top level has empty PIDL
-					ILFree(pidl);
+					if (SUCCEEDED(pFolder->GetCurFolder(&pidl)) && pidl)
+					{
+						if (ILIsEmpty(pidl))
+							bDesktop=true; // only the top level has empty PIDL
+						ILFree(pidl);
+					}
 				}
 			}
 		}
@@ -1519,7 +1583,7 @@ void CBandWindow::EnableButton( int cmd, bool bEnable )
 
 CExplorerBand::CExplorerBand( void )
 {
-	m_bSubclassRebar=(LOWORD(GetVersion())==0x0106); // Windows 7
+	m_bSubclassRebar=(LOWORD(GetVersion())!=0x0006); // Windows 7 or 8
 	m_bSubclassedRebar=false;
 	m_TopWindow=NULL;
 }

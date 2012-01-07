@@ -238,10 +238,17 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 			{
 				CString text;
 				CWindow(hWnd).GetWindowText(text);
-				wchar_t exe[_MAX_PATH];
-				const wchar_t *args=SeparateArguments(text,exe);
-				if ((DWORD_PTR)ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL)>32 && !args && LOWORD(GetVersion())!=0x0006)
-					SHAddToRecentDocs(SHARD_PATH,exe); // // on Windows 7 the executed documents are not automatically added to the recent document list
+				if (GetKeyState(VK_SHIFT)<0 && GetKeyState(VK_CONTROL)<0)
+				{
+					pSearchMenu->ExecuteCommandElevated(text);
+				}
+				else
+				{
+					wchar_t exe[_MAX_PATH];
+					const wchar_t *args=SeparateArguments(text,exe);
+					if ((DWORD_PTR)ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL)>32 && !args && LOWORD(GetVersion())!=0x0006)
+						SHAddToRecentDocs(SHARD_PATH,exe); // on Windows 7 the executed documents are not automatically added to the recent document list
+				}
 			}
 			return 0;
 		}
@@ -1642,6 +1649,31 @@ void CMenuContainer::InitWindow( void )
 		}
 	}
 
+	// calculate padding rect
+	m_rPadding.top=-1;
+	m_rPadding.left=m_rPadding.right=m_rPadding.bottom=0;
+	int padColumn=-1;
+	for (size_t i=0;i<m_Items.size();i++)
+	{
+		MenuItem &item=m_Items[i];
+		if (item.id==MENU_NO)
+		{
+			m_rPadding.left=item.itemRect.left;
+			m_rPadding.right=item.itemRect.right;
+			m_rPadding.top=item.itemRect.bottom;
+			m_rPadding.bottom=-1;
+			padColumn=item.column;
+		}
+		else if (m_rPadding.bottom==-1 && padColumn==item.column)
+		{
+			m_rPadding.bottom=item.itemRect.top;
+		}
+	}
+	if (m_rPadding.top>=0 && m_rPadding.bottom==-1)
+	{
+		m_rPadding.bottom=totalHeight-(m_bSubMenu?s_Skin.Submenu_padding.bottom:s_Skin.Main_padding.bottom);
+	}
+
 	RECT rc={0,0,totalWidth,totalHeight};
 	AdjustWindowRect(&rc,GetWindowLong(GWL_STYLE),FALSE);
 	RECT rc0;
@@ -2475,17 +2507,20 @@ LRESULT CMenuContainer::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 	if (s_bNoContextMenu) return 0;
 	POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
 	int index;
+	BOOL bPad=FALSE;
 	if (pt.x!=-1 || pt.y!=-1)
 	{
 		POINT pt2=pt;
 		ScreenToClient(&pt2);
 		index=HitTest(pt2);
+		if (index<0)
+			bPad=PtInRect(&m_rPadding,pt2);
 	}
 	else
 	{
 		index=m_HotItem;
 	}
-	if (index<0) return 0;
+	if (index<0 && !bPad) return 0;
 	ActivateItem(index,ACTIVATE_MENU,&pt);
 	return 0;
 }
@@ -3204,9 +3239,12 @@ LRESULT CMenuContainer::OnRButtonDown( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 		POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
 		m_ClickIndex=-1;
 		int index=HitTest(pt);
-		if (index<0) return 0;
-		const MenuItem &item=m_Items[index];
-		if (item.id==MENU_SEPARATOR) return 0;
+		if (index>=0)
+		{
+			if (m_Items[index].id==MENU_SEPARATOR) return 0;
+		}
+		else if (!PtInRect(&m_rPadding,pt))
+			return 0;
 		m_ClickIndex=index;
 		SetCapture();
 	}
@@ -3221,9 +3259,12 @@ LRESULT CMenuContainer::OnRButtonUp( UINT uMsg, WPARAM wParam, LPARAM lParam, BO
 	if (s_bNoContextMenu) return 0;
 	POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
 	int index=HitTest(pt);
-	if (index<0) return 0;
-	const MenuItem &item=m_Items[index];
-	if (item.id==MENU_SEPARATOR) return 0;
+	if (index>=0)
+	{
+		if (m_Items[index].id==MENU_SEPARATOR) return 0;
+	}
+	else if (!PtInRect(&m_rPadding,pt))
+		return 0;
 	ClientToScreen(&pt);
 	ActivateItem(index,ACTIVATE_MENU,&pt);
 	return 0;

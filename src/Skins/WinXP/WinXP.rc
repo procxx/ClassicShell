@@ -69,7 +69,8 @@ END
 15                      BITMAP                  "separator_silver.bmp"
 16                      BITMAP                  "separator_silver2.bmp"
 17                      BITMAP                  "separator_submenu.bmp"
-18                      BITMAP                  "user_bitmap.bmp"
+18                      BITMAP                  "separator_submenuV.bmp"
+19                      BITMAP                  "user_bitmap.bmp"
 
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
