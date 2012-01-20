@@ -167,6 +167,7 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
+IDI_CLASSICSHELL        ICON                    "..\\ClassicShellSetup\\ClassicShell.ico"
 IDI_ICONPLAY            ICON                    "play.ico"
 IDI_ICONLOCK            ICON                    "padlock.ico"
 IDI_ICONWARNING         ICON                    "warning.ico"
@@ -241,6 +242,11 @@ BEGIN
     IDS_COMMAND_SM_TIP      "Drag the command or double-click on it to add it to the start menu"
     IDS_COMMAND_FILTERS     "Programs (*.exe, *.com, *.pif, *.bat, *.cmd)|*.exe;*.com;*.pif;*.bat;*.cmd|All files (*.*)|*.*|"
     IDS_OS_LANGUAGE         "Current OS language"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_VERSION_URL         "http://classicshell.sourceforge.net/latest_version.txt"
 END
 
 #endif    // English (U.S.) resources

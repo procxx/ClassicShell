@@ -12,8 +12,10 @@
 #include "ResourceHelper.h"
 #include "FNVHash.h"
 #include "StringUtils.h"
+#include "Translations.h"
 #include <shlobj.h>
 #include <uxtheme.h>
+#include <wininet.h>
 #include <map>
 #include <algorithm>
 
@@ -3492,4 +3494,96 @@ HWND CLanguageSettingsPanel::Activate( CSetting *pGroup, const RECT &rect, bool 
 	s_Dialog.SetGroup(pGroup);
 	s_Dialog.SetWindowPos(HWND_TOP,&rect,SWP_SHOWWINDOW);
 	return s_Dialog.m_hWnd;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+bool CheckForNewVersion( DWORD &newVersion, CString &downloadUrl, CString &news, TVersionCheck check )
+{
+	if (check!=CHECK_UPDATE)
+	{
+		// check admin settings
+		CRegKey regKey;
+		if (regKey.Open(HKEY_LOCAL_MACHINE,L"Software\\IvoSoft\\ClassicShell",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+		{
+			DWORD update;
+			if (regKey.QueryDWORDValue(L"Update",update)==ERROR_SUCCESS && update==0)
+				return false;
+		}
+	}
+
+	CRegKey regKey;
+	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell")!=ERROR_SUCCESS)
+		regKey.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell");
+
+	ULONGLONG curTimeL;
+	GetSystemTimeAsFileTime((FILETIME*)&curTimeL);
+	DWORD curTime=(DWORD)(curTimeL/36000000000); // in hours
+
+	if (check!=CHECK_UPDATE)
+	{
+		DWORD update;
+		if (regKey.QueryDWORDValue(L"Update",update)==ERROR_SUCCESS && update==0)
+			return false;
+
+		DWORD lastTime;
+		if (regKey.QueryDWORDValue(L"LastUpdateTime",lastTime)!=ERROR_SUCCESS)
+			lastTime=0;
+		if ((curTime-lastTime)<24)
+			return false; // check daily
+
+		if (regKey.QueryDWORDValue(L"LastUpdateTimeIE",lastTime)!=ERROR_SUCCESS)
+			lastTime=0;
+		if ((curTime-lastTime)<24)
+			return false;
+	}
+
+	CString url=LoadStringEx(IDS_VERSION_URL);
+	bool res=false;
+	HINTERNET hInternet=InternetOpen(L"Classic Shell",INTERNET_OPEN_TYPE_PRECONFIG,NULL,NULL,0);
+	if (hInternet)
+	{
+		wchar_t header[]=L"Accept: */*\r\n\r\n";
+		HINTERNET hUrl=InternetOpenUrl(hInternet,url,header,Strlen(header),INTERNET_FLAG_RELOAD,0);
+		if (hUrl)
+		{
+			DWORD dwSize;
+			wchar_t buffer[4097];
+			if (InternetReadFile(hUrl,buffer,sizeof(buffer)-2,&dwSize))
+			{
+				buffer[dwSize/2]=0;
+				wchar_t token[256];
+				const wchar_t *str=buffer;
+				if (*str==0xFEFF) str++;
+				str=GetToken(str,token,_countof(token),L"\r\n");
+				int v1, v2, v3;
+				if (swscanf_s(token,L"%d.%d.%d",&v1,&v2,&v3)==3)
+				{
+					newVersion=(v1<<24)|(v2<<16)|v3;
+					str=GetToken(str,token,_countof(token),L"\r\n");
+					downloadUrl=token;
+					str=wcsstr(str,L"{NEWS}");
+					news=str?str+6:L"";
+					res=true;
+				}
+			}
+			InternetCloseHandle(hUrl);
+		}
+		InternetCloseHandle(hInternet);
+	}
+	if (!res)
+		return false;
+
+	// HACK: When IE runs in protected mode it can read from the user registry but can't write to it
+	// All writes go into a virtualized registry. So we use a different value name for IE to store the
+	// last update time. This way IE can read the regular value and the IE value
+	regKey.SetDWORDValue(check==CHECK_AUTO_IE?L"LastUpdateTimeIE":L"LastUpdateTime",curTime);
+
+	if (check==CHECK_UPDATE)
+		return true;
+
+	DWORD remindedVersion;
+	if (regKey.QueryDWORDValue(L"RemindedVersion",remindedVersion)!=ERROR_SUCCESS)
+		remindedVersion=0;
+	return (newVersion>remindedVersion);
 }

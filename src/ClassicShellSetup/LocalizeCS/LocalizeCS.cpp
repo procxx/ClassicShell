@@ -158,7 +158,7 @@ int ExtractStrings( const wchar_t *dllName, const wchar_t *csvName )
 	WriteFile(hCSV,title,Strlen(title)*2,&q,NULL);
 
 	// copy strings
-	for (int i=2000;i<6000;i+=16)
+	for (int i=2000;i<7000;i+=16)
 	{
 		int id=i/16;
 		HRSRC hResInfo=FindResource(hDLL,MAKEINTRESOURCE(id),RT_STRING);
@@ -179,10 +179,13 @@ int ExtractStrings( const wchar_t *dllName, const wchar_t *csvName )
 	HWND parent=CreateWindow(L"button",NULL,WS_POPUP,0,0,10,10,NULL,NULL,NULL,NULL);
 
 	// copy dialogs
-	for (int id=2000;id<4010;id++)
+	for (int id=2000;id<7000;id++)
 	{
 		if (id>=2010 && id<3000) continue;
 		if (id>=3010 && id<4000) continue;
+		if (id>=4010 && id<5000) continue;
+		if (id>=5010 && id<6000) continue;
+		if (id>=6010 && id<7000) continue;
 		HRSRC hResInfo=FindResource(hDLL,MAKEINTRESOURCE(id),RT_DIALOG);
 		if (!hResInfo) continue;
 		HGLOBAL hRes=LoadResource(hDLL,hResInfo);

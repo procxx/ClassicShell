@@ -51,7 +51,10 @@
             <ComponentRef Id="inichecksum.bin" />
             <ComponentRef Id="IvoSoft" />
             <ComponentRef Id="HelpLink" />
+            <ComponentRef Id="ReadmeLink" />
             <ComponentRef Id="StartMenuDir" />
+            <ComponentRef Id="ClassicShellUpdate.exe" />
+            <ComponentRef Id="UpdateSettingsLink" />
             <Feature Id="ClassicExplorer" Level="1" Title="Classic Explorer" ConfigurableDirectory="APPLICATIONFOLDER" AllowAdvertise="no" Description="!(loc.ExplorerDesc)">
                 <ComponentRef Id="ClassicExplorer32.dll" />
                 <?if $(var.x64)=1 ?>
@@ -430,6 +433,9 @@
             <Component Id="inichecksum.bin" Guid="A13EA462-14B3-4f2c-8C48-A3F14B057709" Win64="$(var.CS_WIN64)">
                 <File Id="inichecksum.bin" KeyPath="yes" Source="inichecksum.bin" Vital="yes" />
             </Component>
+            <Component Id="ClassicShellUpdate.exe" Guid="FB6C213F-B670-4888-8B2C-12E807E335A7" Win64="$(var.CS_WIN64)">
+                <File Id="ClassicShellUpdate" KeyPath="yes" Source="..\ClassicShellUpdate\Release\ClassicShellUpdate.exe" Checksum="yes" Vital="yes" />
+            </Component>
         </DirectoryRef>
         <DirectoryRef Id="Skins">
             <Component Id="ClassicSkin.skin" Guid="301CA0BC-1DD4-4A25-8E1E-FA1A0134A814" Win64="$(var.CS_WIN64)">
@@ -473,6 +479,11 @@
                 <CreateFolder />
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>
+            <Component Id="ReadmeLink" Guid="A54415C8-412E-4768-8829-8898122E4AED">
+                <Shortcut Id="ReadmeLink" Name="Readme" Advertise="no" Description="!(loc.HelpDesc)" Target="[APPLICATIONFOLDER]ClassicShellReadme.rtf" WorkingDirectory="APPLICATIONFOLDER" />
+                <CreateFolder />
+                <Condition>START_MENU_FOLDER=1</Condition>
+            </Component>
             <Component Id="ExplorerSettingsLink" Guid="6EC027F2-115D-4110-8189-DDAFC78169EC">
                 <Shortcut Id="ExplorerSettingsLink" Name="Explorer Settings" Advertise="no" Description="!(loc.ExplorerSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicExplorerSettings.exe" WorkingDirectory="APPLICATIONFOLDER" />
                 <CreateFolder />
@@ -485,6 +496,11 @@
             </Component>
             <Component Id="IE9SettingsLink" Guid="10C0226C-22A9-49E4-AA65-C96AD7A504CC">
                 <Shortcut Id="IE9SettingsLink" Name="IE9 Settings" Advertise="no" Description="!(loc.IE9SettingsDesc)" Target="[APPLICATIONFOLDER]ClassicIE9_32.exe" WorkingDirectory="APPLICATIONFOLDER" />
+                <CreateFolder />
+                <Condition>START_MENU_FOLDER=1</Condition>
+            </Component>
+            <Component Id="UpdateSettingsLink" Guid="10B5A082-6C92-4EA7-AFF8-21AE3D2D7FE0">
+                <Shortcut Id="UpdateSettingsLink" Name="Update Settings" Advertise="no" Description="!(loc.UpdateSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicShellUpdate.exe" WorkingDirectory="APPLICATIONFOLDER" />
                 <CreateFolder />
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>

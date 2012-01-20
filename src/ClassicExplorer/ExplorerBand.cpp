@@ -194,7 +194,9 @@ LRESULT CALLBACK CBandWindow::ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPARAM 
 			CBandWindow *pThis=(CBandWindow*)uIdSubclass;
 			for (int i=count-1;i>=0;i--)
 			{
-				SendMessage(hWnd,TB_GETBUTTON,i,(LPARAM)&pThis->m_Buttons[i]);
+				TBBUTTON button;
+				SendMessage(hWnd,TB_GETBUTTON,i,(LPARAM)&button);
+				pThis->m_Buttons[i].fsState=button.fsState;
 				SendMessage(hWnd,TB_DELETEBUTTON,i,0);
 			}
 			::PostMessage((HWND)dwRefData,CBandWindow::BWM_UPDATEBUTTONS,0,0);
@@ -371,7 +373,7 @@ LRESULT CBandWindow::OnUpdateUI( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 {
 	// update the state of the custom buttons based on the registry settings
 	CRegKey regSettings;
-	if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
+	if (regSettings.Open(HKEY_CURRENT_USER,GetSettingsRegPath())==ERROR_SUCCESS)
 	{
 		bool bMain=true;
 		for (int idx=0;idx<(int)m_Items.size();idx++)
@@ -1659,13 +1661,13 @@ STDMETHODIMP CExplorerBand::GetBandInfo( DWORD dwBandID, DWORD dwViewMode, DESKB
 			if (m_bSubclassRebar)
 			{
 				CRegKey regSettings;
-				if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
-					regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
-
-				DWORD NewLine;
-				if (regSettings.QueryDWORDValue(L"NewLine",NewLine)!=ERROR_SUCCESS)
-					NewLine=0;
-				m_bBandNewLine=NewLine!=0;
+				m_bBandNewLine=false;
+				if (regSettings.Open(HKEY_CURRENT_USER,GetSettingsRegPath())==ERROR_SUCCESS)
+				{
+					DWORD NewLine;
+					if (regSettings.QueryDWORDValue(L"NewLine",NewLine)==ERROR_SUCCESS)
+						m_bBandNewLine=NewLine!=0;
+				}
 
 				SetWindowSubclass(rebar,RebarSubclassProc,(UINT_PTR)this,(DWORD_PTR)m_BandWindow.GetToolbar());
 			}
@@ -1765,8 +1767,8 @@ STDMETHODIMP CExplorerBand::ShowDW( BOOL fShow )
 				{
 					m_bBandNewLine=(info.fStyle&RBBS_BREAK)!=0;
 					CRegKey regSettings;
-					if (regSettings.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")!=ERROR_SUCCESS)
-						regSettings.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer");
+					if (regSettings.Open(HKEY_CURRENT_USER,GetSettingsRegPath())!=ERROR_SUCCESS)
+						regSettings.Create(HKEY_CURRENT_USER,GetSettingsRegPath());
 
 					regSettings.SetDWORDValue(L"NewLine",m_bBandNewLine?1:0);
 					break;

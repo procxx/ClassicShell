@@ -359,3 +359,12 @@ const wchar_t *GetSettingsRegPath( void );
 
 // Special GUID for the real desktop
 extern const GUID FOLDERID_DesktopRoot;
+
+enum TVersionCheck
+{
+	CHECK_AUTO,
+	CHECK_AUTO_IE,
+	CHECK_UPDATE,
+};
+
+bool CheckForNewVersion( DWORD &newVersion, CString &downloadUrl, CString &news, TVersionCheck check );

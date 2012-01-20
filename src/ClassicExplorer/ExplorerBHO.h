@@ -40,6 +40,7 @@ public:
 		m_TopWindow=NULL;
 		m_Breadcrumbs=NULL;
 		m_Hook=m_HookKbd=NULL;
+		m_Balloon=NULL;
 	}
 
 	DECLARE_REGISTRY_RESOURCEID(IDR_EXPLORERBHO)
@@ -116,6 +117,7 @@ private:
 	CToolbar m_Toolbar;
 	HWND m_TopWindow;
 	HWND m_Rebar;
+	HWND m_Balloon;
 	HICON m_IconNormal, m_IconHot, m_IconPressed, m_IconDisabled;
 	HICON m_CurIcon;
 	PIDLIST_ABSOLUTE m_CurPidl;

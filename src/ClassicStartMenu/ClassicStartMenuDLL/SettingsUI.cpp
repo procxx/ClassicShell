@@ -1380,6 +1380,9 @@ CSetting g_Settings[]={
 		{L"Show",CSetting::TYPE_RADIO,IDS_ITEM_SHOW,IDS_ITEM_SHOW_TIP},
 		{L"Menu",CSetting::TYPE_RADIO,IDS_ITEM_MENU,IDS_ITEM_MENU_TIP},
 	{L"MaxRecentDocuments",CSetting::TYPE_INT,IDS_MAX_DOCS,IDS_MAX_DOCS_TIP,15,0,L"Documents=2"},
+	{L"SortRecentDocuments",CSetting::TYPE_INT,IDS_SORT_DOCS,IDS_SORT_DOCS_TIP,0,0,L"Documents=2"},
+		{L"Name",CSetting::TYPE_RADIO,IDS_SORT_NAME,IDS_SORT_NAME_TIP},
+		{L"Extension",CSetting::TYPE_RADIO,IDS_SORT_EXT,IDS_SORT_EXT_TIP},
 	{L"UserFiles",CSetting::TYPE_INT,IDS_SHOW_USERFILES,IDS_SHOW_USERFILES_TIP,1},
 		{L"Hide",CSetting::TYPE_RADIO,IDS_ITEM_HIDE,IDS_ITEM_HIDE_TIP},
 		{L"Show",CSetting::TYPE_RADIO,IDS_ITEM_SHOW,IDS_ITEM_SHOW_TIP},
@@ -1526,7 +1529,7 @@ CSetting g_Settings[]={
 	{L"SkinOptions2",CSetting::TYPE_STRING,0,0,L""},
 
 {L"Language",CSetting::TYPE_GROUP,IDS_LANGUAGE_SETTINGS_SM,0,0,0,NULL,GetLanguageSettings()},
-	{L"Language",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_COLD},
+	{L"Language",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_COLD|CSetting::FLAG_SHARED},
 
 {NULL}
 };

@@ -1,4 +1,20 @@
 ===============================================================================
+== Version 3.4.0 general release (Jan, 2012):
+
+- Fixed some minor problems found in the previous release. Most notably the
+  corrupted text in the toolbar buttons
+
+- Added a check if a new version is available
+
+- Ctrl+Click in the navigation pane opens the folder in a new window
+
+- Alt+Enter in the search box of the start menu shows properties of the
+  selected item
+
+- The recent documents list can be sorted by name or extension
+
+
+===============================================================================
 == Version 3.3.0 general release (Jan, 2012):
 
 - Fixed some minor problems found in the previous release

@@ -2,8 +2,8 @@
 // Microsoft Visual C++ generated include file.
 // Used by ClassicShellLib.rc
 //
-#define IDI_ICON1                       106
-#define IDI_ICONPLAY                    106
+#define IDS_VERSION_URL                 100
+#define IDI_CLASSICSHELL                102
 #define IDC_STATICICON                  209
 #define IDC_SETTINGS                    236
 #define IDC_TREEITEMS                   238
@@ -28,6 +28,7 @@
 #define IDC_STATICHINT                  259
 #define IDI_ICONLOCK                    1000
 #define IDI_ICONWARNING                 1001
+#define IDI_ICONPLAY                    1002
 #define IDC_EDITFILE                    1001
 #define IDC_BUTTONBROWSE                1002
 #define IDC_LISTICONS                   1003
@@ -105,9 +106,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        107
+#define _APS_NEXT_RESOURCE_VALUE        109
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1014
+#define _APS_NEXT_CONTROL_VALUE         1024
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -10,6 +10,7 @@
 #include "resource.h"
 #include "SettingsUI.h"
 #include "Translations.h"
+#include "SettingsUIHelper.h"
 #include "dllmain.h"
 #include <uxtheme.h>
 #include <dwmapi.h>
@@ -22,10 +23,9 @@ const UINT_PTR TIMER_NAVIGATE='CLSH';
 
 int CExplorerBHO::s_AutoNavDelay;
 
-static PIDLIST_ABSOLUTE GetSelectedItem( HWND hwndTree )
+static PIDLIST_ABSOLUTE GetTreeItemPidl( HTREEITEM hItem, HWND hwndTree )
 {
-	// find the PIDL of the selected item (combine all child PIDLs from the current item and its parents)
-	HTREEITEM hItem=TreeView_GetSelection(hwndTree);
+	// find the PIDL of the tree item (combine all child PIDLs from the current item and its parents)
 	PIDLIST_ABSOLUTE pidl=NULL;
 	while (hItem)
 	{
@@ -79,7 +79,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 		KillTimer(hWnd,TIMER_NAVIGATE);
 		if (GetFocus()!=hWnd)
 			return 0;
-		PIDLIST_ABSOLUTE pidl=GetSelectedItem(hWnd);
+		PIDLIST_ABSOLUTE pidl=GetTreeItemPidl(TreeView_GetSelection(hWnd),hWnd);
 		if (pidl)
 		{
 			bool bSameFolder=false;
@@ -117,6 +117,28 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 		// if this message was for the folder tree, show the properties of the selected item
 		if (GetSettingBool(L"AltEnter") && ShowTreeProperties(hWnd))
 			return 0;
+	}
+
+	if ((uMsg==WM_LBUTTONDOWN || uMsg==WM_LBUTTONDBLCLK) && (wParam&MK_CONTROL))
+	{
+		TVHITTESTINFO test;
+		test.pt.x=(short)LOWORD(lParam);
+		test.pt.y=(short)HIWORD(lParam);
+		HTREEITEM hItem=TreeView_HitTest(hWnd,&test);
+		if (test.flags&TVHT_ONITEM)
+		{
+			PIDLIST_ABSOLUTE pidl=GetTreeItemPidl(hItem,hWnd);
+			if (pidl)
+			{
+				CExplorerBHO *pThis=GetTlsData()->bho;
+				if (pThis->m_pBrowser)
+				{
+					pThis->m_pBrowser->BrowseObject(pidl,SBSP_NEWBROWSER|SBSP_ABSOLUTE);
+				}
+				ILFree(pidl);
+			}
+		}
+		return 0;
 	}
 
 	if (uMsg==TVM_SETEXTENDEDSTYLE && wParam==(TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000) && lParam==0)
@@ -899,16 +921,16 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 				if (m_dwEventCookie==0xFEFEFEFE) // ATL's event cookie is 0xFEFEFEFE when the sink is not advised
 					DispEventAdvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
 				CRegKey regKey;
-				if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer")==ERROR_SUCCESS)
+				if (regKey.Open(HKEY_CURRENT_USER,GetSettingsRegPath())!=ERROR_SUCCESS)
+					regKey.Create(HKEY_CURRENT_USER,GetSettingsRegPath());
+
+				DWORD val;
+				if (regKey.QueryDWORDValue(L"ShowedToolbar",val)!=ERROR_SUCCESS || !val)
 				{
-					DWORD val;
-					if (regKey.QueryDWORDValue(L"ShowedToolbar",val)!=ERROR_SUCCESS || !val)
-					{
-						CComVariant name(L"{553891B7-A0D5-4526-BE18-D3CE461D6310}");
-						CComVariant show(true);
-						if (SUCCEEDED(m_pWebBrowser->ShowBrowserBar(&name,&show,NULL)))
-							regKey.SetDWORDValue(L"ShowedToolbar",1);
-					}
+					CComVariant name(L"{553891B7-A0D5-4526-BE18-D3CE461D6310}");
+					CComVariant show(true);
+					if (SUCCEEDED(m_pWebBrowser->ShowBrowserBar(&name,&show,NULL)))
+						regKey.SetDWORDValue(L"ShowedToolbar",1);
 				}
 			}
 
@@ -1071,6 +1093,25 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 				}
 			}
 			s_AutoNavDelay=GetSettingInt(L"AutoNavDelay");
+			DWORD newVersion;
+			CString url, news;
+			if (m_TopWindow && CheckForNewVersion(newVersion,url,news,CHECK_AUTO))
+			{
+				wchar_t path[_MAX_PATH];
+				GetModuleFileName(g_Instance,path,_countof(path));
+				PathRemoveFileSpec(path);
+				PathAppend(path,L"ClassicShellUpdate.exe");
+				wchar_t cmdLine[1024];
+				Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" -popup",path);
+				STARTUPINFO startupInfo={sizeof(startupInfo)};
+				PROCESS_INFORMATION processInfo;
+				memset(&processInfo,0,sizeof(processInfo));
+				if (CreateProcess(path,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
+				{
+					CloseHandle(processInfo.hThread);
+					CloseHandle(processInfo.hProcess);
+				}
+			}
 		}
 	}
 	else
@@ -1101,6 +1142,11 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 		if (m_NavigatePidl) ILFree(m_NavigatePidl); m_NavigatePidl=NULL;
 		if (m_TopWindow) RemoveProp(m_TopWindow,g_LoadedSettingsAtom);
 		m_TopWindow=NULL;
+		if (m_Balloon)
+		{
+			DestroyWindow(m_Balloon);
+			m_Balloon=NULL;
+		}
 	}
 	ClearComboItems();
 	return S_OK;
@@ -1214,7 +1260,7 @@ STDMETHODIMP CExplorerBHO::OnQuit( void )
 
 bool ShowTreeProperties( HWND hwndTree )
 {
-	PIDLIST_ABSOLUTE pidl=GetSelectedItem(hwndTree);
+	PIDLIST_ABSOLUTE pidl=GetTreeItemPidl(TreeView_GetSelection(hwndTree),hwndTree);
 	if (pidl)
 	{
 		// show properties

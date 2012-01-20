@@ -39,7 +39,7 @@ static CSetting g_Settings[]={
 	{L"ShowProtected",CSetting::TYPE_BOOL,IDS_SHOW_PROTECTED,IDS_SHOW_PROTECTED_TIP,1,CSetting::FLAG_WARM,L"ShowZone"},
 
 {L"Language",CSetting::TYPE_GROUP,IDS_LANGUAGE_SETTINGS,0,0,0,NULL,GetLanguageSettings()},
-	{L"Language",CSetting::TYPE_STRING,0,0,L""},
+	{L"Language",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_SHARED},
 
 {NULL}
 };

@@ -1599,7 +1599,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			if (!(*it)->m_bDestroyed)
 				(*it)->EnableWindow(TRUE); // enable all menus
 		if (bAllPrograms) ::EnableWindow(g_TopMenu,TRUE);
-		if (bRefresh && !m_bDestroyed)
+		if ((bRefresh || bKeepOpen) && !m_bDestroyed)
 		{
 			SetForegroundWindow(m_hWnd);
 			SetActiveWindow();
@@ -1607,13 +1607,17 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 		s_pDragSource=NULL;
 
-		if (!bKeepOpen && GetActiveWindow()!=m_hWnd)
+		if (!bKeepOpen)
 		{
-			// if after all the window is not active, then another application was launched - close all menus
-			for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
-				if (!(*it)->m_bDestroyed)
-					(*it)->PostMessage(WM_CLOSE);
-			if (g_TopMenu && s_bAllPrograms) ::PostMessage(g_TopMenu,WM_CLOSE,0,0);
+			HWND active=GetActiveWindow();
+			if (active!=m_hWnd && active!=g_OwnerWindow)
+			{
+				// if after all the window is not active, then another application was launched - close all menus
+				for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
+					if (!(*it)->m_bDestroyed)
+						(*it)->PostMessage(WM_CLOSE);
+				if (g_TopMenu && s_bAllPrograms) ::PostMessage(g_TopMenu,WM_CLOSE,0,0);
+			}
 		}
 
 		if (bRefresh)

@@ -38,6 +38,7 @@ struct CSetting
 		FLAG_COLD=2,
 		FLAG_BASIC=4,
 		FLAG_HIDDEN=8,
+		FLAG_SHARED=16,
 
 		// for run-time use only
 		FLAG_DEFAULT=1024,
@@ -82,10 +83,12 @@ enum TSettingsComponent
 	COMPONENT_EXPLORER,
 	COMPONENT_MENU,
 	COMPONENT_IE9,
+	COMPONENT_UPDATE,
 };
 
 void InitSettings( CSetting *pSettings, TSettingsComponent component );
 void LoadSettings( void );
+void SaveSettings( void );
 void UpdateDefaultSettings( void );
 void EditSettings( const wchar_t *title, bool bModal );
 void CloseSettings( void );

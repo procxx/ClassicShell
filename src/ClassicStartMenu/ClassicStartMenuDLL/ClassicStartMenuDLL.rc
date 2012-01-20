@@ -213,8 +213,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,3,0,0
- PRODUCTVERSION 3,3,0,0
+ FILEVERSION 3,4,0,0
+ PRODUCTVERSION 3,4,0,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -231,12 +231,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "3, 3, 0, 0"
+            VALUE "FileVersion", "3, 4, 0, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
-            VALUE "LegalCopyright", "Copyright (C) 2009-2011, Ivo Beltchev"
+            VALUE "LegalCopyright", "Copyright (C) 2009-2012, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 3, 0, 0"
+            VALUE "ProductVersion", "3, 4, 0, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -695,6 +695,12 @@ BEGIN
     IDS_EXPLORER_PATH_TIP   "Set the default path for the Windows Explorer command in the Start Button menu. Leave blank to remove the Windows Explorer command. The special locations 'computer', 'desktop' and 'libraries' are also supported"
     IDS_HIDE_PIC            "Hide User Picture"
     IDS_HIDE_PIC_TIP        "When this is cheched, the user picture is removed from the Windows start menu"
+    IDS_SORT_DOCS           "Sort Recent Documents"
+    IDS_SORT_DOCS_TIP       "Select how you want the recent documents to be sorted"
+    IDS_SORT_NAME           "By Name"
+    IDS_SORT_NAME_TIP       "The recent documents will be sorted by name"
+    IDS_SORT_EXT            "By Extension"
+    IDS_SORT_EXT_TIP        "The recent documents will be sorted by extension"
 END
 
 #endif    // English (U.S.) resources

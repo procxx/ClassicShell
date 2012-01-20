@@ -392,6 +392,12 @@
 #define IDS_EXPLORER_PATH_TIP           3334
 #define IDS_HIDE_PIC                    3335
 #define IDS_HIDE_PIC_TIP                3336
+#define IDS_SORT_DOCS                   3337
+#define IDS_SORT_DOCS_TIP               3338
+#define IDS_SORT_NAME                   3339
+#define IDS_SORT_NAME_TIP               3340
+#define IDS_SORT_EXT                    3341
+#define IDS_SORT_EXT_TIP                3342
 
 // Next default values for new objects
 // 

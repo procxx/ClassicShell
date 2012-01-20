@@ -141,8 +141,8 @@ public:
 	int GetSettingInt( const wchar_t *name, bool &bDef ) const;
 	CString GetSettingString( const wchar_t *name ) const;
 
-	void SaveSettings( void );
-	void LoadSettings( void );
+	void SaveSettings( bool bShared );
+	void LoadSettings( bool bShared );
 	bool LoadSettingsXml( const wchar_t *fname );
 	bool SaveSettingsXml( const wchar_t *fname );
 	void ResetSettings( void );
@@ -156,6 +156,7 @@ private:
 	CSetting *m_pSettings;
 	HIMAGELIST m_ImageList;
 	const wchar_t *m_RegPath;
+	const wchar_t *m_RegPathShared;
 	const wchar_t *m_CompName;
 	const wchar_t *m_XMLName;
 };
@@ -181,7 +182,13 @@ void CSettingsManager::Init( CSetting *pSettings, TSettingsComponent component )
 			m_CompName=L"IE9";
 			m_XMLName=L"IE9 Settings.xml";
 			break;
+		case COMPONENT_UPDATE:
+			m_RegPath=L"";
+			m_CompName=L"";
+			m_XMLName=L"";
+			break;
 	}
+	m_RegPathShared=L"Software\\IvoSoft\\ClassicShell";
 	
 	m_pSettings=pSettings;
 	InitializeSRWLock(&g_SettingsLock);
@@ -207,7 +214,8 @@ void CSettingsManager::Init( CSetting *pSettings, TSettingsComponent component )
 		pSetting->value=pSetting->defValue;
 		pSetting->flags|=CSetting::FLAG_DEFAULT;
 	}
-	LoadSettings();
+	LoadSettings(false);
+	LoadSettings(true);
 	m_ImageList=NULL;
 }
 
@@ -294,29 +302,48 @@ CString CSettingsManager::GetSettingString( const wchar_t *name ) const
 	return CString();
 }
 
-void CSettingsManager::LoadSettings( void )
+void CSettingsManager::LoadSettings( bool bShared )
 {
 	ATLASSERT(g_LockState==2);
+	const wchar_t *regPath=bShared?m_RegPathShared:m_RegPath;
 
 	// set all to default and unlocked
 	for (CSetting *pSetting=m_pSettings;pSetting->name;pSetting++)
 	{
 		if (pSetting->type==CSetting::TYPE_GROUP || pSetting->type==CSetting::TYPE_RADIO)
 			continue;
+		if (pSetting->flags&CSetting::FLAG_SHARED)
+		{
+			if (!bShared) continue;
+		}
+		else
+		{
+			if (bShared) continue;
+		}
 		pSetting->flags|=CSetting::FLAG_DEFAULT;
 		pSetting->flags&=~CSetting::FLAG_LOCKED_REG;
 		pSetting->value=pSetting->defValue;
 	}
 
+	if (!*regPath) return;
+
 	{
 		// load from HKLM, and lock
 		CRegKey regSettings;
-		if (regSettings.Open(HKEY_LOCAL_MACHINE,m_RegPath,KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+		if (regSettings.Open(HKEY_LOCAL_MACHINE,regPath,KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
 		{
 			for (CSetting *pSetting=m_pSettings;pSetting->name;pSetting++)
 			{
 				if (pSetting->type==CSetting::TYPE_GROUP || pSetting->type==CSetting::TYPE_RADIO)
 					continue;
+				if (pSetting->flags&CSetting::FLAG_SHARED)
+				{
+					if (!bShared) continue;
+				}
+				else
+				{
+					if (bShared) continue;
+				}
 				DWORD val;
 				if (regSettings.QueryDWORDValue(pSetting->name,val)==ERROR_SUCCESS)
 				{
@@ -388,7 +415,7 @@ void CSettingsManager::LoadSettings( void )
 	{
 		// load from HKCU
 		CRegKey regSettings;
-		if (regSettings.Open(HKEY_CURRENT_USER,m_RegPath)==ERROR_SUCCESS)
+		if (regSettings.Open(HKEY_CURRENT_USER,regPath)==ERROR_SUCCESS)
 		{
 			for (CSetting *pSetting=m_pSettings;pSetting->name;pSetting++)
 			{
@@ -396,6 +423,14 @@ void CSettingsManager::LoadSettings( void )
 					continue;
 				if (pSetting->flags&CSetting::FLAG_LOCKED_REG)
 					continue;
+				if (pSetting->flags&CSetting::FLAG_SHARED)
+				{
+					if (!bShared) continue;
+				}
+				else
+				{
+					if (bShared) continue;
+				}
 				DWORD val;
 				if ((pSetting->type==CSetting::TYPE_BOOL || (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO) || pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_HOTKEY_ANY || pSetting->type==CSetting::TYPE_COLOR)
 					&& regSettings.QueryDWORDValue(pSetting->name,val)==ERROR_SUCCESS)
@@ -456,15 +491,18 @@ void CSettingsManager::LoadSettings( void )
 	}
 }
 
-void CSettingsManager::SaveSettings( void )
+void CSettingsManager::SaveSettings( bool bShared )
 {
 	// doesn't need to acquire the lock because it can only run from the UI editing code
 	ATLASSERT(g_bUIThread);
 
+	const wchar_t *regPath=bShared?m_RegPathShared:m_RegPath;
+	if (!*regPath) return;
+
 	// save non-default to HKCU
 	CRegKey regSettings;
-	if (regSettings.Open(HKEY_CURRENT_USER,m_RegPath)!=ERROR_SUCCESS)
-		regSettings.Create(HKEY_CURRENT_USER,m_RegPath);
+	if (regSettings.Open(HKEY_CURRENT_USER,regPath)!=ERROR_SUCCESS)
+		regSettings.Create(HKEY_CURRENT_USER,regPath);
 
 	for (const CSetting *pSetting=m_pSettings;pSetting->name;pSetting++)
 	{
@@ -472,6 +510,14 @@ void CSettingsManager::SaveSettings( void )
 			continue;
 		if (pSetting->flags&(CSetting::FLAG_LOCKED_REG|CSetting::FLAG_HIDDEN))
 			continue;
+		if (pSetting->flags&CSetting::FLAG_SHARED)
+		{
+			if (!bShared) continue;
+		}
+		else
+		{
+			if (bShared) continue;
+		}
 		if (pSetting->flags&CSetting::FLAG_DEFAULT)
 		{
 			regSettings.DeleteValue(pSetting->name);
@@ -576,7 +622,7 @@ bool CSettingsManager::LoadSettingsXml( const wchar_t *fname )
 				continue;
 			if (pSetting->type>=0 && _wcsicmp(pSetting->name,name)==0)
 			{
-				if (pSetting->flags&CSetting::FLAG_LOCKED_REG)
+				if (pSetting->flags&(CSetting::FLAG_LOCKED_REG|CSetting::FLAG_SHARED))
 					break;
 				if (pSetting->type==CSetting::TYPE_MULTISTRING)
 				{
@@ -700,7 +746,7 @@ bool CSettingsManager::SaveSettingsXml( const wchar_t *fname )
 	{
 		if (pSetting->type==CSetting::TYPE_GROUP || pSetting->type==CSetting::TYPE_RADIO)
 			continue;
-		if (pSetting->flags&(CSetting::FLAG_LOCKED_REG|CSetting::FLAG_HIDDEN|CSetting::FLAG_DEFAULT))
+		if (pSetting->flags&(CSetting::FLAG_LOCKED_REG|CSetting::FLAG_HIDDEN|CSetting::FLAG_DEFAULT|CSetting::FLAG_SHARED))
 			continue;
 		if (pSetting->type==CSetting::TYPE_MULTISTRING)
 		{
@@ -1220,7 +1266,8 @@ LRESULT CSettingsDlg::OnOK( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHan
 			if (pSetting->value!=pSetting->tempValue)
 				flags|=pSetting->flags&(CSetting::FLAG_WARM|CSetting::FLAG_COLD);
 		}
-		g_SettingsManager.SaveSettings();
+		g_SettingsManager.SaveSettings(false);
+		g_SettingsManager.SaveSettings(true);
 		ClosingSettings(m_hWnd,flags,IDOK);
 		StorePlacement();
 		DestroyWindow();
@@ -1433,6 +1480,7 @@ void EditSettings( const wchar_t *title, bool bModal )
 	{
 		{
 			CSettingsLockWrite lock;
+			g_SettingsManager.LoadSettings(true);
 			UpdateSettings();
 		}
 		DLGTEMPLATE *pTemplate=LoadDialogEx(IDD_SETTINGS);
@@ -1496,7 +1544,18 @@ void InitSettings( CSetting *pSettings, TSettingsComponent component )
 void LoadSettings( void )
 {
 	CSettingsLockWrite lock;
-	g_SettingsManager.LoadSettings();
+	g_SettingsManager.LoadSettings(false);
+	g_SettingsManager.LoadSettings(true);
+}
+
+void SaveSettings( void )
+{
+#ifdef _DEBUG
+	g_bUIThread=true;
+#endif
+	CSettingsLockRead lock;
+	g_SettingsManager.SaveSettings(false);
+	g_SettingsManager.SaveSettings(true);
 }
 
 void UpdateDefaultSettings( void )

@@ -594,6 +594,7 @@ private:
 	static bool s_bExpandLinks; // expand links to folders
 	static bool s_bSearchSubWord; // the search will match parts of words
 	static bool s_bLogicalSort; // use StrCmpLogical instead of CompareString
+	static bool s_bExtensionSort; // sort file names by extension
 	static bool s_bAllPrograms; // this is the All Programs menu of the Windows start menu
 	static bool s_bNoCommonFolders; // don't show the common folders (start menu and programs)
 	static char s_bActiveDirectory; // the Active Directory services are available (-1 - uninitialized)
@@ -611,7 +612,7 @@ private:
 	static HTHEME s_Theme;
 	static HTHEME s_PagerTheme;
 	static CWindow s_Tooltip;
-	static CWindow s_TooltipBaloon;
+	static CWindow s_TooltipBalloon;
 	static int s_TipShowTime;
 	static int s_TipHideTime;
 	static int s_TipShowTimeFolder;

@@ -69,6 +69,12 @@ HKLM
 							val AppName = s 'ClassicIE9_32.exe'
 							val Policy = d '3'
 						}
+						ForceRemove '{02E6771D-8375-42B9-9F83-B4730F697900}'
+						{
+							val AppPath = s '%MODULEPATH%'
+							val AppName = s 'ClassicShellUpdate.exe'
+							val Policy = d '3'
+						}
 					}
 				}
 				NoRemove Extensions

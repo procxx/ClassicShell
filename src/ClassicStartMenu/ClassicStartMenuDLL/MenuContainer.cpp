@@ -15,6 +15,7 @@
 #include "FNVHash.h"
 #include "ResourceHelper.h"
 #include "SettingsUIHelper.h"
+#include "SettingsUI.h"
 #include "dllmain.h"
 #include "resource.h"
 #include <uxtheme.h>
@@ -89,6 +90,7 @@ bool CMenuContainer::s_bNoContextMenu=false;
 bool CMenuContainer::s_bExpandLinks=false;
 bool CMenuContainer::s_bSearchSubWord=false;
 bool CMenuContainer::s_bLogicalSort=false;
+bool CMenuContainer::s_bExtensionSort=false;
 bool CMenuContainer::s_bAllPrograms=false;
 bool CMenuContainer::s_bNoCommonFolders=false;
 char CMenuContainer::s_bActiveDirectory=-1;
@@ -105,7 +107,7 @@ HWND CMenuContainer::s_LastFGWindow;
 HTHEME CMenuContainer::s_Theme;
 HTHEME CMenuContainer::s_PagerTheme;
 CWindow CMenuContainer::s_Tooltip;
-CWindow CMenuContainer::s_TooltipBaloon;
+CWindow CMenuContainer::s_TooltipBalloon;
 int CMenuContainer::s_TipShowTime;
 int CMenuContainer::s_TipHideTime;
 int CMenuContainer::s_TipShowTimeFolder;
@@ -238,14 +240,17 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 			{
 				CString text;
 				CWindow(hWnd).GetWindowText(text);
+				wchar_t command[1024];
+				Strcpy(command,_countof(command),text);
+				DoEnvironmentSubst(command,_countof(command));
 				if (GetKeyState(VK_SHIFT)<0 && GetKeyState(VK_CONTROL)<0)
 				{
-					pSearchMenu->ExecuteCommandElevated(text);
+					pSearchMenu->ExecuteCommandElevated(command);
 				}
 				else
 				{
 					wchar_t exe[_MAX_PATH];
-					const wchar_t *args=SeparateArguments(text,exe);
+					const wchar_t *args=SeparateArguments(command,exe);
 					if ((DWORD_PTR)ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL)>32 && !args && LOWORD(GetVersion())!=0x0006)
 						SHAddToRecentDocs(SHARD_PATH,exe); // on Windows 7 the executed documents are not automatically added to the recent document list
 				}
@@ -271,6 +276,14 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 				return 0;
 		}
 		pParent->SendMessage(WM_CHAR,wParam,lParam);
+	}
+	if (uMsg==WM_SYSKEYDOWN)
+	{
+		CMenuContainer *pSearchMenu=s_Menus[s_Menus.size()-1];
+		if (pSearchMenu->m_Options&CONTAINER_SEARCH)
+		{
+			pSearchMenu->SendMessage(WM_SYSKEYDOWN,wParam,lParam);
+		}
 	}
 	if (uMsg==WM_CHAR && (wParam==VK_RETURN || wParam==VK_ESCAPE || wParam==VK_TAB))
 	{
@@ -307,6 +320,13 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 
 int CMenuContainer::CompareMenuString( const wchar_t *str1, const wchar_t *str2 )
 {
+	if (s_bExtensionSort)
+	{
+		const wchar_t *ext1=PathFindExtension(str1);
+		const wchar_t *ext2=PathFindExtension(str2);
+		int cmp=CompareString(LOCALE_USER_DEFAULT,LINGUISTIC_IGNORECASE,ext1,-1,ext2,-1)-CSTR_EQUAL;
+		if (cmp) return cmp;
+	}
 	if (s_bLogicalSort)
 		return StrCmpLogicalW(str1,str2);
 	else
@@ -752,8 +772,6 @@ void CMenuContainer::InitItems( void )
 
 		// sort by time
 		std::sort(docs.begin(),docs.end());
-		if (m_Options&CONTAINER_SORTZA)
-			std::reverse(docs.begin(),docs.end());
 
 		CComPtr<IShellFolder> pFolder;
 		s_pDesktop->BindToObject(m_Path1a[0],NULL,IID_IShellFolder,(void**)&pFolder);
@@ -2242,6 +2260,11 @@ void CMenuContainer::SetSearchState( TSearchState state )
 {
 	if (m_SearchState==state)
 		return;
+	if (m_Submenu!=-1)
+	{
+		InvalidateRect(&m_Items[m_Submenu].itemRect);
+		m_Submenu=-1;
+	}
 	InvalidateRect(&m_Items[m_SearchIndex].itemRect);
 	m_SearchState=state;
 }
@@ -2494,8 +2517,8 @@ LRESULT CMenuContainer::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 	{
 		TOOLINFO tool={sizeof(tool)};
 		tool.uId=1;
-		if (s_TooltipBaloon.m_hWnd)
-			s_TooltipBaloon.SendMessage(TTM_TRACKACTIVATE,FALSE,(LPARAM)&tool);
+		if (s_TooltipBalloon.m_hWnd)
+			s_TooltipBalloon.SendMessage(TTM_TRACKACTIVATE,FALSE,(LPARAM)&tool);
 		KillTimer(TIMER_BALLOON_HIDE);
 	}
 	return 0;
@@ -2795,7 +2818,7 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 
 LRESULT CMenuContainer::OnSysKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	if (wParam==VK_RETURN && m_HotItem>=0 && m_SearchState==SEARCH_NONE)
+	if (wParam==VK_RETURN && m_HotItem>=0)
 	{
 		int index=m_HotItem;
 		if ((m_Items[index].id==MENU_NO || m_Items[index].id==MENU_RECENT) && m_Items[index].pItem1 && !m_Items[index].pItem2)
@@ -2901,7 +2924,7 @@ LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		if (s_Tooltip.m_hWnd)
 			s_Tooltip.DestroyWindow();
 		s_Tooltip.m_hWnd=NULL;
-		s_TooltipBaloon.m_hWnd=NULL; // the balloon tooltip is owned, no need to be destroyed
+		s_TooltipBalloon.m_hWnd=NULL; // the balloon tooltip is owned, no need to be destroyed
 		s_pHotMenu=NULL;
 		s_HotItem=-1;
 		if (!m_bSubMenu)
@@ -3408,7 +3431,9 @@ void CMenuContainer::LoadItemOrder( void )
 	}
 
 	// sort by row, then by bFolder, then by name
+	s_bExtensionSort=(m_Options&CONTAINER_DOCUMENTS) && GetSettingInt(L"SortRecentDocuments")==1;
 	std::sort(m_Items.begin(),m_Items.end());
+	s_bExtensionSort=false;
 	if (m_Options&CONTAINER_SORTZA)
 		std::reverse(m_Items.begin(),m_Items.end());
 
@@ -3519,8 +3544,8 @@ void CMenuContainer::LoadMRUShortcuts( void )
 void CMenuContainer::SaveItemRanks( void )
 {
 	CRegKey reg;
-	if (reg.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu")!=ERROR_SUCCESS)
-		reg.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu");
+	if (reg.Open(HKEY_CURRENT_USER,GetSettingsRegPath())!=ERROR_SUCCESS)
+		reg.Create(HKEY_CURRENT_USER,GetSettingsRegPath());
 
 	if (s_ItemRanks.empty())
 		reg.SetBinaryValue(L"ItemRanks",NULL,0);
@@ -3532,7 +3557,7 @@ void CMenuContainer::LoadItemRanks( void )
 {
 	s_ItemRanks.clear();
 	CRegKey reg;
-	if (reg.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu")==ERROR_SUCCESS)
+	if (reg.Open(HKEY_CURRENT_USER,GetSettingsRegPath())==ERROR_SUCCESS)
 	{
 		ULONG size=0;
 		reg.QueryBinaryValue(L"ItemRanks",NULL,&size);
@@ -4209,24 +4234,43 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	if (*MenuSkin::s_SkinError && GetSettingBool(L"ReportSkinErrors"))
 	{
 		Strcat(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_DISABLE));
-		s_TooltipBaloon=CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|(s_bRTL?WS_EX_LAYOUTRTL:0),TOOLTIPS_CLASS,NULL,WS_POPUP|TTS_BALLOON|TTS_CLOSE|TTS_NOPREFIX,0,0,0,0,pStartMenu->m_hWnd,NULL,g_Instance,NULL);
-		s_TooltipBaloon.SendMessage(TTM_SETMAXTIPWIDTH,0,500);
+		s_TooltipBalloon=CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|(s_bRTL?WS_EX_LAYOUTRTL:0),TOOLTIPS_CLASS,NULL,WS_POPUP|TTS_BALLOON|TTS_CLOSE|TTS_NOPREFIX,0,0,0,0,pStartMenu->m_hWnd,NULL,g_Instance,NULL);
+		s_TooltipBalloon.SendMessage(TTM_SETMAXTIPWIDTH,0,500);
 		TOOLINFO tool={sizeof(tool),TTF_TRANSPARENT|TTF_TRACK|(s_bRTL?TTF_RTLREADING:0)};
 		tool.uId=1;
 		tool.lpszText=MenuSkin::s_SkinError;
-		s_TooltipBaloon.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
+		s_TooltipBalloon.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
 		if (bErr)
 		{
-			s_TooltipBaloon.SendMessage(TTM_SETTITLE,TTI_ERROR,(LPARAM)(const wchar_t*)LoadStringEx(IDS_SKIN_ERR));
+			s_TooltipBalloon.SendMessage(TTM_SETTITLE,TTI_ERROR,(LPARAM)(const wchar_t*)LoadStringEx(IDS_SKIN_ERR));
 		}
 		else
 		{
-			s_TooltipBaloon.SendMessage(TTM_SETTITLE,TTI_WARNING,(LPARAM)(const wchar_t*)LoadStringEx(IDS_SKIN_WARN));
+			s_TooltipBalloon.SendMessage(TTM_SETTITLE,TTI_WARNING,(LPARAM)(const wchar_t*)LoadStringEx(IDS_SKIN_WARN));
 		}
 		::GetWindowRect(g_StartButton,&rc);
-		s_TooltipBaloon.SendMessage(TTM_TRACKPOSITION,0,MAKELONG((rc.left+rc.right)/2,(rc.top+rc.bottom)/2));
-		s_TooltipBaloon.SendMessage(TTM_TRACKACTIVATE,TRUE,(LPARAM)&tool);
+		s_TooltipBalloon.SendMessage(TTM_TRACKPOSITION,0,MAKELONG((rc.left+rc.right)/2,(rc.top+rc.bottom)/2));
+		s_TooltipBalloon.SendMessage(TTM_TRACKACTIVATE,TRUE,(LPARAM)&tool);
 		pStartMenu->SetTimer(TIMER_BALLOON_HIDE,10000);
+	}
+	DWORD newVersion;
+	CString url, news;
+	if (CheckForNewVersion(newVersion,url,news,CHECK_AUTO))
+	{
+		wchar_t path[_MAX_PATH];
+		GetModuleFileName(g_Instance,path,_countof(path));
+		PathRemoveFileSpec(path);
+		PathAppend(path,L"ClassicShellUpdate.exe");
+		wchar_t cmdLine[1024];
+		Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" -popup",path);
+		STARTUPINFO startupInfo={sizeof(startupInfo)};
+		PROCESS_INFORMATION processInfo;
+		memset(&processInfo,0,sizeof(processInfo));
+		if (CreateProcess(path,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
+		{
+			CloseHandle(processInfo.hThread);
+			CloseHandle(processInfo.hProcess);
+		}
 	}
 
 	return pStartMenu->m_hWnd;

@@ -6,6 +6,9 @@
 #include "ClassicIE9BHO.h"
 #include "ClassicIE9DLL.h"
 #include "Settings.h"
+#include "SettingsUIHelper.h"
+#include "ResourceHelper.h"
+#include "Translations.h"
 #include "FNVHash.h"
 #include "dllmain.h"
 #include <shlguid.h>
@@ -35,16 +38,23 @@ static bool IsLowIntegrity( void )
 	return bLow;
 }
 
-static void StartBroker( const wchar_t *param )
+static void StartBroker( bool bUpdate, const wchar_t *param )
 {
 	wchar_t path[_MAX_PATH];
 	GetModuleFileName(g_Instance,path,_countof(path));
 	PathRemoveFileSpec(path);
+	if (bUpdate)
+	{
+		PathAppend(path,L"ClassicShellUpdate.exe");
+	}
+	else
+	{
 #ifdef _WIN64
-	PathAppend(path,L"ClassicIE9_64.exe");
+		PathAppend(path,L"ClassicIE9_64.exe");
 #else
-	PathAppend(path,L"ClassicIE9_32.exe");
+		PathAppend(path,L"ClassicIE9_32.exe");
 #endif
+	}
 	wchar_t cmdLine[1024];
 	Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" %s",path,param);
 	STARTUPINFO startupInfo={sizeof(startupInfo)};
@@ -90,14 +100,14 @@ HRESULT STDMETHODCALLTYPE CClassicIE9BHO::SetSite( IUnknown *pUnkSite )
 
 			pProvider->QueryService(SID_SShellBrowser,IID_IShellBrowser,(void**)&m_pBrowser);
 
-			if (m_pBrowser && GetSettingBool(L"ShowCaption"))
+			HWND hwnd;
+			if (m_pBrowser && SUCCEEDED(m_pBrowser->GetWindow(&hwnd)))
 			{
-				HWND hwnd;
-				if (SUCCEEDED(m_pBrowser->GetWindow(&hwnd)))
-				{
-					HWND topWindow=GetAncestor(hwnd,GA_ROOT);
+				HWND topWindow=GetAncestor(hwnd,GA_ROOT);
 
-					if (topWindow)
+				if (topWindow)
+				{
+					if (GetSettingBool(L"ShowCaption"))
 					{
 						HWND caption=FindWindowEx(topWindow,NULL,L"Client Caption",NULL);
 						if (!caption || SendMessage(caption,RegisterWindowMessage(L"ClassicIE9.Injected"),0,0)==0)
@@ -105,8 +115,14 @@ HRESULT STDMETHODCALLTYPE CClassicIE9BHO::SetSite( IUnknown *pUnkSite )
 							LogMessage("SetSite: topWindow=%X, caption=%X\r\n",(DWORD)topWindow,(DWORD)caption);
 							wchar_t param[100];
 							Sprintf(param,_countof(param),L"%u",(DWORD)topWindow);
-							StartBroker(param);
+							StartBroker(false,param);
 						}
+					}
+					DWORD newVersion;
+					CString url, news;
+					if (CheckForNewVersion(newVersion,url,news,CHECK_AUTO_IE))
+					{
+						StartBroker(true,L"-popup");
 					}
 				}
 			}
@@ -234,7 +250,7 @@ LRESULT CALLBACK CClassicIE9BHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARA
 			{
 				wchar_t buf[1024];
 				Sprintf(buf,_countof(buf),L"zone %u %s",(unsigned)GetAncestor(hWnd,GA_ROOT),(const wchar_t*)url);
-				StartBroker(buf);
+				StartBroker(false,buf);
 			}
 
 			return 0;

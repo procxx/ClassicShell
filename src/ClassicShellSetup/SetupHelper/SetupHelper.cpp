@@ -214,7 +214,7 @@ int ExitStartMenu( void )
 
 int MakeEnglishDll( wchar_t *const *params, int count )
 {
-	if (count<4) return 2;
+	if (count<5) return 2;
 
 	AttachConsole(ATTACH_PARENT_PROCESS);
 
@@ -364,6 +364,37 @@ int MakeEnglishDll( wchar_t *const *params, int count )
 		void *pRes=LockResource(hRes);
 		if (!pRes) continue;
 		UpdateResource(hEn,RT_STRING,MAKEINTRESOURCE(id),language,pRes,SizeofResource(hIE9,hResInfo));
+	}
+
+	// get strings and dialog from ClassicShellUpdate.exe
+	hMenu=LoadLibraryEx(params[4],NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+	if (!hMenu)
+	{
+		Printf("Failed to open %S (err: %d)\n",params[4],GetLastError());
+		goto qqq;
+	}
+
+	// copy strings
+	for (int i=6000;i<7000;i+=16)
+	{
+		int id=i/16;
+		HRSRC hResInfo=FindResource(hMenu,MAKEINTRESOURCE(id),RT_STRING);
+		if (!hResInfo) continue;
+		HGLOBAL hRes=LoadResource(hMenu,hResInfo);
+		void *pRes=LockResource(hRes);
+		if (!pRes) continue;
+		UpdateResource(hEn,RT_STRING,MAKEINTRESOURCE(id),language,pRes,SizeofResource(hMenu,hResInfo));
+	}
+
+	// copy dialogs
+	for (int id=6000;id<6010;id++)
+	{
+		HRSRC hResInfo=FindResource(hMenu,MAKEINTRESOURCE(id),RT_DIALOG);
+		if (!hResInfo) continue;
+		HGLOBAL hRes=LoadResource(hMenu,hResInfo);
+		void *pRes=LockResource(hRes);
+		if (!pRes) continue;
+		UpdateResource(hEn,RT_DIALOG,MAKEINTRESOURCE(id),language,pRes,SizeofResource(hMenu,hResInfo));
 	}
 
 	res=0;
@@ -560,7 +591,7 @@ int RestoreRunKey( wchar_t *const *params, int count )
 //   crcmsi <msi path> // creates a file with checksum of both msi files
 //   ini <install path> level // backs up and deletes the ini files
 //   exitSM // exits the start menu if it is running
-//   makeEN <explorer dll> <start menu dll> <ie9 dll> // extracts the localization resources and creates a sample en-US.DLL
+//   makeEN <explorer dll> <start menu dll> <ie9 dll> <update exe> // extracts the localization resources and creates a sample en-US.DLL
 //   run store|restore // stores or restores the Run registry key (used to work around a bug in the 2.8.1/2 uninstaller)
 
 int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrCmdLine, int nCmdShow )

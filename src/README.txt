@@ -1,5 +1,5 @@
 CLASSIC SHELL
-Version 3.3.0
+Version 3.4.0
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.

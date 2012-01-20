@@ -80,7 +80,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				RegisterOutput="true"
-				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib"
+				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib wininet.lib"
 				OutputFile="..\$(OutDir)\$(ProjectName)_32.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile=".\ClassicIE9DLL_32.def"
@@ -170,7 +170,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				RegisterOutput="true"
-				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib"
+				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib wininet.lib"
 				OutputFile="..\$(OutDir)\$(ProjectName)_64.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile=".\ClassicIE9DLL_64.def"
@@ -259,7 +259,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				RegisterOutput="true"
-				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib"
+				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib wininet.lib"
 				OutputFile="..\$(OutDir)\$(ProjectName)_32.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicIE9DLL_32.def"
@@ -349,7 +349,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				RegisterOutput="true"
-				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib"
+				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib wininet.lib"
 				OutputFile="..\$(OutDir)\$(ProjectName)_64.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicIE9DLL_64.def"
@@ -440,7 +440,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				RegisterOutput="false"
-				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib"
+				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib wininet.lib"
 				OutputFile="..\$(OutDir)\$(ProjectName)_32.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicIE9DLL_32.def"
@@ -530,7 +530,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				RegisterOutput="false"
-				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib"
+				AdditionalDependencies="uxtheme.lib dwmapi.lib comctl32.lib msimg32.lib winmm.lib htmlhelp.lib wininet.lib"
 				OutputFile="..\$(OutDir)\$(ProjectName)_64.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicIE9DLL_64.def"

@@ -5,6 +5,7 @@
 #include "ClassicIE9DLL.h"
 #include "Settings.h"
 #include "ResourceHelper.h"
+#include "SettingsUIHelper.h"
 #include <vssym32.h>
 #include <dwmapi.h>
 
@@ -332,7 +333,7 @@ static BOOL CALLBACK EnumTopWindows( HWND hwnd, LPARAM lParam )
 void InitClassicIE9( HMODULE hModule )
 {
 	CRegKey regKey;
-	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicIE9")==ERROR_SUCCESS)
+	if (regKey.Open(HKEY_CURRENT_USER,GetSettingsRegPath())==ERROR_SUCCESS)
 	{
 		DWORD val;
 		if (regKey.QueryDWORDValue(L"CustomAero",val)==ERROR_SUCCESS)

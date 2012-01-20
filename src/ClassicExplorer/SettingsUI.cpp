@@ -499,7 +499,7 @@ static CSetting g_Settings[]={
 	{L"FileExplorer",CSetting::TYPE_BOOL,IDS_FILE_EXPLORER,IDS_FILE_EXPLORER_TIP,1,CSetting::FLAG_COLD},
 
 {L"Language",CSetting::TYPE_GROUP,IDS_LANGUAGE_SETTINGS,0,0,0,NULL,GetLanguageSettings()},
-	{L"Language",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_COLD},
+	{L"Language",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_COLD|CSetting::FLAG_SHARED},
 
 {NULL}
 };
@@ -612,7 +612,7 @@ void ShowSettingsMenu( HWND parent, int x, int y )
 		EditSettings();
 }
 
-void WINAPI ShowExplorerSettings( void )
+void ShowExplorerSettings( void )
 {
 	if (!GetSettingBool(L"EnableSettings"))
 		return;

@@ -9,7 +9,8 @@
   <String Id="HelpDesc" Overridable="yes">View the Classic Shell documentation</String>
   <String Id="ExplorerSettingsDesc" Overridable="yes">Edit the settings of Classic Explorer</String>
   <String Id="StartSettingsDesc" Overridable="yes">Edit the settings of the classic start menu</String>
-  <String Id="IE9SettingsDesc" Overridable="yes">Edit the settings of the Iternet Explorer 9 title bar and status bar</String>
+  <String Id="IE9SettingsDesc" Overridable="yes">Edit the settings of the Internet Explorer 9 title bar and status bar</String>
+  <String Id="UpdateSettingsDesc" Overridable="yes">Edit the settings for Classic Shell's new version check</String>
   <String Id="StartMenuFolder" Overridable="yes">Create a start menu folder</String>
   <String Id="ViewReadme" Overridable="yes">View Readme file</String>
 </WixLocalization>
