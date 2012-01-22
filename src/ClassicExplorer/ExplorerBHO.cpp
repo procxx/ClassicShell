@@ -1095,7 +1095,7 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 			s_AutoNavDelay=GetSettingInt(L"AutoNavDelay");
 			DWORD newVersion;
 			CString url, news;
-			if (m_TopWindow && CheckForNewVersion(newVersion,url,news,CHECK_AUTO))
+			if (m_TopWindow && CheckForNewVersion(newVersion,url,news,CHECK_AUTO) && newVersion>GetVersionEx(g_Instance))
 			{
 				wchar_t path[_MAX_PATH];
 				GetModuleFileName(g_Instance,path,_countof(path));

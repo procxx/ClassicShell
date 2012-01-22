@@ -1,4 +1,10 @@
 ===============================================================================
+== Version 3.4.1 general release (Jan, 2012):
+
+- Fixed a small problem in the automatic check for a new version
+
+
+===============================================================================
 == Version 3.4.0 general release (Jan, 2012):
 
 - Fixed some minor problems found in the previous release. Most notably the

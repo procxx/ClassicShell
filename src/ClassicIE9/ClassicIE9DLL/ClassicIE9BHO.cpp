@@ -120,7 +120,7 @@ HRESULT STDMETHODCALLTYPE CClassicIE9BHO::SetSite( IUnknown *pUnkSite )
 					}
 					DWORD newVersion;
 					CString url, news;
-					if (CheckForNewVersion(newVersion,url,news,CHECK_AUTO_IE))
+					if (CheckForNewVersion(newVersion,url,news,CHECK_AUTO_IE) && newVersion>GetVersionEx(g_Instance))
 					{
 						StartBroker(true,L"-popup");
 					}
