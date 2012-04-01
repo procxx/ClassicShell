@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include <windows.h>
@@ -72,11 +72,50 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	HWND topWindow=(HWND)_wtol(lpCmdLine);
 	if (topWindow)
 	{
+		DWORD processId;
+		DWORD threadId=GetWindowThreadProcessId(topWindow,&processId);
+		bool bWrongBitness=false;
+		
+		{
+			HANDLE hProcess=OpenProcess(PROCESS_QUERY_INFORMATION,FALSE,processId);
+
+			if (hProcess)
+			{
+				BOOL bWow64;
 #ifdef _WIN64
-		HMODULE hHookModule=GetModuleHandle(L"ClassicIE9DLL_64.dll");
+				bWrongBitness=(IsWow64Process(hProcess,&bWow64) && bWow64); // the current process is 64-bit, but the target is wow64 (32-bit)
 #else
-		HMODULE hHookModule=GetModuleHandle(L"ClassicIE9DLL_32.dll");
+				if (IsWow64Process(GetCurrentProcess(),&bWow64) && bWow64)
+				{
+					bWrongBitness=(!IsWow64Process(hProcess,&bWow64) || !bWow64); // the current process is 32-bit, but the target is 64-bit
+				}
 #endif
+				CloseHandle(hProcess);
+			}
+		}
+
+		if (bWrongBitness)
+		{
+			wchar_t path[_MAX_PATH];
+			GetModuleFileName(hInstance,path,_countof(path));
+			PathRemoveFileSpec(path);
+#ifdef _WIN64
+			PathAppend(path,L"ClassicIE9_32.exe");
+#else
+			PathAppend(path,L"ClassicIE9_64.exe");
+#endif
+			wchar_t cmdLine[1024];
+			Sprintf(cmdLine,_countof(cmdLine),L"%s %s",path,lpCmdLine);
+			STARTUPINFO startupInfo={sizeof(startupInfo)};
+			PROCESS_INFORMATION processInfo;
+			memset(&processInfo,0,sizeof(processInfo));
+			if (CreateProcess(path,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
+			{
+				CloseHandle(processInfo.hThread);
+				CloseHandle(processInfo.hProcess);
+			}
+			return 0;
+		}
 
 		HWND caption=FindWindowEx(topWindow,NULL,L"Client Caption",NULL);
 		LogMessage("exe: topWindow=%X, caption=%X\r\n",(DWORD)topWindow,(DWORD)caption);
@@ -86,8 +125,6 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 			if (SendMessage(caption,message,0,0)!=0)
 				return 0;
 
-			DWORD processId;
-			DWORD threadId=GetWindowThreadProcessId(topWindow,&processId);
 			{
 				HANDLE hToken;
 				if (OpenProcessToken(GetCurrentProcess(),TOKEN_ADJUST_PRIVILEGES|TOKEN_QUERY,&hToken))
@@ -99,6 +136,12 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 					CloseHandle(hToken);
 				}
 			}
+
+#ifdef _WIN64
+			HMODULE hHookModule=GetModuleHandle(L"ClassicIE9DLL_64.dll");
+#else
+			HMODULE hHookModule=GetModuleHandle(L"ClassicIE9DLL_32.dll");
+#endif
 
 			HANDLE hProcess=OpenProcess(PROCESS_ALL_ACCESS,FALSE,processId);
 			if (hProcess)

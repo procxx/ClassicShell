@@ -1,5 +1,5 @@
 // ## MenuContainer.h
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // MenuPaint.cpp - handles the painting functionality of CMenuContainer
@@ -821,6 +821,11 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 	HBITMAP bmpSeparator[2]={NULL,NULL};
 	bool bSep32[2]={false,false};
 	const int *sepSlicesX[2]={NULL,NULL};
+	HBITMAP bmpIconFrame=NULL;
+	bool bFrame32=false;
+	const int *frameSlicesX=NULL;
+	const int *frameSlicesY=NULL;
+	const POINT *iconFrameOffset=NULL;
 	const RECT iconPadding[2]={m_bSubMenu?s_Skin.Submenu_icon_padding:s_Skin.Main_icon_padding,s_Skin.Main_icon_padding2};
 	const RECT textPadding[2]={m_bSubMenu?s_Skin.Submenu_text_padding:s_Skin.Main_text_padding,s_Skin.Main_text_padding2};
 	const SIZE arrPadding[2]={m_bSubMenu?s_Skin.Submenu_arrow_padding:s_Skin.Main_arrow_padding,s_Skin.Main_arrow_padding2};
@@ -869,6 +874,12 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 		bSepV32=s_Skin.Submenu_separatorV32;
 		sepWidth=s_Skin.Submenu_separatorWidth;
 		sepSlicesY=s_Skin.Submenu_separator_slices_Y;
+
+		bmpIconFrame=s_Skin.Submenu_icon_frame;
+		bFrame32=s_Skin.Submenu_icon_frame32;
+		frameSlicesX=s_Skin.Submenu_icon_frame_slices_X;
+		frameSlicesY=s_Skin.Submenu_icon_frame_slices_Y;
+		iconFrameOffset=&s_Skin.Submenu_icon_frame_offset;
 
 		bmpPager=s_Skin.Submenu_pager;
 		bPag32=s_Skin.Submenu_pager32;
@@ -921,6 +932,12 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 			bSep32[1]=s_Skin.Main_separator232;
 			sepSlicesX[1]=s_Skin.Main_separator_slices_X2;
 		}
+
+		bmpIconFrame=s_Skin.Main_icon_frame;
+		bFrame32=s_Skin.Main_icon_frame32;
+		frameSlicesX=s_Skin.Main_icon_frame_slices_X;
+		frameSlicesY=s_Skin.Main_icon_frame_slices_Y;
+		iconFrameOffset=&s_Skin.Main_icon_frame_offset;
 
 		bmpPager=s_Skin.Main_pager;
 		bPag32=s_Skin.Main_pager32;
@@ -1194,7 +1211,24 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 		}
 
 		// draw icon
-		ImageList_DrawEx(images,item.icon,hdc,itemRect.left+iconPadding[index].left,itemRect.top+iconPadding[index].top+m_IconTopOffset[index],0,0,CLR_NONE,CLR_NONE,ILD_NORMAL);
+		if (item.icon>=0)
+		{
+			int iconX=itemRect.left+iconPadding[index].left;
+			int iconY=itemRect.top+iconPadding[index].top+m_IconTopOffset[index];
+			if (bmpIconFrame)
+			{
+				HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpIconFrame);
+				RECT rSrc={0,0,frameSlicesX[0]+frameSlicesX[1]+frameSlicesX[2],frameSlicesY[0]+frameSlicesY[1]+frameSlicesY[2]};
+				if (bHot)
+					OffsetRect(&rSrc,rSrc.right,0);
+				RECT rDst={iconX,iconY,iconX+iconSize,iconY+iconSize};
+				InflateRect(&rDst,iconFrameOffset->x,iconFrameOffset->y);
+				RECT rMargins={frameSlicesX[0],frameSlicesY[0],frameSlicesX[2],frameSlicesY[2]};
+				MarginsBlit(hdc2,hdc,rSrc,rDst,rMargins,bFrame32);
+				SelectObject(hdc2,bmp0);
+			}
+			ImageList_DrawEx(images,item.icon,hdc,iconX,iconY,0,0,CLR_NONE,CLR_NONE,ILD_NORMAL);
+		}
 
 		// draw text
 		COLORREF color;

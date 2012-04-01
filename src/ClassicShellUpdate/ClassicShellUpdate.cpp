@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #define STRICT_TYPED_ITEMIDS
@@ -85,6 +85,7 @@ public:
 		RESIZE_CONTROL(IDCANCEL,MOVE_MOVE_X|MOVE_MOVE_Y)
 	END_RESIZE_MAP
 
+	CUpdateDlg( void ) { m_NewVersion=0xFFFFFFFF; }
 	void Run( void );
 	void UpdateData( void );
 
@@ -114,6 +115,8 @@ private:
 	HFONT m_Font;
 
 	void UpdateUI( void );
+
+	static void NewVersionCallback( DWORD newVersion, CString downloadUrl, CString news );
 };
 
 static CUpdateDlg g_UpdateDlg;
@@ -231,9 +234,16 @@ LRESULT CUpdateDlg::OnDontRemind( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL
 	return 0;
 }
 
+void CUpdateDlg::NewVersionCallback( DWORD newVersion, CString downloadUrl, CString news )
+{
+	g_UpdateDlg.m_NewVersion=newVersion;
+	g_UpdateDlg.m_DownloadUrl=downloadUrl;
+	g_UpdateDlg.m_News=news;
+}
+
 void CUpdateDlg::UpdateData( void )
 {
-	if (!CheckForNewVersion(m_NewVersion,m_DownloadUrl,m_News,CHECK_UPDATE))
+	if (!CheckForNewVersion(CHECK_UPDATE,NewVersionCallback))
 	{
 		m_NewVersion=0;
 		m_DownloadUrl.Empty();
@@ -243,7 +253,7 @@ void CUpdateDlg::UpdateData( void )
 
 void CUpdateDlg::UpdateUI( void )
 {
-	if (m_NewVersion)
+	if (m_NewVersion!=0 && m_NewVersion!=0xFFFFFFFF)
 	{
 		if (m_Version>=m_NewVersion)
 		{
@@ -271,7 +281,7 @@ void CUpdateDlg::UpdateUI( void )
 	}
 	else
 	{
-		SetDlgItemText(IDC_STATICLATEST,LoadStringEx(IDS_UPDATE_FAIL));
+		SetDlgItemText(IDC_STATICLATEST,(m_NewVersion==0)?LoadStringEx(IDS_UPDATE_FAIL):L"");
 		SetDlgItemText(IDC_EDITTEXT,L"");
 		GetDlgItem(IDC_EDITTEXT).ShowWindow(SW_HIDE);
 		GetDlgItem(IDC_BUTTONDOWNLOAD).ShowWindow(SW_HIDE);
@@ -386,10 +396,10 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 		FreeLibrary(resInstance);
 
 	int time0=timeGetTime();
-	g_UpdateDlg.UpdateData();
 
 	if (wcsstr(lpstrCmdLine,L"-popup")!=NULL)
 	{
+		g_UpdateDlg.UpdateData();
 		int sleep=timeGetTime()-time0;
 		if (sleep>0)
 			Sleep(sleep);

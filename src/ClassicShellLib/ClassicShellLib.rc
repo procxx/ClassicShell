@@ -242,6 +242,8 @@ BEGIN
     IDS_COMMAND_SM_TIP      "Drag the command or double-click on it to add it to the start menu"
     IDS_COMMAND_FILTERS     "Programs (*.exe, *.com, *.pif, *.bat, *.cmd)|*.exe;*.com;*.pif;*.bat;*.cmd|All files (*.*)|*.*|"
     IDS_OS_LANGUAGE         "Current OS language"
+    IDS_BMP_FILTERS         "Image files (*.bmp,*.png)|*.bmp;*.png|"
+    IDS_BMP_TITLE           "Select Image File"
 END
 
 STRINGTABLE 

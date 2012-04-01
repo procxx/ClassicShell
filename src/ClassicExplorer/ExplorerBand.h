@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ExplorerBand.h : Declaration of the CExplorerBand
@@ -45,6 +45,8 @@ public:
 		ID_STOP,
 		ID_RENAME,
 		ID_NEWFOLDER,
+		ID_MAP_DRIVE,
+		ID_DISCONNECT,
 		ID_VIEW_TILES,
 		ID_VIEW_DETAILS,
 		ID_VIEW_LIST,

@@ -1,7 +1,7 @@
 ; Windows Vista Aero skin
 
 ; About - text to use in the About box for this skin. use \n for new line
-About=Windows Vista Aero skin\n\nDefault skin to use for Vista Aero.\nAlso works for Vista Basic.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2010, Ivo Beltchev
+About=Windows Vista Aero skin\n\nDefault skin to use for Vista Aero.\nAlso works for Vista Basic.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2012, Ivo Beltchev
 
 ; AboutIcon - the ID of an icon resource to use in the About box
 AboutIcon=1

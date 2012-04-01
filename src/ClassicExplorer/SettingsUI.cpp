@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -39,6 +39,8 @@ static CStdCommand g_StdCommands[]={
 	{L"invertselection",L"Invert Selection",IDS_INVERT_TIP,L"InvertItem",NULL,NULL,L""},
 	{L"back",L"Back",IDS_BACK_TIP,L"BackItem",NULL,NULL,L""},
 	{L"forward",L"Forward",IDS_FORWARD_TIP,L"ForwardItem",NULL,NULL,L""},
+	{L"mapdrive",L"Map Network Drive",IDS_MAP_DRIVE_TIP,L"MapDriveItem",NULL,NULL,L""},
+	{L"disconnect",L"Disconnect Network Drive",IDS_DISCONNECT_DRIVE_TIP,L"DisconnectItem",NULL,NULL,L""},
 	{L"viewtiles",L"View Tiles",IDS_VIEWTILES_TIP,L"TilesItem",NULL,NULL,L""},
 	{L"viewdetails",L"View Details",IDS_VIEWDEATAILS_TIP,L"DetailsItem",NULL,NULL,L""},
 	{L"viewlist",L"View List",IDS_VIEWLIST_TIP,L"ListItem",NULL,NULL,L""},
@@ -87,32 +89,56 @@ static const KNOWNFOLDERID *g_CommonLinks[]=
 };
 
 const wchar_t *g_DefaultToolbar=
-L"Items=UpItem, CutItem, CopyItem, PasteItem, DeleteItem, PropertiesItem, EmailItem, SEPARATOR, SettingsItem\n"
-L"UpItem.Command=up\n"
-L"UpItem.Tip=$Toolbar.GoUp\n"
-L"UpItem.Icon=,2\n"
-L"UpItem.IconDisabled=,3\n"
-L"CutItem.Command=cut\n"
-L"CutItem.Tip=$Toolbar.Cut\n"
-L"CutItem.Icon=shell32.dll,16762\n"
-L"CopyItem.Command=copy\n"
-L"CopyItem.Tip=$Toolbar.Copy\n"
-L"CopyItem.Icon=shell32.dll,243\n"
-L"PasteItem.Command=paste\n"
-L"PasteItem.Tip=$Toolbar.Paste\n"
-L"PasteItem.Icon=shell32.dll,16763\n"
-L"DeleteItem.Command=delete\n"
-L"DeleteItem.Tip=$Toolbar.Delete\n"
-L"DeleteItem.Icon=shell32.dll,240\n"
-L"PropertiesItem.Command=properties\n"
-L"PropertiesItem.Tip=$Toolbar.Properties\n"
-L"PropertiesItem.Icon=shell32.dll,253\n"
-L"EmailItem.Command=email\n"
-L"EmailItem.Tip=$Toolbar.Email\n"
-L"EmailItem.Icon=shell32.dll,265\n"
-L"SettingsItem.Command=settings\n"
-L"SettingsItem.Tip=$Toolbar.Settings\n"
-L"SettingsItem.Icon=,1\n";
+	L"Items=UpItem, CutItem, CopyItem, PasteItem, DeleteItem, PropertiesItem, EmailItem, SEPARATOR, SettingsItem\n"
+	L"UpItem.Command=up\n"
+	L"UpItem.Tip=$Toolbar.GoUp\n"
+	L"UpItem.Icon=,2\n"
+	L"UpItem.IconDisabled=,3\n"
+	L"CutItem.Command=cut\n"
+	L"CutItem.Tip=$Toolbar.Cut\n"
+	L"CutItem.Icon=shell32.dll,16762\n"
+	L"CopyItem.Command=copy\n"
+	L"CopyItem.Tip=$Toolbar.Copy\n"
+	L"CopyItem.Icon=shell32.dll,243\n"
+	L"PasteItem.Command=paste\n"
+	L"PasteItem.Tip=$Toolbar.Paste\n"
+	L"PasteItem.Icon=shell32.dll,16763\n"
+	L"DeleteItem.Command=delete\n"
+	L"DeleteItem.Tip=$Toolbar.Delete\n"
+	L"DeleteItem.Icon=shell32.dll,240\n"
+	L"PropertiesItem.Command=properties\n"
+	L"PropertiesItem.Tip=$Toolbar.Properties\n"
+	L"PropertiesItem.Icon=shell32.dll,253\n"
+	L"EmailItem.Command=email\n"
+	L"EmailItem.Tip=$Toolbar.Email\n"
+	L"EmailItem.Icon=shell32.dll,265\n"
+	L"SettingsItem.Command=settings\n"
+	L"SettingsItem.Tip=$Toolbar.Settings\n"
+	L"SettingsItem.Icon=,1\n";
+
+const wchar_t *g_DefaultToolbar2=
+	L"Items=CutItem, CopyItem, PasteItem, DeleteItem, PropertiesItem, EmailItem, SEPARATOR, SettingsItem\n"
+	L"CutItem.Command=cut\n"
+	L"CutItem.Tip=$Toolbar.Cut\n"
+	L"CutItem.Icon=shell32.dll,16762\n"
+	L"CopyItem.Command=copy\n"
+	L"CopyItem.Tip=$Toolbar.Copy\n"
+	L"CopyItem.Icon=shell32.dll,243\n"
+	L"PasteItem.Command=paste\n"
+	L"PasteItem.Tip=$Toolbar.Paste\n"
+	L"PasteItem.Icon=shell32.dll,16763\n"
+	L"DeleteItem.Command=delete\n"
+	L"DeleteItem.Tip=$Toolbar.Delete\n"
+	L"DeleteItem.Icon=shell32.dll,240\n"
+	L"PropertiesItem.Command=properties\n"
+	L"PropertiesItem.Tip=$Toolbar.Properties\n"
+	L"PropertiesItem.Icon=shell32.dll,253\n"
+	L"EmailItem.Command=email\n"
+	L"EmailItem.Tip=$Toolbar.Email\n"
+	L"EmailItem.Icon=shell32.dll,265\n"
+	L"SettingsItem.Command=settings\n"
+	L"SettingsItem.Tip=$Toolbar.Settings\n"
+	L"SettingsItem.Icon=,1\n";
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -450,6 +476,7 @@ static CSetting g_Settings[]={
 		{L"ExtendedPath",CSetting::TYPE_RADIO,IDS_EXTENDED_PATH,IDS_EXTENDED_PATH_TIP},
 	{L"HideSearch",CSetting::TYPE_BOOL,IDS_HIDE_SEARCH,IDS_HIDE_SEARCH_TIP,0,CSetting::FLAG_WARM},
 	{L"AddressAltD",CSetting::TYPE_STRING,IDS_ALT_D,IDS_ALT_D_TIP,L"",CSetting::FLAG_WARM},
+	{L"UpHotkey2",CSetting::TYPE_HOTKEY_ANY,IDS_UP_HOTKEY,IDS_UP_HOTKEY_TIP,0,CSetting::FLAG_WARM},
 
 {L"UpButton",CSetting::TYPE_GROUP,IDS_UP_SETTINGS},
 	{L"ShowUpButton",CSetting::TYPE_INT,IDS_SHOW_UP,IDS_SHOW_UP_TIP,2,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
@@ -523,6 +550,7 @@ void UpdateSettings( void )
 		UpdateSetting(L"FixFolderScroll",CComVariant(0),false,true);
 		UpdateSetting(L"ShowHeaders",CComVariant(0),false,true);
 		UpdateSetting(L"HideScrollTip",CComVariant(0),false,true);
+		UpdateSetting(L"UpHotkey2",CComVariant(0),false,true);
 	}
 	else if (version==0x0106)
 	{
@@ -533,6 +561,7 @@ void UpdateSettings( void )
 		if (SUCCEEDED(DwmIsCompositionEnabled(&comp)) && comp)
 			delay=500;
 		UpdateSetting(L"MoreProgressDelay",CComVariant(delay),false);
+		UpdateSetting(L"UpHotkey2",CComVariant(0),false,true);
 	}
 	else
 	{
@@ -541,8 +570,11 @@ void UpdateSettings( void )
 		UpdateSetting(L"ShowIcon",CComVariant(0),false,true);
 		HideSettingGroup(L"StatusBar");
 		UpdateSetting(L"ShowFreeSpace",CComVariant(0),false,true);
+		UpdateSetting(L"FixFolderScroll",CComVariant(0),false,true);
 		HideSettingGroup(L"UpButton");
-		UpdateSetting(L"ShowUpButton",CComVariant(0),false,true);
+		UpdateSetting(L"ToolbarItems",CComVariant(g_DefaultToolbar2),false);
+		HideSettingGroup(L"StatusBar");
+		HideSettingGroup(L"FileOperation");
 	}
 }
 

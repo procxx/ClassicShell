@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
@@ -28,6 +28,9 @@ HICON ShExtractIcon( const char *path, int index, int iconSize );
 
 // Converts an icon to a bitmap. pBits may be NULL. If bDestroyIcon is true, hIcon will be destroyed
 HBITMAP BitmapFromIcon( HICON hIcon, int iconSize, unsigned int **pBits, bool bDestroyIcon );
+
+// Loads an image file into a bitmap and optionally resizes it
+HBITMAP LoadImageFile( const wchar_t *path, const SIZE *pSize, bool bPremultiply );
 
 // Premultiplies a DIB section by the alpha channel and a given color
 void PremultiplyBitmap( HBITMAP hBitmap, COLORREF rgb );

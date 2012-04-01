@@ -1,5 +1,5 @@
 // ## MenuContainer.h
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // MenuCommands.cpp - handles the commands and actions of CMenuContainer
@@ -969,6 +969,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			if (n>0)
 				AppendMenu(menu,MF_SEPARATOR,0,0);
 			AppendMenu(menu,MF_STRING,CMD_DELETEMRU,FindTranslation(L"Menu.RemoveList",L"Remove &from this list"));
+			AppendMenu(menu,MF_STRING,CMD_DELETEALL,FindTranslation(L"Menu.RemoveAll",L"C&lear recent items list"));
 		}
 		else if (type==ACTIVATE_MENU && (m_Options&CONTAINER_SEARCH))
 		{
@@ -1436,6 +1437,12 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			DeleteMRUShortcut(name);
 			CoTaskMemFree(name);
 		}
+		PostRefreshMessage();
+		return;
+	}
+	if (res==CMD_DELETEALL && item.id==MENU_RECENT && s_bRecentItems)
+	{
+		DeleteMRUShortcut(NULL);
 		PostRefreshMessage();
 		return;
 	}

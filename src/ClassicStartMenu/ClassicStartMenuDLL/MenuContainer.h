@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
@@ -472,6 +472,7 @@ private:
 		CMD_NEWFOLDER,
 		CMD_NEWSHORTCUT,
 		CMD_DELETEMRU,
+		CMD_DELETEALL,
 
 		CMD_LAST
 	};

@@ -332,20 +332,23 @@ file name.<br>
 <br>
 <h3>3) Copy selected files to the parent folder<br>
 </h3>
-Create a batch file called <span style="font-weight: bold;">C:\CopyParent.bat</span>:<br><span style="font-family: monospace;">for /F "delims=" %%i in (%1) do copy /Y "%%i" ..</span><br style="font-family: monospace;">
-<span style="font-family: monospace;">delete "%1</span>"<br style="font-family: monospace;">
+Create a batch file called <span style="font-weight: bold;">C:\CopyParent.bat:<br><span style="font-family: monospace;">
+set list=%1<br>
+set list=%list:"=%<br>
+for /F "delims=" %%i in (%list%) do copy /Y "%%i" ..<br>
+del %1<br style="font-family: monospace;"></span></span>
 <br>
 Use this command: <span style="font-weight: bold;">C:\</span><span style="font-weight: bold;">CopyParent</span><span style="font-weight: bold;">.bat "%3"</span>.
 %3 will be replaced by a text file containing the full names of all
 selected files. The batch file will read each line of that text file,
 and copy each of the selected files to the parent folder. At the end
 the batch file deletes the initial
-temp file.<br>
+temp file. The first two <b>set</b> commands remove the quotes from the %1 parameter.<br>
 <br>
 <h3>4) Select all text files</h3>
 Create a batch file called <span style="font-weight: bold;">C:\SelectText.bat</span>:<br>
-<span style="font-weight: bold; font-family: monospace;">echo select &gt; "%1</span>"<br style="font-weight: bold; font-family: monospace;">
-<span style="font-weight: bold; font-family: monospace;">dir *.txt /b &gt;&gt; "%1</span>"<br style="font-weight: bold; font-family: monospace;">
+<span style="font-weight: bold; font-family: monospace;">echo select &gt; %1</span><br style="font-weight: bold; font-family: monospace;">
+<span style="font-weight: bold; font-family: monospace;">dir *.txt /b &gt;&gt; %1</span><br style="font-weight: bold; font-family: monospace;">
 <br>
 Use this command: <span style="font-weight: bold;">C:\SelectText.bat "%5".</span>
 %5 will be replaced by a blank text file, where the command must output

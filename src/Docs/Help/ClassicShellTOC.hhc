@@ -83,6 +83,10 @@
 			<param name="Local" value="ClassicStartMenu.html#search">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
+			<param name="Name" value="Custom Start Button (Windows 8)">
+			<param name="Local" value="ClassicStartMenu.html#button">
+			</OBJECT>
+		<LI> <OBJECT type="text/sitemap">
 			<param name="Name" value="Localization">
 			<param name="Local" value="ClassicStartMenu.html#localization">
 			</OBJECT>

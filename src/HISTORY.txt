@@ -1,4 +1,23 @@
 ===============================================================================
+== Version 3.5.0 general release (Mar, 2012):
+
+- Added support for Windows 8 Consumer Preview
+   * Added customizable start button
+   * Added a Metro skin for the start menu
+   * Updated all settings for Windows 8
+   * Fixed the missing caption in IE10
+
+- Added a setting to control the menu shadows
+
+- Added toolbar commands to map and disconnect network drives
+
+- Improved the responsiveness of the check for a new version
+
+- The check for new version is a separate component that can be skipped
+  during install
+
+
+===============================================================================
 == Version 3.4.1 general release (Jan, 2012):
 
 - Fixed a small problem in the automatic check for a new version

@@ -1,5 +1,5 @@
 CLASSIC SHELL
-Version 3.4.1
+Version 3.5.0 general release
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.
@@ -48,8 +48,10 @@ sadly is missing from Windows 7. It has a variety of advanced features:
 
 *	Support for Microsoft’s Active Accessibility
 
-*	Converts the “All Programs” button in the Windows menu into a cascading menu
+*       Converts the “All Programs” button in the Windows menu into a cascading
+        menu (Vista and Windows 7) 
 
+*       Implements a customizable start button for Windows 8
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -83,7 +85,7 @@ Classic Explorer is a plugin for Windows Explorer that:
 
 3) Classic IE9
 
-Classic IE9 is a plugin for Internet Explorer 9 that:
+Classic IE9 is a plugin for Internet Explorer 9 and 10 that:
 
 *	Adds a caption to the title bar so you can see the full title of the page
 

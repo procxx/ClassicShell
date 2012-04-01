@@ -101,6 +101,8 @@
 #define IDS_COMMAND_SM_TIP              4048
 #define IDS_COMMAND_FILTERS             4049
 #define IDS_OS_LANGUAGE                 4050
+#define IDS_BMP_FILTERS                 4051
+#define IDS_BMP_TITLE                   4052
 
 // Next default values for new objects
 // 

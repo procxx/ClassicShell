@@ -76,6 +76,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="ClassicIE9.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -151,6 +152,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="ClassicIE9.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -228,6 +230,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="ClassicIE9.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -306,6 +309,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="ClassicIE9.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -329,6 +333,10 @@
 	<Files>
 		<File
 			RelativePath=".\ClassicIE9.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\ClassicIE9.manifest"
 			>
 		</File>
 		<File

@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -81,6 +81,16 @@ static LRESULT CALLBACK SubclassFrameProc( HWND hWnd, UINT uMsg, WPARAM wParam, 
 	}
 }
 
+static LRESULT DefCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
+{
+	while (1)
+	{
+		WNDPROC proc=(WNDPROC)GetProp(hWnd,MAKEINTATOM(g_SubclassAtom));
+		if (proc)
+			return CallWindowProc(proc,hWnd,uMsg,wParam,lParam);
+	}
+}
+
 // Subclasses the caption window to draw the icon and the text
 static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
@@ -91,7 +101,7 @@ static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam
 	if (uMsg==WM_PAINT)
 	{
 		HTHEME theme=OpenThemeData(hWnd,L"Window");
-		if (!theme) return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+		if (!theme) return DefCaptionProc(hWnd,uMsg,wParam,lParam);
 
 		// get the icon and the text from the parent
 		HWND parent=GetParent(hWnd);
@@ -234,7 +244,7 @@ static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam
 			// Basic Theme
 			
 			// first draw the caption bar
-			DefSubclassProc(hWnd,uMsg,wParam,lParam);
+			DefCaptionProc(hWnd,uMsg,wParam,lParam);
 
 			// then draw the caption directly in the window DC
 			HDC hdc=GetWindowDC(hWnd);
@@ -285,12 +295,7 @@ static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam
 		CloseThemeData(theme);
 		return 0;
 	}
-	while (1)
-	{
-		WNDPROC proc=(WNDPROC)GetProp(hWnd,MAKEINTATOM(g_SubclassAtom));
-		if (proc)
-			return CallWindowProc(proc,hWnd,uMsg,wParam,lParam);
-	}
+	return DefCaptionProc(hWnd,uMsg,wParam,lParam);
 }
 
 // Replacement proc for the "Client Caption" class that hooks the main frame and the caption windows

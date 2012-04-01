@@ -213,8 +213,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,4,1,0
- PRODUCTVERSION 3,4,1,0
+ FILEVERSION 3,5,0,0
+ PRODUCTVERSION 3,5,0,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -231,12 +231,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "3, 4, 1, 0"
+            VALUE "FileVersion", "3, 5, 0, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009-2012, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 4, 1, 0"
+            VALUE "ProductVersion", "3, 5, 0, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -269,6 +269,14 @@ IDI_APPICON             ICON                    "..\\..\\ClassicShellSetup\\Clas
 
 IDB_ARROWS              BITMAP                  "menu_arrows.bmp"
 IDB_SEARCH_ICONS        BITMAP                  "search_icons.bmp"
+IDB_BUTTON96            BITMAP                  "button96.bmp"
+IDB_BUTTON120           BITMAP                  "button120.bmp"
+IDB_BUTTON144           BITMAP                  "button144.bmp"
+IDB_BUTTON180           BITMAP                  "button180.bmp"
+IDB_BUTTON96M           BITMAP                  "button96m.bmp"
+IDB_BUTTON120M          BITMAP                  "button120m.bmp"
+IDB_BUTTON144M          BITMAP                  "button144m.bmp"
+IDB_BUTTON180M          BITMAP                  "button180m.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -694,13 +702,42 @@ BEGIN
     IDS_EXPLORER_PATH       "Default Explorer Path"
     IDS_EXPLORER_PATH_TIP   "Set the default path for the Windows Explorer command in the Start Button menu. Leave blank to remove the Windows Explorer command. The special locations 'computer', 'desktop' and 'libraries' are also supported"
     IDS_HIDE_PIC            "Hide User Picture"
-    IDS_HIDE_PIC_TIP        "When this is cheched, the user picture is removed from the Windows start menu"
+    IDS_HIDE_PIC_TIP        "When this is checked, the user picture is removed from the Windows start menu"
     IDS_SORT_DOCS           "Sort Recent Documents"
     IDS_SORT_DOCS_TIP       "Select how you want the recent documents to be sorted"
     IDS_SORT_NAME           "By Name"
     IDS_SORT_NAME_TIP       "The recent documents will be sorted by name"
     IDS_SORT_EXT            "By Extension"
     IDS_SORT_EXT_TIP        "The recent documents will be sorted by extension"
+    IDS_MENU_SHADOW         "Enable Menu Shadow"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_MENU_SHADOW_TIP     "When this is checked, the menus will have a shadow"
+    IDS_START_BUTTON        "Start Button"
+    IDS_ENABLE_BUTTON       "Enable Start Button"
+    IDS_ENABLE_BUTTON_TIP   "When this is checked, a start button will be added to the taskbar"
+    IDS_BUTTON_TYPE         "Button Look"
+    IDS_BUTTON_TYPE_TIP     "Select the look of the start button"
+    IDS_CLASSIC_BUTTON      "Classic Button"
+    IDS_CLASSIC_BUTTON_TIP  "Select the Classic look for start button"
+    IDS_AERO_BUTTON         "Aero Button"
+    IDS_AERO_BUTTON_TIP     "Select the Aero look for the start button"
+    IDS_METRO_BUTTON        "Metro Button"
+    IDS_METRO_BUTTON_TIP    "Select the Metro look for the start button"
+    IDS_CUSTOM_BUTTON       "Custom Button"
+    IDS_CUSTOM_BUTTON_TIP   "Select a custom bitmap for the start button"
+    IDS_BUTTON_IMAGE        "Button Image"
+    IDS_BUTTON_IMAGE_TIP    "Select a bitmap to be used for the start button"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_BUTTON_SIZE         "Button Size"
+    IDS_BUTTON_SIZE_TIP     "Select the width for the button when using a custom image"
+    IDS_HOT_CORNER          "Disable the start screen popup"
+    IDS_HOT_CORNER_TIP      "When this is checked and the taskbar is at the bottom, moving the mouse to the bottom corner of the screen will not show the start screen popup"
 END
 
 #endif    // English (U.S.) resources

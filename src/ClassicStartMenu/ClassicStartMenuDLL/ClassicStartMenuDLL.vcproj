@@ -508,6 +508,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\ClassicStartButton.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\ClassicStartMenuDLL.cpp"
 				>
 			</File>
@@ -674,6 +678,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\ClassicStartButton.h"
+				>
+			</File>
+			<File
 				RelativePath=".\ClassicStartMenuDLL.h"
 				>
 			</File>
@@ -719,6 +727,38 @@
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
+			<File
+				RelativePath=".\button120.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\button120m.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\button144.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\button144m.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\button180.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\button180m.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\button96.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\button96m.bmp"
+				>
+			</File>
 			<File
 				RelativePath="..\..\ClassicShellSetup\ClassicShell.ico"
 				>

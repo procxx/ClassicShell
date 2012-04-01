@@ -258,6 +258,8 @@
 #define IDS_PASTE_SHORTCUT_TIP          2180
 #define IDS_UP_HOTKEY                   2181
 #define IDS_UP_HOTKEY_TIP               2182
+#define IDS_MAP_DRIVE_TIP               2183
+#define IDS_DISCONNECT_DRIVE_TIP        2184
 
 // Next default values for new objects
 // 

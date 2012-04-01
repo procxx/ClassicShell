@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #define STRICT_TYPED_ITEMIDS
@@ -2105,6 +2105,44 @@ bool BrowseForIcon( HWND hWndParent, wchar_t *path, int &id )
 
 ///////////////////////////////////////////////////////////////////////////////
 
+static bool BrowseForBitmap( HWND hWndParent, wchar_t *path )
+{
+	OPENFILENAME ofn={sizeof(ofn)};
+	ofn.hwndOwner=hWndParent;
+	wchar_t filters[256];
+	Strcpy(filters,_countof(filters),LoadStringEx(IDS_BMP_FILTERS));
+	for (wchar_t *c=filters;*c;c++)
+		if (*c=='|') *c=0;
+	ofn.lpstrFilter=filters;
+	ofn.nFilterIndex=1;
+	ofn.lpstrFile=path;
+	ofn.nMaxFile=_MAX_PATH;
+	CString title=LoadStringEx(IDS_BMP_TITLE);
+	ofn.lpstrTitle=title;
+	ofn.Flags=OFN_DONTADDTORECENT|OFN_ENABLESIZING|OFN_EXPLORER|OFN_FILEMUSTEXIST|OFN_HIDEREADONLY|OFN_NOCHANGEDIR;
+	bool bRes=false;
+	if (GetOpenFileName(&ofn))
+	{
+		bRes=true;
+	}
+	else if (CommDlgExtendedError()==FNERR_INVALIDFILENAME)
+	{
+		// bad path. clear path and try again
+		path[0]=0;
+		if (GetOpenFileName(&ofn))
+			bRes=true;
+	}
+	if (bRes)
+	{
+		wchar_t buf[_MAX_PATH];
+		UnExpandEnvStrings(path,buf,_countof(buf));
+		Strcpy(path,_MAX_PATH,buf);
+	}
+	return bRes;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 static bool BrowseForSound( HWND hWndParent, wchar_t *path )
 {
 	OPENFILENAME ofn={sizeof(ofn)};
@@ -2159,6 +2197,7 @@ public:
 		EDIT_INT,
 		EDIT_STRING,
 		EDIT_ICON,
+		EDIT_BITMAP,
 		EDIT_SOUND,
 		EDIT_HOTKEY,
 		EDIT_HOTKEY_ANY,
@@ -2479,6 +2518,28 @@ LRESULT CTreeSettingsDlg::OnBrowse( WORD wNotifyCode, WORD wID, HWND hWndCtl, BO
 		SendMessage(WM_NEXTDLGCTL,(LPARAM)m_EditBox.m_hWnd,TRUE);
 		m_bIgnoreFocus=false;
 	}
+	else if (m_EditMode==EDIT_BITMAP)
+	{
+		m_bIgnoreFocus=true;
+		CString str;
+		m_EditBox.GetWindowText(str);
+		str.TrimLeft(); str.TrimRight();
+		wchar_t text[1024];
+		if (_wcsicmp(PathFindExtension(str),L".bmp")==0)
+		{
+			Strcpy(text,_countof(text),str);
+			DoEnvironmentSubst(text,_countof(text));
+		}
+		else
+			text[0]=0;
+		if (BrowseForBitmap(m_hWnd,text))
+		{
+			m_EditBox.SetWindowText(text);
+		}
+		SendMessage(WM_NEXTDLGCTL,(LPARAM)m_EditBox.m_hWnd,TRUE);
+		m_EditBox.SetFocus();
+		m_bIgnoreFocus=false;
+	}
 	else if (m_EditMode==EDIT_SOUND)
 	{
 		m_bIgnoreFocus=true;
@@ -2568,7 +2629,7 @@ LRESULT CTreeSettingsDlg::OnBrowse( WORD wNotifyCode, WORD wID, HWND hWndCtl, BO
 		{
 			wchar_t text[256];
 			const wchar_t *type=font.lfItalic?L"italic":L"normal";
-			if (font.lfWeight==FW_BOLD)
+			if (font.lfWeight>=FW_BOLD)
 				type=font.lfItalic?L"bold_italic":L"bold";
 			Sprintf(text,_countof(text),L"%s, %s, %d",font.lfFaceName,type,(-font.lfHeight*72+dpi/2)/dpi);
 			m_EditBox.SetWindowText(text);
@@ -2884,7 +2945,7 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 				val=pSetting->value.intVal;
 			Sprintf(text,_countof(text),L"%d",val);
 		}
-		else if (pSetting->type==CSetting::TYPE_STRING || pSetting->type==CSetting::TYPE_ICON || pSetting->type==CSetting::TYPE_SOUND || pSetting->type==CSetting::TYPE_FONT)
+		else if (pSetting->type==CSetting::TYPE_STRING || pSetting->type==CSetting::TYPE_ICON || pSetting->type==CSetting::TYPE_BITMAP || pSetting->type==CSetting::TYPE_SOUND || pSetting->type==CSetting::TYPE_FONT)
 		{
 			if (pSetting->value.vt==VT_BSTR)
 				Strcpy(text,_countof(text),pSetting->value.bstrVal);
@@ -2894,6 +2955,8 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 				mode=EDIT_STRING;
 			else if (pSetting->type==CSetting::TYPE_ICON)
 				mode=EDIT_ICON;
+			else if (pSetting->type==CSetting::TYPE_BITMAP)
+				mode=EDIT_BITMAP;
 			else if (pSetting->type==CSetting::TYPE_SOUND)
 				mode=EDIT_SOUND;
 			else
@@ -2937,7 +3000,7 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 		m_pEditSetting=pSetting;
 	}
 
-	if (mode==EDIT_ICON || mode==EDIT_SOUND || mode==EDIT_FONT || mode==EDIT_COLOR)
+	if (mode==EDIT_ICON || mode==EDIT_BITMAP || mode==EDIT_SOUND || mode==EDIT_FONT || mode==EDIT_COLOR)
 	{
 		RECT rc2=rc;
 		int h=rc2.bottom-rc2.top;
@@ -2995,14 +3058,14 @@ void CTreeSettingsDlg::UpdateEditPosition( void )
 	DeleteDC(hdc);
 	DWORD margins=(DWORD)m_EditBox.SendMessage(EM_GETMARGINS);
 	size.cx+=HIWORD(margins)+LOWORD(margins)+12;
-	if (m_EditMode==EDIT_ICON || m_EditMode==EDIT_FONT || m_EditMode==EDIT_COLOR)
+	if (m_EditMode==EDIT_ICON || m_EditMode==EDIT_BITMAP|| m_EditMode==EDIT_FONT || m_EditMode==EDIT_COLOR)
 		size.cx+=h;
 	if (m_EditMode==EDIT_SOUND)
 		size.cx+=h*2;
 	if (size.cx<w)
 		rc.right=rc.left+size.cx;
 
-	if (m_EditMode==EDIT_ICON || m_EditMode==EDIT_SOUND || m_EditMode==EDIT_FONT || m_EditMode==EDIT_COLOR)
+	if (m_EditMode==EDIT_ICON || m_EditMode==EDIT_BITMAP || m_EditMode==EDIT_SOUND || m_EditMode==EDIT_FONT || m_EditMode==EDIT_COLOR)
 	{
 		RECT rc2=rc;
 		rc2.left=rc2.right-h;
@@ -3498,46 +3561,24 @@ HWND CLanguageSettingsPanel::Activate( CSetting *pGroup, const RECT &rect, bool 
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool CheckForNewVersion( DWORD &newVersion, CString &downloadUrl, CString &news, TVersionCheck check )
+static tNewVersionCallback g_NewVersionCallback;
+static bool g_bCheckingVersion;
+
+static DWORD WINAPI ThreadVersionCheck( void *param )
 {
-	if (check!=CHECK_UPDATE)
-	{
-		// check admin settings
-		CRegKey regKey;
-		if (regKey.Open(HKEY_LOCAL_MACHINE,L"Software\\IvoSoft\\ClassicShell",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
-		{
-			DWORD update;
-			if (regKey.QueryDWORDValue(L"Update",update)==ERROR_SUCCESS && update==0)
-				return false;
-		}
-	}
-
-	CRegKey regKey;
-	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell")!=ERROR_SUCCESS)
-		regKey.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell");
-
 	ULONGLONG curTimeL;
 	GetSystemTimeAsFileTime((FILETIME*)&curTimeL);
 	DWORD curTime=(DWORD)(curTimeL/36000000000); // in hours
 
-	if (check!=CHECK_UPDATE)
+	CRegKey regKey;
+	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell")!=ERROR_SUCCESS)
 	{
-		DWORD update;
-		if (regKey.QueryDWORDValue(L"Update",update)==ERROR_SUCCESS && update==0)
-			return false;
-
-		DWORD lastTime;
-		if (regKey.QueryDWORDValue(L"LastUpdateTime",lastTime)!=ERROR_SUCCESS)
-			lastTime=0;
-		if ((curTime-lastTime)<24)
-			return false; // check daily
-
-		if (regKey.QueryDWORDValue(L"LastUpdateTimeIE",lastTime)!=ERROR_SUCCESS)
-			lastTime=0;
-		if ((curTime-lastTime)<24)
-			return false;
+		g_bCheckingVersion=false;
+		return 0;
 	}
-
+	DWORD newVersion;
+	CString downloadUrl, news;
+	TVersionCheck check=(TVersionCheck)(int)param;
 	CString url=LoadStringEx(IDS_VERSION_URL);
 	bool res=false;
 	HINTERNET hInternet=InternetOpen(L"Classic Shell",INTERNET_OPEN_TYPE_PRECONFIG,NULL,NULL,0);
@@ -3572,7 +3613,10 @@ bool CheckForNewVersion( DWORD &newVersion, CString &downloadUrl, CString &news,
 		InternetCloseHandle(hInternet);
 	}
 	if (!res)
-		return false;
+	{
+		g_bCheckingVersion=false;
+		return 0;
+	}
 
 	// HACK: When IE runs in protected mode it can read from the user registry but can't write to it
 	// All writes go into a virtualized registry. So we use a different value name for IE to store the
@@ -3580,10 +3624,75 @@ bool CheckForNewVersion( DWORD &newVersion, CString &downloadUrl, CString &news,
 	regKey.SetDWORDValue(check==CHECK_AUTO_IE?L"LastUpdateTimeIE":L"LastUpdateTime",curTime);
 
 	if (check==CHECK_UPDATE)
-		return true;
+	{
+		g_NewVersionCallback(newVersion,downloadUrl,news);
+		g_bCheckingVersion=false;
+		return 1;
+	}
 
 	DWORD remindedVersion;
 	if (regKey.QueryDWORDValue(L"RemindedVersion",remindedVersion)!=ERROR_SUCCESS)
 		remindedVersion=0;
-	return (newVersion>remindedVersion);
+	if (newVersion>remindedVersion)
+		g_NewVersionCallback(newVersion,downloadUrl,news);
+	g_bCheckingVersion=false;
+	return 0;
+}
+
+bool CheckForNewVersion( TVersionCheck check, tNewVersionCallback callback )
+{
+	if (g_bCheckingVersion) return false;
+	if (check!=CHECK_UPDATE)
+	{
+		// check admin settings
+		CRegKey regKey;
+		if (regKey.Open(HKEY_LOCAL_MACHINE,L"Software\\IvoSoft\\ClassicShell",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+		{
+			DWORD update;
+			if (regKey.QueryDWORDValue(L"Update",update)==ERROR_SUCCESS && update==0)
+				return false;
+		}
+	}
+
+	wchar_t path[_MAX_PATH];
+	GetModuleFileName(_AtlBaseModule.GetModuleInstance(),path,_countof(path));
+	PathRemoveFileSpec(path);
+	PathAppend(path,L"ClassicShellUpdate.exe");
+	if (GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES)
+		return false;
+
+	CRegKey regKey;
+	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell")!=ERROR_SUCCESS)
+		regKey.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell");
+
+	ULONGLONG curTimeL;
+	GetSystemTimeAsFileTime((FILETIME*)&curTimeL);
+	DWORD curTime=(DWORD)(curTimeL/36000000000); // in hours
+
+	g_NewVersionCallback=callback;
+	if (check!=CHECK_UPDATE)
+	{
+		DWORD update;
+		if (regKey.QueryDWORDValue(L"Update",update)==ERROR_SUCCESS && update==0)
+			return false;
+
+		DWORD lastTime;
+		if (regKey.QueryDWORDValue(L"LastUpdateTime",lastTime)!=ERROR_SUCCESS)
+			lastTime=0;
+		if ((curTime-lastTime)<24)
+			return false; // check daily
+
+		if (regKey.QueryDWORDValue(L"LastUpdateTimeIE",lastTime)!=ERROR_SUCCESS)
+			lastTime=0;
+		if ((curTime-lastTime)<24)
+			return false;
+
+		g_bCheckingVersion=true;
+		HANDLE hThread=CreateThread(NULL,0,ThreadVersionCheck,(void*)check,0,NULL);
+		CloseHandle(hThread);
+		return hThread!=NULL;
+	}
+
+	g_bCheckingVersion=true;
+	return ThreadVersionCheck((void*)check)!=0;
 }

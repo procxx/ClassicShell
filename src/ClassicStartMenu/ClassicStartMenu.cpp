@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include <windows.h>
@@ -17,7 +17,6 @@
 #include "ClassicStartMenuDLL\SettingsUI.h"
 
 static HHOOK g_StartHook;
-static HWND g_StartButton;
 
 static void UnhookStartMenu( void )
 {
@@ -37,21 +36,20 @@ static HWND HookStartMenu( bool bHookExplorer )
 	DWORD process;
 	DWORD thread=GetWindowThreadProcessId(progWin,&process);
 
-	g_StartButton=FindStartButton(process);
-	if (!g_StartButton) return NULL; // the start button may not be created yet (if Explorer is currently restarting)
+	if (!FindTaskBar(process)) return NULL; // the taskbar may not be created yet (if Explorer is currently restarting)
 
 	if (!bHookExplorer)
 		return ToggleStartMenu(g_StartButton,false);
 
 	// install hooks in the explorer process
-	thread=GetWindowThreadProcessId(g_StartButton,NULL);
+	thread=GetWindowThreadProcessId(g_TaskBar,NULL);
 	g_StartHook=SetWindowsHookEx(WH_GETMESSAGE,HookInject,hHookModule,thread);
 	if (!g_StartHook)
 	{
 		int err=GetLastError();
 		LogHookError(err);
 	}
-	PostMessage(g_StartButton,WM_NULL,0,0); // make sure there is one message in the queue
+	PostMessage(g_TaskBar,WM_NULL,0,0); // make sure there is one message in the queue
 
 	return NULL;
 }
@@ -93,7 +91,7 @@ protected:
 
 LRESULT CStartHookWindow::OnOpen( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	if (g_StartButton) ::PostMessage(g_StartButton,RegisterWindowMessage(L"ClassicStartMenu.StartMenuMsg"),wParam,lParam);
+	if (g_TaskBar) ::PostMessage(g_TaskBar,RegisterWindowMessage(L"ClassicStartMenu.StartMenuMsg"),wParam,lParam);
 	return 0;
 }
 
@@ -137,6 +135,27 @@ enum
 
 int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrCmdLine, int nCmdShow )
 {
+	if (wcsstr(lpstrCmdLine,L"-startup"))
+	{
+/*		STARTUPINFO startupInfo={sizeof(STARTUPINFO)};
+		PROCESS_INFORMATION processInfo;
+		FILE *f=fopen("D:\\start.txt","wt");
+		if(CreateProcess(L"C:\\windows\\explorer.exe",L"C:\\windows\\explorer.exe shell:::{3080F90D-D7AD-11D9-BD98-0000947B0257}",NULL,NULL,TRUE,NORMAL_PRIORITY_CLASS,NULL,NULL,&startupInfo,&processInfo))
+		{
+			fprintf(f,"success\n");
+			CloseHandle(processInfo.hProcess);
+			CloseHandle(processInfo.hThread);
+		}
+		else
+		{
+			int err=GetLastError();
+			fprintf(f,"error %d\n",err);
+		}
+		fclose(f);
+		CoInitialize(NULL);
+		ShellExecute(NULL,NULL,L"explorer.exe",L"shell:::{3080F90D-D7AD-11D9-BD98-0000947B0257}",NULL,SW_SHOWNORMAL);
+		CoUninitialize();*/
+	}
 	wchar_t path[_MAX_PATH];
 	GetModuleFileName(NULL,path,_countof(path));
 	*PathFindFileName(path)=0;
@@ -246,10 +265,25 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	}
 
 	OleInitialize(NULL);
-	g_TaskbarCreatedMsg=RegisterWindowMessage(L"TaskbarCreated");
-	ChangeWindowMessageFilter(g_TaskbarCreatedMsg,MSGFLT_ADD);
 	CStartHookWindow window;
 	window.Create(NULL,NULL,L"StartHookWindow",WS_POPUP);
+
+	g_TaskbarCreatedMsg=RegisterWindowMessage(L"TaskbarCreated");
+	typedef BOOL (WINAPI *tChangeWindowMessageFilterEx)(HWND hWnd, UINT message, DWORD action, PCHANGEFILTERSTRUCT pChangeFilterStruct );
+	HMODULE hUser32=GetModuleHandle(L"user32.dll");
+	tChangeWindowMessageFilterEx ChangeWindowMessageFilterEx=(tChangeWindowMessageFilterEx)GetProcAddress(hUser32,"ChangeWindowMessageFilterEx");
+	if (ChangeWindowMessageFilterEx)
+	{
+		ChangeWindowMessageFilterEx(window,g_TaskbarCreatedMsg,MSGFLT_ADD,NULL);
+		ChangeWindowMessageFilterEx(window,WM_CLEAR,MSGFLT_ADD,NULL);
+		ChangeWindowMessageFilterEx(window,WM_CLOSE,MSGFLT_ADD,NULL);
+	}
+	else
+	{
+		ChangeWindowMessageFilter(g_TaskbarCreatedMsg,MSGFLT_ADD);
+		ChangeWindowMessageFilter(WM_CLEAR,MSGFLT_ADD);
+		ChangeWindowMessageFilter(WM_CLOSE,MSGFLT_ADD);
+	}
 
 	MSG msg;
 	HWND menu=HookStartMenu(bHookExplorer);

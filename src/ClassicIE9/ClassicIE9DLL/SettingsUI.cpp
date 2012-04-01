@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -50,9 +50,26 @@ void UpdateSettings( void )
 	bool bVista=(version==0x0006);
 	bool bWin8=(version==0x0206);
 
-	BOOL bComposition;
+	BOOL bComposition=0;
 	if (FAILED(DwmIsCompositionEnabled(&bComposition)))
 		bComposition=FALSE;
+
+	if (bComposition && bWin8)
+	{
+		// check for High Contrast theme on Win8
+		HIGHCONTRAST contrast={sizeof(contrast)};
+		if (SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON))
+			bComposition=FALSE;
+		else
+		{
+			// check for Basic theme
+			DWORD color;
+			BOOL opaque;
+			if (SUCCEEDED(DwmGetColorizationColor(&color,&opaque)) && opaque)
+				bComposition=FALSE;
+		}
+	}
+
 	UpdateSetting(L"Glow",CComVariant(bComposition?1:0),false);
 	UpdateSetting(L"MaxGlow",CComVariant((bComposition && !bVista)?1:0),false);
 	UpdateSetting(L"CenterCaption",CComVariant(bWin8?1:0),false);
@@ -70,7 +87,7 @@ void UpdateSettings( void )
 		GetThemeSysFont(theme,TMT_CAPTIONFONT,&font);
 		wchar_t text[256];
 		const wchar_t *type=font.lfItalic?L"italic":L"normal";
-		if (font.lfWeight==FW_BOLD)
+		if (font.lfWeight>=FW_BOLD)
 			type=font.lfItalic?L"bold_italic":L"bold";
 		Sprintf(text,_countof(text),L"%s, %s, %d",font.lfFaceName,type,(-font.lfHeight*72+dpi/2)/dpi);
 		UpdateSetting(L"CaptionFont",CComVariant(text),false);
@@ -78,7 +95,7 @@ void UpdateSettings( void )
 		int color=GetThemeSysColor(theme,COLOR_CAPTIONTEXT);
 		UpdateSetting(L"TextColor",CComVariant(color),false);
 		UpdateSetting(L"MaxColor",CComVariant((bVista && bComposition)?0xFFFFFF:color),false);
-		if (bVista)
+		if (bVista || bWin8)
 			color=GetThemeSysColor(theme,COLOR_INACTIVECAPTIONTEXT);
 		UpdateSetting(L"InactiveColor",CComVariant(color),false);
 		UpdateSetting(L"InactiveMaxColor",CComVariant((bVista && bComposition)?0xFFFFFF:color),false);
@@ -87,10 +104,12 @@ void UpdateSettings( void )
 	}
 	else
 	{
-		UpdateSetting(L"TextColor",CComVariant(0),false);
-		UpdateSetting(L"MaxColor",CComVariant(0),false);
-		UpdateSetting(L"InactiveColor",CComVariant(0),false);
-		UpdateSetting(L"InactiveMaxColor",CComVariant(0),false);
+		int color=GetSysColor(COLOR_CAPTIONTEXT);
+		UpdateSetting(L"TextColor",CComVariant(color),false);
+		UpdateSetting(L"MaxColor",CComVariant(color),false);
+		color=GetSysColor(COLOR_INACTIVECAPTIONTEXT);
+		UpdateSetting(L"InactiveColor",CComVariant(color),false);
+		UpdateSetting(L"InactiveMaxColor",CComVariant(color),false);
 	}
 	DestroyWindow(hwnd);
 }

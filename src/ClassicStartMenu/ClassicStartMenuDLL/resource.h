@@ -9,6 +9,14 @@
 #define IDD_LOGOFF                      104
 #define IDD_LOGOFFR                     105
 #define IDB_SEARCH_ICONS                110
+#define IDB_BUTTON96                    111
+#define IDB_BUTTON120                   112
+#define IDB_BUTTON144                   113
+#define IDB_BUTTON180                   114
+#define IDB_BUTTON96M                   115
+#define IDB_BUTTON120M                  116
+#define IDB_BUTTON144M                  117
+#define IDB_BUTTON180M                  118
 #define IDC_STATICICON                  209
 #define IDC_COMBOCOMMAND                239
 #define IDC_EDITLABEL                   240
@@ -398,12 +406,33 @@
 #define IDS_SORT_NAME_TIP               3340
 #define IDS_SORT_EXT                    3341
 #define IDS_SORT_EXT_TIP                3342
+#define IDS_MENU_SHADOW                 3343
+#define IDS_MENU_SHADOW_TIP             3344
+#define IDS_START_BUTTON                3345
+#define IDS_ENABLE_BUTTON               3346
+#define IDS_ENABLE_BUTTON_TIP           3347
+#define IDS_BUTTON_TYPE                 3348
+#define IDS_BUTTON_TYPE_TIP             3349
+#define IDS_CLASSIC_BUTTON              3350
+#define IDS_CLASSIC_BUTTON_TIP          3351
+#define IDS_AERO_BUTTON                 3352
+#define IDS_AERO_BUTTON_TIP             3353
+#define IDS_METRO_BUTTON                3354
+#define IDS_METRO_BUTTON_TIP            3355
+#define IDS_CUSTOM_BUTTON               3356
+#define IDS_CUSTOM_BUTTON_TIP           3357
+#define IDS_BUTTON_IMAGE                3358
+#define IDS_BUTTON_IMAGE_TIP            3359
+#define IDS_BUTTON_SIZE                 3360
+#define IDS_BUTTON_SIZE_TIP             3361
+#define IDS_HOT_CORNER                  3362
+#define IDS_HOT_CORNER_TIP              3363
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        111
+#define _APS_NEXT_RESOURCE_VALUE        115
 #define _APS_NEXT_COMMAND_VALUE         40001
 #define _APS_NEXT_CONTROL_VALUE         1066
 #define _APS_NEXT_SYMED_VALUE           101

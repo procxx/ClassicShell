@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // MenuContainer.cpp - contains the main logic of CMenuContainer
@@ -8,6 +8,7 @@
 #include "MenuContainer.h"
 #include "Accessibility.h"
 #include "ClassicStartMenuDLL.h"
+#include "ClassicStartButton.h"
 #include "Settings.h"
 #include "Translations.h"
 #include "CustomMenu.h"
@@ -2828,6 +2829,8 @@ LRESULT CMenuContainer::OnSysKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, B
 			PostMessage(MCM_SETHOTITEM,index);
 		}
 	}
+	else
+		bHandled=FALSE;
 	return 0;
 }
 
@@ -2951,6 +2954,7 @@ LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 			}
 		}
 		s_FirstMenu=m_hWnd;
+		PressStartButton(false);
 	}
 	return 0;
 }
@@ -3481,15 +3485,23 @@ void CMenuContainer::AddMRUShortcut( const wchar_t *path )
 
 void CMenuContainer::DeleteMRUShortcut( const wchar_t *path )
 {
-	for (int i=0;i<MRU_PROGRAMS_COUNT;i++)
+	if (path)
 	{
-		if (_wcsicmp(s_MRUShortcuts[i],path)==0)
+		for (int i=0;i<MRU_PROGRAMS_COUNT;i++)
 		{
-			for (int j=i;j<MRU_PROGRAMS_COUNT-1;j++)
-				s_MRUShortcuts[j]=s_MRUShortcuts[j+1];
-			s_MRUShortcuts[MRU_PROGRAMS_COUNT-1].Empty();
-			i--;
+			if (_wcsicmp(s_MRUShortcuts[i],path)==0)
+			{
+				for (int j=i;j<MRU_PROGRAMS_COUNT-1;j++)
+					s_MRUShortcuts[j]=s_MRUShortcuts[j+1];
+				s_MRUShortcuts[MRU_PROGRAMS_COUNT-1].Empty();
+				i--;
+			}
 		}
+	}
+	else
+	{
+		for (int i=0;i<MRU_PROGRAMS_COUNT;i++)
+			s_MRUShortcuts[i].Empty();
 	}
 
 	SaveMRUShortcuts();
@@ -3638,6 +3650,27 @@ bool CMenuContainer::CloseProgramsMenu( void )
 	return true;
 }
 
+static void NewVersionCallback( DWORD newVersion, CString downloadUrl, CString news )
+{
+	if (newVersion>GetVersionEx(g_Instance))
+	{
+		wchar_t path[_MAX_PATH];
+		GetModuleFileName(g_Instance,path,_countof(path));
+		PathRemoveFileSpec(path);
+		PathAppend(path,L"ClassicShellUpdate.exe");
+		wchar_t cmdLine[1024];
+		Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" -popup",path);
+		STARTUPINFO startupInfo={sizeof(startupInfo)};
+		PROCESS_INFORMATION processInfo;
+		memset(&processInfo,0,sizeof(processInfo));
+		if (CreateProcess(path,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
+		{
+			CloseHandle(processInfo.hThread);
+			CloseHandle(processInfo.hProcess);
+		}
+	}
+}
+
 // Toggles the start menu
 HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAllPrograms )
 {
@@ -3687,6 +3720,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	if (bErr)
 		LoadDefaultMenuSkin(s_Skin,LOADMENU_MAIN|LOADMENU_RESOURCES);
 
+	PressStartButton(true);
 	s_ScrollMenus=GetSettingInt(L"ScrollType");
 	s_bExpandLinks=GetSettingBool(L"ExpandFolderLinks");
 	s_bSearchSubWord=GetSettingBool(L"SearchSubWord");
@@ -3918,16 +3952,31 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	s_bKeyboardCues=bKeyboard;
 	s_bRecentItems=GetSettingBool(L"RecentPrograms");
 
-	// make sure the menu stays on the same monitor as the start button
-	RECT startRect;
-	::GetWindowRect(startButton,&startRect);
+	// make sure the menu stays on the same monitor as the task bar
 	MONITORINFO info={sizeof(info)};
-	GetMonitorInfo(MonitorFromWindow(startButton,MONITOR_DEFAULTTOPRIMARY),&info);
+	GetMonitorInfo(MonitorFromWindow(g_TaskBar,MONITOR_DEFAULTTOPRIMARY),&info);
 	s_MainRect=info.rcMonitor;
 
 	RECT taskbarRect;
 	::GetWindowRect(g_TaskBar,&taskbarRect);
 	s_HoverTime=GetSettingInt(L"MenuDelay");
+
+	RECT startRect;
+	if (startButton)
+	{
+		::GetWindowRect(startButton,&startRect);
+	}
+	else
+	{
+		// no start button. try to guess the rect
+		startRect=taskbarRect;
+		if (appbar.uEdge==ABE_LEFT || appbar.uEdge==ABE_RIGHT)
+			startRect.bottom=startRect.top;
+		else if (::GetWindowLong(g_TaskBar,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)
+			startRect.left=startRect.right-(startRect.bottom-startRect.top);
+		else
+			startRect.right=startRect.left+(startRect.bottom-startRect.top);
+	}
 
 	s_TipShowTime=400;
 	s_TipHideTime=4000;
@@ -4168,6 +4217,10 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 		FreeMenuSkin(s_Skin);
 		return NULL;
 	}
+	if (GetSettingBool(L"MenuShadow"))
+		SetClassLong(pStartMenu->m_hWnd,GCL_STYLE,GetClassLong(pStartMenu->m_hWnd,GCL_STYLE)|CS_DROPSHADOW);
+	else
+		SetClassLong(pStartMenu->m_hWnd,GCL_STYLE,GetClassLong(pStartMenu->m_hWnd,GCL_STYLE)&~CS_DROPSHADOW);
 	pStartMenu->SetHotItem((bKeyboard && bAllPrograms)?0:-1);
 
 	if (bAllPrograms)
@@ -4183,7 +4236,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 		SystemParametersInfo(SPI_GETMENUANIMATION,NULL,&animate,0);
 
 	if (s_bBehindTaskbar)
-		::SetWindowPos(startButton,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE); // bring the start button on top
+		::SetWindowPos(g_TaskBar,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE); // bring the start button on top
 	if (animate)
 	{
 		int speed=GetSettingInt(bAllPrograms?L"SubMenuAnimationSpeed":L"MainMenuAnimationSpeed");
@@ -4222,9 +4275,10 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	if (s_bBehindTaskbar)
 	{
 		// position the start button on top
-		::SetWindowPos(startButton,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
-		// position the start menu behind the start button
-		pStartMenu->SetWindowPos(startButton,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+		if (startButton)
+			::SetWindowPos(startButton,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+		// position the start menu behind the taskbar
+		pStartMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
 	}
 
 	if (bErr && GetSettingBool(L"ReportSkinErrors") && !*MenuSkin::s_SkinError)
@@ -4253,25 +4307,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 		s_TooltipBalloon.SendMessage(TTM_TRACKACTIVATE,TRUE,(LPARAM)&tool);
 		pStartMenu->SetTimer(TIMER_BALLOON_HIDE,10000);
 	}
-	DWORD newVersion;
-	CString url, news;
-	if (CheckForNewVersion(newVersion,url,news,CHECK_AUTO) && newVersion>GetVersionEx(g_Instance))
-	{
-		wchar_t path[_MAX_PATH];
-		GetModuleFileName(g_Instance,path,_countof(path));
-		PathRemoveFileSpec(path);
-		PathAppend(path,L"ClassicShellUpdate.exe");
-		wchar_t cmdLine[1024];
-		Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" -popup",path);
-		STARTUPINFO startupInfo={sizeof(startupInfo)};
-		PROCESS_INFORMATION processInfo;
-		memset(&processInfo,0,sizeof(processInfo));
-		if (CreateProcess(path,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
-		{
-			CloseHandle(processInfo.hThread);
-			CloseHandle(processInfo.hProcess);
-		}
-	}
+	CheckForNewVersion(CHECK_AUTO,NewVersionCallback);
 
 	return pStartMenu->m_hWnd;
 }
@@ -4293,7 +4329,7 @@ bool CMenuContainer::ProcessMouseMessage( HWND hwnd, UINT uMsg, WPARAM wParam, L
 	}
 	if (uMsg==WM_MOUSEHOVER)
 	{
-		if (hwnd==g_ProgramsButton && GetSettingBool(L"CascadeAll"))
+		if (hwnd && hwnd==g_ProgramsButton && GetSettingBool(L"CascadeAll"))
 			return true;
 		if (!s_bAllPrograms)
 			return false;

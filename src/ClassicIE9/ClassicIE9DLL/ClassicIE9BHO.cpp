@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -49,11 +49,13 @@ static void StartBroker( bool bUpdate, const wchar_t *param )
 	}
 	else
 	{
-#ifdef _WIN64
-		PathAppend(path,L"ClassicIE9_64.exe");
-#else
-		PathAppend(path,L"ClassicIE9_32.exe");
+#ifndef _WIN64
+		BOOL bWow64;
+		if (!IsWow64Process(GetCurrentProcess(),&bWow64) || !bWow64 || (GetVersionEx(GetModuleHandle(NULL))>>24)<10)
+			PathAppend(path,L"ClassicIE9_32.exe");
+		else
 #endif
+		PathAppend(path,L"ClassicIE9_64.exe");
 	}
 	wchar_t cmdLine[1024];
 	Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" %s",path,param);
@@ -65,6 +67,12 @@ static void StartBroker( bool bUpdate, const wchar_t *param )
 		CloseHandle(processInfo.hThread);
 		CloseHandle(processInfo.hProcess);
 	}
+}
+
+static void NewVersionCallback( DWORD newVersion, CString downloadUrl, CString news )
+{
+	if (newVersion>GetVersionEx(g_Instance))
+		StartBroker(true,L"-popup");
 }
 
 HRESULT STDMETHODCALLTYPE CClassicIE9BHO::SetSite( IUnknown *pUnkSite )
@@ -118,12 +126,7 @@ HRESULT STDMETHODCALLTYPE CClassicIE9BHO::SetSite( IUnknown *pUnkSite )
 							StartBroker(false,param);
 						}
 					}
-					DWORD newVersion;
-					CString url, news;
-					if (CheckForNewVersion(newVersion,url,news,CHECK_AUTO_IE) && newVersion>GetVersionEx(g_Instance))
-					{
-						StartBroker(true,L"-popup");
-					}
+					CheckForNewVersion(CHECK_AUTO_IE,NewVersionCallback);
 				}
 			}
 		}
@@ -164,7 +167,7 @@ HRESULT WINAPI CClassicIE9BHO::UpdateRegistry( BOOL bRegister )
 
 LRESULT CALLBACK CClassicIE9BHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
-	if (uMsg==SB_SETPARTS)
+	if (uMsg==SB_SETPARTS && wParam>0)
 	{
 		CClassicIE9BHO *pThis=(CClassicIE9BHO*)uIdSubclass;
 		int w0=*(int*)lParam; // total width
@@ -184,6 +187,7 @@ LRESULT CALLBACK CClassicIE9BHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARA
 			w1=0;
 		parts[PART_PROGRESS]=parts[PART_TEXT]+w1;
 		parts[PART_ZONE]=w0;
+		parts[PART_ZOOM]=-1;
 
 		DefSubclassProc(hWnd,SB_SETPARTS,_countof(parts),(LPARAM)parts);
 
@@ -260,23 +264,16 @@ LRESULT CALLBACK CClassicIE9BHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARA
 	if (uMsg==SB_SIMPLE)
 	{
 		CClassicIE9BHO *pThis=(CClassicIE9BHO*)uIdSubclass;
+		LRESULT res=DefSubclassProc(hWnd,uMsg,wParam,lParam);
 		if (wParam)
 		{
 			ShowWindow(pThis->m_ProgressBar,SW_HIDE);
 		}
 		else
 		{
-			RECT rc;
-			DefSubclassProc(hWnd,SB_GETRECT,PART_PROGRESS,(LPARAM)&rc);
-			rc.left+=2;
-			rc.right-=2;
-			rc.top+=1;
-			rc.bottom-=1;
-			if (rc.left<rc.right)
-				SetWindowPos(pThis->m_ProgressBar,NULL,rc.left,rc.top,rc.right-rc.left,rc.bottom-rc.top,SWP_NOZORDER|SWP_SHOWWINDOW);
-			else
-				ShowWindow(pThis->m_ProgressBar,SW_HIDE);
+			pThis->ResetParts();
 		}
+		return res;
 	}
 
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);

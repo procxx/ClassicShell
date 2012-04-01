@@ -1,7 +1,7 @@
 ; Smoked Glass skin
 
 ; About - text to use in the About box for this skin. use \n for new line
-About=Smoked Glass skin\n\nSimple transparent menu with dark background.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2010, Ivo Beltchev
+About=Smoked Glass skin\n\nSimple transparent menu with dark background.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2012, Ivo Beltchev
 
 ; AboutIcon - the ID of an icon resource to use in the About box
 AboutIcon=1

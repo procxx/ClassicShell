@@ -1,9 +1,10 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
 #include "resource.h"
 #include "ClassicStartMenuDLL.h"
+#include "ClassicStartButton.h"
 #include "Settings.h"
 #include "SkinManager.h"
 #include "FNVHash.h"
@@ -1480,9 +1481,10 @@ CSetting g_Settings[]={
 		{L"None",CSetting::TYPE_RADIO,IDS_SMOOTH_NONE,IDS_SMOOTH_NONE_TIP},
 		{L"Standard",CSetting::TYPE_RADIO,IDS_SMOOTH_STD,IDS_SMOOTH_STD_TIP},
 		{L"ClearType",CSetting::TYPE_RADIO,IDS_SMOOTH_CLEAR,IDS_SMOOTH_CLEAR_TIP},
+	{L"MenuShadow",CSetting::TYPE_BOOL,IDS_MENU_SHADOW,IDS_MENU_SHADOW_TIP,1},
 
 {L"SearchBoxSettings",CSetting::TYPE_GROUP,IDS_SEARCH_BOX},
-	{L"SearchBox",CSetting::TYPE_INT,IDS_SHOW_SEARCH_BOX,IDS_SHOW_SEARCH_BOX_TIP,0,CSetting::FLAG_BASIC},
+	{L"SearchBox",CSetting::TYPE_INT,IDS_SHOW_SEARCH_BOX,IDS_SHOW_SEARCH_BOX_TIP,2,CSetting::FLAG_BASIC},
 		{L"Hide",CSetting::TYPE_RADIO,IDS_SEARCH_BOX_HIDE,IDS_SEARCH_BOX_HIDE_TIP},
 		{L"Normal",CSetting::TYPE_RADIO,IDS_SEARCH_BOX_SHOW,IDS_SEARCH_BOX_SHOW_TIP},
 		{L"Tab",CSetting::TYPE_RADIO,IDS_SEARCH_BOX_TAB,IDS_SEARCH_BOX_TAB_TIP},
@@ -1528,6 +1530,17 @@ CSetting g_Settings[]={
 	{L"SkinVariation2",CSetting::TYPE_STRING,0,0,L""},
 	{L"SkinOptions2",CSetting::TYPE_STRING,0,0,L""},
 
+{L"StartButton",CSetting::TYPE_GROUP,IDS_START_BUTTON},
+	{L"EnableStartButton",CSetting::TYPE_BOOL,IDS_ENABLE_BUTTON,IDS_ENABLE_BUTTON_TIP,1,CSetting::FLAG_BASIC|CSetting::FLAG_COLD},
+	{L"StartButtonType",CSetting::TYPE_INT,IDS_BUTTON_TYPE,IDS_BUTTON_TYPE_TIP,0,0,L"EnableStartButton"},
+		{L"ClasicButton",CSetting::TYPE_RADIO,IDS_CLASSIC_BUTTON,IDS_CLASSIC_BUTTON_TIP},
+		{L"AeroButton",CSetting::TYPE_RADIO,IDS_AERO_BUTTON,IDS_AERO_BUTTON_TIP},
+		{L"MetroButton",CSetting::TYPE_RADIO,IDS_METRO_BUTTON,IDS_METRO_BUTTON_TIP},
+		{L"CustomButton",CSetting::TYPE_RADIO,IDS_CUSTOM_BUTTON,IDS_CUSTOM_BUTTON_TIP},
+	{L"StartButtonPath",CSetting::TYPE_BITMAP,IDS_BUTTON_IMAGE,IDS_BUTTON_IMAGE_TIP,CComVariant(L""),0,L"#StartButtonType=3"},
+	{L"StartButtonSize",CSetting::TYPE_INT,IDS_BUTTON_SIZE,IDS_BUTTON_SIZE_TIP,0,0,L"#StartButtonType=3"},
+	{L"DisableHotCorner",CSetting::TYPE_BOOL,IDS_HOT_CORNER,IDS_HOT_CORNER_TIP,1,0,L"EnableStartButton"},
+
 {L"Language",CSetting::TYPE_GROUP,IDS_LANGUAGE_SETTINGS_SM,0,0,0,NULL,GetLanguageSettings()},
 	{L"Language",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_COLD|CSetting::FLAG_SHARED},
 
@@ -1537,6 +1550,9 @@ CSetting g_Settings[]={
 void UpdateSettings( void )
 {
 	DWORD version=LOWORD(GetVersion());
+	bool bVista=(version==0x0006);
+	bool bWin7=(version==0x0106);
+	bool bWin8=(version==0x0206);
 	HDC hdc=GetDC(NULL);
 	int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
 	ReleaseDC(NULL,hdc);
@@ -1574,8 +1590,10 @@ void UpdateSettings( void )
 	BOOL comp;
 	if (!IsAppThemed())
 		skin=L"Classic Skin";
-	else if (version==0x0006)
+	else if (bVista)
 		skin=L"Windows Vista Aero";
+	else if (bWin8)
+		skin=L"Metro";
 	else if (SUCCEEDED(DwmIsCompositionEnabled(&comp)) && comp)
 		skin=L"Windows 7 Aero";
 	else
@@ -1640,12 +1658,29 @@ void UpdateSettings( void )
 		GetUserName(title,&size);
 	}
 	UpdateSetting(L"MenuUsername",CComVariant(title),false);
+
+	if (bWin8)
+	{
+		HideSettingGroup(L"WindowsMenu");
+		HideSettingGroup(L"AllProgramsSkin");
+		HIGHCONTRAST contrast={sizeof(contrast)};
+		if (SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON))
+			UpdateSetting(L"StartButtonType",CComVariant(0),false);
+		else
+			UpdateSetting(L"StartButtonType",CComVariant(1),false);
+	}
+	else
+	{
+		HideSettingGroup(L"StartButton");
+	}
 }
 
 void InitSettings( void )
 {
 	InitSettings(g_Settings,COMPONENT_MENU);
 }
+
+static int g_ButtonPath, g_ButtonSize;
 
 void ClosingSettings( HWND hWnd, int flags, int command )
 {
@@ -1654,6 +1689,12 @@ void ClosingSettings( HWND hWnd, int flags, int command )
 	{
 		if (flags&CSetting::FLAG_COLD)
 			MessageBox(hWnd,LoadStringEx(IDS_NEW_SETTINGS),LoadStringEx(IDS_APP_TITLE),MB_OK|MB_ICONWARNING);
+
+		int path=GetSettingInt(L"StartButtonType");
+		if (path==3)
+			path=CalcFNVHash(GetSettingString(L"StartButtonPath"));
+		if (path!=g_ButtonPath || g_ButtonSize!=GetSettingInt(L"StartButtonSize"))
+			RecreateStartButton();
 	}
 }
 
@@ -1666,6 +1707,10 @@ void EditSettings( bool bModal )
 		bModal=true;
 #endif
 	EnableHotkeys(HOTKEYS_SETTINGS);
+	g_ButtonPath=GetSettingInt(L"StartButtonType");
+	if (g_ButtonPath==START_BUTTON_CUSTOM)
+		g_ButtonPath=CalcFNVHash(GetSettingString(L"StartButtonPath"));
+	g_ButtonSize=GetSettingInt(L"StartButtonSize");
 	wchar_t title[100];
 	DWORD ver=GetVersionEx(g_Instance);
 	if (ver)

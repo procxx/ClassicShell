@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
@@ -114,10 +114,15 @@ struct MenuSkin
 	HBITMAP Main_separatorV;
 	int Main_separatorWidth;
 	int Main_separator_slices_Y[3];
+	HBITMAP Main_icon_frame;
+	int Main_icon_frame_slices_X[3];
+	int Main_icon_frame_slices_Y[3];
+	POINT Main_icon_frame_offset;
 	bool Main_thin_frame;
 	bool Main_separator32; // 32-bit bitmap
 	bool Main_separator232;
 	bool Main_separatorV32;
+	bool Main_icon_frame32;
 	RECT Main_icon_padding;
 	RECT Main_icon_padding2;
 	RECT Main_text_padding;
@@ -181,6 +186,11 @@ struct MenuSkin
 	bool Submenu_separatorV32; // 32-bit bitmap
 	int Submenu_separatorWidth;
 	int Submenu_separator_slices_Y[3];
+	HBITMAP Submenu_icon_frame;
+	int Submenu_icon_frame_slices_X[3];
+	int Submenu_icon_frame_slices_Y[3];
+	POINT Submenu_icon_frame_offset;
+	bool Submenu_icon_frame32; // 32-bit bitmap
 
 	RECT Submenu_icon_padding;
 	RECT Submenu_text_padding;

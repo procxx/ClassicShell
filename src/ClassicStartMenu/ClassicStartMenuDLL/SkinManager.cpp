@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -35,6 +35,7 @@ MenuSkin::MenuSkin( void )
 	Main_separator=NULL;
 	Main_separator2=NULL;
 	Main_separatorV=NULL;
+	Main_icon_frame=NULL;
 	Main_arrow=NULL;
 	Main_arrow2=NULL;
 	Main_pager=NULL;
@@ -46,6 +47,7 @@ MenuSkin::MenuSkin( void )
 	Submenu_separator=NULL;
 	Submenu_arrow=NULL;
 	Submenu_separatorV=NULL;
+	Submenu_icon_frame=NULL;
 	Submenu_pager=NULL;
 	Submenu_pager_arrows=NULL;
 	Search_bitmap=NULL;
@@ -69,6 +71,7 @@ void MenuSkin::Reset( void )
 	if (Main_separator) DeleteObject(Main_separator);
 	if (Main_separator2 && Main_separator2!=Main_separator) DeleteObject(Main_separator2);
 	if (Main_separatorV) DeleteObject(Main_separatorV);
+	if (Main_icon_frame) DeleteObject(Main_icon_frame);
 	if (Main_arrow) DeleteObject(Main_arrow);
 	if (Main_arrow2 && Main_arrow2!=Main_arrow) DeleteObject(Main_arrow2);
 	if (User_bitmap) DeleteObject(User_bitmap);
@@ -77,6 +80,7 @@ void MenuSkin::Reset( void )
 	if (!Submenu_selectionColor && Submenu_selection.bmp) DeleteObject(Submenu_selection.bmp);
 	if (Submenu_separator) DeleteObject(Submenu_separator);
 	if (Submenu_separatorV) DeleteObject(Submenu_separatorV);
+	if (Submenu_icon_frame) DeleteObject(Submenu_icon_frame);
 	if (Submenu_arrow) DeleteObject(Submenu_arrow);
 	if (Main_pager) DeleteObject(Main_pager);
 	if (Main_pager_arrows) DeleteObject(Main_pager_arrows);
@@ -95,6 +99,7 @@ void MenuSkin::Reset( void )
 	Main_separator=NULL;
 	Main_separator2=NULL;
 	Main_separatorV=NULL;
+	Main_icon_frame=NULL;
 	Main_arrow=NULL;
 	Main_arrow2=NULL;
 	User_bitmap=NULL;
@@ -103,6 +108,7 @@ void MenuSkin::Reset( void )
 	Submenu_selectionColor=true;
 	Submenu_separator=NULL;
 	Submenu_separatorV=NULL;
+	Submenu_icon_frame=NULL;
 	Submenu_arrow=NULL;
 	Main_pager=NULL;
 	Main_pager_arrows=NULL;
@@ -907,6 +913,32 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 					memset(skin.Main_separator_slices_Y,0,sizeof(skin.Main_separator_slices_Y));
 			}
 		}
+
+		str=parser.FindSetting(L"Main_icon_frame");
+		if (str)
+		{
+			int id=_wtol(str);
+			if (id)
+			{
+				skin.Main_icon_frame=LoadSkinBitmap(hMod,id,0,skin.Main_icon_frame32,0);
+				if (!skin.Main_icon_frame) return false;
+				str=parser.FindSetting(L"Main_icon_frame_slices_X");
+				if (str)
+					LoadSkinNumbers(str,skin.Main_icon_frame_slices_X,_countof(skin.Main_icon_frame_slices_X),false);
+				else
+					memset(skin.Main_icon_frame_slices_X,0,sizeof(skin.Main_icon_frame_slices_X));
+				str=parser.FindSetting(L"Main_icon_frame_slices_Y");
+				if (str)
+					LoadSkinNumbers(str,skin.Main_icon_frame_slices_Y,_countof(skin.Main_icon_frame_slices_Y),false);
+				else
+					memset(skin.Main_icon_frame_slices_Y,0,sizeof(skin.Main_icon_frame_slices_Y));
+				str=parser.FindSetting(L"Main_icon_frame_offset");
+				if (str)
+					LoadSkinNumbers(str,(int*)&skin.Main_icon_frame_offset,2,false);
+				else
+					memset(&skin.Main_icon_frame_offset,0,sizeof(skin.Main_icon_frame_offset));
+			}
+		}
 	}
 
 	str=parser.FindSetting(L"Main_icon_padding");
@@ -1305,6 +1337,32 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		LoadSkinNumbers(str,skin.Submenu_pager_slices_Y,_countof(skin.Submenu_pager_slices_Y),false);
 	else
 		memset(skin.Submenu_pager_slices_Y,0,sizeof(skin.Submenu_pager_slices_Y));
+
+	str=parser.FindSetting(L"Submenu_icon_frame");
+	if (str)
+	{
+		int id=_wtol(str);
+		if (id)
+		{
+			skin.Submenu_icon_frame=LoadSkinBitmap(hMod,id,0,skin.Submenu_icon_frame32,0);
+			if (!skin.Submenu_icon_frame) return false;
+			str=parser.FindSetting(L"Submenu_icon_frame_slices_X");
+			if (str)
+				LoadSkinNumbers(str,skin.Submenu_icon_frame_slices_X,_countof(skin.Submenu_icon_frame_slices_X),false);
+			else
+				memset(skin.Submenu_icon_frame_slices_X,0,sizeof(skin.Submenu_icon_frame_slices_X));
+			str=parser.FindSetting(L"Submenu_icon_frame_slices_Y");
+			if (str)
+				LoadSkinNumbers(str,skin.Submenu_icon_frame_slices_Y,_countof(skin.Submenu_icon_frame_slices_Y),false);
+			else
+				memset(skin.Submenu_icon_frame_slices_Y,0,sizeof(skin.Submenu_icon_frame_slices_Y));
+			str=parser.FindSetting(L"Submenu_icon_frame_offset");
+			if (str)
+				LoadSkinNumbers(str,(int*)&skin.Submenu_icon_frame_offset,2,false);
+			else
+				memset(&skin.Submenu_icon_frame_offset,0,sizeof(skin.Submenu_icon_frame_offset));
+		}
+	}
 
 	if (bRTL && skin.Submenu_pager)
 	{

@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ExplorerBand.cpp : Implementation of CExplorerBand
@@ -50,6 +50,8 @@ static struct
 	{L"stop",CBandWindow::ID_STOP},
 	{L"rename",CBandWindow::ID_RENAME},
 	{L"newfolder",CBandWindow::ID_NEWFOLDER},
+	{L"mapdrive",CBandWindow::ID_MAP_DRIVE},
+	{L"disconnect",CBandWindow::ID_DISCONNECT},
 	{L"viewtiles",CBandWindow::ID_VIEW_TILES},
 	{L"viewdetails",CBandWindow::ID_VIEW_DETAILS},
 	{L"viewlist",CBandWindow::ID_VIEW_LIST},
@@ -1065,6 +1067,10 @@ LRESULT CBandWindow::OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 		SendShellTabCommand(28704);
 	if (id==ID_PASTE_SHORTCUT)
 		parent.SendMessage(WM_COMMAND,28700);
+	if (id==ID_MAP_DRIVE)
+		SendShellTabCommand(41089);
+	if (id==ID_DISCONNECT)
+		SendShellTabCommand(41090);
 
 	if (id==ID_VIEW_TILES)
 		SendShellTabCommand(28748);

@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #define STRICT_TYPED_ITEMIDS
@@ -9,6 +9,7 @@
 #include "ResourceHelper.h"
 #include <shlobj.h>
 #include <vector>
+#include <wincodec.h>
 
 static HINSTANCE g_MainInstance;
 static CStringSet g_ResStrings;
@@ -289,6 +290,92 @@ HICON CreateDisabledIcon( HICON hIcon, int iconSize )
 	if (info.hbmMask) DeleteObject(info.hbmMask);
 	return hIcon;
 }
+
+// Loads an image file into a bitmap and optionally resizes it
+HBITMAP LoadImageFile( const wchar_t *path, const SIZE *pSize, bool bPremultiply )
+{
+	HBITMAP srcBmp=NULL;
+	if (_wcsicmp(PathFindExtension(path),L".bmp")==0)
+	{
+		srcBmp=(HBITMAP)LoadImage(NULL,path,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION|LR_LOADFROMFILE);
+	}
+	if (srcBmp && !pSize)
+		return srcBmp;
+	CComPtr<IWICImagingFactory> pFactory;
+	if (FAILED(pFactory.CoCreateInstance(CLSID_WICImagingFactory)))
+	{
+		if (srcBmp) DeleteObject(srcBmp);
+		return NULL;
+	}
+
+	CComPtr<IWICBitmapSource> pBitmap;
+	if (srcBmp)
+	{
+		CComPtr<IWICBitmap> pBitmap2;
+		if (FAILED(pFactory->CreateBitmapFromHBITMAP(srcBmp,NULL,WICBitmapUseAlpha,&pBitmap2)))
+		{
+			DeleteObject(srcBmp);
+			return NULL;
+		}
+		pBitmap=pBitmap2;
+		DeleteObject(srcBmp);
+	}
+	else
+	{
+		CComPtr<IWICBitmapDecoder> pDecoder;
+		if (FAILED(pFactory->CreateDecoderFromFilename(path,NULL,GENERIC_READ,WICDecodeMetadataCacheOnLoad,&pDecoder)))
+			return NULL;
+
+		CComPtr<IWICBitmapFrameDecode> pFrame;
+		if (FAILED(pDecoder->GetFrame(0,&pFrame)))
+			return NULL;
+		pBitmap=pFrame;
+	}
+
+	if (pSize && pSize->cx)
+	{
+		CComPtr<IWICBitmapScaler> pScaler;
+		if (FAILED(pFactory->CreateBitmapScaler(&pScaler)))
+			return NULL;
+		if (pSize->cy)
+			pScaler->Initialize(pBitmap,pSize->cx,pSize->cy,WICBitmapInterpolationModeCubic);
+		else
+		{
+			UINT width=0, height=0;
+			pBitmap->GetSize(&width,&height);
+			pScaler->Initialize(pBitmap,pSize->cx,pSize->cx*height/width,WICBitmapInterpolationModeFant);
+		}
+		pBitmap=pScaler;
+	}
+
+	CComPtr<IWICFormatConverter> pConverter;
+	if (FAILED(pFactory->CreateFormatConverter(&pConverter)))
+		return NULL;
+	pConverter->Initialize(pBitmap,bPremultiply?GUID_WICPixelFormat32bppPBGRA:GUID_WICPixelFormat32bppBGRA,WICBitmapDitherTypeNone,NULL,0,WICBitmapPaletteTypeMedianCut);
+	pBitmap=pConverter;
+
+	UINT width=0, height=0;
+	pBitmap->GetSize(&width,&height);
+
+	BITMAPINFO bi={0};
+	bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
+	bi.bmiHeader.biWidth=width;
+	bi.bmiHeader.biHeight=-(int)height;
+	bi.bmiHeader.biPlanes=1;
+	bi.bmiHeader.biBitCount=32;
+
+	HDC hdc=CreateCompatibleDC(NULL);
+	BYTE *bits;
+	HBITMAP bmp=CreateDIBSection(hdc,&bi,DIB_RGB_COLORS,(void**)&bits,NULL,0);
+	DeleteDC(hdc);
+
+	if (SUCCEEDED(pBitmap->CopyPixels(NULL,width*4,width*height*4,bits)))
+		return bmp;
+
+	DeleteObject(bmp);
+	return NULL;
+}
+
 
 // Returns the version of a given module
 DWORD GetVersionEx( HINSTANCE hInstance )

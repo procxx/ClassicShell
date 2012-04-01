@@ -1,7 +1,7 @@
 ; Windows 7 Basic skin
 
 ; About - text to use in the About box for this skin. use \n for new line
-About=Windows 7 Basic skin\n\nDefault skin to use for Windows 7 Basic.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2010, Ivo Beltchev
+About=Windows 7 Basic skin\n\nDefault skin to use for Windows 7 Basic.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2012, Ivo Beltchev
 
 ; AboutIcon - the ID of an icon resource to use in the About box
 AboutIcon=1

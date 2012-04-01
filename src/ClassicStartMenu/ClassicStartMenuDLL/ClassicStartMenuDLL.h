@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
@@ -9,8 +9,8 @@
 #define STARTMENUAPI __declspec(dllimport)
 #endif
 
-// Find the start button window for the given process
-STARTMENUAPI HWND FindStartButton( DWORD process );
+// Find the taskbar window for the given process
+STARTMENUAPI bool FindTaskBar( DWORD process );
 
 // WH_GETMESSAGE hook for the explorer's GUI thread. The start menu exe uses this hook to inject code into the explorer process
 STARTMENUAPI LRESULT CALLBACK HookInject( int code, WPARAM wParam, LPARAM lParam );
@@ -24,8 +24,9 @@ void EnableStartTooltip( bool bEnable );
 // Restore the original drop target
 void UnhookDropTarget( void );
 
-extern HWND g_StartButton, g_TaskBar, g_OwnerWindow;
+extern HWND STARTMENUAPI g_StartButton, g_TaskBar, g_OwnerWindow;
 extern HWND g_TopMenu, g_AllPrograms, g_ProgramsButton, g_UserPic; // from the Windows menu
+extern int g_StartButtonOffset;
 
 enum TMenuMsgParam // wParam for the ClassicStartMenu.StartMenuMsg message
 {
@@ -52,3 +53,6 @@ enum THotkeys
 
 // Set the hotkeys and controls for the start menu
 void EnableHotkeys( THotkeys enable );
+
+void RecreateStartButton( void );
+bool PointAroundStartButton( void );

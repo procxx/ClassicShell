@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
@@ -26,6 +26,7 @@ struct CSetting
 		// string types
 		TYPE_STRING,
 		TYPE_ICON,
+		TYPE_BITMAP,
 		TYPE_SOUND,
 		TYPE_FONT,
 		TYPE_MULTISTRING,

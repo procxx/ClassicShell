@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
@@ -367,4 +367,6 @@ enum TVersionCheck
 	CHECK_UPDATE,
 };
 
-bool CheckForNewVersion( DWORD &newVersion, CString &downloadUrl, CString &news, TVersionCheck check );
+typedef void (*tNewVersionCallback)( DWORD newVersion, CString downloadUrl, CString news );
+
+bool CheckForNewVersion( TVersionCheck check, tNewVersionCallback callback );

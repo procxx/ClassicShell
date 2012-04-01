@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // ExplorerBHO.cpp : Implementation of CExplorerBHO
@@ -896,6 +896,27 @@ LRESULT CALLBACK CExplorerBHO::ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARA
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
+static void NewVersionCallback( DWORD newVersion, CString downloadUrl, CString news )
+{
+	if (newVersion>GetVersionEx(g_Instance))
+	{
+		wchar_t path[_MAX_PATH];
+		GetModuleFileName(g_Instance,path,_countof(path));
+		PathRemoveFileSpec(path);
+		PathAppend(path,L"ClassicShellUpdate.exe");
+		wchar_t cmdLine[1024];
+		Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" -popup",path);
+		STARTUPINFO startupInfo={sizeof(startupInfo)};
+		PROCESS_INFORMATION processInfo;
+		memset(&processInfo,0,sizeof(processInfo));
+		if (CreateProcess(path,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
+		{
+			CloseHandle(processInfo.hThread);
+			CloseHandle(processInfo.hProcess);
+		}
+	}
+}
+
 HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 {
 	IObjectWithSiteImpl<CExplorerBHO>::SetSite(pUnkSite);
@@ -1077,7 +1098,7 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 				if (bRedrawRebar)
 					RedrawWindow(rebar,NULL,NULL,RDW_UPDATENOW|RDW_ALLCHILDREN);
 
-				m_UpHotkey=GetSettingInt(L"UpHotkey");
+				m_UpHotkey=GetSettingInt(bWin8?L"UpHotkey2":L"UpHotkey");
 				if ((m_AltD || m_UpHotkey) && !m_HookKbd)
 				{
 					m_HookKbd=SetWindowsHookEx(WH_KEYBOARD,HookKeyboard,NULL,GetCurrentThreadId());
@@ -1093,25 +1114,8 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 				}
 			}
 			s_AutoNavDelay=GetSettingInt(L"AutoNavDelay");
-			DWORD newVersion;
-			CString url, news;
-			if (m_TopWindow && CheckForNewVersion(newVersion,url,news,CHECK_AUTO) && newVersion>GetVersionEx(g_Instance))
-			{
-				wchar_t path[_MAX_PATH];
-				GetModuleFileName(g_Instance,path,_countof(path));
-				PathRemoveFileSpec(path);
-				PathAppend(path,L"ClassicShellUpdate.exe");
-				wchar_t cmdLine[1024];
-				Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" -popup",path);
-				STARTUPINFO startupInfo={sizeof(startupInfo)};
-				PROCESS_INFORMATION processInfo;
-				memset(&processInfo,0,sizeof(processInfo));
-				if (CreateProcess(path,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
-				{
-					CloseHandle(processInfo.hThread);
-					CloseHandle(processInfo.hProcess);
-				}
-			}
+			if (m_TopWindow)
+				CheckForNewVersion(CHECK_AUTO,NewVersionCallback);
 		}
 	}
 	else

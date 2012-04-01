@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // dllmain.cpp : Implementation of DllMain.
@@ -92,8 +92,10 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 		wchar_t path[_MAX_PATH];
 		GetModuleFileName(NULL,path,_countof(path));
 		const wchar_t *exe=PathFindFileName(path);
+		DWORD version=GetVersion();
+		version=MAKEWORD(HIBYTE(version),LOBYTE(version));
 		g_bExplorerExe=(_wcsicmp(exe,L"explorer.exe")==0 || _wcsicmp(exe,L"verclsid.exe")==0);
-		bool bReplaceUI=(GetSettingBool(L"ReplaceFileUI") || GetSettingBool(L"ReplaceFolderUI") || GetSettingBool(L"EnableMore"));
+		bool bReplaceUI=version<0x602 && (GetSettingBool(L"ReplaceFileUI") || GetSettingBool(L"ReplaceFolderUI") || GetSettingBool(L"EnableMore"));
 		if (_wcsicmp(exe,L"regsvr32.exe")!=0 && _wcsicmp(exe,L"msiexec.exe")!=0 && _wcsicmp(exe,L"ClassicExplorerSettings.exe")!=0 && !g_bExplorerExe)
 		{
 			// some arbitrary app

@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2011, Ivo Beltchev
+// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include <windows.h>
@@ -90,17 +90,17 @@ bool CSetting::IsEnabled( void ) const
 		if (checkEnabled)
 			name++;
 
-		int len=Strlen(depend);
+		int len=Strlen(name);
 		int val=0;
 		wchar_t operation='~';
 		const wchar_t operations[]=L"=~<>";
 		for (const wchar_t *c=operations;*c;c++)
 		{
-			const wchar_t *p=wcschr(depend,*c);
+			const wchar_t *p=wcschr(name,*c);
 			if (p)
 			{
 				operation=*c;
-				len=(int)(p-depend);
+				len=(int)(p-name);
 				val=_wtol(p+1);
 				break;
 			}

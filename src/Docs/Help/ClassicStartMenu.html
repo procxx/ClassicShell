@@ -1,6 +1,8 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html><head>
 
+
+
  <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>Classic Start Menu</title>
 <style type="text/css">
 h1 {
@@ -40,8 +42,10 @@ perform other tasks</li>
   <li>Has support for skins, including additional 3rd party skins. Make your own!</li>
   <li>Fully customizable in both looks and functionality</li>
   <li>Support for Microsoft&#8217;s Active Accessibility</li>
-  <li>Converts the &#8220;All Programs&#8221; button in the Windows menu into a cascading menu<br>
+  <li>Converts the &#8220;All Programs&#8221; button in the Windows menu into a cascading menu (Vista and Windows 7)</li>
+  <li>Implements a customizable start button for Windows 8<br>
   </li>
+
 
 
 
@@ -223,7 +227,8 @@ resource files (like Resource Hacker or Visual Studio). And of course
 some talent for graphical design :). Read the <a target="_blank" href="http://classicshell.sourceforge.net/skintutorial.html">Skinning Tutorial</a> before you begin.<br>
 <br>
 <br>
-<h1><a name="all_programs"></a>Cascading All Programs menu</h1>
+<h1><a name="all_programs"></a>Cascading All Programs menu (Vista and Windows 7)<br>
+</h1>
 
 
 
@@ -302,13 +307,29 @@ Search with Google: <span style="font-weight: bold;">http://www.google.com/#q=%2
 Search with Bing: <span style="font-weight: bold;">http://www.bing.com/search?q=%2</span><br>
 <br>
 <br>
+<h1><a name="button"></a>Custom Start Button (Windows 8 only)</h1>Because
+Windows 8 doesn't have a start button on the taskbar, Classic Shell
+implements its own. You can choose from Classic, Aero or Metro look, or
+you can make your own. For a custom start button you need an image that
+contain the 3 states of the button - normal, hot and pressed:<br>
+<img style="width: 64px; height: 192px;" alt="Start button images" title="Start button images" src="images%5Cbutton_images.png"><br>
+The image must be a 32-bit PNG or BMP. By default the width of the
+image determines the size of the button. You can override that by
+entering a custom width.<br>
+You can find many custom start button images online. Here are few examples:<br>
+<a target="_blank" href="http://www.sevenforums.com/themes-styles/34951-custom-start-menu-button-collection.html">http://www.sevenforums.com/themes-styles/34951-custom-start-menu-button-collection.html<br>
+</a><a target="_blank" href="http://www.sevenforums.com/customization/78291-big-group-custom-start-orbs.html">http://www.sevenforums.com/customization/78291-big-group-custom-start-orbs.html</a><br>
+<a target="_blank" href="http://tutoriales13.deviantart.com/art/Orbs-153450418">http://tutoriales13.deviantart.com/art/Orbs-153450418</a><br>
+<br>
+<br>
 <h1><a name="localization"></a>Localization</h1>
+
 The user interface (except the Settings dialog box) is localized in all 35
 languages available for Vista and Windows 7.<br>
 
 The Settings dialog box is translated in a smaller number of languages.
 The default installation contains only English. More languages can be
-downloaded from the <a href="http://classicshell.sourceforge.net/">main Classic Shell page</a>. Make sure you download the translation package for the exact version of Classic Shell.<br>
+downloaded from the <a target="_blank" href="http://classicshell.sourceforge.net/">main Classic Shell page</a>. Make sure you download the translation package for the exact version of Classic Shell.<br>
 
 
 <br>
