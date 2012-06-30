@@ -473,6 +473,7 @@ private:
 		CMD_NEWSHORTCUT,
 		CMD_DELETEMRU,
 		CMD_DELETEALL,
+		CMD_EXPLORE,
 
 		CMD_LAST
 	};
@@ -539,7 +540,7 @@ private:
 	};
 
 	// pPt - optional point in screen space (used only by ACTIVATE_EXECUTE and ACTIVATE_MENU)
-	void ActivateItem( int index, TActivateType type, const POINT *pPt );
+	void ActivateItem( int index, TActivateType type, const POINT *pPt, bool bNoModifiers=false );
 	void RunUserCommand( bool bPicture );
 	void ShowKeyboardCues( void );
 	void SetActiveWindow( void );

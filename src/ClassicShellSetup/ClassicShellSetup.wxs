@@ -442,7 +442,7 @@
             </Component>
             <Component Id="ClassicShellService.exe" Guid="F948205B-B3CE-4AF3-9BBE-4C6382363596" Win64="$(var.CS_WIN64)">
                 <File Id="ClassicShellService.exe" KeyPath="yes" Source="..\ClassicShellService\Setup\ClassicShellService.exe" Checksum="yes" Vital="yes" />
-                <ServiceInstall Name="ClassicShellService" Type="ownProcess" Start="auto" ErrorControl="normal" DisplayName="Classic Shell Service" Description="Launches the start button after logon" Account="LocalSystem" Interactive="no" Vital="yes" Id="ServiceInstaller" />
+                <ServiceInstall Name="ClassicShellService" Type="ownProcess" Start="auto" ErrorControl="normal" DisplayName="Classic Shell Service" Description="Launches the start button after logon" Account="LocalSystem" Interactive="no" Vital="yes" Id="ServiceInstaller" LoadOrderGroup="UIGroup" />
                 <ServiceControl Id="StartService" Name="ClassicShellService" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
                 <Condition>VersionNT&gt;=602</Condition>
             </Component>
@@ -494,27 +494,27 @@
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>
             <Component Id="ReadmeLink" Guid="A54415C8-412E-4768-8829-8898122E4AED">
-                <Shortcut Id="ReadmeLink" Name="Readme" Advertise="no" Description="!(loc.HelpDesc)" Target="[APPLICATIONFOLDER]ClassicShellReadme.rtf" WorkingDirectory="APPLICATIONFOLDER" />
-                <CreateFolder />
-                <Condition>START_MENU_FOLDER=1</Condition>
-            </Component>
-            <Component Id="ExplorerSettingsLink" Guid="6EC027F2-115D-4110-8189-DDAFC78169EC">
-                <Shortcut Id="ExplorerSettingsLink" Name="Explorer Settings" Advertise="no" Description="!(loc.ExplorerSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicExplorerSettings.exe" WorkingDirectory="APPLICATIONFOLDER" />
-                <CreateFolder />
-                <Condition>START_MENU_FOLDER=1</Condition>
-            </Component>
-            <Component Id="MenuSettingsLink" Guid="F2B638D3-EBE1-4C8F-9C53-08A4F21ACFA3">
-                <Shortcut Id="MenuSettingsLink" Name="Start Menu Settings" Advertise="no" Description="!(loc.StartSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicStartMenu.exe" WorkingDirectory="APPLICATIONFOLDER" Arguments="-settings" />
-                <CreateFolder />
-                <Condition>START_MENU_FOLDER=1</Condition>
-            </Component>
-            <Component Id="IE9SettingsLink" Guid="10C0226C-22A9-49E4-AA65-C96AD7A504CC">
-                <Shortcut Id="IE9SettingsLink" Name="IE9 Settings" Advertise="no" Description="!(loc.IE9SettingsDesc)" Target="[APPLICATIONFOLDER]ClassicIE9_32.exe" WorkingDirectory="APPLICATIONFOLDER" />
+                <Shortcut Id="ReadmeLink" Name="Classic Shell Readme" Advertise="no" Description="!(loc.ReadmeDesc)" Target="[APPLICATIONFOLDER]ClassicShellReadme.rtf" WorkingDirectory="APPLICATIONFOLDER" />
                 <CreateFolder />
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>
             <Component Id="UpdateSettingsLink" Guid="10B5A082-6C92-4EA7-AFF8-21AE3D2D7FE0">
-                <Shortcut Id="UpdateSettingsLink" Name="Update Settings" Advertise="no" Description="!(loc.UpdateSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicShellUpdate.exe" WorkingDirectory="APPLICATIONFOLDER" />
+                <Shortcut Id="UpdateSettingsLink" Name="Classic Shell Update Settings" Advertise="no" Description="!(loc.UpdateSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicShellUpdate.exe" WorkingDirectory="APPLICATIONFOLDER" />
+                <CreateFolder />
+                <Condition>START_MENU_FOLDER=1</Condition>
+            </Component>
+            <Component Id="ExplorerSettingsLink" Guid="6EC027F2-115D-4110-8189-DDAFC78169EC">
+                <Shortcut Id="ExplorerSettingsLink" Name="Classic Explorer Settings" Advertise="no" Description="!(loc.ExplorerSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicExplorerSettings.exe" WorkingDirectory="APPLICATIONFOLDER" />
+                <CreateFolder />
+                <Condition>START_MENU_FOLDER=1</Condition>
+            </Component>
+            <Component Id="MenuSettingsLink" Guid="F2B638D3-EBE1-4C8F-9C53-08A4F21ACFA3">
+                <Shortcut Id="MenuSettingsLink" Name="Classic Start Menu Settings" Advertise="no" Description="!(loc.StartSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicStartMenu.exe" WorkingDirectory="APPLICATIONFOLDER" Arguments="-settings" />
+                <CreateFolder />
+                <Condition>START_MENU_FOLDER=1</Condition>
+            </Component>
+            <Component Id="IE9SettingsLink" Guid="10C0226C-22A9-49E4-AA65-C96AD7A504CC">
+                <Shortcut Id="IE9SettingsLink" Name="Classic IE9 Settings" Advertise="no" Description="!(loc.IE9SettingsDesc)" Target="[APPLICATIONFOLDER]ClassicIE9_32.exe" WorkingDirectory="APPLICATIONFOLDER" />
                 <CreateFolder />
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>

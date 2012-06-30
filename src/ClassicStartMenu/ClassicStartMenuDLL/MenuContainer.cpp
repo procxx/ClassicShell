@@ -2112,7 +2112,7 @@ void CMenuContainer::CollectSearchItemsInt( IShellFolder *pFolder, PIDLIST_ABSOL
 			if ((flags&COLLECT_FOLDERS) || !(itemFlags&SFGAO_FOLDER))
 			{
 				STRRET str;
-				if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_NORMAL,&str)))
+				if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_INFOLDER|((flags&COLLECT_PROGRAMS)?SHGDN_FORPARSING:0),&str)))
 				{
 					wchar_t *name;
 					StrRetToStr(&str,child,&name);
@@ -2349,7 +2349,7 @@ void CMenuContainer::UpdateSearchResults( bool bForceShowAll )
 		}
 		else if (m_Submenu!=m_SearchIndex)
 		{
-			ActivateItem(m_SearchIndex,ACTIVATE_OPEN_SEARCH,NULL);
+			ActivateItem(m_SearchIndex,ACTIVATE_OPEN_SEARCH,NULL,true);
 		}
 		else
 		{
@@ -2358,6 +2358,7 @@ void CMenuContainer::UpdateSearchResults( bool bForceShowAll )
 			pSearchMenu->InitItems(m_SearchItems,pText);
 			pSearchMenu->InitWindow();
 			pSearchMenu->SetHotItem(m_ResultsHash==1?-1:0);
+			pSearchMenu->Invalidate();
 		}
 	}
 	m_bInSearchUpdate=false;
@@ -2866,9 +2867,9 @@ LRESULT CMenuContainer::OnChar( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 	{
 		// exactly 1 item has that accelerator
 		if (m_Items[first].bFolder)
-			ActivateItem(first,ACTIVATE_OPEN_KBD,NULL);
+			ActivateItem(first,ACTIVATE_OPEN_KBD,NULL,true);
 		else
-			ActivateItem(first,ACTIVATE_EXECUTE,NULL);
+			ActivateItem(first,ACTIVATE_EXECUTE,NULL,true);
 	}
 	else
 	{
@@ -3618,8 +3619,17 @@ bool CMenuContainer::CloseStartMenu( void )
 
 	::SetActiveWindow(g_StartButton);
 
-	if (s_LastFGWindow)
-		SetForegroundWindow(s_LastFGWindow);
+	if (s_LastFGWindow && s_LastFGWindow!=GetDesktopWindow() && s_LastFGWindow!=GetShellWindow())
+	{
+		// don't activate the last application if it was a full-screen window on the same monitor as the taskbar.
+		// leave the taskbar up instead
+		MONITORINFO info={sizeof(info)};
+		GetMonitorInfo(MonitorFromWindow(g_TaskBar,MONITOR_DEFAULTTOPRIMARY),&info);
+		RECT rc;
+		::GetWindowRect(s_LastFGWindow,&rc);
+		if (memcmp(&info.rcMonitor,&rc,sizeof(RECT))!=0)
+			SetForegroundWindow(s_LastFGWindow);
+	}
 
 	return true;
 }
@@ -3955,7 +3965,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	// make sure the menu stays on the same monitor as the task bar
 	MONITORINFO info={sizeof(info)};
 	GetMonitorInfo(MonitorFromWindow(g_TaskBar,MONITOR_DEFAULTTOPRIMARY),&info);
-	s_MainRect=info.rcMonitor;
+	UnionRect(&s_MainRect,&info.rcWork,&appbar.rc);
 
 	RECT taskbarRect;
 	::GetWindowRect(g_TaskBar,&taskbarRect);

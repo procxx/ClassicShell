@@ -125,3 +125,6 @@ struct CSettingsLockWrite
 	CSettingsLockWrite( void );
 	~CSettingsLockWrite( void );
 };
+
+bool HasHelp( void );
+void ShowHelp( void );

@@ -363,7 +363,7 @@ extern const GUID FOLDERID_DesktopRoot;
 enum TVersionCheck
 {
 	CHECK_AUTO,
-	CHECK_AUTO_IE,
+	CHECK_AUTO_WAIT,
 	CHECK_UPDATE,
 };
 

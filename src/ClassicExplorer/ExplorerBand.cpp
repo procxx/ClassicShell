@@ -52,6 +52,7 @@ static struct
 	{L"newfolder",CBandWindow::ID_NEWFOLDER},
 	{L"mapdrive",CBandWindow::ID_MAP_DRIVE},
 	{L"disconnect",CBandWindow::ID_DISCONNECT},
+	{L"customizefolder",CBandWindow::ID_CUSTOMIZEFOLDER},
 	{L"viewtiles",CBandWindow::ID_VIEW_TILES},
 	{L"viewdetails",CBandWindow::ID_VIEW_DETAILS},
 	{L"viewlist",CBandWindow::ID_VIEW_LIST},
@@ -1071,6 +1072,8 @@ LRESULT CBandWindow::OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 		SendShellTabCommand(41089);
 	if (id==ID_DISCONNECT)
 		SendShellTabCommand(41090);
+	if (id==ID_CUSTOMIZEFOLDER)
+		SendShellTabCommand(28722);
 
 	if (id==ID_VIEW_TILES)
 		SendShellTabCommand(28748);

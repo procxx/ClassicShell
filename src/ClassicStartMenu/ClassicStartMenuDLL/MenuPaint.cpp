@@ -71,7 +71,9 @@ void CMenuContainer::MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RE
 void CMenuContainer::CreateBackground( int width1, int width2, int height1, int height2 )
 {
 	// get the text from the ini file or from the registry
-	CString caption=GetSettingString(L"MenuCaption");
+	wchar_t caption[256];
+	Strcpy(caption,_countof(caption),GetSettingString(L"MenuCaption"));
+	DoEnvironmentSubst(caption,_countof(caption));
 
 	HBITMAP bmpSkin=m_bSubMenu?s_Skin.Submenu_bitmap:s_Skin.Main_bitmap;
 	bool b32=m_bSubMenu?s_Skin.Submenu_bitmap32:s_Skin.Main_bitmap32;

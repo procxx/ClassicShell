@@ -46,6 +46,22 @@ HKLM
 					ForceRemove	val {553891B7-A0D5-4526-BE18-D3CE461D6310} = b ''
 				}
 			}
+			NoRemove Windows
+			{
+				NoRemove CurrentVersion
+				{
+					NoRemove Policies
+					{
+						NoRemove Ext
+						{
+							NoRemove CLSID
+							{
+								ForceRemove	val {553891B7-A0D5-4526-BE18-D3CE461D6310} = s '2'
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 }

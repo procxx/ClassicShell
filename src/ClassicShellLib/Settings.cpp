@@ -107,7 +107,7 @@ bool CSetting::IsEnabled( void ) const
 		}
 		for (const CSetting *pSetting=GetAllSettings();pSetting->name;pSetting++)
 		{
-			if (_wcsnicmp(pSetting->name,name,len)==0)
+			if (_wcsnicmp(pSetting->name,name,len)==0 && pSetting->name[len]==0)
 			{
 				if (checkEnabled && !pSetting->IsEnabled())
 					return false;
@@ -149,6 +149,7 @@ public:
 
 	CSetting *GetSettings( void ) const { return m_pSettings; }
 	HIMAGELIST GetImageList( HWND tree );
+	void ResetImageList( void );
 	const wchar_t *GetRegPath( void ) const { return m_RegPath; }
 	const wchar_t *GetXMLName( void ) const { return m_XMLName; }
 
@@ -221,7 +222,7 @@ void CSettingsManager::Init( CSetting *pSettings, TSettingsComponent component )
 
 CSettingsManager::~CSettingsManager( void )
 {
-	if (m_ImageList) ImageList_Destroy(m_ImageList);
+	ResetImageList();
 	InitializeSRWLock(&g_SettingsLock);
 }
 
@@ -942,6 +943,12 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 	return m_ImageList;
 }
 
+void CSettingsManager::ResetImageList( void )
+{
+	if (m_ImageList) ImageList_Destroy(m_ImageList);
+	m_ImageList=NULL;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 class CSettingsDlg: public CResizeableDlg<CSettingsDlg>
@@ -979,7 +986,6 @@ public:
 	END_RESIZE_MAP
 
 	bool GetOnTop( void ) const { return m_bOnTop; }
-	void ShowHelp( void ) const;
 
 protected:
 	// Handler prototypes:
@@ -1084,6 +1090,8 @@ LRESULT CSettingsDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 	backup.SetWindowLong(GWL_STYLE,backup.GetWindowLong(GWL_STYLE)|BS_SPLITBUTTON);
 	BUTTON_SPLITINFO info={BCSIF_STYLE,NULL,BCSS_NOSPLIT};
 	backup.SendMessage(BCM_SETSPLITINFO,0,(LPARAM)&info);
+
+	GetDlgItem(IDC_LINKHELP).ShowWindow(HasHelp()?SW_SHOW:SW_HIDE);
 
 	CWindow parent=GetParent();
 	if (parent)
@@ -1443,16 +1451,6 @@ LRESULT CSettingsDlg::OnHelp( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	return 0;
 }
 
-void CSettingsDlg::ShowHelp( void ) const
-{
-	wchar_t path[_MAX_PATH];
-	GetModuleFileName(_AtlBaseModule.GetResourceInstance(),path,_countof(path));
-	*PathFindFileName(path)=0;
-	wchar_t topic[_MAX_PATH];
-	Sprintf(topic,_countof(topic),L"%s%sClassicShell.chm::/%s.html",path,GetDocRelativePath(),PathFindFileName(g_SettingsManager.GetRegPath()));
-	HtmlHelp(GetDesktopWindow(),topic,HH_DISPLAY_TOPIC,NULL);
-}
-
 bool CSettingsDlg::IsTabValid( void )
 {
 	int idx=TabCtrl_GetCurSel(m_Tabs);
@@ -1484,6 +1482,7 @@ void EditSettings( const wchar_t *title, bool bModal )
 			UpdateSettings();
 		}
 		DLGTEMPLATE *pTemplate=LoadDialogEx(IDD_SETTINGS);
+		g_SettingsManager.ResetImageList();
 		g_SettingsDlg.Init(g_SettingsManager.GetSettings());
 		g_SettingsDlg.Create(NULL,pTemplate);
 		g_SettingsDlg.SetWindowText(title);
@@ -1529,7 +1528,7 @@ bool IsSettingsMessage( MSG *msg )
 	}
 	if (msg->message==WM_KEYDOWN && msg->wParam==VK_F1 && GetKeyState(VK_CONTROL)>=0 && GetKeyState(VK_SHIFT)>=0 && GetKeyState(VK_MENU)>=0)
 	{
-		g_SettingsDlg.ShowHelp();
+		ShowHelp();
 	}
 	return IsDialogMessage(g_SettingsDlg,msg)!=0;
 }
@@ -1655,4 +1654,24 @@ const CSetting *GetAllSettings( void )
 {
 	ATLASSERT(g_bUIThread);
 	return g_SettingsManager.GetSettings();
+}
+
+bool HasHelp( void )
+{
+	wchar_t path[_MAX_PATH];
+	GetModuleFileName(_AtlBaseModule.GetResourceInstance(),path,_countof(path));
+	*PathFindFileName(path)=0;
+	wchar_t topic[_MAX_PATH];
+	Sprintf(topic,_countof(topic),L"%s%sClassicShell.chm",path,GetDocRelativePath());
+	return (GetFileAttributes(topic)!=INVALID_FILE_ATTRIBUTES);
+}
+
+void ShowHelp( void )
+{
+	wchar_t path[_MAX_PATH];
+	GetModuleFileName(_AtlBaseModule.GetResourceInstance(),path,_countof(path));
+	*PathFindFileName(path)=0;
+	wchar_t topic[_MAX_PATH];
+	Sprintf(topic,_countof(topic),L"%s%sClassicShell.chm::/%s.html",path,GetDocRelativePath(),PathFindFileName(g_SettingsManager.GetRegPath()));
+	HtmlHelp(GetDesktopWindow(),topic,HH_DISPLAY_TOPIC,NULL);
 }

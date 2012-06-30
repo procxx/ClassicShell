@@ -285,7 +285,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 		{
 			// expand m_DragHoverItem
 			if (!m_Items[index].bFolder || m_Items[index].pItem1)
-				ActivateItem(index,ACTIVATE_OPEN,NULL);
+				ActivateItem(index,ACTIVATE_OPEN,NULL,GetKeyState(VK_SHIFT)<0);
 			if (!m_Items[index].bFolder)
 				SetHotItem(-1);
 		}

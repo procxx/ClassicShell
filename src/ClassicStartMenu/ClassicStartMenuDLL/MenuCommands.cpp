@@ -216,7 +216,7 @@ static DWORD WINAPI SleepThread( void *param )
 // ACTIVATE_RENAME - renames the item
 // ACTIVATE_DELETE - deletes the item
 // ACTIVATE_PROPERTIES - shows the properties of the item
-void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *pPt )
+void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *pPt, bool bNoModifiers )
 {
 	LOG_MENU(LOG_EXECUTE,L"Activate Item, ptr=%p, index=%d, type=%d",this,index,type);
 	if (index<0)
@@ -275,6 +275,9 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 		return;
 	}
+
+	bool bShift=!bNoModifiers && GetKeyState(VK_SHIFT)<0;
+	bool bCtrl=!bNoModifiers && GetKeyState(VK_CONTROL)<0;
 
 	if (type==ACTIVATE_OPEN || type==ACTIVATE_OPEN_KBD || type==ACTIVATE_OPEN_SEARCH)
 	{
@@ -393,7 +396,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		{
 			if (item.id==MENU_PROGRAMS || (m_Options&CONTAINER_MULTICOL_REC))
 				options|=CONTAINER_MULTICOL_REC;
-			if ((options&CONTAINER_MULTICOL_REC) && GetKeyState(VK_SHIFT)>=0)
+			if ((options&CONTAINER_MULTICOL_REC) && !bShift)
 				options|=CONTAINER_MULTICOLUMN;
 		}
 		CMenuContainer *pMenu=new CMenuContainer(this,index,options,pSubMenu,item.pItem1,item.pItem2,m_RegName+L"\\"+item.name);
@@ -650,8 +653,6 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		return;
 	}
 
-	bool bShift=GetKeyState(VK_SHIFT)<0;
-	bool bCtrl=GetKeyState(VK_CONTROL)<0;
 	bool bKeepOpen=(type==ACTIVATE_EXECUTE) && bShift && !bCtrl;
 
 	if (type==ACTIVATE_EXECUTE)
@@ -828,8 +829,24 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			}
 			break;
 		case MENU_RESTART: // restart
-			SetShutdownPrivileges();
-			ExitWindowsEx(EWX_REBOOT,0);
+			if (LOWORD(GetVersion())==0x0206 && bShift)
+			{
+				STARTUPINFO startupInfo={sizeof(startupInfo)};
+				PROCESS_INFORMATION processInfo;
+				memset(&processInfo,0,sizeof(processInfo));
+				wchar_t exe[_MAX_PATH]=L"%windir%\\system32\\shutdown.exe";
+				DoEnvironmentSubst(exe,_countof(exe));
+				if (CreateProcess(exe,L"shutdown.exe /r /o /t 0",NULL,NULL,FALSE,CREATE_NO_WINDOW,NULL,NULL,&startupInfo,&processInfo))
+				{
+					CloseHandle(processInfo.hThread);
+					CloseHandle(processInfo.hProcess);
+				}
+			}
+			else
+			{
+				SetShutdownPrivileges();
+				ExitWindowsEx(EWX_REBOOT,0);
+			}
 			break;
 		case MENU_SWITCHUSER: // switch_user
 			WTSDisconnectSession(WTS_CURRENT_SERVER_HANDLE,WTS_CURRENT_SESSION,FALSE); // same as "disconnect"
@@ -839,7 +856,13 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			break;
 		case MENU_SHUTDOWN: // shutdown, don't ask
 			SetShutdownPrivileges();
-			ExitWindowsEx(EWX_SHUTDOWN,0);
+#ifndef EWX_HYBRID_SHUTDOWN
+#define EWX_HYBRID_SHUTDOWN 0x00400000
+#endif
+			if (LOWORD(GetVersion())==0x0206 && !bShift)
+				ExitWindowsEx(EWX_SHUTDOWN|EWX_HYBRID_SHUTDOWN,0);
+			else
+				ExitWindowsEx(EWX_SHUTDOWN,0);
 			break;
 		case MENU_SLEEP:
 			CreateThread(NULL,0,SleepThread,(void*)FALSE,0,NULL);
@@ -884,9 +907,11 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	CComPtr<IShellFolder> pFolder;
 	PCUITEMID_CHILD pidl;
 
+	int insertBefore=-1;
 	if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP || type==ACTIVATE_MENU_BACKGROUND)
 	{
 		s_pDesktop->BindToObject(m_Path1a[0],NULL,IID_IShellFolder,(void**)&pFolder);
+		insertBefore=0;
 	}
 	else
 	{
@@ -940,7 +965,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 						if (item.id!=MENU_PROGRAMS) continue;
 					}
 					else if (_stricmp(command,"properties")==0)
+					{
+						insertBefore=i;
 						continue;
+					}
 				}
 				DeleteMenu(menu,i,MF_BYPOSITION);
 				i--;
@@ -959,17 +987,29 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 					char command[256];
 					if (FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
 						command[0]=0;
-					if (_stricmp(command,"open")==0 || _stricmp(command,"runas")==0 || _stricmp(command,"properties")==0 || _stricmp(command,"opencontaining")==0)
+					if (_stricmp(command,"properties")==0)
+					{
+						insertBefore=i;
+						continue;
+					}
+					if (_stricmp(command,"open")==0 || _stricmp(command,"opencontaining")==0 || _stricmp(command,"runas")==0 || _stricmp(command,"runasuser")==0
+						|| _stricmp(command,"taskbarpin")==0 || _stricmp(command,"properties")==0)
 						continue;
 				}
 				DeleteMenu(menu,i,MF_BYPOSITION);
 				i--;
 				n--;
 			}
+			if (insertBefore==-1)
+				insertBefore=n;
+
 			if (n>0)
-				AppendMenu(menu,MF_SEPARATOR,0,0);
-			AppendMenu(menu,MF_STRING,CMD_DELETEMRU,FindTranslation(L"Menu.RemoveList",L"Remove &from this list"));
-			AppendMenu(menu,MF_STRING,CMD_DELETEALL,FindTranslation(L"Menu.RemoveAll",L"C&lear recent items list"));
+				InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
+			InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_DELETEMRU,FindTranslation(L"Menu.RemoveList",L"Remove &from this list"));
+			InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_DELETEALL,FindTranslation(L"Menu.RemoveAll",L"C&lear recent items list"));
+			if (item.pItem1 && GetSettingBool(L"EnableExplorer"))
+				InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_EXPLORE,FindTranslation(L"Menu.Explore",L"&Explore"));
+			InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
 		}
 		else if (type==ACTIVATE_MENU && (m_Options&CONTAINER_SEARCH))
 		{
@@ -983,32 +1023,51 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 					char command[256];
 					if (FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
 						command[0]=0;
-					if (_stricmp(command,"delete")!=0 && _stricmp(command,"rename")!=0 && _stricmp(command,"link")!=0)
+					if (_stricmp(command,"properties")==0)
+					{
+						insertBefore=i;
+						continue;
+					}
+					if (_stricmp(command,"delete")!=0 && _stricmp(command,"rename")!=0)
 						continue;
 				}
 				DeleteMenu(menu,i,MF_BYPOSITION);
 				i--;
 				n--;
 			}
+			bool last=insertBefore==-1;
+			if (last)
+				insertBefore=n;
+
+			if (item.pItem1 && GetSettingBool(L"EnableExplorer"))
+			{
+				if (n>0)
+					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
+				InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_EXPLORE,FindTranslation(L"Menu.Explore",L"&Explore"));
+				if (!last)
+					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
+			}
 		}
-		// remove multiple separators
+		else
 		{
-			bool bSeparator=false;
 			int n=GetMenuItemCount(menu);
 			for (int i=0;i<n;i++)
 			{
-				MENUITEMINFO info={sizeof(info),MIIM_FTYPE};
-				if (GetMenuItemInfo(menu,i,TRUE,&info))
+				int id=GetMenuItemID(menu,i);
+				if (id>0)
 				{
-					if (info.fType==MFT_SEPARATOR && bSeparator)
+					char command[256];
+					if (FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+						command[0]=0;
+					if (_stricmp(command,"properties")==0)
 					{
-						DeleteMenu(menu,i,MF_BYPOSITION);
-						i--;
-						n--;
+						insertBefore=i;
+						break;
 					}
-					bSeparator=(info.fType==MFT_SEPARATOR);
 				}
 			}
+			if (insertBefore==-1)
+				insertBefore=n;
 		}
 	}
 
@@ -1110,11 +1169,16 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if ((item.id==MENU_NO || item.id==MENU_EMPTY || type==ACTIVATE_MENU_BACKGROUND) && (m_Options&CONTAINER_DROP))// clicked on a movable item or the background
 		{
 			HMENU menu2=menu;
+			int subMenuIdx=-1;
+			InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
 			if (GetMenuItemCount(menu)>0)
 			{
-				AppendMenu(menu,MF_SEPARATOR,0,0);
 				if (GetSettingBool(L"CascadingMenu"))
+				{
 					menu2=CreatePopupMenu();
+					subMenuIdx=insertBefore;
+					insertBefore=0;
+				}
 			}
 			bool bSort=false, bNew=false;
 			int n=0;
@@ -1128,9 +1192,9 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				bNew=true;
 
 			if (bSort)
-				AppendMenu(menu2,MF_STRING,CMD_SORT,FindTranslation(L"Menu.SortByName",L"Sort &by Name"));
+				InsertMenu(menu2,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_SORT,FindTranslation(L"Menu.SortByName",L"Sort &by Name"));
 
-			AppendMenu(menu2,MF_STRING,CMD_AUTOSORT,FindTranslation(L"Menu.AutoArrange",L"&Auto Arrange"));
+			InsertMenu(menu2,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_AUTOSORT,FindTranslation(L"Menu.AutoArrange",L"&Auto Arrange"));
 			if (m_Options&CONTAINER_AUTOSORT)
 			{
 				EnableMenuItem(menu2,CMD_SORT,MF_BYCOMMAND|MF_GRAYED);
@@ -1139,9 +1203,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 			if (bNew)
 			{
-				AppendMenu(menu2,MF_STRING,CMD_NEWFOLDER,FindTranslation(L"Menu.NewFolder",L"New Folder"));
-				AppendMenu(menu2,MF_STRING,CMD_NEWSHORTCUT,FindTranslation(L"Menu.NewShortcut",L"New Shortcut"));
+				InsertMenu(menu2,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_NEWFOLDER,FindTranslation(L"Menu.NewFolder",L"New Folder"));
+				InsertMenu(menu2,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_NEWSHORTCUT,FindTranslation(L"Menu.NewShortcut",L"New Shortcut"));
 			}
+			InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
 
 			if (bNew || menu!=menu2)
 			{
@@ -1170,8 +1235,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				}
 				if (menu!=menu2)
 				{
-					int idx=GetMenuItemCount(menu);
-					AppendMenu(menu,MF_POPUP,(UINT_PTR)menu2,FindTranslation(L"Menu.Organize",L"Organize Start menu"));
+					InsertMenu(menu,subMenuIdx,MF_BYPOSITION|MF_POPUP,(UINT_PTR)menu2,FindTranslation(L"Menu.Organize",L"Organize Start menu"));
 					HICON hIcon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
 					if (hIcon)
 					{
@@ -1179,10 +1243,32 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 						MENUITEMINFO mii={sizeof(mii)};
 						mii.fMask=MIIM_BITMAP;
 						mii.hbmpItem=shellBmp;
-						SetMenuItemInfo(menu,idx,TRUE,&mii);
+						SetMenuItemInfo(menu,subMenuIdx,TRUE,&mii);
 					}
 				}
 			}
+		}
+
+		// remove multiple separators
+		{
+			bool bSeparator=true;
+			int n=GetMenuItemCount(menu);
+			for (int i=0;i<n;i++)
+			{
+				MENUITEMINFO info={sizeof(info),MIIM_FTYPE};
+				if (GetMenuItemInfo(menu,i,TRUE,&info))
+				{
+					if (info.fType==MFT_SEPARATOR && bSeparator)
+					{
+						DeleteMenu(menu,i,MF_BYPOSITION);
+						i--;
+						n--;
+					}
+					bSeparator=(info.fType==MFT_SEPARATOR);
+				}
+			}
+			if (n>0 && bSeparator)
+				DeleteMenu(menu,n-1,MF_BYPOSITION);
 		}
 
 		TPMPARAMS params={sizeof(params)}, *pParams=NULL;
@@ -1447,6 +1533,12 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		return;
 	}
 
+	if (res==CMD_EXPLORE)
+	{
+		SHOpenFolderAndSelectItems(item.pItem1,0,NULL,0);
+		return;
+	}
+
 	// handle the shell commands
 	if (res>=CMD_LAST)
 	{
@@ -1537,8 +1629,8 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 		if (type==ACTIVATE_MENU)
 		{
-			if (GetKeyState(VK_CONTROL)<0) info.fMask|=CMIC_MASK_CONTROL_DOWN;
-			if (GetKeyState(VK_SHIFT)<0) info.fMask|=CMIC_MASK_SHIFT_DOWN;
+			if (bCtrl) info.fMask|=CMIC_MASK_CONTROL_DOWN;
+			if (bShift) info.fMask|=CMIC_MASK_SHIFT_DOWN;
 		}
 
 		if (bRefresh)

@@ -332,7 +332,7 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	if (ex) return ex;
 
 	wchar_t cmdLine[2048];
-	if (wcsstr(lpCmdLine,L"%MSI%"))
+	if (wcsstr(lpCmdLine,L"%MSI%") || wcsstr(lpCmdLine,L"%msi%"))
 	{
 		SetEnvironmentVariable(L"MSI",msiName);
 		Sprintf(cmdLine,_countof(cmdLine),L"msiexec.exe %s%s",lpCmdLine,extraParam);
@@ -340,7 +340,7 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	}
 	else
 	{
-		Sprintf(cmdLine,_countof(cmdLine),L"msiexec.exe /i %s %s%s",msiName,lpCmdLine,extraParam);
+		Sprintf(cmdLine,_countof(cmdLine),L"msiexec.exe /i \"%s\" %s%s",msiName,lpCmdLine,extraParam);
 	}
 
 	// start the installer

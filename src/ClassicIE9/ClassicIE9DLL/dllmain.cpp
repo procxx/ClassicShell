@@ -6,6 +6,7 @@
 #include "..\..\ClassicShellLib\resource.h"
 #include "Settings.h"
 #include "SettingsUI.h"
+#include "SettingsUIHelper.h"
 #include "Translations.h"
 #include "ResourceHelper.h"
 #include "dllmain.h"
@@ -32,6 +33,32 @@ static int g_LoadDialogs[]=
 const wchar_t *GetDocRelativePath( void )
 {
 	return DOC_PATH;
+}
+
+static void NewVersionCallback( DWORD newVersion, CString downloadUrl, CString news )
+{
+	if (newVersion>GetVersionEx(g_Instance))
+	{
+		wchar_t path[_MAX_PATH];
+		GetModuleFileName(g_Instance,path,_countof(path));
+		PathRemoveFileSpec(path);
+		PathAppend(path,L"ClassicShellUpdate.exe");
+		wchar_t cmdLine[1024];
+		Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" -popup",path);
+		STARTUPINFO startupInfo={sizeof(startupInfo)};
+		PROCESS_INFORMATION processInfo;
+		memset(&processInfo,0,sizeof(processInfo));
+		if (CreateProcess(path,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
+		{
+			CloseHandle(processInfo.hThread);
+			CloseHandle(processInfo.hProcess);
+		}
+	}
+}
+
+CSIE9API void CheckForNewVersionIE9( void )
+{
+	CheckForNewVersion(CHECK_AUTO_WAIT,NewVersionCallback);
 }
 
 // DLL Entry Point

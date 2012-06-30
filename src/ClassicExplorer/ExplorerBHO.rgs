@@ -42,6 +42,16 @@ HKLM
 							ForceRemove '{449D0D6E-2412-4E61-B68F-1CB625CD9E52}'
 						}
 					}
+					NoRemove Policies
+					{
+						NoRemove Ext
+						{
+							NoRemove CLSID
+							{
+								ForceRemove	val {449D0D6E-2412-4E61-B68F-1CB625CD9E52} = s '2'
+							}
+						}
+					}
 				}
 			}
 		}

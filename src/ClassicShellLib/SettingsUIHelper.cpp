@@ -3618,11 +3618,6 @@ static DWORD WINAPI ThreadVersionCheck( void *param )
 		return 0;
 	}
 
-	// HACK: When IE runs in protected mode it can read from the user registry but can't write to it
-	// All writes go into a virtualized registry. So we use a different value name for IE to store the
-	// last update time. This way IE can read the regular value and the IE value
-	regKey.SetDWORDValue(check==CHECK_AUTO_IE?L"LastUpdateTimeIE":L"LastUpdateTime",curTime);
-
 	if (check==CHECK_UPDATE)
 	{
 		g_NewVersionCallback(newVersion,downloadUrl,news);
@@ -3682,12 +3677,9 @@ bool CheckForNewVersion( TVersionCheck check, tNewVersionCallback callback )
 		if ((curTime-lastTime)<24)
 			return false; // check daily
 
-		if (regKey.QueryDWORDValue(L"LastUpdateTimeIE",lastTime)!=ERROR_SUCCESS)
-			lastTime=0;
-		if ((curTime-lastTime)<24)
-			return false;
-
 		g_bCheckingVersion=true;
+		if (check==CHECK_AUTO_WAIT)
+			return ThreadVersionCheck((void*)check)!=0;
 		HANDLE hThread=CreateThread(NULL,0,ThreadVersionCheck,(void*)check,0,NULL);
 		CloseHandle(hThread);
 		return hThread!=NULL;

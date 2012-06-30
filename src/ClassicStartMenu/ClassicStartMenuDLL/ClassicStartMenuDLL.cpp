@@ -18,13 +18,11 @@
 #include <dbghelp.h>
 
 #define HOOK_DROPTARGET // define this to replace the IDropTarget of the start button
-//#define FORCE_NEW_START_BUTTON // define this to create a new start button even on Win7
 
 #ifdef BUILD_SETUP
 #ifndef HOOK_DROPTARGET
 #define HOOK_DROPTARGET // make sure it is defined in Setup
 #endif
-#undef FORCE_NEW_START_BUTTON
 #endif
 
 HWND g_StartButton;
@@ -33,7 +31,6 @@ HWND g_OwnerWindow;
 HWND g_ProgWin;
 HWND g_TopMenu, g_AllPrograms, g_ProgramsButton, g_UserPic; // from the Windows menu
 static bool g_bReplaceButton;
-int g_StartButtonOffset;
 static HWND g_Rebar;
 static SIZE g_RebarOffset;
 static UINT g_StartMenuMsg;
@@ -48,9 +45,12 @@ static DWORD g_LastClickTime;
 static DWORD g_LastHoverPos;
 static bool g_bCrashDump;
 static bool g_bStartScreen;
-static UINT g_StartScreenOn;
-static UINT g_StartScreenOff;
 static SIZE HOT_CORNER_SIZE={15,15};
+static int g_MetroModeCount;
+static HWND g_StartButtonOld;
+static DWORD g_StartButtonOldSizes[12];
+const int FIRST_BUTTON_BITMAP=6801;
+static HWND g_SwitchList;
 
 enum
 {
@@ -408,85 +408,78 @@ bool PointAroundStartButton( void )
 	}
 }
 
+#ifndef __IMetroMode_INTERFACE_DEFINED__
+// declare the IMetroMode interface so we don't need the Win8 SDK
+typedef enum METRO_MONITOR_MODE;
+interface IMonitorModeEvents;
+
+MIDL_INTERFACE("2246EA2D-CAEA-4444-A3C4-6DE827E44313")
+IMetroMode: public IUnknown
+{
+public:
+	virtual HRESULT STDMETHODCALLTYPE GetMonitorMode(
+		/* [in] */ __RPC__in HMONITOR hMonitor,
+		/* [out] */ __RPC__out METRO_MONITOR_MODE *pMode) = 0;
+
+	virtual HRESULT STDMETHODCALLTYPE IsLauncherVisible(
+		/* [out] */ __RPC__out BOOL *pfVisible) = 0;
+
+	virtual HRESULT STDMETHODCALLTYPE Advise(
+		/* [in] */ __RPC__in_opt IMonitorModeEvents *pCallback,
+		/* [out] */ __RPC__out DWORD *pdwCookie) = 0;
+
+	virtual HRESULT STDMETHODCALLTYPE Unadvise(
+		/* [in] */ DWORD dwCookie) = 0;
+};
+
+static const CLSID CLSID_MetroMode={0x7E5FE3D9,0x985F,0x4908,{0x91, 0xF9, 0xEE, 0x19, 0xF9, 0xFD, 0x15, 0x14}};
+
+#endif
+
+static bool IsMetroMode( void )
+{
+	CComPtr<IMetroMode> pMetroMode;
+	pMetroMode.CoCreateInstance(CLSID_MetroMode);
+	BOOL bMetro;
+	return (pMetroMode && SUCCEEDED(pMetroMode->IsLauncherVisible(&bMetro)) && bMetro);
+}
+
 static LRESULT CALLBACK HookAppManager( int code, WPARAM wParam, LPARAM lParam )
 {
 	if (code==HC_ACTION)
 	{
 		MSG *msg=(MSG*)lParam;
-		if (msg->message==g_StartScreenOn)
-			g_bStartScreen=true;
-		else if (msg->message==g_StartScreenOff)
-			g_bStartScreen=false;
-		else if (!g_bStartScreen && ((msg->message>=WM_MOUSEFIRST && msg->message<=WM_MOUSELAST) || msg->message==WM_KEYDOWN) && GetSettingBool(L"DisableHotCorner"))
+		if ((msg->message==WM_MOUSEMOVE || msg->message==WM_LBUTTONDOWN) && GetSettingBool(L"DisableHotCorner") && !IsMetroMode())
 		{
-			// handle mouse and keyboard messages in the app manager thread
+			// ignore the mouse messages if there is a menu
+			GUITHREADINFO info={sizeof(info)};
+			if (GetGUIThreadInfo(GetCurrentThreadId(),&info) && (info.flags&GUI_INMENUMODE))
+				return CallNextHookEx(NULL,code,wParam,lParam);
 			APPBARDATA appbar={sizeof(appbar),g_TaskBar};
 			SHAppBarMessage(ABM_GETTASKBARPOS,&appbar);
 			if (appbar.uEdge==ABE_BOTTOM)
 			{
-				if (msg->message>=WM_MOUSEFIRST && msg->message<=WM_MOUSELAST)
+				// check if the mouse is over the taskbar
+				RECT rc;
+				GetWindowRect(g_TaskBar,&rc);
+				CPoint pt(GetMessagePos());
+				if (PtInRect(&rc,pt))
 				{
-					if (msg->message!=WM_RBUTTONDOWN)
+					if (msg->message==WM_LBUTTONDOWN)
 					{
-						// skip the mouse messages if there is a menu
-						GUITHREADINFO info={sizeof(info)};
-						if (GetGUIThreadInfo(GetCurrentThreadId(),&info) && (info.flags&GUI_INMENUMODE))
-							return CallNextHookEx(NULL,code,wParam,lParam);
-					}
-					
-					// check if the mouse is in the bottom hot corner
-					MONITORINFO info={sizeof(info)};
-					GetMonitorInfo(MonitorFromWindow(g_TaskBar,MONITOR_DEFAULTTONEAREST),&info);
-					CPoint pt(GetMessagePos());
-					RECT rc;
-					if (GetWindowLong(g_TaskBar,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)
-					{
-						rc.left=info.rcMonitor.right-HOT_CORNER_SIZE.cx;
-						rc.right=info.rcMonitor.right;
-					}
-					else
-					{
-						rc.left=info.rcMonitor.left;
-						rc.right=info.rcMonitor.left+HOT_CORNER_SIZE.cx;
-					}
-					rc.top=info.rcMonitor.bottom-HOT_CORNER_SIZE.cy;
-					rc.bottom=info.rcMonitor.bottom;
-					if (PtInRect(&rc,pt))
-					{
-						// forward left and middle click to the taskbar
-						if (msg->message==WM_MOUSEMOVE)
-							PostMessage(g_TaskBar,WM_NCMOUSEMOVE,HTCLIENT,GetMessagePos());
-						else if (msg->message==WM_LBUTTONDOWN)
-							PostMessage(g_TaskBar,WM_NCLBUTTONDOWN,HTCLIENT,GetMessagePos());
-						else if (msg->message==WM_MBUTTONDOWN)
-							PostMessage(g_TaskBar,WM_NCMBUTTONDOWN,HTCLIENT,GetMessagePos());
-						else if (msg->message==WM_RBUTTONDOWN)
-						{
-							// right click opens the "power user" menu by sending Win+X hotkey
-							SetForegroundWindow(msg->hwnd);
-							INPUT inputs[4]={
-								{INPUT_KEYBOARD},
-								{INPUT_KEYBOARD},
-								{INPUT_KEYBOARD},
-								{INPUT_KEYBOARD},
-							};
-							inputs[0].ki.wVk=VK_LWIN;
-							inputs[1].ki.wVk='X';
-							inputs[2].ki.wVk='X';
-							inputs[2].ki.dwFlags=KEYEVENTF_KEYUP;
-							inputs[3].ki.wVk=VK_LWIN;
-							inputs[3].ki.dwFlags=KEYEVENTF_KEYUP;
-							SendInput(_countof(inputs),inputs,sizeof(INPUT));
-						}
+						// forward the mouse click to the taskbar
+						PostMessage(g_TaskBar,WM_NCLBUTTONDOWN,MK_LBUTTON,MAKELONG(pt.x,pt.y));
 						msg->message=WM_NULL;
 					}
-				}
-				else if (msg->message==WM_KEYDOWN && msg->wParam==VK_ESCAPE)
-				{
-					// if Esc is pressed while a menu is up, activate the taskbar. this closes the power user menu
-					GUITHREADINFO info={sizeof(info)};
-					if (GetGUIThreadInfo(GetCurrentThreadId(),&info) && (info.flags&GUI_INMENUMODE))
-						SetForegroundWindow(g_TaskBar);
+					wchar_t className[256]={0};
+					GetClassName(msg->hwnd,className,_countof(className));
+					if (wcscmp(className,L"ImmersiveSwitchList")==0)
+					{
+						// suppress the opening of the ImmersiveSwitchList
+						msg->message=WM_NULL;
+						ShowWindow(msg->hwnd,SW_HIDE); // hide the popup
+						g_SwitchList=msg->hwnd;
+					}
 				}
 			}
 		}
@@ -604,6 +597,7 @@ static LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam
 		g_LastHoverPos=GetMessagePos();
 		if (GetSettingInt(L"InitiallySelect")==1)
 			PostMessage(hWnd,WM_CLEAR,'CLSH',0);
+		PressStartButton(true);
 	}
 	if (uMsg==WM_CLEAR && wParam=='CLSH')
 	{
@@ -615,6 +609,7 @@ static LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam
 		if (!wParam)
 		{
 			CMenuContainer::CloseProgramsMenu();
+			PressStartButton(false);
 		}
 		g_bAllProgramsTimer=false;
 		KillTimer(g_ProgramsButton,'CLSM');
@@ -746,8 +741,17 @@ static LRESULT CALLBACK SubclassTaskBarProc( HWND hWnd, UINT uMsg, WPARAM wParam
 				if (bHide)
 					flags=(flags&~SWP_SHOWWINDOW)|SWP_HIDEWINDOW;
 			}
-			HIGHCONTRAST contrast={sizeof(contrast)};
-			if (IsAppThemed() && (!SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) || !(contrast.dwFlags&HCF_HIGHCONTRASTON)))
+			DWORD version=LOWORD(GetVersion());
+			version=MAKEWORD(HIBYTE(version),LOBYTE(version));
+			bool bClassic;
+			if (version<0x0602)
+				bClassic=!IsAppThemed();
+			else
+			{
+				HIGHCONTRAST contrast={sizeof(contrast)};
+				bClassic=(SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON));
+			}
+			if (!bClassic)
 			{
 				if (appbar.uEdge==ABE_TOP)
 					OffsetRect(&rcTask,0,-1);
@@ -763,16 +767,16 @@ static LRESULT CALLBACK SubclassTaskBarProc( HWND hWnd, UINT uMsg, WPARAM wParam
 			if (GetWindowLong(g_Rebar,GWL_STYLE)&CCS_VERT)
 			{
 				x=(rcTask.left+rcTask.right-size.cx)/2;
-				y=rcTask.top+g_StartButtonOffset;
+				y=rcTask.top;
 			}
 			else if (GetWindowLong(g_Rebar,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)
 			{
-				x=rcTask.right-g_StartButtonOffset-size.cx;
+				x=rcTask.right-size.cx;
 				y=(rcTask.top+rcTask.bottom-size.cy)/2;
 			}
 			else
 			{
-				x=rcTask.left+g_StartButtonOffset;
+				x=rcTask.left;
 				y=(rcTask.top+rcTask.bottom-size.cy)/2;
 			}
 			RECT rcButton={x,y,x+size.cx,y+size.cy};
@@ -787,6 +791,39 @@ static LRESULT CALLBACK SubclassTaskBarProc( HWND hWnd, UINT uMsg, WPARAM wParam
 		{
 			RecreateStartButton();
 		}
+		if (uMsg==WM_PAINT && g_StartButtonOld && !IsAppThemed())
+		{
+			PAINTSTRUCT ps;
+			HDC hdc=BeginPaint(hWnd,&ps);
+			EndPaint(hWnd,&ps);
+			return 0;
+		}
+	}
+	if (uMsg==WM_TIMER && wParam=='CLSM')
+	{
+		if (!IsMetroMode())
+		{
+			KillTimer(hWnd,'CLSM');
+			return 0;
+		}
+		SetForegroundWindow(hWnd);
+		INPUT inputs[4]={
+			{INPUT_KEYBOARD},
+			{INPUT_KEYBOARD},
+			{INPUT_KEYBOARD},
+			{INPUT_KEYBOARD},
+		};
+		inputs[0].ki.wVk=VK_LWIN;
+		inputs[1].ki.wVk='D';
+		inputs[2].ki.wVk='D';
+		inputs[2].ki.dwFlags=KEYEVENTF_KEYUP;
+		inputs[3].ki.wVk=VK_LWIN;
+		inputs[3].ki.dwFlags=KEYEVENTF_KEYUP;
+		SendInput(_countof(inputs),inputs,sizeof(INPUT));
+		g_MetroModeCount--;
+		if (g_MetroModeCount<=0)
+			KillTimer(hWnd,'CLSM');
+		return 0;
 	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
@@ -817,11 +854,11 @@ static LRESULT CALLBACK SubclassRebarProc( HWND hWnd, UINT uMsg, WPARAM wParam, 
 			int dx=0, dy=0;
 			if (GetWindowLong(hWnd,GWL_STYLE)&CCS_VERT)
 			{
-				if (pPos->y<g_RebarOffset.cy) dy=g_RebarOffset.cy-pPos->y;
+				dy=g_RebarOffset.cy-pPos->y;
 			}
 			else
 			{
-				if (pPos->x<g_RebarOffset.cx) dx=g_RebarOffset.cx-pPos->x;
+				dx=g_RebarOffset.cx-pPos->x;
 			}
 			if (dx || dy)
 			{
@@ -855,37 +892,60 @@ static void InitStartMenuDLL( void )
 	HWND hwnd=FindWindow(L"ClassicStartMenu.CStartHookWindow",L"StartHookWindow");
 	LoadLibrary(L"ClassicStartMenuDLL.dll"); // keep the DLL from unloading
 	if (hwnd) PostMessage(hwnd,WM_CLEAR,0,0); // tell the exe to unhook this hook
-	SetWindowSubclass(g_TaskBar,SubclassTaskBarProc,'CLSH',0);
-	DWORD version=LOWORD(GetVersion());
-	g_bReplaceButton=!g_StartButton && MAKEWORD(HIBYTE(version),LOBYTE(version))>=0x602 && GetSettingBool(L"EnableStartButton");
-#ifdef FORCE_NEW_START_BUTTON
-	g_bReplaceButton=true;
-#endif
+	g_bReplaceButton=GetSettingBool(L"EnableStartButton");
 	if (g_bReplaceButton)
 	{
 		g_Rebar=FindWindowEx(g_TaskBar,NULL,REBARCLASSNAME,NULL);
 		if (g_Rebar)
 		{
-			SetWindowSubclass(g_Rebar,SubclassRebarProc,'CLSH',0);
-			g_StartButtonOffset=0;
-			if (g_StartButton)
+			g_StartButtonOld=g_StartButton;
+			if (g_StartButtonOld)
 			{
-				RECT rcRebar;
-				GetWindowRect(g_Rebar,&rcRebar);
-				MapWindowPoints(NULL,g_TaskBar,(POINT*)&rcRebar,2);
-				if (GetWindowLong(g_Rebar,GWL_STYLE)&CCS_VERT)
-					g_StartButtonOffset=rcRebar.top;
-				else
-					g_StartButtonOffset=rcRebar.left;
+				ShowWindow(g_StartButtonOld,SW_HIDE);
+				if (LOWORD(GetVersion())==0x0106)
+				{
+					// Windows 7 draws the start button on the taskbar as well
+					// so we zero out the bitmap resources
+					HMODULE hExplorer=GetModuleHandle(NULL);
+					for (int res=0;res<_countof(g_StartButtonOldSizes);res++)
+					{
+						HRSRC hrSrc=FindResource(hExplorer,MAKEINTRESOURCE(res+FIRST_BUTTON_BITMAP),RT_BITMAP);
+						if (hrSrc)
+						{
+							HGLOBAL hRes=LoadResource(hExplorer,hrSrc);
+							if (hRes)
+							{
+								void *pRes=LockResource(hRes);
+								if (pRes)
+								{
+									DWORD old;
+									BITMAPINFOHEADER *pHeader=(BITMAPINFOHEADER*)pRes;
+									if (pHeader->biWidth)
+									{
+										g_StartButtonOldSizes[res]=MAKELONG(pHeader->biWidth,pHeader->biHeight);
+										VirtualProtect(pRes,sizeof(BITMAPINFOHEADER),PAGE_READWRITE,&old);
+										pHeader->biHeight=pHeader->biWidth=0;
+										VirtualProtect(pRes,sizeof(BITMAPINFOHEADER),old,&old);
+									}
+								}
+							}
+						}
+					}
+				}
+				SendMessage(g_TaskBar,WM_SETTINGCHANGE,0,0);
 			}
+			SetWindowSubclass(g_TaskBar,SubclassTaskBarProc,'CLSH',0);
+			SetWindowSubclass(g_Rebar,SubclassRebarProc,'CLSH',0);
 			g_StartButton=NULL;
 			g_bStartScreen=false;
-			g_StartScreenOn=RegisterWindowMessage(L"WindowServiceRegistered");
-			g_StartScreenOff=RegisterWindowMessage(L"WindowServiceUnregistered");
 			RecreateStartButton();
 		}
 		else
 			g_bReplaceButton=false;
+	}
+	else
+	{
+		SetWindowSubclass(g_TaskBar,SubclassTaskBarProc,'CLSH',0);
 	}
 #ifdef HOOK_DROPTARGET
 	if (g_StartButton)
@@ -909,6 +969,11 @@ static void InitStartMenuDLL( void )
 			DWORD thread=GetWindowThreadProcessId(appManager,NULL);
 			g_AppManagerHook=SetWindowsHookEx(WH_GETMESSAGE,HookAppManager,g_Instance,thread);
 		}
+		if (GetSettingBool(L"SkipMetro"))
+		{
+			g_MetroModeCount=GetSettingInt(L"SkipMetroCount");
+			SetTimer(g_TaskBar,'CLSM',500,NULL);
+		}
 	}
 }
 
@@ -922,8 +987,17 @@ void RecreateStartButton( void )
 	RECT rcTask2=rcTask;
 	APPBARDATA appbar={sizeof(appbar),g_TaskBar};
 	SHAppBarMessage(ABM_GETTASKBARPOS,&appbar);
-	HIGHCONTRAST contrast={sizeof(contrast)};
-	if (IsAppThemed() && (!SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) || !(contrast.dwFlags&HCF_HIGHCONTRASTON)))
+	DWORD version=LOWORD(GetVersion());
+	version=MAKEWORD(HIBYTE(version),LOBYTE(version));
+	bool bClassic;
+	if (version<0x0602)
+		bClassic=!IsAppThemed();
+	else
+	{
+		HIGHCONTRAST contrast={sizeof(contrast)};
+		bClassic=(SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON));
+	}
+	if (!bClassic)
 	{
 		if (appbar.uEdge==ABE_TOP)
 			OffsetRect(&rcTask2,0,-1);
@@ -936,8 +1010,6 @@ void RecreateStartButton( void )
 	pNewTarget->Release();
 
 	g_RebarOffset=GetStartButtonSize();
-	g_RebarOffset.cx+=g_StartButtonOffset;
-	g_RebarOffset.cy+=g_StartButtonOffset;
 
 	PostMessage(g_TaskBar,WM_SIZE,SIZE_RESTORED,MAKELONG(rcTask.right-rcTask.left,rcTask.bottom-rcTask.top));
 }
@@ -966,6 +1038,42 @@ static void CleanStartMenuDLL( void )
 	if (g_AppManagerHook) UnhookWindowsHookEx(g_AppManagerHook);
 	g_AppManagerHook=NULL;
 	RemoveWindowSubclass(g_TaskBar,SubclassTaskBarProc,'CLSH');
+	if (g_StartButtonOld)
+	{
+		if (LOWORD(GetVersion())==0x0106)
+		{
+			// restore the bitmap sizes
+			HMODULE hExplorer=GetModuleHandle(NULL);
+			for (int res=0;res<_countof(g_StartButtonOldSizes);res++)
+			{
+				HRSRC hrSrc=FindResource(hExplorer,MAKEINTRESOURCE(res+FIRST_BUTTON_BITMAP),RT_BITMAP);
+				if (hrSrc)
+				{
+					HGLOBAL hRes=LoadResource(hExplorer,hrSrc);
+					if (hRes)
+					{
+						void *pRes=LockResource(hRes);
+						if (pRes)
+						{
+							DWORD old;
+							BITMAPINFOHEADER *pHeader=(BITMAPINFOHEADER*)pRes;
+							if (g_StartButtonOldSizes[res])
+							{
+								VirtualProtect(pRes,sizeof(BITMAPINFOHEADER),PAGE_READWRITE,&old);
+								pHeader->biWidth=LOWORD(g_StartButtonOldSizes[res]);
+								pHeader->biHeight=HIWORD(g_StartButtonOldSizes[res]);
+								VirtualProtect(pRes,sizeof(BITMAPINFOHEADER),old,&old);
+							}
+						}
+					}
+				}
+			}
+		}
+		SendMessage(g_TaskBar,WM_SETTINGCHANGE,0,0);
+		SendMessage(g_StartButtonOld,WM_THEMECHANGED,0,0);
+		ShowWindow(g_StartButtonOld,SW_SHOW);
+	}
+	g_StartButtonOld=NULL;
 	if (g_Rebar)
 	{
 		RemoveWindowSubclass(g_Rebar,SubclassRebarProc,'CLSH');
@@ -1030,7 +1138,10 @@ STARTMENUAPI LRESULT CALLBACK HookProgMan( int code, WPARAM wParam, LPARAM lPara
 
 static bool WindowsMenuOpened( void )
 {
-	return !g_bReplaceButton && (SendMessage(g_StartButton,BM_GETSTATE,0,0)&BST_PUSHED)!=0;
+	if (g_bReplaceButton && !g_StartButtonOld)
+		return IsMetroMode();
+	else
+		return (SendMessage(g_StartButton,BM_GETSTATE,0,0)&BST_PUSHED)!=0;
 }
 
 // WH_GETMESSAGE hook for the start button window
@@ -1104,13 +1215,17 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 
 		if (msg->message==WM_KEYDOWN && msg->hwnd==g_TaskBar && (msg->wParam==VK_SPACE || msg->wParam==VK_RETURN))
 		{
-			FindWindowsMenu();
-			if (GetSettingInt(L"WinKey")==OPEN_CLASSIC)
+			GUITHREADINFO info={sizeof(info)};
+			if (!GetGUIThreadInfo(GetCurrentThreadId(),&info) || !(info.flags&GUI_INMENUMODE))
 			{
-				msg->message=WM_NULL;
-				if (g_StartButton)
-					SetForegroundWindow(g_StartButton);
-				ToggleStartMenu(g_StartButton,true);
+				FindWindowsMenu();
+				if (GetSettingInt(L"WinKey")==OPEN_CLASSIC)
+				{
+					msg->message=WM_NULL;
+					if (g_StartButton)
+						SetForegroundWindow(g_StartButton);
+					ToggleStartMenu(g_StartButton,true);
+				}
 			}
 		}
 
@@ -1128,11 +1243,11 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			msg->message=WM_NULL;
 		}
 
-		if ((msg->message==WM_LBUTTONDOWN || msg->message==WM_LBUTTONDBLCLK || msg->message==WM_MBUTTONDOWN) && msg->hwnd==g_StartButton)
+		if ((msg->message==WM_LBUTTONDOWN || msg->message==WM_LBUTTONDBLCLK || msg->message==WM_MBUTTONDOWN || msg->message==WM_MBUTTONDBLCLK) && msg->hwnd==g_StartButton)
 		{
 			FindWindowsMenu();
 			const wchar_t *name;
-			if (msg->message==WM_MBUTTONDOWN)
+			if (msg->message==WM_MBUTTONDOWN || msg->message==WM_MBUTTONDBLCLK)
 				name=L"MiddleClick";
 			else if (GetKeyState(VK_CONTROL)<0)
 				name=L"Hover";
@@ -1160,18 +1275,18 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				ToggleStartMenu(g_StartButton,keyboard!=0);
 				msg->message=WM_NULL;
 			}
-			else if (control==OPEN_WINDOWS && (msg->message==WM_MBUTTONDOWN || g_bReplaceButton))
+			else if (control==OPEN_WINDOWS && (msg->message==WM_MBUTTONDOWN || msg->message==WM_MBUTTONDBLCLK || g_bReplaceButton))
 				PostMessage(g_ProgWin,WM_SYSCOMMAND,SC_TASKLIST,'CLSM');
 		}
 
 		if (g_bReplaceButton)
 		{
-			if (msg->hwnd==g_TaskBar && (msg->message==WM_NCLBUTTONDOWN || msg->message==WM_NCLBUTTONDBLCLK || msg->message==WM_NCMBUTTONDOWN || msg->message==WM_LBUTTONDOWN || msg->message==WM_LBUTTONDBLCLK || msg->message==WM_MBUTTONDOWN))
+			if (msg->hwnd==g_TaskBar && (msg->message==WM_NCLBUTTONDOWN || msg->message==WM_NCLBUTTONDBLCLK || msg->message==WM_NCMBUTTONDOWN || msg->message==WM_NCMBUTTONDBLCLK || msg->message==WM_LBUTTONDOWN || msg->message==WM_LBUTTONDBLCLK || msg->message==WM_MBUTTONDOWN || msg->message==WM_MBUTTONDBLCLK))
 			{
 				if (PointAroundStartButton())
 				{
 					const wchar_t *name;
-					if (msg->message==WM_NCMBUTTONDOWN || msg->message==WM_MBUTTONDOWN)
+					if (msg->message==WM_NCMBUTTONDOWN || msg->message==WM_MBUTTONDOWN || msg->message==WM_NCMBUTTONDBLCLK || msg->message==WM_MBUTTONDBLCLK)
 						name=L"MiddleClick";
 					else if (GetKeyState(VK_SHIFT)<0)
 						name=L"ShiftClick";
@@ -1192,12 +1307,12 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 		}
 		else
 		{
-			if ((msg->message==WM_NCLBUTTONDOWN || msg->message==WM_NCLBUTTONDBLCLK || msg->message==WM_NCMBUTTONDOWN) && msg->hwnd==g_TaskBar
+			if ((msg->message==WM_NCLBUTTONDOWN || msg->message==WM_NCLBUTTONDBLCLK || msg->message==WM_NCMBUTTONDOWN || msg->message==WM_NCMBUTTONDBLCLK) && msg->hwnd==g_TaskBar
 				&& (msg->wParam==HTCAPTION || !IsAppThemed())) // HACK: in Classic mode the start menu can show up even if wParam is not HTCAPTION (most likely a bug in Windows)
 			{
 				FindWindowsMenu();
 				const wchar_t *name;
-				if (msg->message==WM_NCMBUTTONDOWN)
+				if (msg->message==WM_NCMBUTTONDOWN || msg->message==WM_NCMBUTTONDBLCLK)
 					name=L"MiddleClick";
 				else if (GetKeyState(VK_SHIFT)<0)
 					name=L"ShiftClick";
@@ -1217,7 +1332,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 						msg->message=WM_NULL;
 					}
 				}
-				else if (control==OPEN_WINDOWS && msg->message==WM_NCMBUTTONDOWN)
+				else if (control==OPEN_WINDOWS && (msg->message==WM_NCMBUTTONDOWN || msg->message==WM_NCMBUTTONDBLCLK))
 					PostMessage(g_ProgWin,WM_SYSCOMMAND,SC_TASKLIST,'CLSM');
 			}
 		}
@@ -1310,9 +1425,10 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 							{INPUT_MOUSE},
 							{INPUT_KEYBOARD},
 						};
+						bool bSwap=GetSystemMetrics(SM_SWAPBUTTON)!=0;
 						inputs[0].ki.wVk=VK_CONTROL;
-						inputs[1].mi.dwFlags=MOUSEEVENTF_LEFTDOWN;
-						inputs[2].mi.dwFlags=MOUSEEVENTF_LEFTUP;
+						inputs[1].mi.dwFlags=bSwap?MOUSEEVENTF_RIGHTDOWN:MOUSEEVENTF_LEFTDOWN;
+						inputs[2].mi.dwFlags=bSwap?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP;
 						inputs[3].ki.wVk=VK_CONTROL;
 						inputs[3].ki.dwFlags=KEYEVENTF_KEYUP;
 						SendInput(_countof(inputs),inputs,sizeof(INPUT));
@@ -1327,6 +1443,19 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			g_bStartButtonTimer=false;
 		}
 
+		if (msg->message==WM_NCRBUTTONUP && g_SwitchList && IsWindow(g_SwitchList))
+		{
+			wchar_t className[256]={0};
+			GetClassName(g_SwitchList,className,_countof(className));
+			if (wcscmp(className,L"ImmersiveSwitchList")==0)
+			{
+				msg->message=WM_NULL;
+				ShowWindow(g_SwitchList,SW_SHOW);
+				CPoint pt(GetMessagePos());
+				ScreenToClient(g_SwitchList,&pt);
+				PostMessage(g_SwitchList,WM_RBUTTONUP,wParam,MAKELONG(pt.x,pt.y));
+			}
+		}
 		if (msg->message==WM_RBUTTONUP && msg->hwnd==g_StartButton)
 		{
 			WPARAM bShift=(GetSettingInt(L"MouseClick")!=OPEN_CLASSIC)?MK_SHIFT:0;
@@ -1356,6 +1485,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 					SetMenuDefaultItem(menu,0,TRUE);
 					AppendMenu(menu,MF_SEPARATOR,0,0);
 				}
+				int count0=GetMenuItemCount(menu);
 				if (GetSettingBool(L"EnableExplorer"))
 				{
 					if (!GetSettingString(L"ExplorerPath").IsEmpty())
@@ -1367,71 +1497,77 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				}
 				if (GetSettingBool(L"EnableSettings"))
 					AppendMenu(menu,MF_STRING,CMD_SETTINGS,FindTranslation(L"Menu.MenuSettings",L"Settings"));
-				AppendMenu(menu,MF_STRING,CMD_HELP,FindTranslation(L"Menu.MenuHelp",L"Help"));
+				if (HasHelp())
+					AppendMenu(menu,MF_STRING,CMD_HELP,FindTranslation(L"Menu.MenuHelp",L"Help"));
 				if (GetSettingBool(L"EnableExit"))
 					AppendMenu(menu,MF_STRING,CMD_EXIT,FindTranslation(L"Menu.MenuExit",L"Exit"));
-				MENUITEMINFO mii={sizeof(mii)};
-				mii.fMask=MIIM_BITMAP;
-				mii.hbmpItem=HBMMENU_POPUP_CLOSE;
-				SetMenuItemInfo(menu,CMD_EXIT,FALSE,&mii);
-				MENUINFO info={sizeof(info),MIM_STYLE,MNS_CHECKORBMP};
-				SetMenuInfo(menu,&info);
-				g_bInMenu=true;
-				int res=TrackPopupMenu(menu,TPM_LEFTBUTTON|TPM_RETURNCMD|(IsLanguageRTL()?TPM_LAYOUTRTL:0),p.x,p.y,0,msg->hwnd,NULL);
-				DestroyMenu(menu);
-				g_bInMenu=false;
-				if (res==CMD_SETTINGS)
+				if (GetMenuItemCount(menu)>count0)
 				{
-					EditSettings(false);
-				}
-				if (res==CMD_HELP)
-				{
-					wchar_t path[_MAX_PATH];
-					GetModuleFileName(g_Instance,path,_countof(path));
-					*PathFindFileName(path)=0;
-					Strcat(path,_countof(path),DOC_PATH L"ClassicShell.chm::/ClassicStartMenu.html");
-					HtmlHelp(GetDesktopWindow(),path,HH_DISPLAY_TOPIC,NULL);
-					return TRUE;
-				}
-				if (res==CMD_EXIT)
-				{
-					LRESULT res=CallNextHookEx(NULL,code,wParam,lParam);
-					CleanStartMenuDLL();
-					return res; // we should exit as quickly as possible now. the DLL is about to be unloaded
-				}
-				if (res==CMD_OPEN || res==CMD_OPEN_ALL)
-				{
-					wchar_t *path;
-					if (SUCCEEDED(SHGetKnownFolderPath((res==CMD_OPEN)?FOLDERID_StartMenu:FOLDERID_CommonStartMenu,0,NULL,&path)))
+					MENUITEMINFO mii={sizeof(mii)};
+					mii.fMask=MIIM_BITMAP;
+					mii.hbmpItem=HBMMENU_POPUP_CLOSE;
+					SetMenuItemInfo(menu,CMD_EXIT,FALSE,&mii);
+					MENUINFO info={sizeof(info),MIM_STYLE,MNS_CHECKORBMP};
+					SetMenuInfo(menu,&info);
+					g_bInMenu=true;
+					int res=TrackPopupMenu(menu,TPM_LEFTBUTTON|TPM_RETURNCMD|(IsLanguageRTL()?TPM_LAYOUTRTL:0),p.x,p.y,0,msg->hwnd,NULL);
+					DestroyMenu(menu);
+					g_bInMenu=false;
+					if (res==CMD_SETTINGS)
 					{
-						ShellExecute(NULL,L"open",path,NULL,NULL,SW_SHOWNORMAL);
-						CoTaskMemFree(path);
+						EditSettings(false);
+					}
+					if (res==CMD_HELP)
+					{
+						ShowHelp();
+						return TRUE;
+					}
+					if (res==CMD_EXIT)
+					{
+						LRESULT res=CallNextHookEx(NULL,code,wParam,lParam);
+						CleanStartMenuDLL();
+						return res; // we should exit as quickly as possible now. the DLL is about to be unloaded
+					}
+					if (res==CMD_OPEN || res==CMD_OPEN_ALL)
+					{
+						wchar_t *path;
+						if (SUCCEEDED(SHGetKnownFolderPath((res==CMD_OPEN)?FOLDERID_StartMenu:FOLDERID_CommonStartMenu,0,NULL,&path)))
+						{
+							ShellExecute(NULL,L"open",path,NULL,NULL,SW_SHOWNORMAL);
+							CoTaskMemFree(path);
+						}
+					}
+					if (res==CMD_EXPLORER)
+					{
+						CString path=GetSettingString(L"ExplorerPath");
+						ITEMIDLIST blank={0};
+						SHELLEXECUTEINFO execute={sizeof(execute)};
+						execute.lpVerb=L"open";
+						execute.lpFile=path;
+						execute.nShow=SW_SHOWNORMAL;
+						if (_wcsicmp(path,L"computer")==0)
+							execute.lpFile=L"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}";
+						else if (_wcsicmp(path,L"libraries")==0)
+							execute.lpFile=L"::{031E4825-7B94-4DC3-B131-E946B44C8DD5}";
+						else if (_wcsicmp(path,L"desktop")==0)
+						{
+							execute.fMask=SEE_MASK_IDLIST;
+							execute.lpIDList=&blank;
+							execute.lpFile=NULL;
+						}
+						else
+						{
+							execute.fMask=SEE_MASK_DOENVSUBST;
+						}
+						ShellExecuteEx(&execute);
 					}
 				}
-				if (res==CMD_EXPLORER)
-				{
-					CString path=GetSettingString(L"ExplorerPath");
-					ITEMIDLIST blank={0};
-					SHELLEXECUTEINFO execute={sizeof(execute)};
-					execute.lpVerb=L"open";
-					execute.lpFile=path;
-					execute.nShow=SW_SHOWNORMAL;
-					if (_wcsicmp(path,L"computer")==0)
-						execute.lpFile=L"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}";
-					else if (_wcsicmp(path,L"libraries")==0)
-						execute.lpFile=L"::{031E4825-7B94-4DC3-B131-E946B44C8DD5}";
-					else if (_wcsicmp(path,L"desktop")==0)
-					{
-						execute.fMask=SEE_MASK_IDLIST;
-						execute.lpIDList=&blank;
-						execute.lpFile=NULL;
-					}
-					else
-					{
-						execute.fMask=SEE_MASK_DOENVSUBST;
-					}
-					ShellExecuteEx(&execute);
-				}
+			}
+			else if (g_StartButtonOld)
+			{
+				CPoint pt(GetMessagePos());
+				ScreenToClient(g_StartButtonOld,&pt);
+				PostMessage(g_StartButtonOld,WM_RBUTTONUP,wParam,MAKELONG(pt.x,pt.y));
 			}
 		}
 

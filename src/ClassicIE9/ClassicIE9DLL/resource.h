@@ -6,7 +6,6 @@
 #define IDS_PROJNAME                    100
 #define IDR_CLASSICIE9DLL               101
 #define IDR_CLASSICIE9BHO               102
-#define IDR_CLASSICIE9BHO64             103
 #define IDB_BITMAP1                     201
 #define IDB_GLOW                        201
 #define IDS_APP_TITLE                   5000

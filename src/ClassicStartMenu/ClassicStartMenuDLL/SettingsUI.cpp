@@ -1429,6 +1429,8 @@ CSetting g_Settings[]={
 		{L"HiddenDigits",CSetting::TYPE_RADIO,IDS_KEY_HIDDEN,IDS_KEY_HIDDEN_TIP,0,0,L"RecentPrograms"},
 
 {L"GeneralBehavior",CSetting::TYPE_GROUP,IDS_BEHAVIOR_SETTINGS},
+	{L"SkipMetro",CSetting::TYPE_BOOL,IDS_SKIP_METRO,IDS_SKIP_METRO_TIP,1,CSetting::FLAG_BASIC},
+	{L"SkipMetroCount",CSetting::TYPE_INT,0,0,10,CSetting::FLAG_HIDDEN},
 	{L"EnableDragDrop",CSetting::TYPE_BOOL,IDS_DRAG_DROP,IDS_DRAG_DROP_TIP,1},
 	{L"ExpandFolderLinks",CSetting::TYPE_BOOL,IDS_EXPAND_LINKS,IDS_EXPAND_LINKS_TIP,1},
 	{L"MenuDelay",CSetting::TYPE_INT,IDS_MENU_DELAY,IDS_MENU_DELAY_TIP,-1,CSetting::FLAG_BASIC}, // system delay time
@@ -1455,8 +1457,7 @@ CSetting g_Settings[]={
 	{L"ShowNextToTaskbar",CSetting::TYPE_BOOL,IDS_NEXTTASKBAR,IDS_NEXTTASKBAR_TIP,0},
 	{L"UserPictureCommand",CSetting::TYPE_STRING,IDS_PIC_COMMAND,IDS_PIC_COMMAND_TIP,L"control nusrmgr.cpl"},
 	{L"UserNameCommand",CSetting::TYPE_STRING,IDS_NAME_COMMAND,IDS_NAME_COMMAND_TIP,L"control nusrmgr.cpl"},
-	{L"SearchFilesCommand",CSetting::TYPE_STRING,IDS_SEARCH_COMMAND,IDS_SEARCH_COMMAND_TIP,L""},
-	{L"CascadingMenu",CSetting::TYPE_BOOL,IDS_CASCADE_MENU,IDS_CASCADE_MENU_TIP,0},
+	{L"SearchFilesCommand",CSetting::TYPE_STRING,IDS_SEARCH_COMMAND,IDS_SEARCH_COMMAND_TIP,L"search-ms:"},
 	{L"MainSortZA",CSetting::TYPE_BOOL,IDS_MAIN_SORTZA,IDS_SORTZA_TIP,0},
 	{L"MainSortOnce",CSetting::TYPE_BOOL,IDS_MAIN_SORTONCE,IDS_SORTONCE_TIP,0},
 	{L"PreCacheIcons",CSetting::TYPE_BOOL,IDS_CACHE_ICONS,IDS_CACHE_ICONS_TIP,1,CSetting::FLAG_COLD},
@@ -1503,6 +1504,7 @@ CSetting g_Settings[]={
 
 {L"ContextMenu",CSetting::TYPE_GROUP,IDS_CONTEXT_MENU_SETTINGS},
 	{L"EnableContextMenu",CSetting::TYPE_BOOL,IDS_CONTEXT_MENU,IDS_CONTEXT_MENU_TIP,1},
+	{L"CascadingMenu",CSetting::TYPE_BOOL,IDS_CASCADE_MENU,IDS_CASCADE_MENU_TIP,0,0,L"EnableContextMenu"},
 	{L"ShowNewFolder",CSetting::TYPE_BOOL,IDS_NEW_FOLDER,IDS_NEW_FOLDER_TIP,1,0,L"EnableContextMenu"},
 	{L"EnableExit",CSetting::TYPE_BOOL,IDS_EXIT,IDS_EXIT_TIP,1},
 	{L"EnableExplorer",CSetting::TYPE_BOOL,IDS_EXPLORER,IDS_EXPLORER_TIP,1},
@@ -1537,8 +1539,9 @@ CSetting g_Settings[]={
 		{L"AeroButton",CSetting::TYPE_RADIO,IDS_AERO_BUTTON,IDS_AERO_BUTTON_TIP},
 		{L"MetroButton",CSetting::TYPE_RADIO,IDS_METRO_BUTTON,IDS_METRO_BUTTON_TIP},
 		{L"CustomButton",CSetting::TYPE_RADIO,IDS_CUSTOM_BUTTON,IDS_CUSTOM_BUTTON_TIP},
-	{L"StartButtonPath",CSetting::TYPE_BITMAP,IDS_BUTTON_IMAGE,IDS_BUTTON_IMAGE_TIP,CComVariant(L""),0,L"#StartButtonType=3"},
+	{L"StartButtonPath",CSetting::TYPE_BITMAP,IDS_BUTTON_IMAGE,IDS_BUTTON_IMAGE_TIP,L"",0,L"#StartButtonType=3"},
 	{L"StartButtonSize",CSetting::TYPE_INT,IDS_BUTTON_SIZE,IDS_BUTTON_SIZE_TIP,0,0,L"#StartButtonType=3"},
+	{L"StartButtonIcon",CSetting::TYPE_ICON,IDS_BUTTON_ICON,IDS_BUTTON_ICON_TIP,L",1",0,L"#StartButtonType=0"},
 	{L"DisableHotCorner",CSetting::TYPE_BOOL,IDS_HOT_CORNER,IDS_HOT_CORNER_TIP,1,0,L"EnableStartButton"},
 
 {L"Language",CSetting::TYPE_GROUP,IDS_LANGUAGE_SETTINGS_SM,0,0,0,NULL,GetLanguageSettings()},
@@ -1663,6 +1666,7 @@ void UpdateSettings( void )
 	{
 		HideSettingGroup(L"WindowsMenu");
 		HideSettingGroup(L"AllProgramsSkin");
+		UpdateSetting(L"CascadeAll",CComVariant(0),false,true);
 		HIGHCONTRAST contrast={sizeof(contrast)};
 		if (SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON))
 			UpdateSetting(L"StartButtonType",CComVariant(0),false);
@@ -1671,7 +1675,17 @@ void UpdateSettings( void )
 	}
 	else
 	{
-		HideSettingGroup(L"StartButton");
+		UpdateSetting(L"SkipMetro",CComVariant(0),false,true);
+		UpdateSetting(L"EnableStartButton",CComVariant(0),false);
+		UpdateSetting(L"DisableHotCorner",CComVariant(0),false,true);
+		if (bWin7)
+		{
+			UpdateSetting(L"StartButtonType",CComVariant(IsAppThemed()?1:0),false);
+		}
+		else
+		{
+			HideSettingGroup(L"StartButton");
+		}
 	}
 }
 
@@ -1680,7 +1694,7 @@ void InitSettings( void )
 	InitSettings(g_Settings,COMPONENT_MENU);
 }
 
-static int g_ButtonPath, g_ButtonSize;
+static int g_ButtonPath, g_ButtonSize, g_ButtonIcon;
 
 void ClosingSettings( HWND hWnd, int flags, int command )
 {
@@ -1691,9 +1705,12 @@ void ClosingSettings( HWND hWnd, int flags, int command )
 			MessageBox(hWnd,LoadStringEx(IDS_NEW_SETTINGS),LoadStringEx(IDS_APP_TITLE),MB_OK|MB_ICONWARNING);
 
 		int path=GetSettingInt(L"StartButtonType");
-		if (path==3)
+		int icon=0;
+		if (path==START_BUTTON_CLASSIC)
+			icon=CalcFNVHash(GetSettingString(L"StartButtonIcon"));
+		if (path==START_BUTTON_CUSTOM)
 			path=CalcFNVHash(GetSettingString(L"StartButtonPath"));
-		if (path!=g_ButtonPath || g_ButtonSize!=GetSettingInt(L"StartButtonSize"))
+		if (path!=g_ButtonPath || g_ButtonSize!=GetSettingInt(L"StartButtonSize") || g_ButtonIcon!=icon)
 			RecreateStartButton();
 	}
 }
@@ -1708,6 +1725,9 @@ void EditSettings( bool bModal )
 #endif
 	EnableHotkeys(HOTKEYS_SETTINGS);
 	g_ButtonPath=GetSettingInt(L"StartButtonType");
+	g_ButtonIcon=0;
+	if (g_ButtonPath==START_BUTTON_CLASSIC)
+		g_ButtonIcon=CalcFNVHash(GetSettingString(L"StartButtonIcon"));
 	if (g_ButtonPath==START_BUTTON_CUSTOM)
 		g_ButtonPath=CalcFNVHash(GetSettingString(L"StartButtonPath"));
 	g_ButtonSize=GetSettingInt(L"StartButtonSize");

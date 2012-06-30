@@ -1,5 +1,5 @@
 CLASSIC SHELL
-Version 3.5.0 general release
+Version 3.5.1 general release
 
 Classic Shell adds some missing features to Windows 7 and Vista like a
 classic start menu, a toolbar for Windows Explorer and others.
@@ -51,7 +51,7 @@ sadly is missing from Windows 7. It has a variety of advanced features:
 *       Converts the “All Programs” button in the Windows menu into a cascading
         menu (Vista and Windows 7) 
 
-*       Implements a customizable start button for Windows 8
+*       Implements a customizable start button (Windows 7 and 8)
 
 ///////////////////////////////////////////////////////////////////////////////
 

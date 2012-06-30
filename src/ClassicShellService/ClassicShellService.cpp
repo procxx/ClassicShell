@@ -76,7 +76,7 @@ static void InstallService( void )
 	SC_HANDLE hManager=OpenSCManager(NULL,NULL,SC_MANAGER_CREATE_SERVICE); 
 	if (hManager)
 	{
-		SC_HANDLE hService=CreateService(hManager,g_ServiceName,g_ServiceName,SERVICE_ALL_ACCESS,SERVICE_WIN32_OWN_PROCESS,SERVICE_AUTO_START,SERVICE_ERROR_NORMAL,path,NULL,NULL,NULL,NULL,NULL);
+		SC_HANDLE hService=CreateService(hManager,g_ServiceName,g_ServiceName,SERVICE_ALL_ACCESS,SERVICE_WIN32_OWN_PROCESS,SERVICE_AUTO_START,SERVICE_ERROR_NORMAL,path,L"UIGroup",NULL,NULL,NULL,NULL);
 		if (hService)
 		{
 			SERVICE_DESCRIPTION desc={L"Launches the start button after logon"};

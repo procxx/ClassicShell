@@ -181,7 +181,7 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::accSelect( long flagsSelect, VARIANT 
 		int index=varChild.lVal-1;
 		if (index<0 || index>=(int)m_pOwner->m_Items.size())
 			return S_FALSE;
-		m_pOwner->ActivateItem(index,CMenuContainer::ACTIVATE_SELECT,NULL);
+		m_pOwner->ActivateItem(index,CMenuContainer::ACTIVATE_SELECT,NULL,false);
 	}
 	return S_OK;
 }
@@ -321,6 +321,6 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::accDoDefaultAction( VARIANT varChild 
 	// open or execute
 	const CMenuContainer::MenuItem &item=m_pOwner->m_Items[index];
 	if (item.id!=MENU_SEPARATOR && item.id!=MENU_EMPTY && item.id!=MENU_EMPTY_TOP)
-		m_pOwner->ActivateItem(index,item.bFolder?CMenuContainer::ACTIVATE_OPEN:CMenuContainer::ACTIVATE_EXECUTE,NULL);
+		m_pOwner->ActivateItem(index,item.bFolder?CMenuContainer::ACTIVATE_OPEN:CMenuContainer::ACTIVATE_EXECUTE,NULL,false);
 	return S_OK;
 }

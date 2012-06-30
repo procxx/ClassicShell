@@ -213,8 +213,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,5,0,0
- PRODUCTVERSION 3,5,0,0
+ FILEVERSION 3,5,1,0
+ PRODUCTVERSION 3,5,1,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -231,12 +231,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "3, 5, 0, 0"
+            VALUE "FileVersion", "3, 5, 1, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009-2012, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 5, 0, 0"
+            VALUE "ProductVersion", "3, 5, 1, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -717,27 +717,31 @@ BEGIN
     IDS_MENU_SHADOW_TIP     "When this is checked, the menus will have a shadow"
     IDS_START_BUTTON        "Start Button"
     IDS_ENABLE_BUTTON       "Enable Start Button"
-    IDS_ENABLE_BUTTON_TIP   "When this is checked, a start button will be added to the taskbar"
+    IDS_ENABLE_BUTTON_TIP   "When this is checked, a Start button will be added to the taskbar"
     IDS_BUTTON_TYPE         "Button Look"
-    IDS_BUTTON_TYPE_TIP     "Select the look of the start button"
+    IDS_BUTTON_TYPE_TIP     "Select the look of the Start button"
     IDS_CLASSIC_BUTTON      "Classic Button"
-    IDS_CLASSIC_BUTTON_TIP  "Select the Classic look for start button"
+    IDS_CLASSIC_BUTTON_TIP  "Select the Classic look for Start button"
     IDS_AERO_BUTTON         "Aero Button"
-    IDS_AERO_BUTTON_TIP     "Select the Aero look for the start button"
+    IDS_AERO_BUTTON_TIP     "Select the Aero look for the Start button"
     IDS_METRO_BUTTON        "Metro Button"
-    IDS_METRO_BUTTON_TIP    "Select the Metro look for the start button"
+    IDS_METRO_BUTTON_TIP    "Select the Metro look for the Start button"
     IDS_CUSTOM_BUTTON       "Custom Button"
-    IDS_CUSTOM_BUTTON_TIP   "Select a custom bitmap for the start button"
+    IDS_CUSTOM_BUTTON_TIP   "Select a custom bitmap for the Start button"
     IDS_BUTTON_IMAGE        "Button Image"
-    IDS_BUTTON_IMAGE_TIP    "Select a bitmap to be used for the start button"
+    IDS_BUTTON_IMAGE_TIP    "Select a bitmap to be used for the Start button"
 END
 
 STRINGTABLE 
 BEGIN
     IDS_BUTTON_SIZE         "Button Size"
     IDS_BUTTON_SIZE_TIP     "Select the width for the button when using a custom image"
-    IDS_HOT_CORNER          "Disable the start screen popup"
-    IDS_HOT_CORNER_TIP      "When this is checked and the taskbar is at the bottom, moving the mouse to the bottom corner of the screen will not show the start screen popup"
+    IDS_HOT_CORNER          "Disable the Start screen popup"
+    IDS_HOT_CORNER_TIP      "When this is checked and the taskbar is at the bottom, moving the mouse to the bottom corner of the screen will not show the Start screen popup"
+    IDS_SKIP_METRO          "Skip Metro screen"
+    IDS_SKIP_METRO_TIP      "Automatically skip the Metro screen after login and enter the Desktop"
+    IDS_BUTTON_ICON         "Button Icon"
+    IDS_BUTTON_ICON_TIP     "Select the icon for the classic Start button"
 END
 
 #endif    // English (U.S.) resources

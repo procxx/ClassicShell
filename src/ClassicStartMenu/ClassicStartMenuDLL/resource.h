@@ -427,6 +427,10 @@
 #define IDS_BUTTON_SIZE_TIP             3361
 #define IDS_HOT_CORNER                  3362
 #define IDS_HOT_CORNER_TIP              3363
+#define IDS_SKIP_METRO                  3364
+#define IDS_SKIP_METRO_TIP              3365
+#define IDS_BUTTON_ICON                 3366
+#define IDS_BUTTON_ICON_TIP             3367
 
 // Next default values for new objects
 // 

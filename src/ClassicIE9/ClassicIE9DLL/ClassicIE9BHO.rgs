@@ -45,6 +45,16 @@ HKLM
 							}
 						}
 					}
+					NoRemove Policies
+					{
+						NoRemove Ext
+						{
+							NoRemove CLSID
+							{
+								ForceRemove	val {EA801577-E6AD-4BD5-8F71-4BE0154331A4} = s '2'
+							}
+						}
+					}
 				}
 			}
 		}
@@ -67,6 +77,12 @@ HKLM
 						{
 							val AppPath = s '%MODULEPATH%'
 							val AppName = s 'ClassicIE9_32.exe'
+							val Policy = d '3'
+						}
+						ForceRemove '{C0393554-9B48-458A-B91B-3F684D003B2F}'
+						{
+							val AppPath = s '%MODULEPATH%'
+							val AppName = s 'ClassicIE9_64.exe'
 							val Policy = d '3'
 						}
 						ForceRemove '{02E6771D-8375-42B9-9F83-B4730F697900}'

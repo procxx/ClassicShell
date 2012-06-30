@@ -26,7 +26,6 @@ void UnhookDropTarget( void );
 
 extern HWND STARTMENUAPI g_StartButton, g_TaskBar, g_OwnerWindow;
 extern HWND g_TopMenu, g_AllPrograms, g_ProgramsButton, g_UserPic; // from the Windows menu
-extern int g_StartButtonOffset;
 
 enum TMenuMsgParam // wParam for the ClassicStartMenu.StartMenuMsg message
 {

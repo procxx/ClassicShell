@@ -38,41 +38,36 @@ static bool IsLowIntegrity( void )
 	return bLow;
 }
 
-static void StartBroker( bool bUpdate, const wchar_t *param )
+static DWORD StartBroker( bool bWait, const wchar_t *param )
 {
 	wchar_t path[_MAX_PATH];
 	GetModuleFileName(g_Instance,path,_countof(path));
 	PathRemoveFileSpec(path);
-	if (bUpdate)
-	{
-		PathAppend(path,L"ClassicShellUpdate.exe");
-	}
-	else
-	{
 #ifndef _WIN64
-		BOOL bWow64;
-		if (!IsWow64Process(GetCurrentProcess(),&bWow64) || !bWow64 || (GetVersionEx(GetModuleHandle(NULL))>>24)<10)
-			PathAppend(path,L"ClassicIE9_32.exe");
-		else
+	BOOL bWow64;
+	if (!IsWow64Process(GetCurrentProcess(),&bWow64) || !bWow64 || (GetVersionEx(GetModuleHandle(NULL))>>24)<10)
+		PathAppend(path,L"ClassicIE9_32.exe");
+	else
 #endif
-		PathAppend(path,L"ClassicIE9_64.exe");
-	}
+	PathAppend(path,L"ClassicIE9_64.exe");
+
 	wchar_t cmdLine[1024];
 	Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" %s",path,param);
 	STARTUPINFO startupInfo={sizeof(startupInfo)};
 	PROCESS_INFORMATION processInfo;
 	memset(&processInfo,0,sizeof(processInfo));
+	DWORD res=GetIE9Settings();
 	if (CreateProcess(path,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
 	{
 		CloseHandle(processInfo.hThread);
+		if (bWait)
+		{
+			if (WaitForSingleObject(processInfo.hProcess,2000)==WAIT_OBJECT_0)
+				GetExitCodeProcess(processInfo.hProcess,&res);
+		}
 		CloseHandle(processInfo.hProcess);
 	}
-}
-
-static void NewVersionCallback( DWORD newVersion, CString downloadUrl, CString news )
-{
-	if (newVersion>GetVersionEx(g_Instance))
-		StartBroker(true,L"-popup");
+	return res;
 }
 
 HRESULT STDMETHODCALLTYPE CClassicIE9BHO::SetSite( IUnknown *pUnkSite )
@@ -85,48 +80,43 @@ HRESULT STDMETHODCALLTYPE CClassicIE9BHO::SetSite( IUnknown *pUnkSite )
 	if (pUnkSite)
 	{
 		HMODULE hFrame=GetModuleHandle(L"ieframe.dll");
-		m_ProtectedMode.LoadString(hFrame,IsLowIntegrity()?12939:12940);
+		bool bLowIntegrity=IsLowIntegrity();
+		m_ProtectedMode.LoadString(hFrame,bLowIntegrity?12939:12940);
 		m_ProtectedMode=L" | "+m_ProtectedMode;
 		// find the top window and run another process to subclass it (the top window can be in a higher-level process, so we can't subclass from here)
 		LogMessage("SetSite: process=%d\r\n",GetCurrentProcessId());
 		CComQIPtr<IServiceProvider> pProvider=pUnkSite;
 
+		m_Settings=0;
+
 		if (pProvider)
 		{
-			if (GetSettingBool(L"ShowProgress") || GetSettingBool(L"ShowZone"))
-			{
-				m_pZoneManager.CoCreateInstance(CLSID_InternetZoneManager,NULL,CLSCTX_INPROC_SERVER);
-				m_pSecurityManager.CoCreateInstance(CLSID_InternetSecurityManager,NULL,CLSCTX_INPROC_SERVER);
-
-				pProvider->QueryService(SID_SWebBrowserApp,IID_IWebBrowser2,(void**)&m_pWebBrowser);
-				if (m_pWebBrowser)
-				{
-					if (m_dwEventCookie==0xFEFEFEFE) // ATL's event cookie is 0xFEFEFEFE when the sink is not advised
-						DispEventAdvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
-				}
-			}
 
 			pProvider->QueryService(SID_SShellBrowser,IID_IShellBrowser,(void**)&m_pBrowser);
 
 			HWND hwnd;
+			HWND topWindow=NULL;
 			if (m_pBrowser && SUCCEEDED(m_pBrowser->GetWindow(&hwnd)))
 			{
 				HWND topWindow=GetAncestor(hwnd,GA_ROOT);
-
 				if (topWindow)
 				{
-					if (GetSettingBool(L"ShowCaption"))
+					wchar_t param[100];
+					Sprintf(param,_countof(param),L"%u",(DWORD)topWindow);
+					m_Settings=StartBroker(bLowIntegrity,param);
+
+					if (m_Settings&(IE9_SETTING_PROGRESS|IE9_SETTING_ZONE))
 					{
-						HWND caption=FindWindowEx(topWindow,NULL,L"Client Caption",NULL);
-						if (!caption || SendMessage(caption,RegisterWindowMessage(L"ClassicIE9.Injected"),0,0)==0)
+						m_pZoneManager.CoCreateInstance(CLSID_InternetZoneManager,NULL,CLSCTX_INPROC_SERVER);
+						m_pSecurityManager.CoCreateInstance(CLSID_InternetSecurityManager,NULL,CLSCTX_INPROC_SERVER);
+
+						pProvider->QueryService(SID_SWebBrowserApp,IID_IWebBrowser2,(void**)&m_pWebBrowser);
+						if (m_pWebBrowser)
 						{
-							LogMessage("SetSite: topWindow=%X, caption=%X\r\n",(DWORD)topWindow,(DWORD)caption);
-							wchar_t param[100];
-							Sprintf(param,_countof(param),L"%u",(DWORD)topWindow);
-							StartBroker(false,param);
+							if (m_dwEventCookie==0xFEFEFEFE) // ATL's event cookie is 0xFEFEFEFE when the sink is not advised
+								DispEventAdvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
 						}
 					}
-					CheckForNewVersion(CHECK_AUTO_IE,NewVersionCallback);
 				}
 			}
 		}
@@ -143,12 +133,6 @@ HRESULT STDMETHODCALLTYPE CClassicIE9BHO::SetSite( IUnknown *pUnkSite )
 
 HRESULT WINAPI CClassicIE9BHO::UpdateRegistry( BOOL bRegister )
 {
-#ifdef _WIN64
-	const UINT rgs=IDR_CLASSICIE9BHO64;
-#else
-	const UINT rgs=IDR_CLASSICIE9BHO;
-#endif
-
 	wchar_t path[_MAX_PATH];
 	GetModuleFileName(g_Instance,path,_countof(path));
 	PathRemoveFileSpec(path);
@@ -162,7 +146,7 @@ HRESULT WINAPI CClassicIE9BHO::UpdateRegistry( BOOL bRegister )
 		{NULL,NULL}
 	};
 
-	return _AtlModule.UpdateRegistryFromResource(rgs,bRegister,mapEntries); 
+	return _AtlModule.UpdateRegistryFromResource(IDR_CLASSICIE9BHO,bRegister,mapEntries); 
 }
 
 LRESULT CALLBACK CClassicIE9BHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
@@ -323,7 +307,7 @@ STDMETHODIMP CClassicIE9BHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL 
 	}
 
 	m_TextWidth=0;
-	if (!GetSettingBool(L"ShowZone"))
+	if (!(m_Settings&IE9_SETTING_ZONE))
 		return S_OK;
 	wchar_t text[256];
 	text[0]=0;
@@ -335,7 +319,7 @@ STDMETHODIMP CClassicIE9BHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL 
 		if (SUCCEEDED(m_pSecurityManager->MapUrlToZone(URL->bstrVal,&zone,0)) && SUCCEEDED(m_pZoneManager->GetZoneAttributes(zone,&attributes)))
 		{
 			Strcpy(text,_countof(text),attributes.szDisplayName);
-			if (GetSettingBool(L"ShowProtected"))
+			if (m_Settings&IE9_SETTING_PROTECTED)
 				Strcat(text,_countof(text),m_ProtectedMode);
 			unsigned int key=CalcFNVHash(attributes.szIconPath);
 			std::map<unsigned int,HICON>::const_iterator it=m_IconCache.find(key);
@@ -394,7 +378,7 @@ STDMETHODIMP CClassicIE9BHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL 
 
 STDMETHODIMP CClassicIE9BHO::OnProgressChange( long progress, long progressMax )
 {
-	if (!GetSettingBool(L"ShowProgress"))
+	if (!(m_Settings&IE9_SETTING_PROGRESS))
 		return S_OK;
 	bool bVisible=(IsWindowVisible(m_ProgressBar)!=0);
 	if (progress<0 || progressMax==0)

@@ -1,4 +1,16 @@
 ===============================================================================
+== Version 3.5.1 general release (Jun, 2012):
+
+- Enabled the custom start button for Windows 7 and added more settings
+
+- Added a setting to skip the Metro screen on startup
+
+- Improved compatibility with the IE10's Enhanced Protected Mode
+
+- Fixed some bugs found in the previous version
+
+
+===============================================================================
 == Version 3.5.0 general release (Mar, 2012):
 
 - Added support for Windows 8 Consumer Preview

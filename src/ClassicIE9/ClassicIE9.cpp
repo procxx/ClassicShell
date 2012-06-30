@@ -5,7 +5,9 @@
 #include <commctrl.h>
 #include <shlwapi.h>
 #include <Psapi.h>
+#include <atlstr.h>
 #include "StringUtils.h"
+#include "ResourceHelper.h"
 #include "ClassicIE9DLL\ClassicIE9DLL.h"
 
 // Manifest to enable the 6.0 common controls
@@ -69,6 +71,8 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 		return 0;
 	}
 
+	DWORD settings=GetIE9Settings();
+
 	HWND topWindow=(HWND)_wtol(lpCmdLine);
 	if (topWindow)
 	{
@@ -114,8 +118,13 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 				CloseHandle(processInfo.hThread);
 				CloseHandle(processInfo.hProcess);
 			}
-			return 0;
+			return settings;
 		}
+
+		CheckForNewVersionIE9();
+
+		if (!(settings&IE9_SETTING_CAPTION))
+			return settings;
 
 		HWND caption=FindWindowEx(topWindow,NULL,L"Client Caption",NULL);
 		LogMessage("exe: topWindow=%X, caption=%X\r\n",(DWORD)topWindow,(DWORD)caption);
@@ -123,7 +132,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 		if (caption)
 		{
 			if (SendMessage(caption,message,0,0)!=0)
-				return 0;
+				return settings;
 
 			{
 				HANDLE hToken;
@@ -165,13 +174,13 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 				CloseHandle(hProcess);
 			}
 		}
-		return 0;
+		return settings;
 	}
 
 #ifndef _WIN64
 	if (*lpCmdLine)
 #endif
-		return 0;
+		return settings;
 
 	// if 32-bit exe is called with no arguments, show the settings
 

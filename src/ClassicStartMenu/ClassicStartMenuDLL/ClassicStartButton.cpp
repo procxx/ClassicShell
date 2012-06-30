@@ -11,6 +11,7 @@
 #include "ClassicStartButton.h"
 #include "dllmain.h"
 #include <uxtheme.h>
+#include <vsstyle.h>
 #include <dwmapi.h>
 
 static int START_ICON_SIZE=16;
@@ -35,6 +36,7 @@ public:
 		MESSAGE_HANDLER( WM_ERASEBKGND, OnEraseBkgnd )
 		MESSAGE_HANDLER( WM_TIMER, OnTimer )
 		MESSAGE_HANDLER( WM_SETTINGCHANGE, OnSettingChange )
+		MESSAGE_HANDLER( WM_THEMECHANGED, OnThemeChanged )
 	END_MSG_MAP()
 
 	void SetPressed( bool bPressed );
@@ -53,6 +55,7 @@ protected:
 	LRESULT OnMouseMove( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnSettingChange( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnThemeChanged( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 
 private:
 	enum { TIMER_BLEND=1, TIMER_LEAVE=2 };
@@ -70,6 +73,7 @@ private:
 	bool m_bSmallIcons;
 	int m_HotBlend; // 0..100
 	CWindow m_Tooltip;
+	HTHEME m_Theme;
 
 	void LoadBitmap( void );
 	void SetHot( bool bHot );
@@ -90,14 +94,26 @@ LRESULT CStartButton::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 {
 	m_bRTL=((CREATESTRUCT*)lParam)->lpCreateParams!=NULL;
 	m_bSmallIcons=IsTaskbarSmallIcons();
-	START_ICON_SIZE=GetSystemMetrics(m_bSmallIcons?SM_CXSMICON:SM_CXICON);
-	m_Icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,START_ICON_SIZE,START_ICON_SIZE,LR_DEFAULTCOLOR);
+	std::vector<HMODULE> modules;
+	m_Icon=NULL;
+	START_ICON_SIZE=0;
+	CString iconPath=GetSettingString(L"StartButtonIcon");
+	if (_wcsicmp(iconPath,L"none")!=0)
+	{
+		START_ICON_SIZE=GetSystemMetrics(m_bSmallIcons?SM_CXSMICON:SM_CXICON);
+		m_Icon=LoadIcon(START_ICON_SIZE,iconPath,modules);
+		for (std::vector<HMODULE>::const_iterator it=modules.begin();it!=modules.end();++it)
+			FreeLibrary(*it);
+		if (!m_Icon)
+			m_Icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,START_ICON_SIZE,START_ICON_SIZE,LR_DEFAULTCOLOR);
+	}
 	int dpi=CIconManager::GetDPI();
 	m_Font=CreateFont(10*dpi/72,0,0,0,FW_BOLD,0,0,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Tahoma");
 	int val=1;
 	DwmSetWindowAttribute(m_hWnd,DWMWA_EXCLUDED_FROM_PEEK,&val,sizeof(val));
 	LoadBitmap();
 	m_Tooltip=CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_TRANSPARENT|(m_bRTL?WS_EX_LAYOUTRTL:0),TOOLTIPS_CLASS,NULL,WS_POPUP|TTS_NOPREFIX|TTS_ALWAYSTIP,0,0,0,0,NULL,NULL,g_Instance,NULL);
+	OnThemeChanged(WM_THEMECHANGED,0,0,bHandled);
 	m_bPressed=true;
 	SetPressed(false);
 	bHandled=FALSE;
@@ -110,6 +126,7 @@ LRESULT CStartButton::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 	if (m_Blendmap) DeleteObject(m_Blendmap);
 	if (m_Icon) DestroyIcon(m_Icon);
 	if (m_Font) DeleteObject(m_Font);
+	if (m_Theme) CloseThemeData(m_Theme);
 	m_Tooltip.DestroyWindow();
 	KillTimer(TIMER_BLEND);
 	bHandled=FALSE;
@@ -132,9 +149,19 @@ void CStartButton::UpdateButton( void )
 		RECT rc={0,0,m_Size.cx,m_Size.cy};
 		FillRect(hSrc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
 		InflateRect(&rc,-START_BUTTON_OFFSET,-START_BUTTON_OFFSET);
-		DrawFrameControl(hSrc,&rc,DFC_BUTTON,DFCS_BUTTONPUSH|(m_bPressed?DFCS_PUSHED:0));
-		int offset=m_bPressed?1:0;
-		DrawIconEx(hSrc,START_BUTTON_PADDING+START_BUTTON_OFFSET+offset,(m_Size.cy-START_ICON_SIZE)/2+offset,m_Icon,0,0,0,NULL,DI_NORMAL|DI_NOMIRROR);
+		int offset=0;
+		if (m_Theme)
+		{
+			int state=m_bPressed?PBS_PRESSED:(m_bHot?PBS_HOT:PBS_NORMAL);
+			DrawThemeBackground(m_Theme,hSrc,BP_PUSHBUTTON,state,&rc,NULL);
+		}
+		else
+		{
+			DrawFrameControl(hSrc,&rc,DFC_BUTTON,DFCS_BUTTONPUSH|(m_bPressed?DFCS_PUSHED:0));
+			offset=m_bPressed?1:0;
+		}
+		if (m_Icon)
+			DrawIconEx(hSrc,START_BUTTON_PADDING+START_BUTTON_OFFSET+offset,(m_Size.cy-START_ICON_SIZE)/2+offset,m_Icon,0,0,0,NULL,DI_NORMAL|DI_NOMIRROR);
 		rc.left+=START_BUTTON_PADDING+START_ICON_SIZE+START_TEXT_PADDING+offset;
 		rc.top+=START_BUTTON_PADDING+offset;
 		rc.right-=START_BUTTON_PADDING+START_TEXT_PADDING-offset;
@@ -261,6 +288,22 @@ LRESULT CStartButton::OnSettingChange( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 	return 0;
 }
 
+LRESULT CStartButton::OnThemeChanged( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	if (m_Theme) CloseThemeData(m_Theme);
+	m_Theme=NULL;
+	DWORD version=LOWORD(GetVersion());
+	version=MAKEWORD(HIBYTE(version),LOBYTE(version));
+	HIGHCONTRAST contrast={sizeof(contrast)};
+	if (version>=0x0602 && SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON))
+	{
+		// only use themes on Win8 with high contrast
+		m_Theme=OpenThemeData(m_hWnd,L"button");
+		UpdateButton();
+	}
+	return 0;
+}
+
 void CStartButton::SetPressed( bool bPressed )
 {
 	if (m_bPressed!=bPressed)
@@ -288,11 +331,17 @@ void CStartButton::LoadBitmap( void )
 	TStartButtonType buttonType=(TStartButtonType)GetSettingInt(L"StartButtonType",bDef);
 	if (bDef)
 	{
-		HIGHCONTRAST contrast={sizeof(contrast)};
-		if (SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON))
-			buttonType=START_BUTTON_CLASSIC;
+		DWORD version=LOWORD(GetVersion());
+		version=MAKEWORD(HIBYTE(version),LOBYTE(version));
+		bool bClassic;
+		if (version<0x0602)
+			bClassic=!IsAppThemed();
 		else
-			buttonType=START_BUTTON_AERO;
+		{
+			HIGHCONTRAST contrast={sizeof(contrast)};
+			bClassic=(SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON));
+		}
+		buttonType=bClassic?START_BUTTON_CLASSIC:START_BUTTON_AERO;
 	}
 	m_bClassic=(buttonType==START_BUTTON_CLASSIC);
 	bool bMetro=(buttonType==START_BUTTON_METRO);
@@ -389,16 +438,16 @@ HWND CreateStartButton( HWND taskBar, HWND rebar, const RECT &rcTask )
 	if (GetWindowLong(rebar,GWL_STYLE)&CCS_VERT)
 	{
 		rcButton.left=(rcTask.left+rcTask.right-size.cx)/2;
-		rcButton.top=rcTask.top+g_StartButtonOffset;
+		rcButton.top=rcTask.top;
 	}
 	else if (bRTL)
 	{
-		rcButton.left=rcTask.right-g_StartButtonOffset-size.cx;
+		rcButton.left=rcTask.right-size.cx;
 		rcButton.top=(rcTask.top+rcTask.bottom-size.cy)/2;
 	}
 	else
 	{
-		rcButton.left=rcTask.left+g_StartButtonOffset;
+		rcButton.left=rcTask.left;
 		rcButton.top=(rcTask.top+rcTask.bottom-size.cy)/2;
 	}
 	rcButton.right=rcButton.left+size.cx;

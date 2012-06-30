@@ -41,6 +41,7 @@ static CStdCommand g_StdCommands[]={
 	{L"forward",L"Forward",IDS_FORWARD_TIP,L"ForwardItem",NULL,NULL,L""},
 	{L"mapdrive",L"Map Network Drive",IDS_MAP_DRIVE_TIP,L"MapDriveItem",NULL,NULL,L""},
 	{L"disconnect",L"Disconnect Network Drive",IDS_DISCONNECT_DRIVE_TIP,L"DisconnectItem",NULL,NULL,L""},
+	{L"customizefolder",L"Customize Folder",IDS_CUSTOMIZEFOLDER_TIP,L"CustomizeFolderItem",NULL,NULL,L""},
 	{L"viewtiles",L"View Tiles",IDS_VIEWTILES_TIP,L"TilesItem",NULL,NULL,L""},
 	{L"viewdetails",L"View Details",IDS_VIEWDEATAILS_TIP,L"DetailsItem",NULL,NULL,L""},
 	{L"viewlist",L"View List",IDS_VIEWLIST_TIP,L"ListItem",NULL,NULL,L""},

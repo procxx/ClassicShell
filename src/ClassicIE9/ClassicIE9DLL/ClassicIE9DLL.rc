@@ -54,8 +54,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,5,0,0
- PRODUCTVERSION 3,5,0,0
+ FILEVERSION 3,5,1,0
+ PRODUCTVERSION 3,5,1,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -72,12 +72,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Customizations for the title bar and status bar of IE9"
-            VALUE "FileVersion", "3, 5, 0, 0"
+            VALUE "FileVersion", "3, 5, 1, 0"
             VALUE "InternalName", "ClassicIE9DLL.dll"
             VALUE "LegalCopyright", "Copyright (C) 2009-2012, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicIE9DLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 5, 0, 0"
+            VALUE "ProductVersion", "3, 5, 1, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -94,7 +94,6 @@ END
 
 IDR_CLASSICIE9DLL       REGISTRY                "ClassicIE9DLL.rgs"
 IDR_CLASSICIE9BHO       REGISTRY                "ClassicIE9BHO.rgs"
-IDR_CLASSICIE9BHO64     REGISTRY                "ClassicIE9BHO_64.rgs"
 
 /////////////////////////////////////////////////////////////////////////////
 //

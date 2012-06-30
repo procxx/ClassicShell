@@ -12,6 +12,7 @@
   <String Id="UpdateTitle" Overridable="yes">Classic Shell Update</String>
   <String Id="UpdateDesc" Overridable="yes">Classic Shell Update checks periodically for new versions</String>
   <String Id="HelpDesc" Overridable="yes">View the Classic Shell documentation</String>
+  <String Id="ReadmeDesc" Overridable="yes">View the Classic Shell introduction</String>
   <String Id="ExplorerSettingsDesc" Overridable="yes">Edit the settings of Classic Explorer</String>
   <String Id="StartSettingsDesc" Overridable="yes">Edit the settings of the classic start menu</String>
   <String Id="IE9SettingsDesc" Overridable="yes">Edit the settings of the Internet Explorer 9 title bar and status bar</String>

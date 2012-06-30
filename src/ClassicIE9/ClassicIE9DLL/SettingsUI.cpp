@@ -143,3 +143,13 @@ CSIE9API void ShowIE9Settings( void )
 		Sprintf(title,_countof(title),LoadStringEx(IDS_SETTINGS_TITLE));
 	EditSettings(title,true);
 }
+
+CSIE9API DWORD GetIE9Settings( void )
+{
+	DWORD res=0;
+	if (GetSettingBool(L"ShowCaption")) res|=IE9_SETTING_CAPTION;
+	if (GetSettingBool(L"ShowProgress")) res|=IE9_SETTING_PROGRESS;
+	if (GetSettingBool(L"ShowZone")) res|=IE9_SETTING_ZONE;
+	if (GetSettingBool(L"ShowProtected")) res|=IE9_SETTING_PROTECTED;
+	return res;
+}

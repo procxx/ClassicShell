@@ -77,6 +77,7 @@ private:
 	CComPtr<IInternetZoneManager> m_pZoneManager;
 	CComPtr<IInternetSecurityManager> m_pSecurityManager;
 
+	DWORD m_Settings;
 	HWND m_StatusBar;
 	HWND m_Tooltip;
 	HWND m_ProgressBar;

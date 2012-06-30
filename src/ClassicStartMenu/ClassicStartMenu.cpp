@@ -137,24 +137,6 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 {
 	if (wcsstr(lpstrCmdLine,L"-startup"))
 	{
-/*		STARTUPINFO startupInfo={sizeof(STARTUPINFO)};
-		PROCESS_INFORMATION processInfo;
-		FILE *f=fopen("D:\\start.txt","wt");
-		if(CreateProcess(L"C:\\windows\\explorer.exe",L"C:\\windows\\explorer.exe shell:::{3080F90D-D7AD-11D9-BD98-0000947B0257}",NULL,NULL,TRUE,NORMAL_PRIORITY_CLASS,NULL,NULL,&startupInfo,&processInfo))
-		{
-			fprintf(f,"success\n");
-			CloseHandle(processInfo.hProcess);
-			CloseHandle(processInfo.hThread);
-		}
-		else
-		{
-			int err=GetLastError();
-			fprintf(f,"error %d\n",err);
-		}
-		fclose(f);
-		CoInitialize(NULL);
-		ShellExecute(NULL,NULL,L"explorer.exe",L"shell:::{3080F90D-D7AD-11D9-BD98-0000947B0257}",NULL,SW_SHOWNORMAL);
-		CoUninitialize();*/
 	}
 	wchar_t path[_MAX_PATH];
 	GetModuleFileName(NULL,path,_countof(path));

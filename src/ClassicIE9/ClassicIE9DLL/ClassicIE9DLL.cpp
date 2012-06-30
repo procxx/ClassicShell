@@ -42,7 +42,19 @@ STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv)
 STDAPI DllRegisterServer(void)
 {
 	// registers object, typelib and all interfaces in typelib
-	return _AtlModule.DllRegisterServer();
+	HRESULT res=_AtlModule.DllRegisterServer();
+	if (SUCCEEDED(res))
+	{
+		// mark the extension as compatible with the enhanced protected mode of IE10
+		CComPtr<ICatRegister> catRegister;
+		catRegister.CoCreateInstance(CLSID_StdComponentCategoriesMgr);
+		if (catRegister)
+		{
+			CATID CATID_AppContainerCompatible={0x59fb2056,0xd625,0x48d0,{0xa9,0x44,0x1a,0x85,0xb5,0xab,0x26,0x40}};
+			catRegister->RegisterClassImplCategories(CLSID_ClassicIE9BHO,1,&CATID_AppContainerCompatible);
+		}
+	}
+	return res;
 }
 
 
