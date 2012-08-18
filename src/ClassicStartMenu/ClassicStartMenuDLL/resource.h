@@ -17,6 +17,9 @@
 #define IDB_BUTTON120M                  116
 #define IDB_BUTTON144M                  117
 #define IDB_BUTTON180M                  118
+#define IDB_STYLE_CLASSIC               120
+#define IDB_STYLE_XP                    121
+#define IDB_STYLE_VISTA                 122
 #define IDC_STATICICON                  209
 #define IDC_COMBOCOMMAND                239
 #define IDC_EDITLABEL                   240
@@ -60,11 +63,21 @@
 #define IDC_CHECKINLINE                 1064
 #define IDC_CHECK2                      1065
 #define IDC_CHECKNOEXT                  1065
+#define IDC_CHECKNOEXPAND2              1066
+#define IDC_CHECKSPLIT                  1066
+#define IDC_STATICTITLE                 1066
+#define IDC_STATIC_CLASSIC              1067
+#define IDC_STATIC_XP                   1068
+#define IDC_STATIC_VISTA                1069
+#define IDC_LINK_CLASSIC                1070
+#define IDC_LINK_XP                     1071
+#define IDC_LINK_VISTA                  1072
 #define IDD_CUSTOMMENU                  3001
 #define IDS_APP_TITLE                   3001
 #define IDD_SKINSETTINGS                3002
 #define IDS_SETTINGS_TITLE              3002
 #define IDS_SETTINGS_TITLE_VER          3003
+#define IDD_STYLESETTINGS               3003
 #define IDS_NEW_SETTINGS                3004
 #define IDS_CTRL_NOTHING                3005
 #define IDS_STRING3005                  3005
@@ -425,20 +438,36 @@
 #define IDS_BUTTON_IMAGE_TIP            3359
 #define IDS_BUTTON_SIZE                 3360
 #define IDS_BUTTON_SIZE_TIP             3361
-#define IDS_HOT_CORNER                  3362
-#define IDS_HOT_CORNER_TIP              3363
+#define IDS_HOT_CORNERS                 3362
+#define IDS_HOT_CORNERS_TIP             3363
 #define IDS_SKIP_METRO                  3364
 #define IDS_SKIP_METRO_TIP              3365
 #define IDS_BUTTON_ICON                 3366
 #define IDS_BUTTON_ICON_TIP             3367
+#define IDS_BUTTON_TIP                  3368
+#define IDS_BUTTON_TIP_TIP              3369
+#define IDS_BUTTON_TEXT                 3370
+#define IDS_BUTTON_TEXT_TIP             3371
+#define IDS_METRO_SETTINGS              3372
+#define IDS_DISABLE_NONE                3373
+#define IDS_DISABLE_NONE_TIP            3374
+#define IDS_DISABLE_START               3375
+#define IDS_DISABLE_START_TIP           3376
+#define IDS_DISABLE_ALL                 3377
+#define IDS_DISABLE_ALL_TIP             3378
+#define IDS_ENABLE_BUTTON2              3379
+#define IDS_ENABLE_BUTTON_TIP2          3380
+#define IDS_SPLIT_TIP                   3381
+#define IDS_STYLE_SETTINGS              3382
+#define IDS_CHANGE_STYLE                3383
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        115
+#define _APS_NEXT_RESOURCE_VALUE        123
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1066
+#define _APS_NEXT_CONTROL_VALUE         1071
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

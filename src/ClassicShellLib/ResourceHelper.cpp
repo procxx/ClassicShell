@@ -395,6 +395,18 @@ DWORD GetVersionEx( HINSTANCE hInstance )
 	return ((HIWORD(pVer->dwProductVersionMS)&255)<<24)|((LOWORD(pVer->dwProductVersionMS)&255)<<16)|HIWORD(pVer->dwProductVersionLS);
 }
 
+// Returns the Windows version - 0x600, 0x601, ...
+WORD GetWinVersion( void )
+{
+	static WORD version;
+	if (!version)
+	{
+		DWORD ver=GetVersion();
+		version=MAKEWORD(HIBYTE(ver),LOBYTE(ver));
+	}
+	return version;
+}
+
 // Wrapper for IShellFolder::ParseDisplayName
 HRESULT ShParseDisplayName( wchar_t *pszName, PIDLIST_ABSOLUTE *ppidl, SFGAOF sfgaoIn, SFGAOF *psfgaoOut )
 {

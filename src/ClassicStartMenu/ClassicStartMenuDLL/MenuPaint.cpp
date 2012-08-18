@@ -13,8 +13,27 @@
 #include <vsstyle.h>
 #include <dwmapi.h>
 #include <algorithm>
+#include <math.h>
 
-void CMenuContainer::MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins, bool bAlpha, bool bRtlOffset )
+static BLENDFUNCTION g_AlphaFunc={AC_SRC_OVER,0,255,AC_SRC_ALPHA};
+
+static void StretchBlt2( HDC hdcDest, int xDest, int yDest, int wDest, int hDest, HDC hdcSrc, int xSrc, int ySrc, int wSrc, int hSrc, bool bAlpha )
+{
+	if (wDest>0 && hDest>0 && wSrc>0 && hSrc>0)
+	{
+		if (bAlpha)
+			AlphaBlend(hdcDest,xDest,yDest,wDest,hDest,hdcSrc,xSrc,ySrc,wSrc,hSrc,g_AlphaFunc);
+		else if (wDest==wSrc && hDest==hSrc)
+		{
+			// HACK: when blitting RTL image with no stretching, StretchBlt adds 1 pixel offset. use BitBlt instead
+			BitBlt(hdcDest,xDest,yDest,wDest,hDest,hdcSrc,xSrc,ySrc,SRCCOPY);
+		}
+		else
+			StretchBlt(hdcDest,xDest,yDest,wDest,hDest,hdcSrc,xSrc,ySrc,wSrc,hSrc,SRCCOPY);
+	}
+}
+
+void CMenuContainer::MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins, bool bAlpha )
 {
 	int x0a=rDst.left;
 	int x1a=rDst.left+rMargins.left;
@@ -35,36 +54,17 @@ void CMenuContainer::MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RE
 	int y3b=rSrc.bottom;
 
 	SetStretchBltMode(hDst,COLORONCOLOR);
-	if (bAlpha)
-	{
-		BLENDFUNCTION func={AC_SRC_OVER,0,255,AC_SRC_ALPHA};
-		if (x0a<x1a && y0a<y1a && x0b<x1b && y0b<y1b) AlphaBlend(hDst,x0a,y0a,x1a-x0a,y1a-y0a,hSrc,x0b,y0b,x1b-x0b,y1b-y0b,func);
-		if (x1a<x2a && y0a<y1a && x1b<x2b && y0b<y1b) AlphaBlend(hDst,x1a,y0a,x2a-x1a,y1a-y0a,hSrc,x1b,y0b,x2b-x1b,y1b-y0b,func);
-		if (x2a<x3a && y0a<y1a && x2b<x3b && y0b<y1b) AlphaBlend(hDst,x2a,y0a,x3a-x2a,y1a-y0a,hSrc,x2b,y0b,x3b-x2b,y1b-y0b,func);
+	StretchBlt2(hDst,x0a,y0a,x1a-x0a,y1a-y0a,hSrc,x0b,y0b,x1b-x0b,y1b-y0b,bAlpha);
+	StretchBlt2(hDst,x1a,y0a,x2a-x1a,y1a-y0a,hSrc,x1b,y0b,x2b-x1b,y1b-y0b,bAlpha);
+	StretchBlt2(hDst,x2a,y0a,x3a-x2a,y1a-y0a,hSrc,x2b,y0b,x3b-x2b,y1b-y0b,bAlpha);
 
-		if (x0a<x1a && y1a<y2a && x0b<x1b && y1b<y2b) AlphaBlend(hDst,x0a,y1a,x1a-x0a,y2a-y1a,hSrc,x0b,y1b,x1b-x0b,y2b-y1b,func);
-		if (x1a<x2a && y1a<y2a && x1b<x2b && y1b<y2b) AlphaBlend(hDst,x1a,y1a,x2a-x1a,y2a-y1a,hSrc,x1b,y1b,x2b-x1b,y2b-y1b,func);
-		if (x2a<x3a && y1a<y2a && x2b<x3b && y1b<y2b) AlphaBlend(hDst,x2a,y1a,x3a-x2a,y2a-y1a,hSrc,x2b,y1b,x3b-x2b,y2b-y1b,func);
+	StretchBlt2(hDst,x0a,y1a,x1a-x0a,y2a-y1a,hSrc,x0b,y1b,x1b-x0b,y2b-y1b,bAlpha);
+	StretchBlt2(hDst,x1a,y1a,x2a-x1a,y2a-y1a,hSrc,x1b,y1b,x2b-x1b,y2b-y1b,bAlpha);
+	StretchBlt2(hDst,x2a,y1a,x3a-x2a,y2a-y1a,hSrc,x2b,y1b,x3b-x2b,y2b-y1b,bAlpha);
 
-		if (x0a<x1a && y2a<y3a && x0b<x1b && y2b<y3b) AlphaBlend(hDst,x0a,y2a,x1a-x0a,y3a-y2a,hSrc,x0b,y2b,x1b-x0b,y3b-y2b,func);
-		if (x1a<x2a && y2a<y3a && x1b<x2b && y2b<y3b) AlphaBlend(hDst,x1a,y2a,x2a-x1a,y3a-y2a,hSrc,x1b,y2b,x2b-x1b,y3b-y2b,func);
-		if (x2a<x3a && y2a<y3a && x2b<x3b && y2b<y3b) AlphaBlend(hDst,x2a,y2a,x3a-x2a,y3a-y2a,hSrc,x2b,y2b,x3b-x2b,y3b-y2b,func);
-	}
-	else
-	{
-		int o=bRtlOffset?1:0;
-		if (x0a<x1a && y0a<y1a && x0b<x1b && y0b<y1b) StretchBlt(hDst,x0a-o,y0a,x1a-x0a+o,y1a-y0a,hSrc,x0b-o,y0b,x1b-x0b+o,y1b-y0b,SRCCOPY);
-		if (x1a<x2a && y0a<y1a && x1b<x2b && y0b<y1b) StretchBlt(hDst,x1a,y0a,x2a-x1a,y1a-y0a,hSrc,x1b,y0b,x2b-x1b,y1b-y0b,SRCCOPY);
-		if (x2a<x3a && y0a<y1a && x2b<x3b && y0b<y1b) StretchBlt(hDst,x2a-o,y0a,x3a-x2a+o,y1a-y0a,hSrc,x2b-o,y0b,x3b-x2b+o,y1b-y0b,SRCCOPY);
-
-		if (x0a<x1a && y1a<y2a && x0b<x1b && y1b<y2b) StretchBlt(hDst,x0a,y1a,x1a-x0a,y2a-y1a,hSrc,x0b,y1b,x1b-x0b,y2b-y1b,SRCCOPY);
-		if (x1a<x2a && y1a<y2a && x1b<x2b && y1b<y2b) StretchBlt(hDst,x1a,y1a,x2a-x1a,y2a-y1a,hSrc,x1b,y1b,x2b-x1b,y2b-y1b,SRCCOPY);
-		if (x2a<x3a && y1a<y2a && x2b<x3b && y1b<y2b) StretchBlt(hDst,x2a,y1a,x3a-x2a,y2a-y1a,hSrc,x2b,y1b,x3b-x2b,y2b-y1b,SRCCOPY);
-
-		if (x0a<x1a && y2a<y3a && x0b<x1b && y2b<y3b) StretchBlt(hDst,x0a-o,y2a,x1a-x0a+o,y3a-y2a,hSrc,x0b-o,y2b,x1b-x0b+o,y3b-y2b,SRCCOPY);
-		if (x1a<x2a && y2a<y3a && x1b<x2b && y2b<y3b) StretchBlt(hDst,x1a,y2a,x2a-x1a,y3a-y2a,hSrc,x1b,y2b,x2b-x1b,y3b-y2b,SRCCOPY);
-		if (x2a<x3a && y2a<y3a && x2b<x3b && y2b<y3b) StretchBlt(hDst,x2a-o,y2a,x3a-x2a+o,y3a-y2a,hSrc,x2b-o,y2b,x3b-x2b+o,y3b-y2b,SRCCOPY);
-	}
+	StretchBlt2(hDst,x0a,y2a,x1a-x0a,y3a-y2a,hSrc,x0b,y2b,x1b-x0b,y3b-y2b,bAlpha);
+	StretchBlt2(hDst,x1a,y2a,x2a-x1a,y3a-y2a,hSrc,x1b,y2b,x2b-x1b,y3b-y2b,bAlpha);
+	StretchBlt2(hDst,x2a,y2a,x3a-x2a,y3a-y2a,hSrc,x2b,y2b,x3b-x2b,y3b-y2b,bAlpha);
 }
 
 // Creates the bitmap for the background
@@ -75,8 +75,7 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 	Strcpy(caption,_countof(caption),GetSettingString(L"MenuCaption"));
 	DoEnvironmentSubst(caption,_countof(caption));
 
-	HBITMAP bmpSkin=m_bSubMenu?s_Skin.Submenu_bitmap:s_Skin.Main_bitmap;
-	bool b32=m_bSubMenu?s_Skin.Submenu_bitmap32:s_Skin.Main_bitmap32;
+	MenuBitmap bmpSkin=m_bSubMenu?s_Skin.Submenu_bitmap:s_Skin.Main_bitmap;
 	const int *slicesX=m_bSubMenu?s_Skin.Submenu_bitmap_slices_X:s_Skin.Main_bitmap_slices_X;
 	const int *slicesY=m_bSubMenu?s_Skin.Submenu_bitmap_slices_Y:s_Skin.Main_bitmap_slices_Y;
 	bool bCaption=(slicesX[1]>0);
@@ -144,15 +143,15 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 		FillRect(hdc,&rc,(HBRUSH)GetStockObject(DC_BRUSH));
 	}
 
-	if (bmpSkin)
+	if (bmpSkin.GetBitmap())
 	{
 		// draw the skinned background
-		HBITMAP bmp02=(HBITMAP)SelectObject(hdcTemp,bmpSkin);
+		HBITMAP bmp02=(HBITMAP)SelectObject(hdcTemp,bmpSkin.GetBitmap());
 
 		RECT rSrc={0,0,slicesX[0]+slicesX[1]+slicesX[2],slicesY[0]+slicesY[1]+slicesY[2]};
 		RECT rDst={0,0,textHeight,totalHeight};
 		RECT rMargins={slicesX[0],slicesY[0],slicesX[2],slicesY[2]};
-		MarginsBlit(hdcTemp,hdc,rSrc,rDst,rMargins,(opacity==MenuSkin::OPACITY_SOLID && b32));
+		MarginsBlit(hdcTemp,hdc,rSrc,rDst,rMargins,(opacity==MenuSkin::OPACITY_SOLID && bmpSkin.bIs32));
 
 		rSrc.left=rSrc.right;
 		rSrc.right+=slicesX[3]+slicesX[4]+slicesX[5];
@@ -160,7 +159,7 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 		rDst.right=totalWidth1;
 		rMargins.left=slicesX[3];
 		rMargins.right=slicesX[5];
-		MarginsBlit(hdcTemp,hdc,rSrc,rDst,rMargins,(opacity==MenuSkin::OPACITY_SOLID && b32));
+		MarginsBlit(hdcTemp,hdc,rSrc,rDst,rMargins,(opacity==MenuSkin::OPACITY_SOLID && bmpSkin.bIs32));
 
 		if (totalWidth2>0)
 		{
@@ -170,16 +169,16 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 			rDst.right+=totalWidth2;
 			rMargins.left=slicesX[6];
 			rMargins.right=slicesX[8];
-			MarginsBlit(hdcTemp,hdc,rSrc,rDst,rMargins,(opacity==MenuSkin::OPACITY_SOLID && b32));
+			MarginsBlit(hdcTemp,hdc,rSrc,rDst,rMargins,(opacity==MenuSkin::OPACITY_SOLID && bmpSkin.bIs32));
 		}
 
-		if (width2 && s_Skin.Main_separatorV)
+		if (width2 && s_Skin.Main_separatorV.GetBitmap())
 		{
-			SelectObject(hdcTemp,s_Skin.Main_separatorV);
+			SelectObject(hdcTemp,s_Skin.Main_separatorV.GetBitmap());
 			RECT rSrc2={0,0,s_Skin.Main_separatorWidth,s_Skin.Main_separator_slices_Y[0]+s_Skin.Main_separator_slices_Y[1]+s_Skin.Main_separator_slices_Y[2]};
 			RECT rDst2={totalWidth1,s_Skin.Main_padding.top,totalWidth1+s_Skin.Main_separatorWidth,totalHeight-s_Skin.Main_padding.bottom};
 			RECT rMargins2={0,s_Skin.Main_separator_slices_Y[0],0,s_Skin.Main_separator_slices_Y[2]};
-			MarginsBlit(hdcTemp,hdc,rSrc2,rDst2,rMargins2,s_Skin.Main_separatorV32);
+			MarginsBlit(hdcTemp,hdc,rSrc2,rDst2,rMargins2,s_Skin.Main_separatorV.bIs32);
 		}
 
 		SelectObject(hdcTemp,bmp02);
@@ -204,13 +203,13 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 		FillRect(hdc,&rc,(HBRUSH)GetStockObject(DC_BRUSH));
 		if (width2)
 		{
-			if (s_Skin.Main_separatorV)
+			if (s_Skin.Main_separatorV.GetBitmap())
 			{
-				HBITMAP bmp02=(HBITMAP)SelectObject(hdcTemp,s_Skin.Main_separatorV);
+				HBITMAP bmp02=(HBITMAP)SelectObject(hdcTemp,s_Skin.Main_separatorV.GetBitmap());
 				RECT rSrc2={0,0,s_Skin.Main_separatorWidth,s_Skin.Main_separator_slices_Y[0]+s_Skin.Main_separator_slices_Y[1]+s_Skin.Main_separator_slices_Y[2]};
 				RECT rDst2={totalWidth1,s_Skin.Main_padding.top,totalWidth1+s_Skin.Main_separatorWidth,totalHeight-s_Skin.Main_padding.bottom};
 				RECT rMargins2={0,s_Skin.Main_separator_slices_Y[0],0,s_Skin.Main_separator_slices_Y[2]};
-				MarginsBlit(hdcTemp,hdc,rSrc2,rDst2,rMargins2,s_Skin.Main_separatorV32);
+				MarginsBlit(hdcTemp,hdc,rSrc2,rDst2,rMargins2,s_Skin.Main_separatorV.bIs32);
 				SelectObject(hdcTemp,bmp02);
 			}
 			else
@@ -392,10 +391,10 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 		{
 			// draw user picture
 			SIZE frameSize;
-			if (s_Skin.User_bitmap)
+			if (s_Skin.User_bitmap.GetBitmap())
 			{
 				BITMAP info;
-				GetObject(s_Skin.User_bitmap,sizeof(info),&info);
+				GetObject(s_Skin.User_bitmap.GetBitmap(),sizeof(info),&info);
 				frameSize.cx=info.bmWidth;
 				frameSize.cy=info.bmHeight;
 			}
@@ -459,9 +458,9 @@ void CMenuContainer::CreateBackground( int width1, int width2, int height1, int 
 			// draw frame
 			pos.x-=s_Skin.User_image_offset.x;
 			pos.y-=s_Skin.User_image_offset.y;
-			if (s_Skin.User_bitmap)
+			if (s_Skin.User_bitmap.GetBitmap())
 			{
-				SelectObject(hdcTemp,s_Skin.User_bitmap);
+				SelectObject(hdcTemp,s_Skin.User_bitmap.GetBitmap());
 				BLENDFUNCTION func={AC_SRC_OVER,0,255,AC_SRC_ALPHA};
 				AlphaBlend(hdc,pos.x,pos.y,frameSize.cx,frameSize.cy,hdcTemp,0,0,frameSize.cx,frameSize.cy,func);
 			}
@@ -705,10 +704,10 @@ void CMenuContainer::CreateSubmenuRegion( int width, int height )
 	m_Region=NULL;
 	if (s_Skin.Submenu_opacity!=MenuSkin::OPACITY_REGION && s_Skin.Submenu_opacity!=MenuSkin::OPACITY_GLASS && s_Skin.Submenu_opacity!=MenuSkin::OPACITY_FULLGLASS)
 		return;
-	if (!s_Skin.Submenu_bitmap || !s_Skin.Submenu_bitmap32)
+	if (!s_Skin.Submenu_bitmap.GetBitmap() || !s_Skin.Submenu_bitmap.bIs32)
 		return;
 	BITMAP info;
-	GetObject(s_Skin.Submenu_bitmap,sizeof(info),&info);
+	GetObject(s_Skin.Submenu_bitmap.GetBitmap(),sizeof(info),&info);
 	const int *slicesX=s_Skin.Submenu_bitmap_slices_X+3;
 	const int *slicesY=s_Skin.Submenu_bitmap_slices_Y;
 	int slicesX0=slicesX[s_bRTL?2:0];
@@ -786,22 +785,22 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 		{ RECT rc={0,0,clientRect.right,clientRect.bottom}; rSrcMain=rc; }
 		bAlphaMain=false;
 	}
-	else if (m_bSubMenu && s_Skin.Submenu_bitmap)
+	else if (m_bSubMenu && s_Skin.Submenu_bitmap.GetBitmap())
 	{
-		bAlphaMain=(s_Skin.Submenu_opacity==MenuSkin::OPACITY_SOLID && s_Skin.Submenu_bitmap32);
+		bAlphaMain=(s_Skin.Submenu_opacity==MenuSkin::OPACITY_SOLID && s_Skin.Submenu_bitmap.bIs32);
 		if (bAlphaMain)
 		{
 			SetDCBrushColor(hdc,s_Skin.Submenu_background);
 			FillRect(hdc,&drawRect,(HBRUSH)GetStockObject(DC_BRUSH));
 		}
-		HGDIOBJ bmp0=SelectObject(hdc2,s_Skin.Submenu_bitmap);
+		HGDIOBJ bmp0=SelectObject(hdc2,s_Skin.Submenu_bitmap.GetBitmap());
 		const int *slicesX=s_Skin.Submenu_bitmap_slices_X;
 		const int *slicesY=s_Skin.Submenu_bitmap_slices_Y;
 		RECT rSrc={0,0,slicesX[3]+slicesX[4]+slicesX[5],slicesY[0]+slicesY[1]+slicesY[2]};
 		RECT rMargins={slicesX[3],slicesY[0],slicesX[5],slicesY[2]};
-		MarginsBlit(hdc2,hdc,rSrc,clientRect,rMargins,bAlphaMain,s_bRTL);
+		MarginsBlit(hdc2,hdc,rSrc,clientRect,rMargins,bAlphaMain);
 		SelectObject(hdc2,bmp0);
-		bmpMain=s_Skin.Submenu_bitmap;
+		bmpMain=s_Skin.Submenu_bitmap.GetBitmap();
 		rMarginsMain=rMargins;
 		rSrcMain=rSrc;
 	}
@@ -812,38 +811,35 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 	}
 
 	COLORREF *textColors[2]={NULL,NULL};
-	HBITMAP bmpArrow[2]={NULL,NULL};
-	bool bArr32[2]={false,false};
+	MenuBitmap bmpArrow[2]={0};
 	SIZE arrSize[2];
-	HBITMAP bmpSelection[2]={NULL,NULL};
-	bool bSel32[2]={false,false};
+	MenuBitmap bmpSelection[2]={0};
 	const int *selSlicesX[2]={NULL,NULL};
 	const int *selSlicesY[2]={NULL,NULL};
-	COLORREF selColor[2]={0,0};
-	HBITMAP bmpSeparator[2]={NULL,NULL};
-	bool bSep32[2]={false,false};
+
+	MenuBitmap bmpSplitSelection[2]={0};
+	const int *splitSelSlicesX[2]={NULL,NULL};
+	const int *splitSelSlicesY[2]={NULL,NULL};
+
+	MenuBitmap bmpSeparator[2]={0};
 	const int *sepSlicesX[2]={NULL,NULL};
-	HBITMAP bmpIconFrame=NULL;
-	bool bFrame32=false;
-	const int *frameSlicesX=NULL;
-	const int *frameSlicesY=NULL;
-	const POINT *iconFrameOffset=NULL;
+	MenuBitmap bmpIconFrame[2]={0};
+	const int *frameSlicesX[2]={NULL,NULL};
+	const int *frameSlicesY[2]={NULL,NULL};
+	const POINT *iconFrameOffset[2]={NULL,NULL};
 	const RECT iconPadding[2]={m_bSubMenu?s_Skin.Submenu_icon_padding:s_Skin.Main_icon_padding,s_Skin.Main_icon_padding2};
 	const RECT textPadding[2]={m_bSubMenu?s_Skin.Submenu_text_padding:s_Skin.Main_text_padding,s_Skin.Main_text_padding2};
 	const SIZE arrPadding[2]={m_bSubMenu?s_Skin.Submenu_arrow_padding:s_Skin.Main_arrow_padding,s_Skin.Main_arrow_padding2};
 	MenuSkin::TOpacity opacity[2]={m_bSubMenu?s_Skin.Submenu_opacity:s_Skin.Main_opacity,s_Skin.Main_opacity2};
 	int glow[2]={m_bSubMenu?s_Skin.Submenu_glow_size:s_Skin.Main_glow_size,s_Skin.Main_glow_size2};
 
-	HBITMAP bmpSeparatorV=NULL;
-	bool bSepV32=false;
+	MenuBitmap bmpSeparatorV={0};
 	int sepWidth=0;
 	const int *sepSlicesY=NULL;
-	HBITMAP bmpPager=NULL;
-	bool bPag32=false;
+	MenuBitmap bmpPager={0};
 	const int *pagSlicesX=NULL;
 	const int *pagSlicesY=NULL;
-	HBITMAP bmpPagerArrows=NULL;
-	bool bPagArr32=false;
+	MenuBitmap bmpPagerArrows={0};
 	SIZE pagArrowSize;
 	HIMAGELIST images=(m_Options&CONTAINER_LARGE)?g_IconManager.m_LargeIcons:g_IconManager.m_SmallIcons;
 	int iconSize=(m_Options&CONTAINER_LARGE)?g_IconManager.LARGE_ICON_SIZE:g_IconManager.SMALL_ICON_SIZE;
@@ -854,99 +850,76 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 	{
 		textColors[0]=s_Skin.Submenu_text_color;
 		bmpArrow[0]=s_Skin.Submenu_arrow;
-		bArr32[0]=s_Skin.Submenu_arrow32;
 		arrSize[0]=s_Skin.Submenu_arrow_Size;
-		if (s_Skin.Submenu_selectionColor)
-		{
-			selColor[0]=s_Skin.Submenu_selection.color;
-		}
-		else
-		{
-			bmpSelection[0]=s_Skin.Submenu_selection.bmp;
-			bSel32[0]=s_Skin.Submenu_selection32;
-			selSlicesX[0]=s_Skin.Submenu_selection_slices_X;
-			selSlicesY[0]=s_Skin.Submenu_selection_slices_Y;
-		}
+		bmpSelection[0]=s_Skin.Submenu_selection;
+		selSlicesX[0]=s_Skin.Submenu_selection_slices_X;
+		selSlicesY[0]=s_Skin.Submenu_selection_slices_Y;
+		bmpSplitSelection[0]=s_Skin.Submenu_split_selection;
+		splitSelSlicesX[0]=s_Skin.Submenu_split_selection_slices_X;
+		splitSelSlicesY[0]=s_Skin.Submenu_split_selection_slices_Y;
 
 		bmpSeparator[0]=s_Skin.Submenu_separator;
-		bSep32[0]=s_Skin.Submenu_separator32;
 		sepSlicesX[0]=s_Skin.Submenu_separator_slices_X;
 
 		bmpSeparatorV=s_Skin.Submenu_separatorV;
-		bSepV32=s_Skin.Submenu_separatorV32;
 		sepWidth=s_Skin.Submenu_separatorWidth;
 		sepSlicesY=s_Skin.Submenu_separator_slices_Y;
 
-		bmpIconFrame=s_Skin.Submenu_icon_frame;
-		bFrame32=s_Skin.Submenu_icon_frame32;
-		frameSlicesX=s_Skin.Submenu_icon_frame_slices_X;
-		frameSlicesY=s_Skin.Submenu_icon_frame_slices_Y;
-		iconFrameOffset=&s_Skin.Submenu_icon_frame_offset;
+		bmpIconFrame[0]=s_Skin.Submenu_icon_frame;
+		frameSlicesX[0]=s_Skin.Submenu_icon_frame_slices_X;
+		frameSlicesY[0]=s_Skin.Submenu_icon_frame_slices_Y;
+		iconFrameOffset[0]=&s_Skin.Submenu_icon_frame_offset;
 
 		bmpPager=s_Skin.Submenu_pager;
-		bPag32=s_Skin.Submenu_pager32;
 		pagSlicesX=s_Skin.Submenu_pager_slices_X;
 		pagSlicesY=s_Skin.Submenu_pager_slices_Y;
 		bmpPagerArrows=s_Skin.Submenu_pager_arrows;
-		bPagArr32=s_Skin.Submenu_pager_arrows32;
 		pagArrowSize=s_Skin.Submenu_pager_arrow_Size;
 	}
 	else
 	{
 		textColors[0]=s_Skin.Main_text_color;
 		bmpArrow[0]=s_Skin.Main_arrow;
-		bArr32[0]=s_Skin.Main_arrow32;
 		arrSize[0]=s_Skin.Main_arrow_Size;
-		if (s_Skin.Main_selectionColor)
-		{
-			selColor[0]=s_Skin.Main_selection.color;
-		}
-		else
-		{
-			bmpSelection[0]=s_Skin.Main_selection.bmp;
-			bSel32[0]=s_Skin.Main_selection32;
-			selSlicesX[0]=s_Skin.Main_selection_slices_X;
-			selSlicesY[0]=s_Skin.Main_selection_slices_Y;
-		}
+		bmpSelection[0]=s_Skin.Main_selection;
+		selSlicesX[0]=s_Skin.Main_selection_slices_X;
+		selSlicesY[0]=s_Skin.Main_selection_slices_Y;
+		bmpSplitSelection[0]=s_Skin.Main_split_selection;
+		splitSelSlicesX[0]=s_Skin.Main_split_selection_slices_X;
+		splitSelSlicesY[0]=s_Skin.Main_split_selection_slices_Y;
 		bmpSeparator[0]=s_Skin.Main_separator;
-		bSep32[0]=s_Skin.Main_separator32;
 		sepSlicesX[0]=s_Skin.Main_separator_slices_X;
+
+		bmpIconFrame[0]=s_Skin.Main_icon_frame;
+		frameSlicesX[0]=s_Skin.Main_icon_frame_slices_X;
+		frameSlicesY[0]=s_Skin.Main_icon_frame_slices_Y;
+		iconFrameOffset[0]=&s_Skin.Main_icon_frame_offset;
 
 		if (m_bTwoColumns)
 		{
 			textColors[1]=s_Skin.Main_text_color2;
 			bmpArrow[1]=s_Skin.Main_arrow2;
-			bArr32[1]=s_Skin.Main_arrow232;
 			arrSize[1]=s_Skin.Main_arrow_Size2;
-			if (s_Skin.Main_selectionColor2)
-			{
-				selColor[1]=s_Skin.Main_selection2.color;
-			}
-			else
-			{
-				bmpSelection[1]=s_Skin.Main_selection2.bmp;
-				bSel32[1]=s_Skin.Main_selection232;
-				selSlicesX[1]=s_Skin.Main_selection_slices_X2;
-				selSlicesY[1]=s_Skin.Main_selection_slices_Y2;
-			}
+			bmpSelection[1]=s_Skin.Main_selection2;
+			selSlicesX[1]=s_Skin.Main_selection_slices_X2;
+			selSlicesY[1]=s_Skin.Main_selection_slices_Y2;
+			bmpSplitSelection[1]=s_Skin.Main_split_selection2;
+			splitSelSlicesX[1]=s_Skin.Main_split_selection_slices_X2;
+			splitSelSlicesY[1]=s_Skin.Main_split_selection_slices_Y2;
 
 			bmpSeparator[1]=s_Skin.Main_separator2;
-			bSep32[1]=s_Skin.Main_separator232;
 			sepSlicesX[1]=s_Skin.Main_separator_slices_X2;
+
+			bmpIconFrame[1]=s_Skin.Main_icon_frame2;
+			frameSlicesX[1]=s_Skin.Main_icon_frame_slices_X2;
+			frameSlicesY[1]=s_Skin.Main_icon_frame_slices_Y2;
+			iconFrameOffset[1]=&s_Skin.Main_icon_frame_offset2;
 		}
 
-		bmpIconFrame=s_Skin.Main_icon_frame;
-		bFrame32=s_Skin.Main_icon_frame32;
-		frameSlicesX=s_Skin.Main_icon_frame_slices_X;
-		frameSlicesY=s_Skin.Main_icon_frame_slices_Y;
-		iconFrameOffset=&s_Skin.Main_icon_frame_offset;
-
 		bmpPager=s_Skin.Main_pager;
-		bPag32=s_Skin.Main_pager32;
 		pagSlicesX=s_Skin.Main_pager_slices_X;
 		pagSlicesY=s_Skin.Main_pager_slices_Y;
 		bmpPagerArrows=s_Skin.Main_pager_arrows;
-		bPagArr32=s_Skin.Main_pager_arrows32;
 		pagArrowSize=s_Skin.Main_pager_arrow_Size;
 	}
 
@@ -985,7 +958,7 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 					{
 						HGDIOBJ bmp0=SelectObject(hdc2,bmpMain);
 						IntersectClipRect(hdc,m_rContent.left,0,m_rContent.right,clipTop);
-						MarginsBlit(hdc2,hdc,rSrcMain,clientRect,rMarginsMain,bAlphaMain,s_bRTL);
+						MarginsBlit(hdc2,hdc,rSrcMain,clientRect,rMarginsMain,bAlphaMain);
 						SelectObject(hdc2,bmp0);
 						SelectClipRgn(hdc,NULL);
 					}
@@ -994,21 +967,21 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 				// draw up button
 				RECT rc=m_rContent;
 				rc.bottom=clipTop;
-				if (bmpPager && bmpPagerArrows)
+				if (bmpPager.GetBitmap() && bmpPagerArrows.GetBitmap())
 				{
 					// background
-					HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpPager);
+					HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpPager.GetBitmap());
 					RECT rSrc={0,0,pagSlicesX[0]+pagSlicesX[1]+pagSlicesX[2],pagSlicesY[0]+pagSlicesY[1]+pagSlicesY[2]};
 					if (m_bScrollUpHot)
 						OffsetRect(&rSrc,0,rSrc.bottom);
 					RECT rMargins={pagSlicesX[0],pagSlicesY[0],pagSlicesX[2],pagSlicesY[2]};
-					MarginsBlit(hdc2,hdc,rSrc,rc,rMargins,bPag32,s_bRTL);
+					MarginsBlit(hdc2,hdc,rSrc,rc,rMargins,bmpPager.bIs32);
 
 					// arrow
-					SelectObject(hdc2,bmpPagerArrows);
+					SelectObject(hdc2,bmpPagerArrows.GetBitmap());
 					int x=(rc.left+rc.right-pagArrowSize.cx)/2;
 					int y=(rc.top+rc.bottom-pagArrowSize.cy)/2;
-					if (bPagArr32)
+					if (bmpPagerArrows.bIs32)
 					{
 						BLENDFUNCTION func={AC_SRC_OVER,0,255,AC_SRC_ALPHA};
 						AlphaBlend(hdc,x,y,pagArrowSize.cx,pagArrowSize.cy,hdc2,m_bScrollUpHot?pagArrowSize.cx:0,0,pagArrowSize.cx,pagArrowSize.cy,func);
@@ -1042,7 +1015,7 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 					{
 						HGDIOBJ bmp0=SelectObject(hdc2,bmpMain);
 						IntersectClipRect(hdc,m_rContent.left,clipBottom,m_rContent.right,bottom);
-						MarginsBlit(hdc2,hdc,rSrcMain,clientRect,rMarginsMain,bAlphaMain,s_bRTL);
+						MarginsBlit(hdc2,hdc,rSrcMain,clientRect,rMarginsMain,bAlphaMain);
 						SelectObject(hdc2,bmp0);
 						SelectClipRgn(hdc,NULL);
 					}
@@ -1052,21 +1025,21 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 				RECT rc=m_rContent;
 				rc.bottom=m_rContent.top+m_ScrollHeight;
 				rc.top=clipBottom;
-				if (bmpPager && bmpPagerArrows)
+				if (bmpPager.GetBitmap() && bmpPagerArrows.GetBitmap())
 				{
 					// background
-					HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpPager);
+					HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpPager.GetBitmap());
 					RECT rSrc={0,0,pagSlicesX[0]+pagSlicesX[1]+pagSlicesX[2],pagSlicesY[0]+pagSlicesY[1]+pagSlicesY[2]};
 					if (m_bScrollDownHot)
 						OffsetRect(&rSrc,0,rSrc.bottom);
 					RECT rMargins={pagSlicesX[0],pagSlicesY[0],pagSlicesX[2],pagSlicesY[2]};
-					MarginsBlit(hdc2,hdc,rSrc,rc,rMargins,bPag32,s_bRTL);
+					MarginsBlit(hdc2,hdc,rSrc,rc,rMargins,bmpPager.bIs32);
 
 					// arrow
-					SelectObject(hdc2,bmpPagerArrows);
+					SelectObject(hdc2,bmpPagerArrows.GetBitmap());
 					int x=(rc.left+rc.right-pagArrowSize.cx)/2;
 					int y=(rc.top+rc.bottom-pagArrowSize.cy)/2;
-					if (bPagArr32)
+					if (bmpPagerArrows.bIs32)
 					{
 						BLENDFUNCTION func={AC_SRC_OVER,0,255,AC_SRC_ALPHA};
 						AlphaBlend(hdc,x,y,pagArrowSize.cx,pagArrowSize.cy,hdc2,m_bScrollDownHot?pagArrowSize.cx:0,pagArrowSize.cy,pagArrowSize.cx,pagArrowSize.cy,func);
@@ -1106,21 +1079,17 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 		}
 
 		int index=(m_bTwoColumns && item.column==1)?1:0;
-		if (index==1 && (i==0 || m_Items[i-1].column==0))
-		{
-			SelectObject(hdc,m_Font[1]);
-		}
 		if (item.id==MENU_SEPARATOR)
 		{
 			// draw separator
 			if (itemRect.bottom>itemRect.top)
 			{
-				if (bmpSeparator[index])
+				if (bmpSeparator[index].GetBitmap())
 				{
-					HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpSeparator[index]);
+					HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpSeparator[index].GetBitmap());
 					RECT rSrc={0,0,sepSlicesX[index][0]+sepSlicesX[index][1]+sepSlicesX[index][2],itemRect.bottom-itemRect.top};
 					RECT rMargins={sepSlicesX[index][0],itemRect.bottom-itemRect.top,sepSlicesX[index][2],0};
-					MarginsBlit(hdc2,hdc,rSrc,itemRect,rMargins,bSep32[index]);
+					MarginsBlit(hdc2,hdc,rSrc,itemRect,rMargins,bmpSeparator[index].bIs32);
 					SelectObject(hdc2,bmp0);
 				}
 				else
@@ -1150,38 +1119,129 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 			itemRect.left=itemRect.right-(itemRect.bottom-itemRect.top);
 			bHot=(i==m_HotItem && m_SearchState>=SEARCH_TEXT);
 		}
+		bool bSplit=false, bSplitLeft=false, bSplitRight=false;
 		if (bHot)
 		{
+			bSplit=(item.bFolder && item.bSplit);
+			bSplitLeft=(i==m_HotItem && !m_bHotArrow) || i==m_ContextItem;
+			bSplitRight=(i==m_HotItem && m_bHotArrow) || i==m_Submenu || i==m_ContextItem;
+			int splitX=itemRect.right-arrPadding[index].cx-arrPadding[index].cy-arrSize[index].cx-1;
 			// draw selection background
-			if (bmpSelection[index])
+			if (bSplit && bmpSplitSelection[index].GetBitmap())
 			{
-				HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpSelection[index]);
+				HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpSplitSelection[index].GetBitmap());
+				{
+					RECT rSrc={0,0,splitSelSlicesX[index][0]+splitSelSlicesX[index][1]+splitSelSlicesX[index][2],splitSelSlicesY[index][0]+splitSelSlicesY[index][1]+splitSelSlicesY[index][2]};
+					if (bSplitLeft)
+						OffsetRect(&rSrc,0,rSrc.bottom);
+					RECT rMargins={splitSelSlicesX[index][0],splitSelSlicesY[index][0],splitSelSlicesX[index][2],splitSelSlicesY[index][2]};
+					RECT itemRect2=itemRect;
+					itemRect2.right=splitX;
+					int w=itemRect2.right-itemRect2.left;
+					int h=itemRect2.bottom-itemRect2.top;
+					if (rMargins.left>w) rMargins.left=w;
+					if (rMargins.right>w) rMargins.right=w;
+					if (rMargins.top>h) rMargins.top=h;
+					if (rMargins.bottom>h) rMargins.bottom=h;
+					MarginsBlit(hdc2,hdc,rSrc,itemRect2,rMargins,bmpSplitSelection[index].bIs32);
+				}
+				{
+					RECT rSrc={splitSelSlicesX[index][0]+splitSelSlicesX[index][1]+splitSelSlicesX[index][2],0,0,splitSelSlicesY[index][0]+splitSelSlicesY[index][1]+splitSelSlicesY[index][2]};
+					if (bSplitRight)
+						OffsetRect(&rSrc,0,rSrc.bottom);
+					rSrc.right=rSrc.left+splitSelSlicesX[index][3]+splitSelSlicesX[index][4]+splitSelSlicesX[index][5];
+					RECT rMargins={splitSelSlicesX[index][3],splitSelSlicesY[index][0],splitSelSlicesX[index][5],splitSelSlicesY[index][2]};
+					RECT itemRect2=itemRect;
+					itemRect2.left=splitX;
+					int w=itemRect2.right-itemRect2.left;
+					int h=itemRect2.bottom-itemRect2.top;
+					if (rMargins.left>w) rMargins.left=w;
+					if (rMargins.right>w) rMargins.right=w;
+					if (rMargins.top>h) rMargins.top=h;
+					if (rMargins.bottom>h) rMargins.bottom=h;
+					MarginsBlit(hdc2,hdc,rSrc,itemRect2,rMargins,bmpSplitSelection[index].bIs32);
+				}
+				SelectObject(hdc2,bmp0);
+			}
+			else if (bmpSelection[index].bIsBitmap)
+			{
+				HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpSelection[index].GetBitmap());
 				RECT rSrc={0,0,selSlicesX[index][0]+selSlicesX[index][1]+selSlicesX[index][2],selSlicesY[index][0]+selSlicesY[index][1]+selSlicesY[index][2]};
-				RECT rMargins={selSlicesX[index][0],selSlicesY[index][0],selSlicesX[index][2],selSlicesY[index][2]};
-				int w=itemRect.right-itemRect.left;
-				int h=itemRect.bottom-itemRect.top;
-				if (rMargins.left>w) rMargins.left=w;
-				if (rMargins.right>w) rMargins.right=w;
-				if (rMargins.top>h) rMargins.top=h;
-				if (rMargins.bottom>h) rMargins.bottom=h;
-				MarginsBlit(hdc2,hdc,rSrc,itemRect,rMargins,bSel32[index]);
+				{
+					RECT rMargins={selSlicesX[index][0],selSlicesY[index][0],selSlicesX[index][2],selSlicesY[index][2]};
+					RECT itemRect2=itemRect;
+					if (bSplit) itemRect2.right=splitX;
+					int w=itemRect2.right-itemRect2.left;
+					int h=itemRect2.bottom-itemRect2.top;
+					if (rMargins.left>w) rMargins.left=w;
+					if (rMargins.right>w) rMargins.right=w;
+					if (rMargins.top>h) rMargins.top=h;
+					if (rMargins.bottom>h) rMargins.bottom=h;
+					MarginsBlit(hdc2,hdc,rSrc,itemRect2,rMargins,bmpSelection[index].bIs32);
+				}
+				if (bSplit)
+				{
+					RECT rMargins={selSlicesX[index][0],selSlicesY[index][0],selSlicesX[index][2],selSlicesY[index][2]};
+					RECT itemRect2=itemRect;
+					itemRect2.left=splitX;
+					int w=itemRect2.right-itemRect2.left;
+					int h=itemRect2.bottom-itemRect2.top;
+					if (rMargins.left>w) rMargins.left=w;
+					if (rMargins.right>w) rMargins.right=w;
+					if (rMargins.top>h) rMargins.top=h;
+					if (rMargins.bottom>h) rMargins.bottom=h;
+					MarginsBlit(hdc2,hdc,rSrc,itemRect2,rMargins,bmpSelection[index].bIs32);
+				}
 				SelectObject(hdc2,bmp0);
 			}
 			else
 			{
-				SetDCBrushColor(hdc,selColor[index]);
-				FillRect(hdc,&itemRect,(HBRUSH)GetStockObject(DC_BRUSH));
+				SetDCBrushColor(hdc,bmpSelection[index].GetColor());
+				SetDCPenColor(hdc,bmpSelection[index].GetColor());
+				if (bSplit)
+				{
+					if (bSplitLeft)
+					{
+						RECT itemRect2=itemRect;
+						itemRect2.right=splitX;
+						FillRect(hdc,&itemRect2,(HBRUSH)GetStockObject(DC_BRUSH));
+					}
+					else
+					{
+						SelectObject(hdc,GetStockObject(DC_PEN));
+						SelectObject(hdc,GetStockObject(NULL_BRUSH));
+						Rectangle(hdc,itemRect.left,itemRect.top,splitX+1,itemRect.bottom);
+					}
+					if (bSplitRight)
+					{
+						RECT itemRect2=itemRect;
+						itemRect2.left=splitX+1;
+						FillRect(hdc,&itemRect2,(HBRUSH)GetStockObject(DC_BRUSH));
+					}
+					else
+					{
+						SelectObject(hdc,GetStockObject(DC_PEN));
+						SelectObject(hdc,GetStockObject(NULL_BRUSH));
+						Rectangle(hdc,splitX-1,itemRect.top,itemRect.right,itemRect.bottom);
+					}
+				}
+				else
+				{
+					FillRect(hdc,&itemRect,(HBRUSH)GetStockObject(DC_BRUSH));
+				}
 			}
 		}
 
 		if (item.id==MENU_SEARCH_BOX)
 		{
-			HBITMAP searchIcons=m_SearchIcons;
-			bool b32=true;
-			if (s_Skin.Search_bitmap)
-			{
+			MenuBitmap searchIcons;
+			if (s_Skin.Search_bitmap.GetBitmap())
 				searchIcons=s_Skin.Search_bitmap;
-				b32=s_Skin.Search_bitmap32;
+			else
+			{
+				searchIcons.Init();
+				searchIcons=m_SearchIcons;
+				searchIcons.bIs32=true;
 			}
 
 			RECT rc;
@@ -1201,45 +1261,51 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 				if (IsLanguageRTL())
 					icon--;
 			}
-			HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,searchIcons);
+			HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,searchIcons.GetBitmap());
 			RECT rSrc={0,0,iconSize,iconSize};
 			RECT rDst=rSrc;
 			OffsetRect(&rSrc,iconSize*icon,iconY);
 			OffsetRect(&rDst,(itemRect.right+itemRect.left-iconSize)/2,(itemRect.bottom+itemRect.top-iconSize)/2);
 			RECT rMargins={0,0,0,0};
-			MarginsBlit(hdc2,hdc,rSrc,rDst,rMargins,b32);
+			MarginsBlit(hdc2,hdc,rSrc,rDst,rMargins,searchIcons.bIs32);
 			SelectObject(hdc2,bmp0);
 			continue;
 		}
 
+		bool bNoIcon=m_bTwoColumns && index==1 && !item.bInline && s_Skin.Main_no_icons2;
+
 		// draw icon
-		if (item.icon>=0)
+		if (item.icon>=0 && !bNoIcon)
 		{
 			int iconX=itemRect.left+iconPadding[index].left;
 			int iconY=itemRect.top+iconPadding[index].top+m_IconTopOffset[index];
-			if (bmpIconFrame)
+			if (bmpIconFrame[index].GetBitmap())
 			{
-				HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpIconFrame);
-				RECT rSrc={0,0,frameSlicesX[0]+frameSlicesX[1]+frameSlicesX[2],frameSlicesY[0]+frameSlicesY[1]+frameSlicesY[2]};
+				HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpIconFrame[index].GetBitmap());
+				RECT rSrc={0,0,frameSlicesX[index][0]+frameSlicesX[index][1]+frameSlicesX[index][2],frameSlicesY[index][0]+frameSlicesY[index][1]+frameSlicesY[index][2]};
 				if (bHot)
 					OffsetRect(&rSrc,rSrc.right,0);
 				RECT rDst={iconX,iconY,iconX+iconSize,iconY+iconSize};
-				InflateRect(&rDst,iconFrameOffset->x,iconFrameOffset->y);
-				RECT rMargins={frameSlicesX[0],frameSlicesY[0],frameSlicesX[2],frameSlicesY[2]};
-				MarginsBlit(hdc2,hdc,rSrc,rDst,rMargins,bFrame32);
+				InflateRect(&rDst,iconFrameOffset[index]->x,iconFrameOffset[index]->y);
+				RECT rMargins={frameSlicesX[index][0],frameSlicesY[index][0],frameSlicesX[index][2],frameSlicesY[index][2]};
+				MarginsBlit(hdc2,hdc,rSrc,rDst,rMargins,bmpIconFrame[index].bIs32);
 				SelectObject(hdc2,bmp0);
 			}
 			ImageList_DrawEx(images,item.icon,hdc,iconX,iconY,0,0,CLR_NONE,CLR_NONE,ILD_NORMAL);
 		}
 
 		// draw text
+		SelectObject(hdc,m_Font[index]);
 		COLORREF color;
+		bool bHotColor=bHot && (!bSplit || bSplitLeft);
 		if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP)
-			color=textColors[index][bHot?3:2];
+			color=textColors[index][bHotColor?3:2];
 		else
-			color=textColors[index][bHot?1:0];
-		RECT rc={itemRect.left+iconSize+iconPadding[index].left+iconPadding[index].right+textPadding[index].left,itemRect.top+m_TextTopOffset[index],
+			color=textColors[index][bHotColor?1:0];
+		RECT rc={itemRect.left+iconPadding[index].left+iconPadding[index].right+textPadding[index].left,itemRect.top+m_TextTopOffset[index],
 		         itemRect.right-arrSize[index].cx-arrPadding[index].cx-arrPadding[index].cy-textPadding[index].right,itemRect.bottom-m_TextTopOffset[index]};
+		if (!bNoIcon)
+			rc.left+=iconSize;
 		DWORD flags=DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS;
 		if (item.id==MENU_NO)
 			flags|=DT_NOPREFIX;
@@ -1267,19 +1333,20 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 		if (item.bFolder)
 		{
 			// draw the sub-menu arrows
-			if (bmpArrow[index])
+			bool bHotArrow=bHot && (!bSplit || bSplitRight);
+			if (bmpArrow[index].GetBitmap())
 			{
 				int x=itemRect.right-arrPadding[index].cy-arrSize[index].cx;
 				int y=(itemRect.top+itemRect.bottom-arrSize[index].cy)/2;
-				HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpArrow[index]);
-				if (bArr32[index])
+				HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpArrow[index].GetBitmap());
+				if (bmpArrow[index].bIs32)
 				{
 					BLENDFUNCTION func={AC_SRC_OVER,0,255,AC_SRC_ALPHA};
-					AlphaBlend(hdc,x,y,arrSize[index].cx,arrSize[index].cy,hdc2,0,bHot?arrSize[index].cy:0,arrSize[index].cx,arrSize[index].cy,func);
+					AlphaBlend(hdc,x,y,arrSize[index].cx,arrSize[index].cy,hdc2,0,bHotArrow?arrSize[index].cy:0,arrSize[index].cx,arrSize[index].cy,func);
 				}
 				else
 				{
-					BitBlt(hdc,x,y,arrSize[index].cx,arrSize[index].cy,hdc2,0,bHot?arrSize[index].cy:0,SRCCOPY);
+					BitBlt(hdc,x,y,arrSize[index].cx,arrSize[index].cy,hdc2,0,bHotArrow?arrSize[index].cy:0,SRCCOPY);
 				}
 				SelectObject(hdc2,bmp0);
 			}
@@ -1287,7 +1354,7 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 			{
 				int x=itemRect.right-arrPadding[index].cy-4;
 				int y=(itemRect.top+itemRect.bottom-6)/2;
-				HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,m_ArrowsBitmap[index*2+(bHot?1:0)]);
+				HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,m_ArrowsBitmap[index*2+(bHotArrow?1:0)]);
 				BLENDFUNCTION func={AC_SRC_OVER,0,255,AC_SRC_ALPHA};
 				AlphaBlend(hdc,x,y,4,7,hdc2,s_bRTL?0:10,0,4,7,func);
 				SelectObject(hdc2,bmp0);
@@ -1298,16 +1365,16 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 	// draw vertical separators
 	if (m_bSubMenu && m_ColumnOffsets.size()>1)
 	{
-		if (bmpSeparatorV)
+		if (bmpSeparatorV.GetBitmap())
 		{
-			HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpSeparatorV);
+			HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpSeparatorV.GetBitmap());
 			RECT rSrc={0,0,sepWidth,sepSlicesY[0]+sepSlicesY[1]+sepSlicesY[2]};
 			RECT rMargins={0,sepSlicesY[0],0,sepSlicesY[2]};
 			for (size_t i=1;i<m_ColumnOffsets.size();i++)
 			{
 				int x=m_rContent.left+m_ColumnOffsets[i];
 				RECT rc={x-sepWidth,m_rContent.top,x,m_rContent.bottom};
-				MarginsBlit(hdc2,hdc,rSrc,rc,rMargins,bSepV32);
+				MarginsBlit(hdc2,hdc,rSrc,rc,rMargins,bmpSeparatorV.bIs32);
 			}
 			SelectObject(hdc2,bmp0);
 		}
@@ -1357,6 +1424,21 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 LRESULT CMenuContainer::OnPaint( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
 	// handles both WM_PAINT and WM_PRINTCLIENT
+	MenuSkin::TOpacity opacity=(m_bSubMenu?s_Skin.Submenu_opacity:s_Skin.Main_opacity);
+	if ((!m_bSubMenu && m_Bitmap) || (m_bSubMenu && s_Skin.Submenu_bitmap.GetBitmap()))
+	{
+		if (opacity==MenuSkin::OPACITY_GLASS || opacity==MenuSkin::OPACITY_FULLGLASS)
+		{
+			DWM_BLURBEHIND blur={DWM_BB_ENABLE|DWM_BB_BLURREGION,TRUE,m_Region,FALSE};
+			DwmEnableBlurBehindWindow(m_hWnd,&blur);
+		}
+		else if (opacity==MenuSkin::OPACITY_REGION)
+		{
+			DWM_BLURBEHIND blur={DWM_BB_ENABLE|((uMsg==WM_PRINTCLIENT)?DWM_BB_BLURREGION:0),(uMsg==WM_PRINTCLIENT),m_Region,FALSE};
+			DwmEnableBlurBehindWindow(m_hWnd,&blur);
+		}
+	}
+
 	PAINTSTRUCT ps;
 	HDC hdc;
 	if (uMsg==WM_PRINTCLIENT)
@@ -1368,12 +1450,7 @@ LRESULT CMenuContainer::OnPaint( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 	{
 		hdc=BeginPaint(&ps);
 	}
-	MenuSkin::TOpacity opacity=(m_bSubMenu?s_Skin.Submenu_opacity:s_Skin.Main_opacity);
-	if ((opacity==MenuSkin::OPACITY_GLASS || opacity==MenuSkin::OPACITY_FULLGLASS) && ((!m_bSubMenu && m_Bitmap) || (m_bSubMenu && s_Skin.Submenu_bitmap)))
-	{
-		DWM_BLURBEHIND blur={DWM_BB_ENABLE|DWM_BB_BLURREGION,TRUE,m_Region,FALSE};
-		DwmEnableBlurBehindWindow(m_hWnd,&blur);
-	}
+
 	BP_PAINTPARAMS paintParams={sizeof(paintParams)};
 	paintParams.dwFlags=BPPF_ERASE;
 
@@ -1382,7 +1459,33 @@ LRESULT CMenuContainer::OnPaint( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 	if (hdcPaint)
 	{
 		DrawBackground(hdcPaint,ps.rcPaint);
-		if (uMsg==WM_PRINTCLIENT && (lParam&PRF_CHILDREN) && m_SearchBox.m_hWnd)
+		if (m_bSubMenu?s_Skin.Submenu_FakeGlass:s_Skin.Main_FakeGlass)
+		{
+			static unsigned char remapAlpha[256];
+			if (!remapAlpha[255])
+			{
+				for (int i=0;i<256;i++)
+					remapAlpha[i]=(unsigned char)(255*pow(i/255.f,0.2f));
+			}
+			HBITMAP bmp0=CreateCompatibleBitmap(hdcPaint,1,1);
+			HBITMAP bmp=(HBITMAP)SelectObject(hdcPaint,bmp0);
+			BITMAP info;
+			GetObject(bmp,sizeof(info),&info);
+			if (info.bmBitsPixel==32)
+			{
+				int n=info.bmWidth*info.bmHeight;
+				for (int i=0;i<n;i++)
+				{
+					unsigned int &pixel=((unsigned int*)info.bmBits)[i];
+					int a=pixel>>24;
+					a=remapAlpha[a];
+					pixel=(a<<24)|(pixel&0xFFFFFF);
+				}
+			}
+			SelectObject(hdcPaint,bmp);
+			DeleteObject(bmp0);
+		}
+		if (m_SearchBox.m_hWnd && ((uMsg==WM_PRINTCLIENT && (lParam&PRF_CHILDREN)) || (uMsg==WM_PAINT && !m_bSearchDrawn)))
 		{
 			RECT rc;
 			GetWindowRect(&rc);
@@ -1403,13 +1506,13 @@ LRESULT CMenuContainer::OnPaint( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 			DeleteDC(hdcSearch);
 			DeleteObject(bmpSearch);
 		}
-		if (opacity==MenuSkin::OPACITY_GLASS || opacity==MenuSkin::OPACITY_ALPHA)
+		if (opacity==MenuSkin::OPACITY_GLASS || opacity==MenuSkin::OPACITY_ALPHA || (opacity==MenuSkin::OPACITY_REGION && uMsg==WM_PRINTCLIENT))
 		{
 			RECT rc;
 			IntersectRect(&rc,&ps.rcPaint,&m_rContent);
 			BufferedPaintSetAlpha(hBufferedPaint,&rc,255);
 		}
-		if (m_bTwoColumns && (s_Skin.Main_opacity2==MenuSkin::OPACITY_GLASS || s_Skin.Main_opacity2==MenuSkin::OPACITY_ALPHA))
+		if (m_bTwoColumns && (s_Skin.Main_opacity2==MenuSkin::OPACITY_GLASS || s_Skin.Main_opacity2==MenuSkin::OPACITY_ALPHA || (s_Skin.Main_opacity2==MenuSkin::OPACITY_REGION && uMsg==WM_PRINTCLIENT)))
 		{
 			RECT rc;
 			IntersectRect(&rc,&ps.rcPaint,&m_rContent2);

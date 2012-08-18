@@ -36,6 +36,7 @@ static int g_LoadDialogs[]=
 	IDD_SKINSETTINGS,
 	IDD_CUSTOMTREE,
 	IDD_CUSTOMMENU,
+	IDD_STYLESETTINGS,
 	0
 };
 

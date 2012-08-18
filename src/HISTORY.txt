@@ -1,4 +1,22 @@
 ===============================================================================
+== Version 3.6.0 general release (Aug, 2012):
+
+- Windows 8 is now officially supported
+
+- Added more customization settings for the start button
+
+- Added a setting to disable all Metro hot corners
+
+- Improved the initial setup of the start menu
+
+- Added support for split menu buttons
+
+- Improved the usage of the Aero colorization in skins
+
+- Fixed some bugs found in the previous version
+
+
+===============================================================================
 == Version 3.5.1 general release (Jun, 2012):
 
 - Enabled the custom start button for Windows 7 and added more settings

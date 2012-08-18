@@ -194,7 +194,6 @@ void CSettingsManager::Init( CSetting *pSettings, TSettingsComponent component )
 	m_pSettings=pSettings;
 	InitializeSRWLock(&g_SettingsLock);
 	CSettingsLockWrite lock;
-	UpdateSettings();
 	for (CSetting *pSetting=m_pSettings;pSetting->name;pSetting++)
 	{
 		if (pSetting->type<0) continue;
@@ -217,6 +216,7 @@ void CSettingsManager::Init( CSetting *pSettings, TSettingsComponent component )
 	}
 	LoadSettings(false);
 	LoadSettings(true);
+	UpdateSettings();
 	m_ImageList=NULL;
 }
 
@@ -954,7 +954,7 @@ void CSettingsManager::ResetImageList( void )
 class CSettingsDlg: public CResizeableDlg<CSettingsDlg>
 {
 public:
-	void Init( CSetting *pSettings );
+	void Init( CSetting *pSettings, int tab );
 
 	BEGIN_MSG_MAP( CSettingsDlg )
 		MESSAGE_HANDLER( WM_INITDIALOG, OnInitDialog )
@@ -1011,6 +1011,7 @@ private:
 	CWindow m_Tabs;
 	int m_Index;
 	HWND m_Panel;
+	int m_InitialTab;
 	bool m_bBasic;
 	bool m_bOnTop;
 
@@ -1028,9 +1029,10 @@ private:
 	};
 };
 
-void CSettingsDlg::Init( CSetting *pSettings )
+void CSettingsDlg::Init( CSetting *pSettings, int tab )
 {
 	m_pSettings=pSettings;
+	m_InitialTab=tab;
 }
 
 LRESULT CSettingsDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
@@ -1155,6 +1157,8 @@ LRESULT CSettingsDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 		}
 	}
 
+	if (m_InitialTab)
+		pos.tab=m_InitialTab;
 	AddTabs(pos.tab);
 	if (pos.tab)
 		SetStoreRect(pos.rc);
@@ -1465,7 +1469,7 @@ bool CSettingsDlg::IsTabValid( void )
 
 static CSettingsDlg g_SettingsDlg;
 
-void EditSettings( const wchar_t *title, bool bModal )
+void EditSettings( const wchar_t *title, bool bModal, int tab )
 {
 	if (g_SettingsDlg.m_hWnd)
 	{
@@ -1483,7 +1487,7 @@ void EditSettings( const wchar_t *title, bool bModal )
 		}
 		DLGTEMPLATE *pTemplate=LoadDialogEx(IDD_SETTINGS);
 		g_SettingsManager.ResetImageList();
-		g_SettingsDlg.Init(g_SettingsManager.GetSettings());
+		g_SettingsDlg.Init(g_SettingsManager.GetSettings(),tab);
 		g_SettingsDlg.Create(NULL,pTemplate);
 		g_SettingsDlg.SetWindowText(title);
 		g_SettingsDlg.SetWindowPos(HWND_TOPMOST,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE|(g_SettingsDlg.GetOnTop()?0:SWP_NOZORDER)|SWP_SHOWWINDOW);
@@ -1598,53 +1602,70 @@ const wchar_t *GetSettingsRegPath( void )
 	return g_SettingsManager.GetRegPath();
 }
 
+// Finds a setting by name
+CSetting *FindSetting( const wchar_t *name )
+{
+	ATLASSERT(g_LockState==2); // must be locked for writing
+	for (CSetting *pSetting=g_SettingsManager.GetSettings();pSetting->name;pSetting++)
+		if (pSetting->type>=0 && wcscmp(pSetting->name,name)==0)
+			return pSetting;
+	ATLASSERT(0);
+	return NULL;
+}
+
+bool IsSettingLocked( const wchar_t *name )
+{
+	for (CSetting *pSetting=g_SettingsManager.GetSettings();pSetting->name;pSetting++)
+		if (pSetting->type>=0 && wcscmp(pSetting->name,name)==0)
+		{
+			CSettingsLockRead lock;
+			return (pSetting->flags&CSetting::FLAG_LOCKED_MASK)!=0;
+		}
+	ATLASSERT(0);
+	return false;
+}
+
 // Updates the setting with a new default value, and locked/hidden flags
 void UpdateSetting( const wchar_t *name, const CComVariant &defValue, bool bLockedGP, bool bHidden )
 {
-	ATLASSERT(g_LockState==2); // must be locked for writing
-	for (CSetting *pSetting=g_SettingsManager.GetSettings();pSetting->name;pSetting++)
-		if (pSetting->type>=0 && wcscmp(pSetting->name,name)==0)
-		{
-			if (bLockedGP)
-				pSetting->flags|=CSetting::FLAG_LOCKED_GP|CSetting::FLAG_DEFAULT;
-			else
-				pSetting->flags&=~CSetting::FLAG_LOCKED_GP;
-			if (bHidden)
-				pSetting->flags|=CSetting::FLAG_HIDDEN;
-			else
-				pSetting->flags&=~CSetting::FLAG_HIDDEN;
-			pSetting->defValue=defValue;
-			if (pSetting->flags&CSetting::FLAG_DEFAULT)
-				pSetting->value=defValue;
-			return;
-		}
-	ATLASSERT(0);
+	CSetting *pSetting=FindSetting(name);
+	if (bLockedGP)
+		pSetting->flags|=CSetting::FLAG_LOCKED_GP|CSetting::FLAG_DEFAULT;
+	else
+		pSetting->flags&=~CSetting::FLAG_LOCKED_GP;
+	if (bHidden)
+		pSetting->flags|=CSetting::FLAG_HIDDEN;
+	else
+		pSetting->flags&=~CSetting::FLAG_HIDDEN;
+	pSetting->defValue=defValue;
+	if (pSetting->flags&CSetting::FLAG_DEFAULT)
+		pSetting->value=defValue;
 }
 
-// Updates the setting with a new tooltip and a warning flag
-void UpdateSetting( const wchar_t *name, int tipID, bool bWarning )
+// Updates the setting with a new text and a warning flag
+void UpdateSettingText( const wchar_t *name, int nameID, int tipID, bool bWarning )
 {
-	ATLASSERT(g_LockState==2); // must be locked for writing
-	for (CSetting *pSetting=g_SettingsManager.GetSettings();pSetting->name;pSetting++)
-		if (pSetting->type>=0 && wcscmp(pSetting->name,name)==0)
-		{
-			if (bWarning)
-				pSetting->flags|=CSetting::FLAG_WARNING;
-			else
-				pSetting->flags&=~CSetting::FLAG_WARNING;
-			pSetting->tipID=tipID;
-			return;
-		}
-	ATLASSERT(0);
+	CSetting *pSetting=FindSetting(name);
+	if (bWarning)
+		pSetting->flags|=CSetting::FLAG_WARNING;
+	else
+		pSetting->flags&=~CSetting::FLAG_WARNING;
+	if (nameID>=0)
+		pSetting->nameID=nameID;
+	if (tipID>=0)
+		pSetting->tipID=tipID;
 }
 
-void HideSettingGroup( const wchar_t *name )
+void HideSettingGroup( const wchar_t *name, bool bHide )
 {
 	ATLASSERT(g_LockState==2); // must be locked for writing
 	for (CSetting *pSetting=g_SettingsManager.GetSettings();pSetting->name;pSetting++)
 		if (pSetting->type==CSetting::TYPE_GROUP && wcscmp(pSetting->name,name)==0)
 		{
-			pSetting->flags|=CSetting::FLAG_HIDDEN;
+			if (bHide)
+				pSetting->flags|=CSetting::FLAG_HIDDEN;
+			else
+				pSetting->flags&=~CSetting::FLAG_HIDDEN;
 			return;
 		}
 	ATLASSERT(0);

@@ -91,7 +91,7 @@ void InitSettings( CSetting *pSettings, TSettingsComponent component );
 void LoadSettings( void );
 void SaveSettings( void );
 void UpdateDefaultSettings( void );
-void EditSettings( const wchar_t *title, bool bModal );
+void EditSettings( const wchar_t *title, bool bModal, int tab );
 void CloseSettings( void );
 void UpdateSettings( void ); // implemented by the user
 void ClosingSettings( HWND hWnd, int flags, int command ); // implemented by the user
@@ -99,16 +99,19 @@ const wchar_t *GetDocRelativePath( void ); // implemented by the user
 bool IsSettingsMessage( MSG *msg );
 const CSetting *GetAllSettings( void );
 
+// Finds a setting by name
+CSetting *FindSetting( const wchar_t *name );
 // Updates the setting with a new default value, and locked/hidden flags
 void UpdateSetting( const wchar_t *name, const CComVariant &defValue, bool bLockedGP, bool bHidden=false );
 // Updates the setting with a new tooltip and a warning flag
-void UpdateSetting( const wchar_t *name, int tipID, bool bWarning );
+void UpdateSettingText( const wchar_t *name, int nameID, int tipID, bool bWarning );
 
-void HideSettingGroup( const wchar_t *name );
+void HideSettingGroup( const wchar_t *name, bool bHide );
 
 bool GetSettingBool( const wchar_t *name );
 int GetSettingInt( const wchar_t *name );
 CString GetSettingString( const wchar_t *name );
+bool IsSettingLocked( const wchar_t *name );
 
 // In some cases the default can change dynamically, so the setting may be out of date. Use bDef to detect if the default value should be used
 int GetSettingInt( const wchar_t *name, bool &bDef );

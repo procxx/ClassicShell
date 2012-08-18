@@ -100,14 +100,12 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 			}
 			ILFree(pidl);
 			if (!bSameFolder)
-				PostMessage(hWnd,WM_KEYDOWN,VK_SPACE,0);
+				SendMessage(hWnd,WM_KEYDOWN,VK_SPACE,0);
 		}
 		return 0;
 	}
 
-	// ignore the Space character and Alt+Enter syscharacter (to stop the tree view from beeping)
-	if (uMsg==WM_CHAR && wParam==' ')
-		return 0;
+	// ignore the Alt+Enter syscharacter (to stop the tree view from beeping)
 	if (uMsg==WM_SYSCHAR && wParam==VK_RETURN)
 		return 0;
 
@@ -236,12 +234,11 @@ LRESULT CALLBACK CExplorerBHO::HookExplorer( int nCode, WPARAM wParam, LPARAM lP
 			if (GetClassName(parent,name,_countof(name)) && _wcsicmp(name,L"CabinetWClass")==0)
 			{
 				DWORD_PTR settings=0;
-				DWORD version=LOWORD(GetVersion());
-				if (version!=0x0006 && GetSettingBool(L"FixFolderScroll"))
+				if (GetWinVersion()==WIN_VER_WIN7 && GetSettingBool(L"FixFolderScroll"))
 					settings|=1;
 				SetWindowSubclass(hWnd,SubclassTreeProc,'CLSH',settings);
 				PostMessage(hWnd,TVM_SETEXTENDEDSTYLE,TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000,0);
-				if (version==0x0006)
+				if (GetWinVersion()==WIN_VER_VISTA)
 				{
 					// on Vista we can unhook right now. on Win7 we keep the hook because sometimes the tree control can get destroyed and recreated
 					TlsData *pTlsData=GetTlsData();
@@ -964,8 +961,8 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 					SetProp(m_TopWindow,g_LoadedSettingsAtom,(HANDLE)1);
 					LoadSettings();
 				}
-				bool bWin7=(LOWORD(GetVersion())==0x0106);
-				bool bWin8=(LOWORD(GetVersion())==0x0206);
+				bool bWin7=(GetWinVersion()==WIN_VER_WIN7);
+				bool bWin8=(GetWinVersion()==WIN_VER_WIN8);
 
 				m_UpButtonIndex=bWin8?0:GetSettingInt(L"ShowUpButton");
 				bool bShowCaption=!bWin8 && GetSettingBool(L"ShowCaption");

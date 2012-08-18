@@ -46,9 +46,8 @@ static CSetting g_Settings[]={
 
 void UpdateSettings( void )
 {
-	DWORD version=LOWORD(GetVersion());
-	bool bVista=(version==0x0006);
-	bool bWin8=(version==0x0206);
+	bool bVista=(GetWinVersion()==WIN_VER_VISTA);
+	bool bWin8=(GetWinVersion()==WIN_VER_WIN8);
 
 	BOOL bComposition=0;
 	if (FAILED(DwmIsCompositionEnabled(&bComposition)))
@@ -112,6 +111,16 @@ void UpdateSettings( void )
 		UpdateSetting(L"InactiveMaxColor",CComVariant(color),false);
 	}
 	DestroyWindow(hwnd);
+
+	CRegKey regKey;
+	wchar_t language[100]=L"";
+	if (regKey.Open(HKEY_LOCAL_MACHINE,L"Software\\IvoSoft\\ClassicShell",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+	{
+		ULONG size=_countof(language);
+		if (regKey.QueryStringValue(L"DefaultLanguage",language,&size)!=ERROR_SUCCESS)
+			language[0]=0;
+	}
+	UpdateSetting(L"Language",language,false);
 }
 
 void InitSettings( void )
@@ -141,7 +150,7 @@ CSIE9API void ShowIE9Settings( void )
 		Sprintf(title,_countof(title),LoadStringEx(IDS_SETTINGS_TITLE_VER),ver>>24,(ver>>16)&0xFF,ver&0xFFFF);
 	else
 		Sprintf(title,_countof(title),LoadStringEx(IDS_SETTINGS_TITLE));
-	EditSettings(title,true);
+	EditSettings(title,true,0);
 }
 
 CSIE9API DWORD GetIE9Settings( void )

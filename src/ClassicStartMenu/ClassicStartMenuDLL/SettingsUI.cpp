@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+\// Classic Shell (c) 2009-2012, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -49,6 +49,8 @@ public:
 	END_RESIZE_MAP
 
 	void SetGroup( CSetting *pGroup );
+
+	void ResetOptions( void );
 
 protected:
 	// Handler prototypes:
@@ -220,24 +222,25 @@ void CSkinSettingsDlg::InitSkinUI( void )
 					break;
 				}
 
-				// override from options
-				for (std::vector<unsigned int>::const_iterator it=options.begin();it!=options.end();++it)
-					if ((*it&0xFFFFFFFE)==hash)
-					{
-						bValue=(*it&1)==1;
-						break;
-					}
+			// override from options
+			for (std::vector<unsigned int>::const_iterator it=options.begin();it!=options.end();++it)
+				if ((*it&0xFFFFFFFE)==hash)
+				{
+					bValue=(*it&1)==1;
+					break;
+				}
 
-					m_ListOptions[i].bValue=bValue;
-					Sprintf(&m_CurrentOptions[i*9],10,L"%08X|",hash|(bValue?1:0));
-					m_ListOptions[i].bValue2=skin.Options[i].value2;
+			m_ListOptions[i].bValue=bValue;
+			Sprintf(&m_CurrentOptions[i*9],10,L"%08X|",hash|(bValue?1:0));
+			m_ListOptions[i].bValue2=skin.Options[i].value2;
 
-					TVINSERTSTRUCT insert={NULL,TVI_LAST,{TVIF_TEXT|TVIF_PARAM|TVIF_STATE,NULL,0,TVIS_OVERLAYMASK,(LPWSTR)(LPCWSTR)(LPWSTR)(LPCWSTR)skin.Options[i].label}};
-					insert.item.lParam=i;
-					if (m_pSetting[2].flags&CSetting::FLAG_LOCKED_MASK)
-						insert.item.state|=INDEXTOOVERLAYMASK(1);
-					TreeView_InsertItem(m_Tree,&insert);
+			TVINSERTSTRUCT insert={NULL,TVI_LAST,{TVIF_TEXT|TVIF_PARAM|TVIF_STATE,NULL,0,TVIS_OVERLAYMASK,(LPWSTR)(LPCWSTR)(LPWSTR)(LPCWSTR)skin.Options[i].label}};
+			insert.item.lParam=i;
+			if (m_pSetting[2].flags&CSetting::FLAG_LOCKED_MASK)
+				insert.item.state|=INDEXTOOVERLAYMASK(1);
+			TreeView_InsertItem(m_Tree,&insert);
 		}
+		m_pSetting[2].value=CComVariant(&m_CurrentOptions[0]);
 		UpdateSkinSettings();
 		label.ShowWindow(SW_SHOW);
 		m_Tree.ShowWindow(SW_SHOW);
@@ -516,6 +519,7 @@ LRESULT CSkinSettingsDlg::OnReset( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOO
 {
 	m_ListOptions.clear();
 	m_CurrentOptions.clear();
+	m_ExtraOptions.clear();
 	{
 		CSettingsLockWrite lock;
 		if (!(m_pSetting[0].flags&CSetting::FLAG_LOCKED_MASK))
@@ -575,6 +579,13 @@ void CSkinSettingsDlg::SetGroup( CSetting *pGroup )
 	InitSkinUI();
 }
 
+void CSkinSettingsDlg::ResetOptions( void )
+{
+	m_ListOptions.clear();
+	m_ExtraOptions.clear();
+	m_CurrentOptions.clear();
+}
+
 class CSkinSettingsPanel: public ISettingsPanel
 {
 public:
@@ -582,6 +593,8 @@ public:
 	virtual HWND Create( HWND parent );
 	virtual HWND Activate( CSetting *pGroup, const RECT &rect, bool bReset );
 	virtual bool Validate( HWND parent ) { return true; }
+
+	static void ResetOptions( void ) { s_Dialog.ResetOptions(); }
 
 private:
 	bool m_bAllPrograms;
@@ -623,13 +636,13 @@ static CStdCommand g_StdCommands[]={
 	{L"documents",L"Documents",IDS_DOCUMENTS_TIP,L"DocumentsItem",L"$Menu.Documents",L"",L"shell32.dll,327",&FOLDERID_Recent,NULL,StdMenuItem::MENU_ITEMS_FIRST},
 	{L"settings",L"Settings",IDS_SETTINGS_MENU_TIP,L"SettingsMenu",L"$Menu.Settings",L"",L"shell32.dll,330"},
 	{L"search",L"Search Menu",IDS_SEARCH_TIP,L"SearchMenu",L"$Menu.Search",L"",L"shell32.dll,323"},
-	{L"search_box",L"Search Box",IDS_SEARCH_BOX_TIP,L"SearchBoxItem",L"$Menu.SearchBox",NULL,L"none"},
+	{L"search_box",L"Search Box",IDS_SEARCH_BOX_TIP,L"SearchBoxItem",L"$Menu.SearchBox",NULL,L"none",NULL,NULL,StdMenuItem::MENU_TRACK},
 	{L"help",L"Help",IDS_HELP_TIP,L"HelpItem",L"$Menu.Help",NULL,L"shell32.dll,324"},
 	{L"run",L"Run",IDS_RUN_TIP,L"RunItem",L"$Menu.Run",NULL,L"shell32.dll,328"},
 	{L"logoff",L"Log Off",IDS_LOGOFF_TIP,L"LogOffItem",L"$Menu.Logoff",NULL,L"shell32.dll,325"},
 	{L"undock",L"Undock",IDS_UNDOCK_TIP,L"UndockItem",L"$Menu.Undock",NULL,L"shell32.dll,331"},
 	{L"disconnect",L"Disconnect",IDS_DISCONNECT_TIP,L"DisconnectItem",L"$Menu.Disconnect",NULL,L"shell32.dll,329"},
-	{L"shutdown_box",L"Shutdown Box",IDS_SHUTDOWNBOX_TIP,L"ShutdownBoxItem",L"$Menu.ShutdownBox",NULL,L"shell32.dll,329"},
+	{L"shutdown_box",L"Shutdown Box",IDS_SHUTDOWNBOX_TIP,L"ShutdownBoxItem",L"$Menu.ShutdownBox",NULL,L"shell32.dll,329",NULL,NULL,StdMenuItem::MENU_SPLIT_BUTTON},
 	{L"user_files",L"User Files",IDS_USERFILES_TIP,L"UserFilesItem",NULL,L"$Menu.UserFilesTip",L"",&FOLDERID_UsersFiles},
 	{L"user_documents",L"User Documents",IDS_USERDOCS_TIP,L"UserDocumentsItem",NULL,L"$Menu.UserDocumentsTip",L"",&FOLDERID_Documents},
 	{L"user_pictures",L"User Pictures",IDS_USERPICS_TIP,L"UserPicturesItem",NULL,L"$Menu.UserPicturesTip",L"",&FOLDERID_Pictures},
@@ -696,6 +709,113 @@ L"ShutdownBoxItem.Command=shutdown_box\n"
 L"ShutdownBoxItem.Label=$Menu.ShutdownBox\n"
 L"ShutdownBoxItem.Icon=shell32.dll,329\n"
 L"ShutdownBoxItem.Items=SwitchUserItem, LockItem, SleepItem, HibernateItem, RestartItem, ShutdownItem\n"
+L"ShutdownBoxItem.Settings=SPLIT\n"
+L"SearchBoxItem.Command=search_box\n"
+L"SearchBoxItem.Label=$Menu.SearchBox\n"
+L"SearchBoxItem.Icon=none\n"
+L"SearchBoxItem.Settings=TRACK_RECENT, OPEN_UP\n"
+L"UserFilesItem.Command=user_files\n"
+L"UserFilesItem.Tip=$Menu.UserFilesTip\n"
+L"UserDocumentsItem.Command=user_documents\n"
+L"UserDocumentsItem.Tip=$Menu.UserDocumentsTip\n"
+L"UserPicturesItem.Command=user_pictures\n"
+L"UserPicturesItem.Tip=$Menu.UserPicturesTip\n"
+L"ControlPanelItem.Command=control_panel\n"
+L"ControlPanelItem.Icon=shell32.dll,137\n"
+L"ControlPanelItem.Label=$Menu.ControlPanel\n"
+L"SecurityItem.Command=windows_security\n"
+L"SecurityItem.Icon=shell32.dll,48\n"
+L"SecurityItem.Label=$Menu.Security\n"
+L"NetworkItem.Command=network_connections\n"
+L"NetworkItem.Icon=shell32.dll,257\n"
+L"NetworkItem.Label=$Menu.Network\n"
+L"NetworkItem.Tip=$Menu.NetworkTip\n"
+L"PrintersItem.Command=printers\n"
+L"PrintersItem.Icon=shell32.dll,138\n"
+L"PrintersItem.Label=$Menu.Printers\n"
+L"PrintersItem.Tip=$Menu.PrintersTip\n"
+L"TaskbarSettingsItem.Command=taskbar_settings\n"
+L"TaskbarSettingsItem.Label=$Menu.Taskbar\n"
+L"TaskbarSettingsItem.Icon=shell32.dll,40\n"
+L"TaskbarSettingsItem.Tip=$Menu.TaskbarTip\n"
+L"ProgramsFeaturesItem.Command=programs_features\n"
+L"ProgramsFeaturesItem.Label=$Menu.Features\n"
+L"ProgramsFeaturesItem.Icon=shell32.dll,271\n"
+L"ProgramsFeaturesItem.Tip=$Menu.FeaturesTip\n"
+L"MenuSettingsItem.Command=menu_settings\n"
+L"MenuSettingsItem.Label=$Menu.ClassicSettings\n"
+L"MenuSettingsItem.Icon=,1\n"
+L"MenuSettingsItem.Tip=$Menu.SettingsTip\n"
+L"SearchFilesItem.Command=search_files\n"
+L"SearchFilesItem.Label=$Menu.SearchFiles\n"
+L"SearchFilesItem.Icon=shell32.dll,134\n"
+L"SearchPrinterItem.Command=search_printer\n"
+L"SearchPrinterItem.Label=$Menu.SearchPrinter\n"
+L"SearchPrinterItem.Icon=shell32.dll,1006\n"
+L"SearchComputersItem.Command=search_computers\n"
+L"SearchComputersItem.Label=$Menu.SearchComputers\n"
+L"SearchComputersItem.Icon=shell32.dll,135\n"
+L"SearchPeopleItem.Command=search_people\n"
+L"SearchPeopleItem.Label=$Menu.SearchPeople\n"
+L"SearchPeopleItem.Icon=shell32.dll,269\n"
+L"SwitchUserItem.Command=switch_user\n"
+L"SwitchUserItem.Label=$Menu.SwitchUser\n"
+L"SwitchUserItem.Icon=none\n"
+L"LockItem.Command=lock\n"
+L"LockItem.Label=$Menu.Lock\n"
+L"LockItem.Icon=none\n"
+L"SleepItem.Command=sleep\n"
+L"SleepItem.Label=$Menu.Sleep\n"
+L"SleepItem.Icon=none\n"
+L"HibernateItem.Command=hibernate\n"
+L"HibernateItem.Label=$Menu.Hibernate\n"
+L"HibernateItem.Icon=none\n"
+L"RestartItem.Command=restart\n"
+L"RestartItem.Label=$Menu.Restart\n"
+L"RestartItem.Icon=none\n"
+L"ShutdownItem.Command=shutdown\n"
+L"ShutdownItem.Label=$Menu.Shutdown\n"
+L"ShutdownItem.Icon=none\n"
+;
+
+const wchar_t *g_DefaultStartMenu2=
+L"Items=COLUMN_PADDING, ProgramsMenu, SearchBoxItem, COLUMN_BREAK, FavoritesItem, UserFilesItem, UserDocumentsItem, UserPicturesItem, DocumentsItem, SEPARATOR, SettingsMenu, SEPARATOR, SearchMenu, HelpItem, RunItem, COLUMN_PADDING, SEPARATOR, LogOffItem, UndockItem, DisconnectItem, ShutdownBoxItem\n"
+L"ProgramsMenu.Command=programs\n"
+L"ProgramsMenu.Label=$Menu.Programs\n"
+L"ProgramsMenu.Icon=shell32.dll,326\n"
+L"FavoritesItem.Command=favorites\n"
+L"FavoritesItem.Label=$Menu.Favorites\n"
+L"FavoritesItem.Icon=shell32.dll,322\n"
+L"DocumentsItem.Command=documents\n"
+L"DocumentsItem.Settings=ITEMS_FIRST\n"
+L"SettingsMenu.Command=settings\n"
+L"SettingsMenu.Items=ControlPanelItem, SEPARATOR, SecurityItem, NetworkItem, PrintersItem, TaskbarSettingsItem, ProgramsFeaturesItem, SEPARATOR, MenuSettingsItem\n"
+L"SettingsMenu.Label=$Menu.Settings\n"
+L"SettingsMenu.Icon=shell32.dll,330\n"
+L"SearchMenu.Command=search\n"
+L"SearchMenu.Items=SearchFilesItem, SearchPrinterItem, SearchComputersItem, SearchPeopleItem\n"
+L"SearchMenu.Label=$Menu.Search\n"
+L"SearchMenu.Icon=shell32.dll,323\n"
+L"HelpItem.Command=help\n"
+L"HelpItem.Label=$Menu.Help\n"
+L"HelpItem.Icon=shell32.dll,324\n"
+L"RunItem.Command=run\n"
+L"RunItem.Label=$Menu.Run\n"
+L"RunItem.Icon=shell32.dll,328\n"
+L"LogOffItem.Command=logoff\n"
+L"LogOffItem.Label=$Menu.Logoff\n"
+L"LogOffItem.Icon=shell32.dll,325\n"
+L"UndockItem.Command=undock\n"
+L"UndockItem.Label=$Menu.Undock\n"
+L"UndockItem.Icon=shell32.dll,331\n"
+L"DisconnectItem.Command=disconnect\n"
+L"DisconnectItem.Label=$Menu.Disconnect\n"
+L"DisconnectItem.Icon=shell32.dll,329\n"
+L"ShutdownBoxItem.Command=shutdown_box\n"
+L"ShutdownBoxItem.Label=$Menu.ShutdownBox\n"
+L"ShutdownBoxItem.Icon=shell32.dll,329\n"
+L"ShutdownBoxItem.Items=SwitchUserItem, LockItem, SleepItem, HibernateItem, RestartItem, ShutdownItem\n"
+L"ShutdownBoxItem.Settings=SPLIT\n"
 L"SearchBoxItem.Command=search_box\n"
 L"SearchBoxItem.Label=$Menu.SearchBox\n"
 L"SearchBoxItem.Icon=none\n"
@@ -880,6 +1000,7 @@ LRESULT CEditMenuDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 	CheckDlgButton(IDC_CHECKNOTRACK,(m_pItem->settings&StdMenuItem::MENU_NOTRACK)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKITEMSFIRST,(m_pItem->settings&StdMenuItem::MENU_ITEMS_FIRST)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKINLINE,(m_pItem->settings&StdMenuItem::MENU_INLINE)?BST_CHECKED:BST_UNCHECKED);
+	CheckDlgButton(IDC_CHECKSPLIT,(m_pItem->settings&StdMenuItem::MENU_SPLIT_BUTTON)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKNOEXT,(m_pItem->settings&StdMenuItem::MENU_NOEXTENSIONS)?BST_CHECKED:BST_UNCHECKED);
 	if (m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0)
 	{
@@ -983,6 +1104,11 @@ LRESULT CEditMenuDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 	tool.uId=(UINT_PTR)(HWND)GetDlgItem(IDC_CHECKINLINE);
 	tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
 
+	str=LoadStringEx(IDS_SPLIT_TIP);
+	tool.lpszText=(LPWSTR)(LPCWSTR)str;
+	tool.uId=(UINT_PTR)(HWND)GetDlgItem(IDC_CHECKSPLIT);
+	tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
+
 	str=LoadStringEx(IDS_NOEXTENSIONS_TIP);
 	tool.lpszText=(LPWSTR)(LPCWSTR)str;
 	tool.uId=(UINT_PTR)(HWND)GetDlgItem(IDC_CHECKNOEXT);
@@ -1016,6 +1142,7 @@ LRESULT CEditMenuDlg::OnOK( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHan
 	if (IsDlgButtonChecked(IDC_CHECKNOTRACK)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_NOTRACK;
 	if (IsDlgButtonChecked(IDC_CHECKITEMSFIRST)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_ITEMS_FIRST;
 	if (IsDlgButtonChecked(IDC_CHECKINLINE)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_INLINE;
+	if (IsDlgButtonChecked(IDC_CHECKSPLIT)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_SPLIT_BUTTON;
 	if (IsDlgButtonChecked(IDC_CHECKNOEXT)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_NOEXTENSIONS;
 	if (bPrograms)
 	{
@@ -1154,6 +1281,7 @@ LRESULT CEditMenuDlg::OnReset( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& b
 	CheckDlgButton(IDC_CHECKNOTRACK,(m_pItem->settings&StdMenuItem::MENU_NOTRACK)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKITEMSFIRST,(m_pItem->settings&StdMenuItem::MENU_ITEMS_FIRST)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKINLINE,(m_pItem->settings&StdMenuItem::MENU_INLINE)?BST_CHECKED:BST_UNCHECKED);
+	CheckDlgButton(IDC_CHECKSPLIT,(m_pItem->settings&StdMenuItem::MENU_SPLIT_BUTTON)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKNOEXT,(m_pItem->settings&StdMenuItem::MENU_NOEXTENSIONS)?BST_CHECKED:BST_UNCHECKED);
 	if (m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0)
 	{
@@ -1161,7 +1289,7 @@ LRESULT CEditMenuDlg::OnReset( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& b
 		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(FALSE);
 	}
 	else
-		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(FALSE);
+		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(TRUE);
 
 	UpdateIcons(IDC_ICONN,IDC_ICOND);
 	return 0;
@@ -1210,6 +1338,7 @@ void CCustomMenuDlg::ParseTreeItemExtra( CTreeItem *pItem, CSettingsParser &pars
 		if (_wcsicmp(token,L"NOEXPAND")==0) pItem->settings|=StdMenuItem::MENU_NOEXPAND;
 		if (_wcsicmp(token,L"MULTICOLUMN")==0) pItem->settings|=StdMenuItem::MENU_MULTICOLUMN;
 		if (_wcsicmp(token,L"INLINE")==0) pItem->settings|=StdMenuItem::MENU_INLINE;
+		if (_wcsicmp(token,L"SPLIT")==0) pItem->settings|=StdMenuItem::MENU_SPLIT_BUTTON;
 		if (_wcsicmp(token,L"NOEXTENSIONS")==0) pItem->settings|=StdMenuItem::MENU_NOEXTENSIONS;
 	}
 }
@@ -1231,6 +1360,7 @@ void CCustomMenuDlg::SerializeItemExtra( CTreeItem *pItem, std::vector<wchar_t> 
 	if (pItem->settings&StdMenuItem::MENU_NOEXPAND) AppendString(stringBuilder,L"NOEXPAND|");
 	if (pItem->settings&StdMenuItem::MENU_MULTICOLUMN) AppendString(stringBuilder,L"MULTICOLUMN|");
 	if (pItem->settings&StdMenuItem::MENU_INLINE) AppendString(stringBuilder,L"INLINE|");
+	if (pItem->settings&StdMenuItem::MENU_SPLIT_BUTTON) AppendString(stringBuilder,L"SPLIT|");
 	if (pItem->settings&StdMenuItem::MENU_NOEXTENSIONS) AppendString(stringBuilder,L"NOEXTENSIONS|");
 	stringBuilder[stringBuilder.size()-1]='\n';
 }
@@ -1245,49 +1375,49 @@ void CCustomMenuDlg::UpdateWarnings( void )
 	CSettingsLockWrite lock;
 	bool bWarning;
 	bWarning=!FindMenuItem(NULL,L"favorites");
-	UpdateSetting(L"Favorites",bWarning?IDS_SHOW_FAVORITES_TIP2:IDS_SHOW_FAVORITES_TIP,bWarning);
+	UpdateSettingText(L"Favorites",bWarning?IDS_SHOW_FAVORITES_TIP2:IDS_SHOW_FAVORITES_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"documents");
-	UpdateSetting(L"Documents",bWarning?IDS_SHOW_DOCUMENTS_TIP2:IDS_SHOW_DOCUMENTS_TIP,bWarning);
+	UpdateSettingText(L"Documents",bWarning?IDS_SHOW_DOCUMENTS_TIP2:IDS_SHOW_DOCUMENTS_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"user_files");
-	UpdateSetting(L"UserFiles",bWarning?IDS_SHOW_USERFILES_TIP2:IDS_SHOW_USERFILES_TIP,bWarning);
+	UpdateSettingText(L"UserFiles",bWarning?IDS_SHOW_USERFILES_TIP2:IDS_SHOW_USERFILES_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"user_documents");
-	UpdateSetting(L"UserDocuments",bWarning?IDS_SHOW_USERDOCS_TIP2:IDS_SHOW_USERDOCS_TIP,bWarning);
+	UpdateSettingText(L"UserDocuments",bWarning?IDS_SHOW_USERDOCS_TIP2:IDS_SHOW_USERDOCS_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"user_pictures");
-	UpdateSetting(L"UserPictures",bWarning?IDS_SHOW_USERPICS_TIP2:IDS_SHOW_USERPICS_TIP,bWarning);
+	UpdateSettingText(L"UserPictures",bWarning?IDS_SHOW_USERPICS_TIP2:IDS_SHOW_USERPICS_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"control_panel") && !FindMenuItem(NULL,L"control_panel_categories");
-	UpdateSetting(L"ControlPanel",bWarning?IDS_SHOW_CP_TIP2:IDS_SHOW_CP_TIP,bWarning);
+	UpdateSettingText(L"ControlPanel",bWarning?IDS_SHOW_CP_TIP2:IDS_SHOW_CP_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"network_connections");
-	UpdateSetting(L"Network",bWarning?IDS_SHOW_NETWORK_TIP2:IDS_SHOW_NETWORK_TIP,bWarning);
+	UpdateSettingText(L"Network",bWarning?IDS_SHOW_NETWORK_TIP2:IDS_SHOW_NETWORK_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"printers");
-	UpdateSetting(L"Printers",bWarning?IDS_SHOW_PRINTERS_TIP2:IDS_SHOW_PRINTERS_TIP,bWarning);
+	UpdateSettingText(L"Printers",bWarning?IDS_SHOW_PRINTERS_TIP2:IDS_SHOW_PRINTERS_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"shutdown_box");
-	UpdateSetting(L"Shutdown",bWarning?IDS_SHOW_SHUTDOWN_TIP2:IDS_SHOW_SHUTDOWN_TIP,bWarning);
+	UpdateSettingText(L"Shutdown",bWarning?IDS_SHOW_SHUTDOWN_TIP2:IDS_SHOW_SHUTDOWN_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"search_box");
-	UpdateSetting(L"SearchBox",bWarning?IDS_SHOW_SEARCH_BOX_TIP2:IDS_SHOW_SEARCH_BOX_TIP,bWarning);
+	UpdateSettingText(L"SearchBox",bWarning?IDS_SHOW_SEARCH_BOX_TIP2:IDS_SHOW_SEARCH_BOX_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"search");
-	UpdateSetting(L"Search",bWarning?IDS_SHOW_SEARCH_TIP2:IDS_SHOW_SEARCH_TIP,bWarning);
+	UpdateSettingText(L"Search",bWarning?IDS_SHOW_SEARCH_TIP2:IDS_SHOW_SEARCH_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"help");
-	UpdateSetting(L"Help",bWarning?IDS_SHOW_HELP_TIP2:IDS_SHOW_HELP_TIP,bWarning);
+	UpdateSettingText(L"Help",bWarning?IDS_SHOW_HELP_TIP2:IDS_SHOW_HELP_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"run");
-	UpdateSetting(L"Run",bWarning?IDS_SHOW_RUN_TIP2:IDS_SHOW_RUN_TIP,bWarning);
+	UpdateSettingText(L"Run",bWarning?IDS_SHOW_RUN_TIP2:IDS_SHOW_RUN_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"logoff");
-	UpdateSetting(L"LogOff",bWarning?IDS_SHOW_LOGOFF_TIP2:IDS_SHOW_LOGOFF_TIP,bWarning);
+	UpdateSettingText(L"LogOff",bWarning?IDS_SHOW_LOGOFF_TIP2:IDS_SHOW_LOGOFF_TIP,-1,bWarning);
 
 	bWarning=!FindMenuItem(NULL,L"undock");
-	UpdateSetting(L"Undock",bWarning?IDS_SHOW_UNDOCK_TIP2:IDS_SHOW_UNDOCK_TIP,bWarning);
+	UpdateSettingText(L"Undock",bWarning?IDS_SHOW_UNDOCK_TIP2:IDS_SHOW_UNDOCK_TIP,-1,bWarning);
 }
 
 bool CCustomMenuDlg::FindMenuItem( HTREEITEM hParent, const wchar_t *command )
@@ -1336,7 +1466,218 @@ static CCustomMenuPanel g_CustomMenuPanel;
 
 ///////////////////////////////////////////////////////////////////////////////
 
+enum TMenuStyle
+{
+	MENU_CLASSIC,
+	MENU_XP,
+	MENU_VISTA,
+};
+
+class CMenuStyleDlg: public CResizeableDlg<CMenuStyleDlg>
+{
+public:
+	BEGIN_MSG_MAP( CMenuStyleDlg )
+		MESSAGE_HANDLER( WM_INITDIALOG, OnInitDialog )
+		MESSAGE_HANDLER( WM_SIZE, OnSize )
+		MESSAGE_HANDLER( WM_SETCURSOR, OnSetCursor )
+		COMMAND_HANDLER( IDC_STATIC_CLASSIC, STN_CLICKED, OnClick )
+		COMMAND_HANDLER( IDC_STATIC_XP, STN_CLICKED, OnClick )
+		COMMAND_HANDLER( IDC_STATIC_VISTA, STN_CLICKED, OnClick )
+		NOTIFY_HANDLER( IDC_LINK_CLASSIC, NM_CLICK, OnClick )
+		NOTIFY_HANDLER( IDC_LINK_CLASSIC, NM_RETURN, OnClick )
+		NOTIFY_HANDLER( IDC_LINK_XP, NM_CLICK, OnClick )
+		NOTIFY_HANDLER( IDC_LINK_XP, NM_RETURN, OnClick )
+		NOTIFY_HANDLER( IDC_LINK_VISTA, NM_CLICK, OnClick )
+		NOTIFY_HANDLER( IDC_LINK_VISTA, NM_RETURN, OnClick )
+	END_MSG_MAP()
+
+	BEGIN_RESIZE_MAP
+		RESIZE_CONTROL(IDC_STATICTITLE,MOVE_SIZE_X)
+	END_RESIZE_MAP
+
+	static void UpdateDefaults( void );
+
+protected:
+	// Handler prototypes:
+	//  LRESULT MessageHandler(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
+	//  LRESULT CommandHandler(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
+	//  LRESULT NotifyHandler(int idCtrl, LPNMHDR pnmh, BOOL& bHandled);
+	LRESULT OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnSize( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnSetCursor( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnClick( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
+	LRESULT OnClick( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
+
+	CWindow m_ImageClassic;
+	CWindow m_ImageXP;
+	CWindow m_ImageVista;
+};
+
+LRESULT CMenuStyleDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	CResizeableDlg<CMenuStyleDlg>::InitResize();
+	EnableThemeDialogTexture(m_hWnd,ETDT_ENABLETAB);
+	m_ImageClassic=GetDlgItem(IDC_STATIC_CLASSIC);
+	m_ImageXP=GetDlgItem(IDC_STATIC_XP);
+	m_ImageVista=GetDlgItem(IDC_STATIC_VISTA);
+	return TRUE;
+}
+
+LRESULT CMenuStyleDlg::OnSize( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	CResizeableDlg<CMenuStyleDlg>::OnSize();
+	return 0;
+}
+
+LRESULT CMenuStyleDlg::OnSetCursor( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	if ((HWND)wParam==m_ImageClassic.m_hWnd || (HWND)wParam==m_ImageXP.m_hWnd || (HWND)wParam==m_ImageVista.m_hWnd)
+	{
+		SetCursor(LoadCursor(NULL,IDC_HAND));
+		return TRUE;
+	}
+	bHandled=FALSE;
+	return 0;
+}
+
+static const wchar_t *g_StyleSettingNames[]=
+{
+	L"MenuItems",
+	L"Skin1",
+	L"SkinOptions1",
+	L"SearchBox"
+};
+
+LRESULT CMenuStyleDlg::OnClick( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
+{
+	if (MessageBox(LoadStringEx(IDS_CHANGE_STYLE),LoadStringEx(IDS_APP_TITLE),MB_YESNO|MB_ICONWARNING)==IDNO)
+		return 0;
+
+	CSettingsLockWrite lock;
+	{
+		CSetting *pSetting=FindSetting(L"DefaultMenuStyle");
+		if (wID==IDC_STATIC_XP)
+			pSetting->value=CComVariant(MENU_XP);
+		else if (wID==IDC_STATIC_VISTA)
+			pSetting->value=CComVariant(MENU_VISTA);
+		else
+			pSetting->value=CComVariant(MENU_CLASSIC);
+		pSetting->flags&=~CSetting::FLAG_DEFAULT;
+	}
+	UpdateDefaults();
+	g_SkinSettingsPanel.ResetOptions();
+
+	for (int i=0;i<_countof(g_StyleSettingNames);i++)
+	{
+		CSetting *pSetting=FindSetting(g_StyleSettingNames[i]);
+		if (pSetting->flags&CSetting::FLAG_LOCKED_REG)
+			continue;
+		pSetting->flags|=CSetting::FLAG_DEFAULT;
+		pSetting->value=pSetting->defValue;
+	}
+	return 0;
+}
+
+LRESULT CMenuStyleDlg::OnClick( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
+{
+	if (idCtrl==IDC_LINK_CLASSIC)
+		OnClick(STN_CLICKED,IDC_STATIC_CLASSIC,NULL,bHandled);
+	if (idCtrl==IDC_LINK_XP)
+		OnClick(STN_CLICKED,IDC_STATIC_XP,NULL,bHandled);
+	if (idCtrl==IDC_LINK_VISTA)
+		OnClick(STN_CLICKED,IDC_STATIC_VISTA,NULL,bHandled);
+	return 0;
+}
+
+void CMenuStyleDlg::UpdateDefaults( void )
+{
+	const CSetting *pSetting=FindSetting(L"DefaultMenuStyle");
+	HideSettingGroup(L"MenuStyle",(pSetting->flags&CSetting::FLAG_LOCKED_MASK)!=0);
+	ATLASSERT(pSetting->value.vt==VT_I4);
+	TMenuStyle menuStyle=(TMenuStyle)pSetting->value.intVal;
+	UpdateSetting(L"MenuItems",CComVariant((menuStyle==MENU_XP || menuStyle==MENU_VISTA)?g_DefaultStartMenu2:g_DefaultStartMenu),false);
+	if (menuStyle==MENU_XP)
+	{
+		UpdateSetting(L"Skin1",CComVariant(L"Windows XP Luna"),false);
+		UpdateSetting(L"SkinOptions1",CComVariant(L"5D3248DC|1FC64124|E55CEDD2|C26EAF5D|86F3669D|5225DC46|"),false);
+	}
+	else if (menuStyle==MENU_VISTA)
+	{
+		const wchar_t *skin;
+		BOOL comp;
+		if (FAILED(DwmIsCompositionEnabled(&comp)) || !comp)
+			skin=L"Windows Basic";
+		else
+			skin=L"Windows Aero";
+
+		UpdateSetting(L"Skin1",CComVariant(skin),false);
+		if (GetWinVersion()==WIN_VER_VISTA)
+			UpdateSetting(L"SkinOptions1",CComVariant(L"DA60029B|E55CEDD3|BD80CDB3|C26EAF5D|86F3669C|5225DC46|5D3248DC|1FC64124|0663DC38|5EA361A3|"),false);
+		else
+			UpdateSetting(L"SkinOptions1",CComVariant(L"DA60029B|E55CEDD3|BD80CDB3|C26EAF5D|86F3669C|5225DC46|5D3248DC|1FC64124|0663DC38|5EA361A2|"),false);
+	}
+	else
+	{
+		const wchar_t *skin;
+		bool bClassic;
+		if (GetWinVersion()<WIN_VER_WIN8)
+			bClassic=!IsAppThemed();
+		else
+		{
+			HIGHCONTRAST contrast={sizeof(contrast)};
+			bClassic=(SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON));
+		}
+
+		BOOL comp;
+		if (bClassic)
+			skin=L"Classic Skin";
+		else if (FAILED(DwmIsCompositionEnabled(&comp)) || !comp)
+			skin=L"Windows Basic";
+		else
+			skin=L"Windows Aero";
+		UpdateSetting(L"Skin1",CComVariant(skin),false);
+		UpdateSetting(L"SkinOptions1",CComVariant(L""),false);
+	}
+	UpdateSetting(L"SearchBox",CComVariant(menuStyle==MENU_VISTA?1:2),false);
+}
+
+class CStyleSettingsPanel: public ISettingsPanel
+{
+public:
+	virtual HWND Create( HWND parent );
+	virtual HWND Activate( CSetting *pGroup, const RECT &rect, bool bReset );
+	virtual bool Validate( HWND parent ) { return true; }
+
+private:
+	static CMenuStyleDlg s_Dialog;
+};
+
+CMenuStyleDlg CStyleSettingsPanel::s_Dialog;
+
+HWND CStyleSettingsPanel::Create( HWND parent )
+{
+	if (!s_Dialog.m_hWnd)
+		s_Dialog.Create(parent,LoadDialogEx(IDD_STYLESETTINGS));
+	return s_Dialog.m_hWnd;
+}
+
+HWND CStyleSettingsPanel::Activate( CSetting *pGroup, const RECT &rect, bool bReset )
+{
+	s_Dialog.SetWindowPos(HWND_TOP,&rect,SWP_SHOWWINDOW);
+	return s_Dialog.m_hWnd;
+}
+
+static CStyleSettingsPanel g_StyleSettingsPanel;
+
+///////////////////////////////////////////////////////////////////////////////
+
 CSetting g_Settings[]={
+{L"MenuStyle",CSetting::TYPE_GROUP,IDS_STYLE_SETTINGS,0,0,CSetting::FLAG_BASIC,NULL,&g_StyleSettingsPanel},
+	{L"DefaultMenuStyle",CSetting::TYPE_INT,0,0,0},
+		{L"Classic",CSetting::TYPE_RADIO},
+		{L"XP",CSetting::TYPE_RADIO},
+		{L"Vista",CSetting::TYPE_RADIO},
+
 {L"Basic",CSetting::TYPE_GROUP,IDS_BASIC_SETTINGS},
 	{L"EnableSettings",CSetting::TYPE_BOOL,0,0,1,CSetting::FLAG_HIDDEN},
 	{L"CrashDump",CSetting::TYPE_INT,0,0,0,CSetting::FLAG_HIDDEN},
@@ -1408,7 +1749,7 @@ CSetting g_Settings[]={
 		{L"Hide",CSetting::TYPE_RADIO,IDS_ITEM_HIDE,IDS_ITEM_HIDE_TIP},
 		{L"Show",CSetting::TYPE_RADIO,IDS_ITEM_SHOW,IDS_ITEM_SHOW_TIP},
 		{L"Menu",CSetting::TYPE_RADIO,IDS_ITEM_MENU,IDS_ITEM_MENU_TIP},
-	{L"Shutdown",CSetting::TYPE_INT,IDS_SHOW_SHUTDOWN,IDS_SHOW_SHUTDOWN_TIP,1},
+	{L"Shutdown",CSetting::TYPE_INT,IDS_SHOW_SHUTDOWN,IDS_SHOW_SHUTDOWN_TIP,2},
 		{L"Hide",CSetting::TYPE_RADIO,IDS_ITEM_HIDE,IDS_ITEM_HIDE_TIP},
 		{L"Show",CSetting::TYPE_RADIO,IDS_ITEM_SHOW,IDS_ITEM_SHOW_TIP},
 		{L"Menu",CSetting::TYPE_RADIO,IDS_ITEM_MENU,IDS_ITEM_MENU_TIP},
@@ -1419,7 +1760,7 @@ CSetting g_Settings[]={
 	{L"ConfirmLogOff",CSetting::TYPE_BOOL,IDS_CONFIRM_LOGOFF,IDS_CONFIRM_LOGOFF_TIP,0,0,L"LogOff"},
 	{L"Undock",CSetting::TYPE_BOOL,IDS_SHOW_UNDOCK,IDS_SHOW_UNDOCK_TIP,1},
 	{L"RemoteShutdown",CSetting::TYPE_BOOL,IDS_SHOW_RSHUTDOWN,IDS_SHOW_RSHUTDOWN_TIP,0},
-	{L"RecentPrograms",CSetting::TYPE_BOOL,IDS_SHOW_RECENT,IDS_SHOW_RECENT_TIP,0,CSetting::FLAG_BASIC},
+	{L"RecentPrograms",CSetting::TYPE_BOOL,IDS_SHOW_RECENT,IDS_SHOW_RECENT_TIP,1,CSetting::FLAG_BASIC},
 	{L"MaxRecentPrograms",CSetting::TYPE_INT,IDS_MAX_PROGS,IDS_MAX_PROGS_TIP,5,0,L"RecentPrograms"},
 	{L"RecentProgsTop",CSetting::TYPE_BOOL,IDS_RECENT_TOP,IDS_RECENT_TOP_TIP,1,0,L"RecentPrograms"},
 	{L"RecentProgKeys",CSetting::TYPE_INT,IDS_RECENT_KEYS,IDS_RECENT_KEYS_TIP,2,0,L"RecentPrograms"},
@@ -1429,8 +1770,6 @@ CSetting g_Settings[]={
 		{L"HiddenDigits",CSetting::TYPE_RADIO,IDS_KEY_HIDDEN,IDS_KEY_HIDDEN_TIP,0,0,L"RecentPrograms"},
 
 {L"GeneralBehavior",CSetting::TYPE_GROUP,IDS_BEHAVIOR_SETTINGS},
-	{L"SkipMetro",CSetting::TYPE_BOOL,IDS_SKIP_METRO,IDS_SKIP_METRO_TIP,1,CSetting::FLAG_BASIC},
-	{L"SkipMetroCount",CSetting::TYPE_INT,0,0,10,CSetting::FLAG_HIDDEN},
 	{L"EnableDragDrop",CSetting::TYPE_BOOL,IDS_DRAG_DROP,IDS_DRAG_DROP_TIP,1},
 	{L"ExpandFolderLinks",CSetting::TYPE_BOOL,IDS_EXPAND_LINKS,IDS_EXPAND_LINKS_TIP,1},
 	{L"MenuDelay",CSetting::TYPE_INT,IDS_MENU_DELAY,IDS_MENU_DELAY_TIP,-1,CSetting::FLAG_BASIC}, // system delay time
@@ -1517,7 +1856,7 @@ CSetting g_Settings[]={
 	{L"SoundDrop",CSetting::TYPE_SOUND,IDS_SOUND_DROP,IDS_SOUND_DROP_TIP,L"MoveMenuItem"},
 
 {L"CustomMenu",CSetting::TYPE_GROUP,IDS_CUSTOM_SETTINGS,0,0,0,NULL,&g_CustomMenuPanel},
-	{L"MenuItems",CSetting::TYPE_MULTISTRING,0,0,g_DefaultStartMenu},
+	{L"MenuItems",CSetting::TYPE_MULTISTRING,0,0,L""},
 
 {L"WindowsMenu",CSetting::TYPE_GROUP,IDS_WSM_SETTINGS},
 	{L"CascadeAll",CSetting::TYPE_BOOL,IDS_CASCADE_ALL,IDS_CASCADE_ALL_TIP,0,CSetting::FLAG_BASIC},
@@ -1532,8 +1871,17 @@ CSetting g_Settings[]={
 	{L"SkinVariation2",CSetting::TYPE_STRING,0,0,L""},
 	{L"SkinOptions2",CSetting::TYPE_STRING,0,0,L""},
 
+{L"Metro",CSetting::TYPE_GROUP,IDS_METRO_SETTINGS},
+	{L"SkipMetro",CSetting::TYPE_BOOL,IDS_SKIP_METRO,IDS_SKIP_METRO_TIP,1,CSetting::FLAG_BASIC},
+	{L"SkipMetroCount",CSetting::TYPE_INT,0,0,10,CSetting::FLAG_HIDDEN},
+	{L"DisableHotCorner",CSetting::TYPE_INT,IDS_HOT_CORNERS,IDS_HOT_CORNERS_TIP,1},
+		{L"DisableNone",CSetting::TYPE_RADIO,IDS_DISABLE_NONE,IDS_DISABLE_NONE_TIP},
+		{L"DisableStart",CSetting::TYPE_RADIO,IDS_DISABLE_START,IDS_DISABLE_START_TIP},
+		{L"DisableAll",CSetting::TYPE_RADIO,IDS_DISABLE_ALL,IDS_DISABLE_ALL_TIP},
+
 {L"StartButton",CSetting::TYPE_GROUP,IDS_START_BUTTON},
 	{L"EnableStartButton",CSetting::TYPE_BOOL,IDS_ENABLE_BUTTON,IDS_ENABLE_BUTTON_TIP,1,CSetting::FLAG_BASIC|CSetting::FLAG_COLD},
+	{L"StartButtonTip",CSetting::TYPE_STRING,IDS_BUTTON_TIP,IDS_BUTTON_TIP_TIP,L"$Menu.Start",0,L"EnableStartButton"},
 	{L"StartButtonType",CSetting::TYPE_INT,IDS_BUTTON_TYPE,IDS_BUTTON_TYPE_TIP,0,0,L"EnableStartButton"},
 		{L"ClasicButton",CSetting::TYPE_RADIO,IDS_CLASSIC_BUTTON,IDS_CLASSIC_BUTTON_TIP},
 		{L"AeroButton",CSetting::TYPE_RADIO,IDS_AERO_BUTTON,IDS_AERO_BUTTON_TIP},
@@ -1542,7 +1890,7 @@ CSetting g_Settings[]={
 	{L"StartButtonPath",CSetting::TYPE_BITMAP,IDS_BUTTON_IMAGE,IDS_BUTTON_IMAGE_TIP,L"",0,L"#StartButtonType=3"},
 	{L"StartButtonSize",CSetting::TYPE_INT,IDS_BUTTON_SIZE,IDS_BUTTON_SIZE_TIP,0,0,L"#StartButtonType=3"},
 	{L"StartButtonIcon",CSetting::TYPE_ICON,IDS_BUTTON_ICON,IDS_BUTTON_ICON_TIP,L",1",0,L"#StartButtonType=0"},
-	{L"DisableHotCorner",CSetting::TYPE_BOOL,IDS_HOT_CORNER,IDS_HOT_CORNER_TIP,1,0,L"EnableStartButton"},
+	{L"StartButtonText",CSetting::TYPE_STRING,IDS_BUTTON_TEXT,IDS_BUTTON_TEXT_TIP,L"$Menu.Start",0,L"#StartButtonType=0"},
 
 {L"Language",CSetting::TYPE_GROUP,IDS_LANGUAGE_SETTINGS_SM,0,0,0,NULL,GetLanguageSettings()},
 	{L"Language",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_COLD|CSetting::FLAG_SHARED},
@@ -1552,10 +1900,20 @@ CSetting g_Settings[]={
 
 void UpdateSettings( void )
 {
-	DWORD version=LOWORD(GetVersion());
-	bool bVista=(version==0x0006);
-	bool bWin7=(version==0x0106);
-	bool bWin8=(version==0x0206);
+	{
+		CRegKey regKey;
+		wchar_t language[100]=L"";
+		if (regKey.Open(HKEY_LOCAL_MACHINE,L"Software\\IvoSoft\\ClassicShell",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+		{
+			ULONG size=_countof(language);
+			if (regKey.QueryStringValue(L"DefaultLanguage",language,&size)!=ERROR_SUCCESS)
+				language[0]=0;
+		}
+		UpdateSetting(L"Language",language,false);
+	}
+
+	CMenuStyleDlg::UpdateDefaults();
+
 	HDC hdc=GetDC(NULL);
 	int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
 	ReleaseDC(NULL,hdc);
@@ -1589,20 +1947,6 @@ void UpdateSettings( void )
 	SystemParametersInfo(SPI_GETSELECTIONFADE,NULL,&fade,0);
 	UpdateSetting(L"MenuFadeSpeed",CComVariant(fade?400:0),false);
 
-	const wchar_t *skin;
-	BOOL comp;
-	if (!IsAppThemed())
-		skin=L"Classic Skin";
-	else if (bVista)
-		skin=L"Windows Vista Aero";
-	else if (bWin8)
-		skin=L"Metro";
-	else if (SUCCEEDED(DwmIsCompositionEnabled(&comp)) && comp)
-		skin=L"Windows 7 Aero";
-	else
-		skin=L"Windows 7 Basic";
-	UpdateSetting(L"Skin1",CComVariant(skin),false);
-
 	UpdateSetting(L"Favorites",CComVariant(0),SHRestricted(REST_NOFAVORITESMENU)!=0);
 	UpdateSetting(L"Documents",CComVariant(2),SHRestricted(REST_NORECENTDOCSMENU)!=0);
 
@@ -1611,7 +1955,7 @@ void UpdateSettings( void )
 	UpdateSetting(L"LogOff",CComVariant((logoff1!=1 && (logoff1==2 || logoff2))?1:0),logoff1 || logoff2);
 
 	bool bNoClose=SHRestricted(REST_NOCLOSE)!=0;
-	UpdateSetting(L"Shutdown",CComVariant(bNoClose?0:1),bNoClose);
+	UpdateSetting(L"Shutdown",CComVariant(bNoClose?0:2),bNoClose);
 	UpdateSetting(L"RemoteShutdown",CComVariant(0),bNoClose);
 
 	bool bNoUndock=SHRestricted(REST_NOSMEJECTPC)!=0;
@@ -1646,11 +1990,13 @@ void UpdateSettings( void )
 
 	UpdateSetting(L"NumericSort",CComVariant(SHRestricted(REST_NOSTRCMPLOGICAL)?0:1),false);
 
-	CRegKey regTitle;
 	wchar_t title[256]=L"Windows";
 	ULONG size=_countof(title);
-	if (regTitle.Open(HKEY_LOCAL_MACHINE,L"Software\\Microsoft\\Windows NT\\CurrentVersion",KEY_READ)==ERROR_SUCCESS)
-		regTitle.QueryStringValue(L"ProductName",title,&size);
+	{
+		CRegKey regTitle;
+		if (regTitle.Open(HKEY_LOCAL_MACHINE,L"Software\\Microsoft\\Windows NT\\CurrentVersion",KEY_READ)==ERROR_SUCCESS)
+			regTitle.QueryStringValue(L"ProductName",title,&size);
+	}
 	UpdateSetting(L"MenuCaption",CComVariant(title),false);
 
 	size=_countof(title);
@@ -1662,10 +2008,10 @@ void UpdateSettings( void )
 	}
 	UpdateSetting(L"MenuUsername",CComVariant(title),false);
 
-	if (bWin8)
+	if (GetWinVersion()==WIN_VER_WIN8)
 	{
-		HideSettingGroup(L"WindowsMenu");
-		HideSettingGroup(L"AllProgramsSkin");
+		HideSettingGroup(L"WindowsMenu",true);
+		HideSettingGroup(L"AllProgramsSkin",true);
 		UpdateSetting(L"CascadeAll",CComVariant(0),false,true);
 		HIGHCONTRAST contrast={sizeof(contrast)};
 		if (SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON))
@@ -1675,16 +2021,35 @@ void UpdateSettings( void )
 	}
 	else
 	{
-		UpdateSetting(L"SkipMetro",CComVariant(0),false,true);
+		HideSettingGroup(L"Metro",true);
 		UpdateSetting(L"EnableStartButton",CComVariant(0),false);
-		UpdateSetting(L"DisableHotCorner",CComVariant(0),false,true);
-		if (bWin7)
+		if (GetWinVersion()==WIN_VER_WIN7)
 		{
+			UpdateSettingText(L"EnableStartButton",IDS_ENABLE_BUTTON2,IDS_ENABLE_BUTTON_TIP2,false);
 			UpdateSetting(L"StartButtonType",CComVariant(IsAppThemed()?1:0),false);
 		}
 		else
 		{
-			HideSettingGroup(L"StartButton");
+			HideSettingGroup(L"StartButton",true);
+		}
+	}
+
+	{
+		// backwards compatibility - replace deprecated skins with the new ones
+		CSetting *pSetting=FindSetting(L"Skin1");
+		if (!(pSetting->flags&(CSetting::FLAG_LOCKED_MASK|CSetting::FLAG_DEFAULT)) && pSetting->value.vt==VT_BSTR)
+		{
+			if (_wcsicmp(pSetting->value.bstrVal,L"Windows Vista Aero")==0 || _wcsicmp(pSetting->value.bstrVal,L"Windows 7 Aero")==0 || _wcsicmp(pSetting->value.bstrVal,L"Windows 7 Basic")==0)
+			{
+				wchar_t path[_MAX_PATH];
+				GetSkinsPath(path);
+				Strcat(path,_countof(path),pSetting->value.bstrVal);
+				Strcat(path,_countof(path),L".skin");
+				if (GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES)
+				{
+					pSetting->value=CComVariant(_wcsicmp(pSetting->value.bstrVal,L"Windows 7 Basic")==0?L"Windows Basic":L"Windows Aero");
+				}
+			}
 		}
 	}
 }
@@ -1694,7 +2059,7 @@ void InitSettings( void )
 	InitSettings(g_Settings,COMPONENT_MENU);
 }
 
-static int g_ButtonPath, g_ButtonSize, g_ButtonIcon;
+static int g_ButtonPath, g_ButtonSize, g_ButtonIcon, g_ButtonText, g_ButtonTip;
 
 void ClosingSettings( HWND hWnd, int flags, int command )
 {
@@ -1704,18 +2069,24 @@ void ClosingSettings( HWND hWnd, int flags, int command )
 		if (flags&CSetting::FLAG_COLD)
 			MessageBox(hWnd,LoadStringEx(IDS_NEW_SETTINGS),LoadStringEx(IDS_APP_TITLE),MB_OK|MB_ICONWARNING);
 
+		int tip=CalcFNVHash(GetSettingString(L"StartButtonTip"));
 		int path=GetSettingInt(L"StartButtonType");
 		int icon=0;
+		int text=0;
 		if (path==START_BUTTON_CLASSIC)
+		{
 			icon=CalcFNVHash(GetSettingString(L"StartButtonIcon"));
+			text=CalcFNVHash(GetSettingString(L"StartButtonText"));
+		}
 		if (path==START_BUTTON_CUSTOM)
 			path=CalcFNVHash(GetSettingString(L"StartButtonPath"));
-		if (path!=g_ButtonPath || g_ButtonSize!=GetSettingInt(L"StartButtonSize") || g_ButtonIcon!=icon)
+		if (path!=g_ButtonPath || g_ButtonSize!=GetSettingInt(L"StartButtonSize") || g_ButtonIcon!=icon || g_ButtonText!=text || g_ButtonTip!=tip)
 			RecreateStartButton();
+		ResetHotCorners();
 	}
 }
 
-void EditSettings( bool bModal )
+void EditSettings( bool bModal, int tab )
 {
 #ifndef BUILD_SETUP
 	wchar_t path[_MAX_PATH];
@@ -1724,10 +2095,15 @@ void EditSettings( bool bModal )
 		bModal=true;
 #endif
 	EnableHotkeys(HOTKEYS_SETTINGS);
+	g_ButtonTip=CalcFNVHash(GetSettingString(L"StartButtonTip"));
 	g_ButtonPath=GetSettingInt(L"StartButtonType");
 	g_ButtonIcon=0;
+	g_ButtonText=0;
 	if (g_ButtonPath==START_BUTTON_CLASSIC)
+	{
 		g_ButtonIcon=CalcFNVHash(GetSettingString(L"StartButtonIcon"));
+		g_ButtonText=CalcFNVHash(GetSettingString(L"StartButtonText"));
+	}
 	if (g_ButtonPath==START_BUTTON_CUSTOM)
 		g_ButtonPath=CalcFNVHash(GetSettingString(L"StartButtonPath"));
 	g_ButtonSize=GetSettingInt(L"StartButtonSize");
@@ -1737,7 +2113,7 @@ void EditSettings( bool bModal )
 		Sprintf(title,_countof(title),LoadStringEx(IDS_SETTINGS_TITLE_VER),ver>>24,(ver>>16)&0xFF,ver&0xFFFF);
 	else
 		Sprintf(title,_countof(title),LoadStringEx(IDS_SETTINGS_TITLE));
-	EditSettings(title,bModal);
+	EditSettings(title,bModal,tab);
 }
 
 void LogHookError( int error )

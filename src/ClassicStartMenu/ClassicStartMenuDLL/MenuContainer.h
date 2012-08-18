@@ -101,6 +101,7 @@ struct StdMenuItem
 		MENU_MULTICOLUMN  = 0x0200, // make this item a multi-column item
 		MENU_NOEXTENSIONS = 0x0400, // hide extensions
 		MENU_INLINE       = 0x0800, // inline sub-items in the parent menu
+		MENU_SPLIT_BUTTON = 0x1000, // the item is drawn as a split button
 
 		MENU_NORECENT     = 0x8000  // don't show recent items in the root menu (because a sub-menu uses MENU_RECENT_ITEMS)
 	};
@@ -305,6 +306,7 @@ private:
 		bool bInline:1; // this item is inlined in the parent menu
 		bool bInlineFirst:1; // this item is the first from the inlined group
 		bool bInlineLast:1; // this item is the last from the inlined group
+		bool bSplit:1; // split button item
 		char priority; // used for sorting of the All Programs menu
 
 		// pair of shell items. 2 items are used to combine a user folder with a common folder (I.E. user programs/common programs)
@@ -396,6 +398,7 @@ private:
 	int m_HotItem;
 	int m_InsertMark;
 	bool m_bInsertAfter;
+	bool m_bHotArrow;
 	CString m_RegName; // name of the registry key to store the item order
 	PIDLIST_ABSOLUTE m_Path1a[2];
 	PIDLIST_ABSOLUTE m_Path2a[2];
@@ -442,6 +445,7 @@ private:
 	bool m_bScrollUpHot, m_bScrollDownHot;
 	bool m_bScrollTimer;
 	bool m_bNoSearchDraw;
+	bool m_bSearchDrawn;
 	bool m_bInSearchUpdate;
 	bool m_bSearchShowAll;
 	int m_SearchIndex;
@@ -558,7 +562,7 @@ private:
 	int HitTest( const POINT &pt, bool bDrop=false );
 	bool DragOut( int index );
 	void InvalidateItem( int index );
-	void SetHotItem( int index );
+	void SetHotItem( int index, bool bArrow=false );
 	void SetInsertMark( int index, bool bAfter );
 	bool GetInsertRect( RECT &rc );
 	void DrawBackground( HDC hdc, const RECT &drawRect );
@@ -649,7 +653,7 @@ private:
 	friend LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 
 	static int CompareMenuString( const wchar_t *str1, const wchar_t *str2 );
-	static void MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins, bool bAlpha, bool bRtlOffset=false );
+	static void MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins, bool bAlpha );
 	static void AddFirstFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSOLUTE path, std::vector<MenuItem> &items, int options, unsigned int hash0 );
 	static void AddSecondFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSOLUTE path, std::vector<MenuItem> &items, int options, unsigned int hash0 );
 	static void UpdateUsedIcons( void );

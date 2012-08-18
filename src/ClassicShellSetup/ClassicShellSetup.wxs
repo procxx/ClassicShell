@@ -53,6 +53,9 @@
             <ComponentRef Id="HelpLink" />
             <ComponentRef Id="ReadmeLink" />
             <ComponentRef Id="StartMenuDir" />
+            <?if $(var.lang)=ru ?>
+            <ComponentRef Id="ru_RU.dll" />
+            <?endif ?>
             <Feature Id="ClassicExplorer" Level="1" Title="!(loc.ExplorerTitle)" ConfigurableDirectory="APPLICATIONFOLDER" AllowAdvertise="no" Description="!(loc.ExplorerDesc)">
                 <ComponentRef Id="ClassicExplorer32.dll" />
                 <?if $(var.x64)=1 ?>
@@ -71,9 +74,8 @@
                 <ComponentRef Id="FullGlass.skin" />
                 <ComponentRef Id="Metro.skin" />
                 <ComponentRef Id="SmokedGlass.skin" />
-                <ComponentRef Id="Windows7Aero.skin" />
-                <ComponentRef Id="Windows7Basic.skin" />
-                <ComponentRef Id="WindowsVistaAero.skin" />
+                <ComponentRef Id="WindowsAero.skin" />
+                <ComponentRef Id="WindowsBasic.skin" />
                 <ComponentRef Id="WindowsXPLuna.skin" />
                 <ComponentRef Id="AutoRun" />
                 <ComponentRef Id="MenuSettingsLink" />
@@ -148,7 +150,11 @@
                 </Control>
                 <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.LicenseAgreementDlgBannerBitmap)" />
                 <Control Id="LicenseText" Type="ScrollableText" X="20" Y="60" Width="330" Height="140" Sunken="yes" TabSkip="no">
+                  <?if $(var.lang)=ru ?>
+                    <Text SourceFile="..\Localization\Russian\ClassicShellEULA.rtf" />
+                  <?else ?>
                     <Text SourceFile="..\Docs\ClassicShellEULA.rtf" />
+                  <?endif ?>
                 </Control>
                 <Control Id="Print" Type="PushButton" X="100" Y="243" Width="56" Height="17" Text="!(loc.WixUIPrint)">
                     <Publish Event="DoAction" Value="WixUIPrintEula">1</Publish>
@@ -381,7 +387,11 @@
         <UIRef Id="WixUI_Common" />
         <DirectoryRef Id="APPLICATIONFOLDER">
             <Component Id="ClassicShell.chm" Guid="29AB35F9-D611-4B34-BCE3-517C10C839AF" Win64="$(var.CS_WIN64)">
+              <?if $(var.lang)=ru ?>
+                <File Id="ClassicShell.chm" KeyPath="yes" Source="..\Localization\Russian\ClassicShell.chm" Vital="yes" />
+              <?else ?>
                 <File Id="ClassicShell.chm" KeyPath="yes" Source="..\Docs\Help\ClassicShell.chm" Vital="yes" />
+              <?endif ?>
             </Component>
             <Component Id="ClassicExplorer32.dll" Guid="21833BA5-3F17-4237-BA0C-2D01D273A27F" Win64="$(var.CS_WIN64)">
                 <File Id="ClassicExplorer32.dll" KeyPath="yes" Source="..\ClassicExplorer\Setup\ClassicExplorer32.dll" Checksum="yes" SelfRegCost="0" Vital="yes" />
@@ -423,7 +433,11 @@
             </Component>
             <?endif ?>
             <Component Id="ClassicShellReadme.rtf" Guid="A6B815ED-91BD-4F61-83B3-F98041026BB9" Win64="$(var.CS_WIN64)">
+              <?if $(var.lang)=ru ?>
+                <File Id="ClassicShellReadme.rtf" KeyPath="yes" Source="..\Localization\Russian\ClassicShellReadme.rtf" Vital="yes" />
+              <?else ?>
                 <File Id="ClassicShellReadme.rtf" KeyPath="yes" Source="..\Docs\ClassicShellReadme.rtf" Vital="yes" />
+              <?endif ?>
             </Component>
             <Component Id="ExplorerL10N.ini" Guid="" Win64="$(var.CS_WIN64)">
                 <File Id="ExplorerL10N.ini" KeyPath="yes" Source="..\ClassicExplorer\ExplorerL10N.ini" Vital="yes" />
@@ -446,6 +460,11 @@
                 <ServiceControl Id="StartService" Name="ClassicShellService" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
                 <Condition>VersionNT&gt;=602</Condition>
             </Component>
+            <?if $(var.lang)=ru ?>
+            <Component Id="ru_RU.dll" Guid="A709B553-FBFA-4863-A9E5-CCD79CAF1560" Win64="$(var.CS_WIN64)">
+                <File Id="ru_RU.dll" KeyPath="yes" Source="..\Localization\Russian\ru-RU.dll" Checksum="yes" Vital="yes" />
+            </Component>
+            <?endif ?>
         </DirectoryRef>
         <DirectoryRef Id="Skins">
             <Component Id="ClassicSkin.skin" Guid="301CA0BC-1DD4-4A25-8E1E-FA1A0134A814" Win64="$(var.CS_WIN64)">
@@ -460,14 +479,11 @@
             <Component Id="SmokedGlass.skin" Guid="19BF925A-85C0-4EFC-8F0C-091BFE5355FA" Win64="$(var.CS_WIN64)">
                 <File Id="SmokedGlass.skin" KeyPath="yes" Checksum="yes" Source="..\ClassicStartMenu\Skins\Smoked Glass.skin" Vital="yes" />
             </Component>
-            <Component Id="Windows7Aero.skin" Guid="3D01005D-B188-4DB7-8EB3-9955D305C877" Win64="$(var.CS_WIN64)">
-                <File Id="Windows7Aero.skin" KeyPath="yes" Checksum="yes" Source="..\ClassicStartMenu\Skins\Windows 7 Aero.skin" Vital="yes" />
+            <Component Id="WindowsAero.skin" Guid="31F56072-143D-4483-9590-E928CA6A4C5B" Win64="$(var.CS_WIN64)">
+                <File Id="WindowsAero.skin" KeyPath="yes" Checksum="yes" Source="..\ClassicStartMenu\Skins\Windows Aero.skin" Vital="yes" />
             </Component>
-            <Component Id="Windows7Basic.skin" Guid="D5E45F0C-55AC-4349-8B1F-64417C23F33F" Win64="$(var.CS_WIN64)">
-                <File Id="Windows7Basic.skin" KeyPath="yes" Checksum="yes" Source="..\ClassicStartMenu\Skins\Windows 7 Basic.skin" Vital="yes" />
-            </Component>
-            <Component Id="WindowsVistaAero.skin" Guid="8619F242-0D39-48A5-820B-4FD2CEEF433A" Win64="$(var.CS_WIN64)">
-                <File Id="WindowsVistaAero.skin" KeyPath="yes" Checksum="yes" Source="..\ClassicStartMenu\Skins\Windows Vista Aero.skin" Vital="yes" />
+            <Component Id="WindowsBasic.skin" Guid="64F8BA21-1A66-45f8-9BA6-E27156DCAAAE" Win64="$(var.CS_WIN64)">
+                <File Id="WindowsBasic.skin" KeyPath="yes" Checksum="yes" Source="..\ClassicStartMenu\Skins\Windows Basic.skin" Vital="yes" />
             </Component>
             <Component Id="WindowsXPLuna.skin" Guid="FBC71683-D1B5-4F6C-A14C-AD9B555D10BB" Win64="$(var.CS_WIN64)">
                 <File Id="WindowsXPLuna.skin" KeyPath="yes" Checksum="yes" Source="..\ClassicStartMenu\Skins\Windows XP Luna.skin" Vital="yes" />
@@ -478,6 +494,11 @@
                 <RegistryKey Root="HKLM" Key="Software\IvoSoft\ClassicShell" Action="createAndRemoveOnUninstall">
                     <RegistryValue Type="integer" Name="Version" KeyPath="yes" Value="$(env.CS_VERSION_NUM)" />
                     <RegistryValue Type="string" Name="Path" Value="[APPLICATIONFOLDER]" />
+                    <?if $(var.lang)=ru ?>
+                    <RegistryValue Type="string" Name="DefaultLanguage" Value="ru-RU" />
+                    <?else ?>
+                    <RegistryValue Type="string" Name="DefaultLanguage" Value="" />
+                    <?endif ?>
                 </RegistryKey>
             </Component>
             <Component Id="AutoRun" Guid="64987C22-72C7-419D-B5A5-D2E6CB4865B6" Win64="$(var.CS_WIN64)">
@@ -489,32 +510,32 @@
         </DirectoryRef>
         <DirectoryRef Id="StartMenuDir">
             <Component Id="HelpLink" Guid="D631C351-7BD4-42CE-813C-5D46347068AF">
-                <Shortcut Id="HelpLink" Name="Classic Shell Help" Advertise="no" Description="!(loc.HelpDesc)" Target="[APPLICATIONFOLDER]ClassicShell.chm" WorkingDirectory="APPLICATIONFOLDER" />
+                <Shortcut Id="HelpLink" Name="!(loc.HelpItem)" Advertise="no" Description="!(loc.HelpDesc)" Target="[APPLICATIONFOLDER]ClassicShell.chm" WorkingDirectory="APPLICATIONFOLDER" />
                 <CreateFolder />
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>
             <Component Id="ReadmeLink" Guid="A54415C8-412E-4768-8829-8898122E4AED">
-                <Shortcut Id="ReadmeLink" Name="Classic Shell Readme" Advertise="no" Description="!(loc.ReadmeDesc)" Target="[APPLICATIONFOLDER]ClassicShellReadme.rtf" WorkingDirectory="APPLICATIONFOLDER" />
+                <Shortcut Id="ReadmeLink" Name="!(loc.ReadmeItem)" Advertise="no" Description="!(loc.ReadmeDesc)" Target="[APPLICATIONFOLDER]ClassicShellReadme.rtf" WorkingDirectory="APPLICATIONFOLDER" />
                 <CreateFolder />
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>
             <Component Id="UpdateSettingsLink" Guid="10B5A082-6C92-4EA7-AFF8-21AE3D2D7FE0">
-                <Shortcut Id="UpdateSettingsLink" Name="Classic Shell Update Settings" Advertise="no" Description="!(loc.UpdateSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicShellUpdate.exe" WorkingDirectory="APPLICATIONFOLDER" />
+                <Shortcut Id="UpdateSettingsLink" Name="!(loc.UpdateItem)" Advertise="no" Description="!(loc.UpdateSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicShellUpdate.exe" WorkingDirectory="APPLICATIONFOLDER" />
                 <CreateFolder />
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>
             <Component Id="ExplorerSettingsLink" Guid="6EC027F2-115D-4110-8189-DDAFC78169EC">
-                <Shortcut Id="ExplorerSettingsLink" Name="Classic Explorer Settings" Advertise="no" Description="!(loc.ExplorerSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicExplorerSettings.exe" WorkingDirectory="APPLICATIONFOLDER" />
+                <Shortcut Id="ExplorerSettingsLink" Name="!(loc.ExplorerItem)" Advertise="no" Description="!(loc.ExplorerSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicExplorerSettings.exe" WorkingDirectory="APPLICATIONFOLDER" />
                 <CreateFolder />
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>
             <Component Id="MenuSettingsLink" Guid="F2B638D3-EBE1-4C8F-9C53-08A4F21ACFA3">
-                <Shortcut Id="MenuSettingsLink" Name="Classic Start Menu Settings" Advertise="no" Description="!(loc.StartSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicStartMenu.exe" WorkingDirectory="APPLICATIONFOLDER" Arguments="-settings" />
+                <Shortcut Id="MenuSettingsLink" Name="!(loc.StartMenuItem)" Advertise="no" Description="!(loc.StartSettingsDesc)" Target="[APPLICATIONFOLDER]ClassicStartMenu.exe" WorkingDirectory="APPLICATIONFOLDER" Arguments="-settings" />
                 <CreateFolder />
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>
             <Component Id="IE9SettingsLink" Guid="10C0226C-22A9-49E4-AA65-C96AD7A504CC">
-                <Shortcut Id="IE9SettingsLink" Name="Classic IE9 Settings" Advertise="no" Description="!(loc.IE9SettingsDesc)" Target="[APPLICATIONFOLDER]ClassicIE9_32.exe" WorkingDirectory="APPLICATIONFOLDER" />
+                <Shortcut Id="IE9SettingsLink" Name="!(loc.IE9Item)" Advertise="no" Description="!(loc.IE9SettingsDesc)" Target="[APPLICATIONFOLDER]ClassicIE9_32.exe" WorkingDirectory="APPLICATIONFOLDER" />
                 <CreateFolder />
                 <Condition>START_MENU_FOLDER=1</Condition>
             </Component>

@@ -1,9 +1,9 @@
 @REM !!!!! CHANGE THE GUIDS WHEN CHANGING THE VERSION !!!!!
-SET CS_VERSION=3.5.1
-SET CS_VERSION_STR=3_5_1
-SET CS_VERSION_NUM=30501
-SET CS_GUID32=7C9620F8-E361-4382-A5E4-385B8B682913
-SET CS_GUID64=902FEB22-3C4A-4D6C-84F9-C66C35DD299A
+SET CS_VERSION=3.6.0
+SET CS_VERSION_STR=3_6_0
+SET CS_VERSION_NUM=30600
+SET CS_GUID32=4E8CF378-2000-408a-837B-89D049EDB8A4
+SET CS_GUID64=ADB63A85-DDF6-4326-B303-B609C394AC4C
 
 @SET CS_ERROR=0
 
@@ -39,8 +39,45 @@ cd ClassicShellSetup
 md Temp
 del /Q Temp\*.*
 
+@if not exist ..\Localization\Russian\ClassicShellText-ru-RU.wxl goto english
+
+REM **************************** Russian
+
 REM ********* Build 32-bit MSI
-candle ClassicShellSetup.wxs -out Temp\ClassicShellSetup32.wixobj -ext WixUIExtension -ext WixUtilExtension -dx64=0
+candle ClassicShellSetup.wxs -out Temp\ClassicShellSetup32.wixobj -ext WixUIExtension -ext WixUtilExtension -dx64=0 -dlang=ru
+@if ERRORLEVEL 1 goto end
+
+@REM We need to suppress ICE38 and ICE43 because they apply only to per-user installation. We only support per-machine installs
+light Temp\ClassicShellSetup32.wixobj -out Temp\ClassicShellSetup32.msi -ext WixUIExtension -ext WixUtilExtension -loc ..\Localization\Russian\ClassicShellText-ru-RU.wxl -loc ..\Localization\Russian\WixUI_ru-RU.wxl -sice:ICE38 -sice:ICE43
+@if ERRORLEVEL 1 goto end
+
+
+REM ********* Build 64-bit MSI
+candle ClassicShellSetup.wxs -out Temp\ClassicShellSetup64.wixobj -ext WixUIExtension -ext WixUtilExtension -dx64=1 -dlang=ru
+@if ERRORLEVEL 1 goto end
+
+@REM We need to suppress ICE38 and ICE43 because they apply only to per-user installation. We only support per-machine installs
+light Temp\ClassicShellSetup64.wixobj -out Temp\ClassicShellSetup64.msi -ext WixUIExtension -ext WixUtilExtension -loc ..\Localization\Russian\ClassicShellText-ru-RU.wxl -loc ..\Localization\Russian\WixUI_ru-RU.wxl -sice:ICE38 -sice:ICE43
+@if ERRORLEVEL 1 goto end
+
+
+REM ********* Build MSI Checksums
+start /wait SetupHelper\Release\SetupHelper.exe crcmsi Temp
+@if ERRORLEVEL 1 goto end
+
+REM ********* Build bootstrapper
+"%VS90COMNTOOLS%..\IDE\devenv.com" ClassicShellSetup.sln /rebuild "Release|Win32"
+@if ERRORLEVEL 1 goto end
+del Release\ClassicShellSetup-ru.exe
+ren Release\ClassicShellSetup.exe ClassicShellSetup-ru.exe
+
+
+:english
+
+REM **************************** English
+
+REM ********* Build 32-bit MSI
+candle ClassicShellSetup.wxs -out Temp\ClassicShellSetup32.wixobj -ext WixUIExtension -ext WixUtilExtension -dx64=0 -dlang=en
 @if ERRORLEVEL 1 goto end
 
 @REM We need to suppress ICE38 and ICE43 because they apply only to per-user installation. We only support per-machine installs
@@ -49,7 +86,7 @@ light Temp\ClassicShellSetup32.wixobj -out Temp\ClassicShellSetup32.msi -ext Wix
 
 
 REM ********* Build 64-bit MSI
-candle ClassicShellSetup.wxs -out Temp\ClassicShellSetup64.wixobj -ext WixUIExtension -ext WixUtilExtension -dx64=1
+candle ClassicShellSetup.wxs -out Temp\ClassicShellSetup64.wixobj -ext WixUIExtension -ext WixUtilExtension -dx64=1 -dlang=en
 @if ERRORLEVEL 1 goto end
 
 @REM We need to suppress ICE38 and ICE43 because they apply only to per-user installation. We only support per-machine installs
@@ -64,6 +101,19 @@ start /wait SetupHelper\Release\SetupHelper.exe crcmsi Temp
 REM ********* Build bootstrapper
 "%VS90COMNTOOLS%..\IDE\devenv.com" ClassicShellSetup.sln /rebuild "Release|Win32"
 @if ERRORLEVEL 1 goto end
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 @goto EOF
 :end

@@ -41,6 +41,12 @@ HICON CreateDisabledIcon( HICON hIcon, int iconSize );
 // Returns the version of a given module
 DWORD GetVersionEx( HINSTANCE hInstance );
 
+// Returns the Windows version - 0x600, 0x601, ...
+WORD GetWinVersion( void );
+const int WIN_VER_VISTA=0x600;
+const int WIN_VER_WIN7=0x601;
+const int WIN_VER_WIN8=0x602;
+
 // Wrapper for IShellFolder::ParseDisplayName
 HRESULT ShParseDisplayName( wchar_t *pszName, PIDLIST_ABSOLUTE *ppidl, SFGAOF sfgaoIn, SFGAOF *psfgaoOut );
 

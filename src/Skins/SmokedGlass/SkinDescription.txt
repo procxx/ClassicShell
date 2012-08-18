@@ -37,13 +37,17 @@ Main_text_color=#FFFFFF,#FFFFFF,#9F9F9F,#AFAFAF
 ; If Main_arrow_color is not set, the first 2 colors of Main_text_color are used
 Main_arrow_color=#FFFFFF,#FFFFFF
 
-; Main_arrow_padding - padding on the left and right of the sub-menu arrow. The default is 8,4
-Main_arrow_padding=8,6
+; Main_arrow_padding - padding on the left and right of the sub-menu arrow. The default is 6,6
+Main_arrow_padding=7,7
 
 Main_padding=2,4,4,4
-Main_selection=4
+Main_selection=3
 Main_selection_slices_X=4,63,4
 Main_selection_slices_Y=4,20,4
+
+Main_split_selection=11
+Main_split_selection_slices_X=4,63,4,0,16,4
+Main_split_selection_slices_Y=4,20,4
 
 ; Main_icon_padding - extra padding on the left/top/right/bottom of the icon in the main menu
 ; The default is 3,3,3,3
@@ -54,17 +58,17 @@ Main_icon_padding=4,3,3,3
 Main_text_padding=1,0,4,0
 
 ; Main_pager - a bitmap that contains the background for the pager buttons (the ones that scroll menus up and down)
-Main_pager=5
+Main_pager=4
 
 ; Main_pager_slices_X, Main_pager_slices_Y - the slices for Main_pager
 Main_pager_slices_X=3,1,3
 Main_pager_slices_Y=4,4,4
 
 ; Main_pager_arrows - a bitmap that contains the arrow image to draw on top of the Main_pager background
-Main_pager_arrows=6
+Main_pager_arrows=5
 
 ; Main_separator - ID of a bitmap resource to use for the main menu separator. If no value is set the system separator is used
-Main_separator=7
+Main_separator=6
 
 ; Main_separator_slices_X - the horizontal slices for the separator bitmap
 Main_separator_slices_X=15,100,15
@@ -84,32 +88,36 @@ Submenu_padding=4,4,4,4
 Submenu_font="Segoe UI",normal,-9
 Submenu_text_color=#FFFFFF,#FFFFFF,#7F7F7F,#7F7F7F
 Submenu_arrow_color=#FFFFFF,#FFFFFF
-Submenu_arrow_padding=8,6
-Submenu_selection=4
+Submenu_arrow_padding=7,7
+Submenu_selection=3
 Submenu_selection_slices_X=4,63,4
 Submenu_selection_slices_Y=4,20,4
+Submenu_split_selection=11
+Submenu_split_selection_slices_X=4,63,4,0,16,4
+Submenu_split_selection_slices_Y=4,20,4
 Submenu_icon_padding=4,3,3,3
-Submenu_pager=5
+Submenu_pager=4
 Submenu_pager_slices_X=3,1,3
 Submenu_pager_slices_Y=4,4,4
-Submenu_pager_arrows=6
-Submenu_separator=7
+Submenu_pager_arrows=5
+Submenu_separator=6
 Submenu_separator_slices_X=15,100,15
 
 ; Submenu_separatorV - bitmap to use as a vertical separator between multiple columns
-Submenu_separatorV=8
+Submenu_separatorV=7
 
 ; Submenu_separator_slices_Y - vertical slices for Submenu_separatorV
 Submenu_separator_slices_Y=15,100,15
 
 ;SEARCH SECTION
 
-Search_bitmap=11
+Search_bitmap=10
 
 
 ; OPTIONS
 
 OPTION TWO_COLUMNS="Two Columns",0
+OPTION NO_ICONS="No Icons in Second Column",0, TWO_COLUMNS
 OPTION CAPTION="Caption",1, NOT TWO_COLUMNS, 0
 OPTION USER_IMAGE="Show User Picture",0
 OPTION USER_NAME="Show User Name",0
@@ -138,10 +146,19 @@ Submenu_font="Segoe UI",normal,-10
 
 
 [NOT DISABLE_MASK]
-; Main_bitmap_mask - a bitmap that is used to blend Main_bitmap with the glass color and the menu background color. The red channel is the weight
-; of the glass color and the green channel is the weight of the background color
-Main_bitmap_mask=3
-Submenu_bitmap_mask=3
+; Main_bitmap_mask - a bitmap or a solid color in #RRGGBB format that is used to blend Main_bitmap with the glass color and the menu background color.
+; The red channel is the weight of the glass color and the green channel is the weight of the background color
+Main_bitmap_mask=#700000
+Submenu_bitmap_mask=#700000
+
+; Main_selection_mask - a bitmap or a solid color in #RRGGBB format that is used to blend the selection bitmap with the glass color and the menu background color.
+; The red channel is the weight of the glass color and the green channel is the weight of the background color
+Main_selection_mask=#700000
+Main_selection_mask2=#700000
+Submenu_selection_mask=#700000
+Main_split_selection_mask=#700000
+Main_split_selection_mask2=#700000
+Submenu_split_selection_mask=#700000
 
 
 [TWO_COLUMNS]
@@ -151,6 +168,9 @@ Main_bitmap_slices_X=6,1,1,6,1,13
 Main_opacity2=fullglass
 Main_padding=4,4,4,4
 Main_padding2=4,4,4,4
+Main_split_selection2=11
+Main_split_selection_slices_X2=4,63,4,0,16,4
+Main_split_selection_slices_Y2=4,20,4
 
 [USER_IMAGE]
 ; User_image_size - the size of the user image to use. Default is 0, which means the user image is not displayed
@@ -163,7 +183,7 @@ User_image_size=48
 User_frame_position=-10,6
 
 ; User_bitmap - the frame around the user picture
-User_bitmap=9
+User_bitmap=8
 
 ; User_image_offset - horizontal and vertical offset of the user image from its frame
 ; If User_bitmap is missing, the frame is assumed to be 0 pixels and this offset is ignored
@@ -173,7 +193,7 @@ User_frame_position=-6,6
 
 [USER_IMAGE AND SMALL_ICONS]
 User_image_size=32
-User_bitmap=10
+User_bitmap=9
 
 [USER_NAME]
 User_font="Segoe UI",bold,22
@@ -223,3 +243,6 @@ User_name_align=center
 
 [CENTER_NAME AND TWO_COLUMNS]
 User_name_align=center2
+
+[NO_ICONS]
+Main_no_icons2=1

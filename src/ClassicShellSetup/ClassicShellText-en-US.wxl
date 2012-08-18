@@ -19,4 +19,10 @@
   <String Id="UpdateSettingsDesc" Overridable="yes">Edit the settings for Classic Shell's new version check</String>
   <String Id="StartMenuFolder" Overridable="yes">Create a start menu folder</String>
   <String Id="ViewReadme" Overridable="yes">View Readme file</String>
+  <String Id="HelpItem" Overridable="yes">Classic Shell Help</String>
+  <String Id="ReadmeItem" Overridable="yes">Classic Shell Readme</String>
+  <String Id="UpdateItem" Overridable="yes">Classic Shell Update</String>
+  <String Id="ExplorerItem" Overridable="yes">Classic Explorer Settings</String>
+  <String Id="StartMenuItem" Overridable="yes">Classic Start Menu Settings</String>
+  <String Id="IE9Item" Overridable="yes">Classic IE9 Settings</String>
 </WixLocalization>

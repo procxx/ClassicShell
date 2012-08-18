@@ -70,15 +70,15 @@ END
 
 1                       BITMAP                  "main_bitmap.bmp"
 2                       BITMAP                  "main_bitmap2.bmp"
-3                       BITMAP                  "main_bitmap_mask.bmp"
-4                       BITMAP                  "selection.bmp"
-5                       BITMAP                  "pager.bmp"
-6                       BITMAP                  "pager_arrows.bmp"
-7                       BITMAP                  "separator.bmp"
-8                       BITMAP                  "separatorV.bmp"
-9                       BITMAP                  "user_bitmap.bmp"
-10                      BITMAP                  "user_bitmap32.bmp"
-11                      BITMAP                  "search.bmp"
+3                       BITMAP                  "selection.bmp"
+4                       BITMAP                  "pager.bmp"
+5                       BITMAP                  "pager_arrows.bmp"
+6                       BITMAP                  "separator.bmp"
+7                       BITMAP                  "separatorV.bmp"
+8                       BITMAP                  "user_bitmap.bmp"
+9                       BITMAP                  "user_bitmap32.bmp"
+10                      BITMAP                  "search.bmp"
+11                      BITMAP                  "split_selection.bmp"
 
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////

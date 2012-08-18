@@ -75,10 +75,9 @@ END
 5                       BITMAP                  "pager.bmp"
 6                       BITMAP                  "pager_arrows.bmp"
 7                       BITMAP                  "separatorV.bmp"
-8                       BITMAP                  "menu_arrows.bmp"
-9                       BITMAP                  "user_bitmap.bmp"
-10                      BITMAP                  "user_bitmap32.bmp"
-11                      BITMAP                  "search.bmp"
+8                       BITMAP                  "user_bitmap.bmp"
+9                       BITMAP                  "user_bitmap32.bmp"
+10                      BITMAP                  "search.bmp"
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

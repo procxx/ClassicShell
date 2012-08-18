@@ -210,6 +210,7 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 		}
 		box.EndPaint(&ps);
 
+		pParent->m_bSearchDrawn=true;
 		pParent->m_bNoSearchDraw=false;
 		return 0;
 	}
@@ -252,7 +253,7 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 				{
 					wchar_t exe[_MAX_PATH];
 					const wchar_t *args=SeparateArguments(command,exe);
-					if ((DWORD_PTR)ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL)>32 && !args && LOWORD(GetVersion())!=0x0006)
+					if ((DWORD_PTR)ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL)>32 && !args && GetWinVersion()>=WIN_VER_WIN7)
 						SHAddToRecentDocs(SHARD_PATH,exe); // on Windows 7 the executed documents are not automatically added to the recent document list
 				}
 			}
@@ -379,6 +380,7 @@ CMenuContainer::CMenuContainer( CMenuContainer *pParent, int index, int options,
 	m_Submenu=-1;
 	m_bScrollTimer=false;
 	m_bNoSearchDraw=false;
+	m_bSearchDrawn=false;
 	m_bInSearchUpdate=false;
 	m_bSearchShowAll=false;
 	m_SearchIcons=NULL;
@@ -496,6 +498,7 @@ void CMenuContainer::AddSecondFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABS
 			StrRetToStr(&str,pidl,&name);
 			CharUpper(name);
 			unsigned int hash=CalcFNVHash(name,hash0);
+			bool bLibrary=_wcsicmp(PathFindExtension(name),L".library-ms")==0;
 			CoTaskMemFree(name);
 			PIDLIST_ABSOLUTE pItem2=ILCombine(path,pidl);
 
@@ -513,8 +516,6 @@ void CMenuContainer::AddSecondFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABS
 
 			if (!bFound)
 			{
-				bool bLibrary=_wcsicmp(PathFindExtension(name),L".library-ms")==0;
-
 				STRRET str2;
 				if (SUCCEEDED(pFolder->GetDisplayNameOf(pidl,SHGDN_INFOLDER|SHGDN_NORMAL,&str2)))
 					StrRetToStr(&str2,pidl,&name);
@@ -647,6 +648,8 @@ void CMenuContainer::AddStandardItems( void )
 				}
 				if ((pItem->submenu && (stdOptions&MENU_EXPANDED)) || pItem->id==MENU_RECENT_ITEMS)
 					item.bFolder=true;
+
+				item.bSplit=(item.pStdItem->settings&StdMenuItem::MENU_SPLIT_BUTTON)!=0;
 
 				// get icon
 				if (pItem->iconPath)
@@ -1255,12 +1258,12 @@ void CMenuContainer::InitWindow( void )
 	
 	if (m_bSubMenu)
 	{
-		if (s_Skin.Submenu_separator) sepHeight[0]=s_Skin.Submenu_separatorHeight;
+		if (s_Skin.Submenu_separator.GetBitmap()) sepHeight[0]=s_Skin.Submenu_separatorHeight;
 	}
 	else
 	{
-		if (s_Skin.Main_separator) sepHeight[0]=s_Skin.Main_separatorHeight;
-		if (s_Skin.Main_separator2) sepHeight[1]=s_Skin.Main_separatorHeight2;
+		if (s_Skin.Main_separator.GetBitmap()) sepHeight[0]=s_Skin.Main_separatorHeight;
+		if (s_Skin.Main_separator2.GetBitmap()) sepHeight[1]=s_Skin.Main_separatorHeight2;
 	}
 
 	// calculate item size
@@ -1309,7 +1312,7 @@ void CMenuContainer::InitWindow( void )
 			{
 				h=metrics.tmHeight*12/8+DEFAULT_SEARCH_PADDING.top+DEFAULT_SEARCH_PADDING.bottom; // 12 DLUs
 				searchIndex=(int)i;
-				w=metrics.tmAveCharWidth*20;
+				w=metrics.tmAveCharWidth*25;
 			}
 			else
 			{
@@ -1318,7 +1321,9 @@ void CMenuContainer::InitWindow( void )
 				if (GetTextExtentPoint32(hdc,item.name,item.name.GetLength(),&size))
 					w=size.cx;
 				if (w>m_MaxItemWidth[index]) w=m_MaxItemWidth[index];
-				w+=iconSize+iconPadding[index].left+iconPadding[index].right+textPadding[index].left+textPadding[index].right+arrowSize[index];
+				w+=iconPadding[index].left+iconPadding[index].right+textPadding[index].left+textPadding[index].right+arrowSize[index];
+				if (!m_bTwoColumns || index!=1 || !s_Skin.Main_no_icons2)
+					w+=iconSize;
 			}
 			if (bMultiColumn && y>0 && y+h>maxHeight)
 			{
@@ -1529,7 +1534,7 @@ void CMenuContainer::InitWindow( void )
 		}
 		if (!m_bSubMenu)
 		{
-			if (s_Skin.Main_bitmap || s_Skin.User_image_size || m_bTwoColumns || s_Skin.User_name_position.left!=s_Skin.User_name_position.right)
+			if (s_Skin.Main_bitmap.GetBitmap() || s_Skin.User_image_size || m_bTwoColumns || s_Skin.User_name_position.left!=s_Skin.User_name_position.right)
 			{
 				CreateBackground(w1,w2,h1,h2);
 				BITMAP info;
@@ -1549,7 +1554,7 @@ void CMenuContainer::InitWindow( void )
 		}
 		else
 		{
-			if (s_Skin.Submenu_bitmap)
+			if (s_Skin.Submenu_bitmap.GetBitmap())
 				CreateSubmenuRegion(w1,h1);
 
 			m_rContent.left=s_Skin.Submenu_padding.left;
@@ -1927,11 +1932,11 @@ void CMenuContainer::InvalidateItem( int index )
 	}
 }
 
-void CMenuContainer::SetHotItem( int index )
+void CMenuContainer::SetHotItem( int index, bool bArrow )
 {
 	if (index<0 && (m_Options&CONTAINER_SEARCH))
 		return;
-	if (index==m_HotItem) return;
+	if (index==m_HotItem && bArrow==m_bHotArrow) return;
 	if ((index>=0)!=(m_HotItem>=0))
 	{
 		InvalidateItem(m_Submenu);
@@ -1940,6 +1945,7 @@ void CMenuContainer::SetHotItem( int index )
 	InvalidateItem(m_HotItem);
 	InvalidateItem(index);
 	m_HotItem=index;
+	m_bHotArrow=bArrow;
 	s_pTipMenu=NULL;
 	s_TipItem=-1;
 	if (index>=0)
@@ -2767,7 +2773,7 @@ LRESULT CMenuContainer::OnKeyDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		// open submenu
 		if (index>=0)
 		{
-			if (m_Items[index].bFolder)
+			if (m_Items[index].bFolder && (bForward || !m_Items[index].bSplit))
 				ActivateItem(index,ACTIVATE_OPEN_KBD,NULL);
 			else if (wParam==VK_RETURN)
 				ActivateItem(index,ACTIVATE_EXECUTE,NULL);
@@ -3052,7 +3058,18 @@ LRESULT CMenuContainer::OnMouseMove( UINT uMsg, WPARAM wParam, LPARAM lParam, BO
 	{
 		if (index>=0 && m_Items[index].id==MENU_SEPARATOR)
 			index=m_HotItem;
-		SetHotItem(index);
+		bool bArrow=false;
+		if (index>=0)
+		{
+			const MenuItem &item=m_Items[index];
+			if (item.bFolder && item.bSplit)
+			{
+				const SIZE &arrPadding=(m_bTwoColumns && item.column==1)?s_Skin.Main_arrow_padding2:(m_bSubMenu?s_Skin.Submenu_arrow_padding:s_Skin.Main_arrow_padding);
+				const SIZE &arrSize=(m_bTwoColumns && item.column==1)?s_Skin.Main_arrow_Size2:(m_bSubMenu?s_Skin.Submenu_arrow_Size:s_Skin.Submenu_arrow_Size);
+				bArrow=(pt.x>=item.itemRect.right-arrPadding.cx-arrPadding.cy-arrSize.cx);
+			}
+		}
+		SetHotItem(index,bArrow);
 
 		UpdateScroll(&pt);
 
@@ -3250,11 +3267,26 @@ LRESULT CMenuContainer::OnLButtonUp( UINT uMsg, WPARAM wParam, LPARAM lParam, BO
 	}
 	if (index<0) return 0;
 	const MenuItem &item=m_Items[index];
-	ClientToScreen(&pt);
+	POINT pt2=pt;
+	ClientToScreen(&pt2);
 	if (!item.bFolder)
-		ActivateItem(index,ACTIVATE_EXECUTE,&pt);
-	else if (index!=m_Submenu)
-		ActivateItem(index,ACTIVATE_OPEN,NULL);
+		ActivateItem(index,ACTIVATE_EXECUTE,&pt2);
+	else
+	{
+		const MenuItem &item=m_Items[index];
+		if (item.bSplit)
+		{
+			const SIZE &arrPadding=(m_bTwoColumns && item.column==1)?s_Skin.Main_arrow_padding2:(m_bSubMenu?s_Skin.Submenu_arrow_padding:s_Skin.Main_arrow_padding);
+			const SIZE &arrSize=(m_bTwoColumns && item.column==1)?s_Skin.Main_arrow_Size2:(m_bSubMenu?s_Skin.Submenu_arrow_Size:s_Skin.Submenu_arrow_Size);
+			if (pt.x<item.itemRect.right-arrPadding.cx-arrPadding.cy-arrSize.cx)
+			{
+				ActivateItem(index,ACTIVATE_EXECUTE,&pt2);
+				return 0;
+			}
+		}
+		if (index!=m_Submenu)
+			ActivateItem(index,ACTIVATE_OPEN,NULL);
+	}
 	return 0;
 }
 
@@ -3589,6 +3621,8 @@ void CMenuContainer::AddItemRank( unsigned int hash )
 		if (it->hash==hash)
 		{
 			it->rank++;
+			if (GetSettingBool(L"SearchTrack"))
+				SaveItemRanks();
 			return;
 		}
 	ItemRank rank={hash,1};
@@ -3705,6 +3739,23 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 		EnableStartTooltip(false);
 	}
 
+	if (GetSettingBool(L"EnableSettings") && !IsSettingLocked(L"DefaultMenuStyle"))
+	{
+		CRegKey regKey;
+		if (regKey.Open(HKEY_CURRENT_USER,GetSettingsRegPath())!=ERROR_SUCCESS)
+			regKey.Create(HKEY_CURRENT_USER,GetSettingsRegPath());
+
+		DWORD val;
+		if (regKey.QueryDWORDValue(L"ShowedStyle",val)!=ERROR_SUCCESS)
+		{
+			regKey.SetDWORDValue(L"ShowedStyle",1);
+			if (regKey.QueryDWORDValue(L"ShowedStyle",val)==ERROR_SUCCESS && val)
+			{
+				EditSettings(false,IDS_STYLE_SETTINGS);
+				return NULL;
+			}
+		}
+	}
 	s_bAllPrograms=bAllPrograms;
 	int level=GetSettingInt(L"LogLevel");
 	if (level>0)
@@ -3752,11 +3803,8 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 
 	APPBARDATA appbar={sizeof(appbar)};
 	s_TaskbarState=(DWORD)SHAppBarMessage(ABM_GETSTATE,&appbar);
-	DWORD version=LOWORD(GetVersion());
 	// the taskbar on Windows 7 (and most likely later versions) is always on top even though it doesn't have the ABS_ALWAYSONTOP flag.
-	// to check the version we have to swap the low and high bytes returned by GetVersion(). Would have been so much easier if GetVersion
-	// returns the bytes in the correct order rather than being retarded like this.
-	if (MAKEWORD(HIBYTE(version),LOBYTE(version))>=0x601)
+	if (GetWinVersion()>=WIN_VER_WIN7)
 	{
 		// also check the WS_EX_TOPMOST style - maybe some tool like DisableTaskbarOnTop is messing with it
 		if (::GetWindowLong(g_TaskBar,GWL_EXSTYLE)&WS_EX_TOPMOST)
@@ -3965,7 +4013,11 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	// make sure the menu stays on the same monitor as the task bar
 	MONITORINFO info={sizeof(info)};
 	GetMonitorInfo(MonitorFromWindow(g_TaskBar,MONITOR_DEFAULTTOPRIMARY),&info);
-	UnionRect(&s_MainRect,&info.rcWork,&appbar.rc);
+	{
+		RECT rc;
+		UnionRect(&rc,&info.rcWork,&appbar.rc);
+		IntersectRect(&s_MainRect,&rc,&info.rcMonitor);
+	}
 
 	RECT taskbarRect;
 	::GetWindowRect(g_TaskBar,&taskbarRect);
@@ -4328,7 +4380,7 @@ bool CMenuContainer::ProcessMouseMessage( HWND hwnd, UINT uMsg, WPARAM wParam, L
 	{
 		if (!s_bAllPrograms)
 			return false;
-		if (hwnd==g_ProgramsButton)
+		if (hwnd && hwnd==g_ProgramsButton)
 			return true;
 		for (std::vector<CMenuContainer*>::const_iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			if ((*it)->m_hWnd==hwnd && (*it)->m_ContextItem<0)

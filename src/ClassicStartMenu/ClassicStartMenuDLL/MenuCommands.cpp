@@ -751,9 +751,9 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			break;
 		case MENU_CLASSIC_SETTINGS: // show our settings
 #ifdef ALLOW_DEACTIVATE
-			EditSettings(false);
+			EditSettings(false,0);
 #else
-			EditSettings(true);
+			EditSettings(true,0);
 #endif
 			break;
 		case MENU_FEATURES:
@@ -829,7 +829,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			}
 			break;
 		case MENU_RESTART: // restart
-			if (LOWORD(GetVersion())==0x0206 && bShift)
+			if (GetWinVersion()==WIN_VER_WIN8 && bShift)
 			{
 				STARTUPINFO startupInfo={sizeof(startupInfo)};
 				PROCESS_INFORMATION processInfo;
@@ -859,7 +859,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 #ifndef EWX_HYBRID_SHUTDOWN
 #define EWX_HYBRID_SHUTDOWN 0x00400000
 #endif
-			if (LOWORD(GetVersion())==0x0206 && !bShift)
+			if (GetWinVersion()==WIN_VER_WIN8 && !bShift)
 				ExitWindowsEx(EWX_SHUTDOWN|EWX_HYBRID_SHUTDOWN,0);
 			else
 				ExitWindowsEx(EWX_SHUTDOWN,0);
@@ -1636,7 +1636,13 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (bRefresh)
 			info.fMask|=CMIC_MASK_NOASYNC; // wait for delete/link commands to finish so we can refresh the menu
 
-		s_pDragSource=this; // prevent the menu from closing. the command may need a HWND to show its UI
+		if (GetWinVersion()<WIN_VER_WIN8)
+		{
+			// prevent the menu from closing. the command may need a HWND to show its UI.
+			// this doesn't work on Win8 because the popups (like from the Delete command) are not top-most.
+			// better to close the menu than to have a popup appear behind.
+			s_pDragSource=this;
+		}
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			(*it)->EnableWindow(FALSE); // disable all menus
 		bool bAllPrograms=s_bAllPrograms;
@@ -1650,7 +1656,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		HRESULT hr=pMenu->InvokeCommand((LPCMINVOKECOMMANDINFO)&info);
 
 		// on Windows 7 the executed documents are not automatically added to the recent document list
-		if (SUCCEEDED(hr) && item.pItem1 && _stricmp(command,"open")==0 && !item.bFolder && LOWORD(GetVersion())!=0x0006)
+		if (SUCCEEDED(hr) && item.pItem1 && _stricmp(command,"open")==0 && !item.bFolder && GetWinVersion()>=WIN_VER_WIN7)
 		{
 			PIDLIST_ABSOLUTE path=item.pItem1;
 			// assume it is a link and try to get the target path
@@ -1773,36 +1779,27 @@ void CMenuContainer::FadeOutItem( int index )
 
 	// create a region from the opaque pixels of the selection bitmap
 	int *slicesX, *slicesY;
-	HBITMAP bmpSel=NULL;
-	bool b32=false;
+	MenuBitmap bmpSel={0};
 	if (m_bSubMenu)
 	{
 		// sub-menu
-		if (!s_Skin.Submenu_selectionColor)
-		{
-			bmpSel=s_Skin.Submenu_selection.bmp;
-			b32=s_Skin.Submenu_selection32;
-			slicesX=s_Skin.Submenu_selection_slices_X;
-			slicesY=s_Skin.Submenu_selection_slices_Y;
-		}
+		bmpSel=s_Skin.Submenu_selection;
+		slicesX=s_Skin.Submenu_selection_slices_X;
+		slicesY=s_Skin.Submenu_selection_slices_Y;
 	}
 	else
 	{
 		// main menu
-		if (!s_Skin.Main_selectionColor)
-		{
-			bmpSel=s_Skin.Main_selection.bmp;
-			b32=s_Skin.Main_selection32;
-			slicesX=s_Skin.Main_selection_slices_X;
-			slicesY=s_Skin.Main_selection_slices_Y;
-		}
+		bmpSel=s_Skin.Main_selection;
+		slicesX=s_Skin.Main_selection_slices_X;
+		slicesY=s_Skin.Main_selection_slices_Y;
 	}
 	HRGN region=NULL;
-	if (bmpSel && b32)
+	if (bmpSel.GetBitmap() && bmpSel.bIs32)
 	{
 		HDC hdc2=CreateCompatibleDC(hdc);
 		SetLayout(hdc2,0);
-		HBITMAP bmp02=(HBITMAP)SelectObject(hdc2,bmpSel);
+		HBITMAP bmp02=(HBITMAP)SelectObject(hdc2,bmpSel.GetBitmap());
 		FillRect(hdc,&rc,(HBRUSH)GetStockObject(WHITE_BRUSH));
 		RECT rSrc={0,0,slicesX[0]+slicesX[1]+slicesX[2],slicesY[0]+slicesY[1]+slicesY[2]};
 		RECT rMargins={slicesX[0],slicesY[0],slicesX[2],slicesY[2]};

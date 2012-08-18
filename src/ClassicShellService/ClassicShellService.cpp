@@ -1,13 +1,32 @@
 #include <windows.h>
 #include <WtsApi32.h>
 #include <shlwapi.h>
+#include <stdio.h>
+#include <time.h>
 
 static const wchar_t *g_ServiceName=L"ClassicShellService";
 static SERVICE_STATUS_HANDLE g_hServiceStatus;
 static SERVICE_STATUS g_ServiceStatus;
+static wchar_t g_LogName[_MAX_PATH];
+
+static void LogText( const char *format, ... )
+{
+	if (*g_LogName)
+	{
+		FILE *f;
+		if (_wfopen_s(&f,g_LogName,L"a+t")) return;
+		va_list args;
+		va_start(args,format);
+		fprintf(f,"0x%8X  ",time(NULL));
+		vfprintf(f,format,args);
+		va_end(args);
+		fclose(f);
+	}
+}
 
 static DWORD WINAPI ServiceHandlerEx(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext)
 {
+	LogText("Control: %d, Event: %d\n",dwControl,dwEventType);
 	switch(dwControl)
 	{
 		case SERVICE_CONTROL_STOP:
@@ -35,12 +54,23 @@ static DWORD WINAPI ServiceHandlerEx(DWORD dwControl, DWORD dwEventType, LPVOID 
 					GetModuleFileName(NULL,path,_countof(path));
 					PathRemoveFileSpec(path);
 					PathAppend(path,L"ClassicStartMenu.exe -startup");
+					LogText("Starting process: %S\n",path);
 					if(CreateProcessAsUser(hUser,NULL,path,NULL,NULL,TRUE,NORMAL_PRIORITY_CLASS,NULL,NULL,&startupInfo,&processInfo))
 					{
 						CloseHandle(processInfo.hProcess);
 						CloseHandle(processInfo.hThread);
 					}
+					else
+					{
+						int err=GetLastError();
+						LogText("CreateProcessAsUser failed: %d\n",err);
+					}
 					CloseHandle(hUser);
+				}
+				else
+				{
+					int err=GetLastError();
+					LogText("WTSQueryUserToken failed: %d\n",err);
 				}
 			}
 			return NO_ERROR;
@@ -120,6 +150,20 @@ int wmain( int argc, const wchar_t *argv[] )
 		{(wchar_t*)g_ServiceName, ServiceMain},
 		{NULL, NULL}
 	};
+	HKEY hKey;
+	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,L"SOFTWARE\\IvoSoft\\ClassicShell",0,KEY_READ|KEY_WOW64_64KEY,&hKey)==ERROR_SUCCESS)
+	{
+		DWORD log;
+		DWORD size=sizeof(log);
+		if (RegQueryValueEx(hKey,L"LogService",0,NULL,(BYTE*)&log,&size)==ERROR_SUCCESS && log)
+		{
+			GetModuleFileName(NULL,g_LogName,_countof(g_LogName));
+			PathRemoveFileSpec(g_LogName);
+			PathAppend(g_LogName,L"service.log");
+			LogText("Starting service\n");
+		}
+		RegCloseKey(hKey);
+	}
 	StartServiceCtrlDispatcher(DispatchTable);
 	return 0;
 }

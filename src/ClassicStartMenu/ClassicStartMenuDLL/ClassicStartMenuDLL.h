@@ -55,3 +55,4 @@ void EnableHotkeys( THotkeys enable );
 
 void RecreateStartButton( void );
 bool PointAroundStartButton( void );
+void ResetHotCorners( void );

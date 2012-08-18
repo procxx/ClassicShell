@@ -13,44 +13,66 @@
 #include "FNVHash.h"
 #include "dllmain.h"
 #include <dwmapi.h>
+#include <math.h>
 
 wchar_t MenuSkin::s_SkinError[1024];
 
 const RECT DEFAULT_ICON_PADDING={3,3,3,3};
 const RECT DEFAULT_TEXT_PADDING={1,0,4,0};
 const int DEFAULT_ARROW_SIZE=4;
-const SIZE DEFAULT_ARROW_PADDING={8,4};
+const SIZE DEFAULT_ARROW_PADDING={6,6};
 const int DEFAULT_SEPARATOR_WIDTH=4;
+
+void MenuBitmap::Init( bool bIsColor )
+{
+	bIsBitmap=!bIsColor;
+	bIsOwned=false;
+	bitmap=NULL;
+}
+
+void MenuBitmap::Reset( bool bIsColor )
+{
+	if (bIsOwned && GetBitmap())
+	{
+		BOOL res=DeleteObject(bitmap);
+		ATLASSERT(res);
+	}
+	Init(bIsColor);
+}
 
 MenuSkin::MenuSkin( void )
 {
 	AboutIcon=NULL;
-	Main_bitmap=NULL;
+	Main_bitmap.Init();
 	Caption_font=NULL;
 	User_font=NULL;
 	Main_font=NULL;
 	Main_font2=NULL;
-	Main_selectionColor=true;
-	Main_selectionColor2=true;
-	Main_separator=NULL;
-	Main_separator2=NULL;
-	Main_separatorV=NULL;
-	Main_icon_frame=NULL;
-	Main_arrow=NULL;
-	Main_arrow2=NULL;
-	Main_pager=NULL;
-	Main_pager_arrows=NULL;
-	User_bitmap=NULL;
-	Submenu_bitmap=NULL;
+	Main_selection.Init(true);
+	Main_selection2.Init(true);
+	Main_split_selection.Init();
+	Main_split_selection2.Init();
+	Main_separator.Init();
+	Main_separator2.Init();
+	Main_separatorV.Init();
+	Main_icon_frame.Init();
+	Main_icon_frame2.Init();
+	Main_arrow.Init();
+	Main_arrow2.Init();
+	Main_pager.Init();
+	Main_pager_arrows.Init();
+	User_bitmap.Init();
+	Submenu_bitmap.Init();
 	Submenu_font=NULL;
-	Submenu_selectionColor=true;
-	Submenu_separator=NULL;
-	Submenu_arrow=NULL;
-	Submenu_separatorV=NULL;
-	Submenu_icon_frame=NULL;
-	Submenu_pager=NULL;
-	Submenu_pager_arrows=NULL;
-	Search_bitmap=NULL;
+	Submenu_selection.Init(true);
+	Submenu_split_selection.Init();
+	Submenu_separator.Init();
+	Submenu_arrow.Init();
+	Submenu_separatorV.Init();
+	Submenu_icon_frame.Init();
+	Submenu_pager.Init();
+	Submenu_pager_arrows.Init();
+	Search_bitmap.Init();
 }
 
 MenuSkin::~MenuSkin( void )
@@ -61,60 +83,37 @@ MenuSkin::~MenuSkin( void )
 void MenuSkin::Reset( void )
 {
 	if (AboutIcon) DestroyIcon(AboutIcon);
-	if (Main_bitmap) DeleteObject(Main_bitmap);
+	Main_bitmap.Reset();
 	if (Caption_font) DeleteObject(Caption_font);
 	if (User_font) DeleteObject(User_font);
 	if (Main_font) DeleteObject(Main_font);
 	if (Main_font2 && Main_font2!=Main_font) DeleteObject(Main_font2);
-	if (!Main_selectionColor && Main_selection.bmp) DeleteObject(Main_selection.bmp);
-	if (!Main_selectionColor2 && Main_selection2.bmp && (Main_selectionColor || Main_selection2.bmp!=Main_selection.bmp)) DeleteObject(Main_selection2.bmp);
-	if (Main_separator) DeleteObject(Main_separator);
-	if (Main_separator2 && Main_separator2!=Main_separator) DeleteObject(Main_separator2);
-	if (Main_separatorV) DeleteObject(Main_separatorV);
-	if (Main_icon_frame) DeleteObject(Main_icon_frame);
-	if (Main_arrow) DeleteObject(Main_arrow);
-	if (Main_arrow2 && Main_arrow2!=Main_arrow) DeleteObject(Main_arrow2);
-	if (User_bitmap) DeleteObject(User_bitmap);
-	if (Submenu_bitmap) DeleteObject(Submenu_bitmap);
+	Main_selection.Reset(true);
+	Main_selection2.Reset(true);
+	Main_split_selection.Reset();
+	Main_split_selection2.Reset();
+	Main_separator.Reset();
+	Main_separator2.Reset();
+	Main_separatorV.Reset();
+	Main_icon_frame.Reset();
+	Main_icon_frame2.Reset();
+	Main_arrow.Reset();
+	Main_arrow2.Reset();
+	User_bitmap.Reset();
+	Submenu_bitmap.Reset();
 	if (Submenu_font) DeleteObject(Submenu_font);
-	if (!Submenu_selectionColor && Submenu_selection.bmp) DeleteObject(Submenu_selection.bmp);
-	if (Submenu_separator) DeleteObject(Submenu_separator);
-	if (Submenu_separatorV) DeleteObject(Submenu_separatorV);
-	if (Submenu_icon_frame) DeleteObject(Submenu_icon_frame);
-	if (Submenu_arrow) DeleteObject(Submenu_arrow);
-	if (Main_pager) DeleteObject(Main_pager);
-	if (Main_pager_arrows) DeleteObject(Main_pager_arrows);
-	if (Submenu_pager) DeleteObject(Submenu_pager);
-	if (Submenu_pager_arrows) DeleteObject(Submenu_pager_arrows);
-	if (Search_bitmap) DeleteObject(Search_bitmap);
+	Submenu_selection.Reset(true);
+	Submenu_split_selection.Reset();
+	Submenu_separator.Reset();
+	Submenu_separatorV.Reset();
+	Submenu_icon_frame.Reset();
+	Submenu_arrow.Reset();
+	Main_pager.Reset();
+	Main_pager_arrows.Reset();
+	Submenu_pager.Reset();
+	Submenu_pager_arrows.Reset();
+	Search_bitmap.Reset();
 
-	AboutIcon=NULL;
-	Main_bitmap=NULL;
-	Caption_font=NULL;
-	User_font=NULL;
-	Main_font=NULL;
-	Main_font2=NULL;
-	Main_selectionColor=true;
-	Main_selectionColor2=true;
-	Main_separator=NULL;
-	Main_separator2=NULL;
-	Main_separatorV=NULL;
-	Main_icon_frame=NULL;
-	Main_arrow=NULL;
-	Main_arrow2=NULL;
-	User_bitmap=NULL;
-	Submenu_bitmap=NULL;
-	Submenu_font=NULL;
-	Submenu_selectionColor=true;
-	Submenu_separator=NULL;
-	Submenu_separatorV=NULL;
-	Submenu_icon_frame=NULL;
-	Submenu_arrow=NULL;
-	Main_pager=NULL;
-	Main_pager_arrows=NULL;
-	Submenu_pager=NULL;
-	Submenu_pager_arrows=NULL;
-	Search_bitmap=NULL;
 	Options.clear();
 	Variations.clear();
 }
@@ -199,8 +198,13 @@ static HICON LoadSkinIcon( HMODULE hMod, int index )
 	}
 }
 
-static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32, COLORREF menuColor )
+static MenuBitmap LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, COLORREF menuColor )
 {
+	// if maskIndex=0, no mask (black mask)
+	// if maskIndex>0 - bitmap ID
+	// if maskIndex<0 - color
+	MenuBitmap res;
+	res.Init();
 	wchar_t err[1024];
 	HBITMAP bmp;
 	if (hMod)
@@ -210,7 +214,7 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 		{
 			GetErrorMessage(err,_countof(err),GetLastError());
 			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_BMPRES),index,err);
-			return NULL;
+			return res;
 		}
 	}
 	else
@@ -224,13 +228,13 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 		{
 			GetErrorMessage(err,_countof(err),GetLastError());
 			Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_BMPFILE),fname,err);
-			return NULL;
+			return res;
 		}
 	}
 
 
 	HBITMAP bmpMask=NULL;
-	BITMAP infoMask;
+	BITMAP infoMask={0};
 	if (maskIndex>0)
 	{
 		if (hMod)
@@ -258,6 +262,10 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 		if (bmpMask)
 			GetObject(bmpMask,sizeof(infoMask),&infoMask);
 	}
+	else if (maskIndex<0)
+	{
+		infoMask.bmBits=&maskIndex;
+	}
 
 	BITMAP info;
 	GetObject(bmp,sizeof(info),&info);
@@ -267,7 +275,7 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 		Sprintf(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_MASKSIZE),index,maskIndex);
 	}
 
-	if (bmpMask && info.bmWidth==infoMask.bmWidth && info.bmHeight==infoMask.bmHeight)
+	if (maskIndex<0 || (bmpMask && info.bmWidth==infoMask.bmWidth && info.bmHeight==infoMask.bmHeight))
 	{
 		// apply color mask
 		unsigned char *ptr=(unsigned char*)info.bmBits;
@@ -282,25 +290,76 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 		int dr=0, dg=0, db=0, da=0;
 		int mr=(menuColor)&255, mg=(menuColor>>8)&255, mb=(menuColor>>16)&255;
 
-		DWORD dwmColor;
-		BOOL dwmOpaque;
-		if (SUCCEEDED(DwmGetColorizationColor(&dwmColor,&dwmOpaque)))
+		if (GetWinVersion()==WIN_VER_VISTA)
 		{
-			da=(dwmColor>>24)&255;
-			dr=(dwmColor>>16)&255;
-			dg=(dwmColor>>8)&255;
-			db=(dwmColor)&255;
+			DWORD dwmColor;
+			BOOL dwmOpaque;
+			if (SUCCEEDED(DwmGetColorizationColor(&dwmColor,&dwmOpaque)))
+			{
+				da=(dwmColor>>24)&255;
+				dr=((dwmColor>>16)&255)*da;
+				dg=((dwmColor>>8)&255)*da;
+				db=((dwmColor)&255)*da;
+			}
+		}
+		else
+		{
+			struct DWMCOLORIZATIONPARAMS
+			{
+				 DWORD ColorizationColor;
+				 DWORD ColorizationAfterglow;
+				 DWORD ColorizationColorBalance;
+				 DWORD ColorizationAfterglowBalance;
+				 DWORD ColorizationBlurBalance;
+				 DWORD ColorizationGlassReflectionIntensity;
+				 DWORD ColorizationOpaqueBlend;
+				 DWORD extra; // Win8 has extra parameter
+			};
+
+			typedef HRESULT (WINAPI *tGetColorizationParameters)(DWMCOLORIZATIONPARAMS *params);
+
+			// HACK: the system function DwmGetColorizationColor is buggy on Win 7. its calculations can overflow and return a totally wrong value
+			// (try orange color with full intensity and no transparency - you'll get alpha=0 and green color). so here we use the undocumented
+			// function GetColorizationParameters exported by dwmapi.dll, ordinal 127 and then compute the colors manually using integer math
+			DWMCOLORIZATIONPARAMS params;
+
+			tGetColorizationParameters GetColorizationParameters=(tGetColorizationParameters)GetProcAddress(GetModuleHandle(L"dwmapi.dll"),MAKEINTRESOURCEA(127));
+			if (GetColorizationParameters && SUCCEEDED(GetColorizationParameters(&params)))
+			{
+				// boost the color balance to better match the Windows 7 menu
+				params.ColorizationColorBalance=(int)(100.f*powf(params.ColorizationColorBalance/100.f,0.5f));
+				int ir=(params.ColorizationColor>>16)&255;
+				int ig=(params.ColorizationColor>>8)&255;
+				int ib=(params.ColorizationColor)&255;
+
+				int ir2=(params.ColorizationAfterglow>>16)&255;
+				int ig2=(params.ColorizationAfterglow>>8)&255;
+				int ib2=(params.ColorizationAfterglow)&255;
+
+				int brightness=(ir*21+ig*72+ib*7)/255;
+				int glowBalance=(brightness*params.ColorizationAfterglowBalance)/100;
+
+				dr=MulDiv(ir2*glowBalance+ir*100,params.ColorizationColorBalance*255,10000);
+				dg=MulDiv(ig2*glowBalance+ig*100,params.ColorizationColorBalance*255,10000);
+				db=MulDiv(ib2*glowBalance+ib*100,params.ColorizationColorBalance*255,10000);
+
+				da=(100-params.ColorizationAfterglowBalance-params.ColorizationBlurBalance)*255/100;
+				if (params.ColorizationOpaqueBlend || da>=255)
+					da=255;
+				else if (da<=0)
+					dr=dg=db=da=0;
+			}
 		}
 
 		for (int y=0;y<info.bmHeight;y++)
 		{
 			for (int x=0;x<info.bmWidth;x++,ptr+=stride,ptrMask+=strideMask)
 			{
-				int a1=(ptrMask[2]*da)/255, a2=ptrMask[1];
-				int a3=255-a1-a2; if (a3<0) a3=0;
-				int b=(db*a1+mb*a2+ptr[0]*a3)/255; if (b>255) b=255;
-				int g=(dg*a1+mg*a2+ptr[1]*a3)/255; if (g>255) g=255;
-				int r=(dr*a1+mr*a2+ptr[2]*a3)/255; if (r>255) r=255;
+				int a1=ptrMask[2], a2=ptrMask[1]*255;
+				int a3=255*255-a1*da-a2; if (a3<0) a3=0;
+				int b=(db*a1+mb*a2+ptr[0]*a3)/(255*255); if (b>255) b=255;
+				int g=(dg*a1+mg*a2+ptr[1]*a3)/(255*255); if (g>255) g=255;
+				int r=(dr*a1+mr*a2+ptr[2]*a3)/(255*255); if (r>255) r=255;
 				ptr[0]=(unsigned char)b;
 				ptr[1]=(unsigned char)g;
 				ptr[2]=(unsigned char)r;
@@ -312,9 +371,11 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 	if (bmpMask) DeleteObject(bmpMask);
 
 	int n=info.bmWidth*info.bmHeight;
-	b32=false;
+	res.bIs32=false;
+	res.bIsOwned=true;
+	res=bmp;
 	if (info.bmBitsPixel<32)
-		return bmp;
+		return res;
 
 	// HACK: when LoadImage reads a 24-bit image it creates a 32-bit bitmap with 0 in the alpha channel
 	// we use that to detect 24-bit images and don't pre-multiply the alpha
@@ -323,27 +384,28 @@ static HBITMAP LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, bool &b32
 		unsigned int &pixel=((unsigned int*)info.bmBits)[i];
 		if (pixel&0xFF000000)
 		{
-			b32=true;
+			res.bIs32=true;
 			break;
 		}
 	}
 
-	if (!b32) return bmp;
-
-	// 32-bit bitmap detected. pre-multiply the alpha
-	for (int i=0;i<n;i++)
+	if (res.bIs32)
 	{
-		unsigned int &pixel=((unsigned int*)info.bmBits)[i];
-		int a=(pixel>>24);
-		int r=(pixel>>16)&255;
-		int g=(pixel>>8)&255;
-		int b=(pixel)&255;
-		r=(r*a)/255;
-		g=(g*a)/255;
-		b=(b*a)/255;
-		pixel=(a<<24)|(r<<16)|(g<<8)|b;
+		// 32-bit bitmap detected. pre-multiply the alpha
+		for (int i=0;i<n;i++)
+		{
+			unsigned int &pixel=((unsigned int*)info.bmBits)[i];
+			int a=(pixel>>24);
+			int r=(pixel>>16)&255;
+			int g=(pixel>>8)&255;
+			int b=(pixel)&255;
+			r=(r*a)/255;
+			g=(g*a)/255;
+			b=(b*a)/255;
+			pixel=(a<<24)|(r<<16)|(g<<8)|b;
+		}
 	}
-	return bmp;
+	return res;
 }
 
 static void MirrorBitmap( HBITMAP bmp )
@@ -354,7 +416,7 @@ static void MirrorBitmap( HBITMAP bmp )
 	unsigned char *ptr=(unsigned char*)info.bmBits;
 	if (!ptr) return;
 	int stride=info.bmBitsPixel/8;
-	int pitch=stride*info.bmWidth;
+	int pitch=(stride*info.bmWidth+3)&~3;
 	for (int y=0;y<info.bmHeight;y++,ptr+=pitch)
 	{
 		unsigned char *start=ptr;
@@ -581,9 +643,19 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		if (id)
 		{
 			str=parser.FindSetting(L"Main_bitmap_mask");
-			int id2=str?_wtol(str):0;
-			skin.Main_bitmap=LoadSkinBitmap(hMod,id,id2,skin.Main_bitmap32,skin.Main_background);
-			if (!skin.Main_bitmap) return false;
+			if (str && str[0]=='#')
+			{
+				int color;
+				LoadSkinNumbers(str,&color,1,false);
+				skin.Main_bitmap=LoadSkinBitmap(hMod,id,color|0xFF000000,skin.Main_background);
+			}
+			else
+			{
+				int id2=str?_wtol(str):0;
+				if (id2<0) id2=0;
+				skin.Main_bitmap=LoadSkinBitmap(hMod,id,id2,skin.Main_background);
+			}
+			if (!skin.Main_bitmap.GetBitmap()) return false;
 		}
 	}
 	skin.bTwoColumns=false;
@@ -601,7 +673,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		memset(skin.Main_bitmap_slices_Y,0,sizeof(skin.Main_bitmap_slices_Y));
 	str=parser.FindSetting(L"Main_opacity");
 	skin.Main_opacity=MenuSkin::OPACITY_SOLID;
-	if (str && skin.Main_bitmap)
+	if (str && skin.Main_bitmap.GetBitmap())
 	{
 		if (_wcsicmp(str,L"region")==0) skin.Main_opacity=MenuSkin::OPACITY_REGION;
 		if (_wcsicmp(str,L"alpha")==0) skin.Main_opacity=MenuSkin::OPACITY_ALPHA;
@@ -693,18 +765,33 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	if (str)
 	{
 		if (str[0]=='#')
-			LoadSkinNumbers(str,(int*)&skin.Main_selection.color,1,true);
+		{
+			COLORREF col;
+			LoadSkinNumbers(str,(int*)&col,1,true);
+			skin.Main_selection=col;
+		}
 		else
 		{
-			skin.Main_selectionColor=false;
-			skin.Main_selection.bmp=NULL;
+			skin.Main_selection.bIsBitmap=true;
 			if (flags==(LOADMENU_MAIN|LOADMENU_RESOURCES))
 			{
 				int id=_wtol(str);
 				if (id)
 				{
-					skin.Main_selection.bmp=LoadSkinBitmap(hMod,id,0,skin.Main_selection32,0);
-					if (!skin.Main_selection.bmp) return false;
+					str=parser.FindSetting(L"Main_selection_mask");
+					if (str && str[0]=='#')
+					{
+						int color;
+						LoadSkinNumbers(str,&color,1,false);
+						skin.Main_selection=LoadSkinBitmap(hMod,id,color|0xFF000000,skin.Main_background);
+					}
+					else
+					{
+						int id2=str?_wtol(str):0;
+						if (id2<0) id2=0;
+						skin.Main_selection=LoadSkinBitmap(hMod,id,id2,skin.Main_background);
+					}
+					if (!skin.Main_selection.GetBitmap()) return false;
 				}
 			}
 
@@ -722,25 +809,43 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	}
 	else
 	{
-		skin.Main_selection.color=GetSysColor(COLOR_HIGHLIGHT);
+		skin.Main_selection=GetSysColor(COLOR_HIGHLIGHT);
 	}
+
+	if (bRTL && skin.Main_selection.GetBitmap())
+		MirrorBitmap(skin.Main_selection.GetBitmap());
 
 	str=parser.FindSetting(L"Main_selection2");
 	if (str)
 	{
 		if (str[0]=='#')
-			LoadSkinNumbers(str,(int*)&skin.Main_selection2.color,1,true);
+		{
+			COLORREF col;
+			LoadSkinNumbers(str,(int*)&col,1,true);
+			skin.Main_selection2=col;
+		}
 		else
 		{
-			skin.Main_selectionColor2=false;
-			skin.Main_selection2.bmp=NULL;
+			skin.Main_selection2.bIsBitmap=true;
 			if (flags==(LOADMENU_MAIN|LOADMENU_RESOURCES))
 			{
 				int id=_wtol(str);
 				if (id)
 				{
-					skin.Main_selection2.bmp=LoadSkinBitmap(hMod,id,0,skin.Main_selection232,0);
-					if (!skin.Main_selection2.bmp) return false;
+					str=parser.FindSetting(L"Main_selection_mask2");
+					if (str && str[0]=='#')
+					{
+						int color;
+						LoadSkinNumbers(str,&color,1,false);
+						skin.Main_selection2=LoadSkinBitmap(hMod,id,color|0xFF000000,skin.Main_background);
+					}
+					else
+					{
+						int id2=str?_wtol(str):0;
+						if (id2<0) id2=0;
+						skin.Main_selection2=LoadSkinBitmap(hMod,id,id2,skin.Main_background);
+					}
+					if (!skin.Main_selection2.GetBitmap()) return false;
 				}
 			}
 
@@ -749,38 +854,104 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 				LoadSkinNumbers(str,(int*)&skin.Main_selection_slices_X2,_countof(skin.Main_selection_slices_X2),false);
 			else
 				memset(skin.Main_selection_slices_X2,0,sizeof(skin.Main_selection_slices_X2));
+			str=parser.FindSetting(L"Main_selection_slices_Y2");
+			if (str)
+				LoadSkinNumbers(str,(int*)&skin.Main_selection_slices_Y2,_countof(skin.Main_selection_slices_Y2),false);
+			else
+				memset(skin.Main_selection_slices_Y2,0,sizeof(skin.Main_selection_slices_Y2));
 		}
-		str=parser.FindSetting(L"Main_selection_slices_Y2");
-		if (str)
-			LoadSkinNumbers(str,(int*)&skin.Main_selection_slices_Y2,_countof(skin.Main_selection_slices_Y2),false);
-		else
-			memset(skin.Main_selection_slices_Y2,0,sizeof(skin.Main_selection_slices_Y2));
 	}
 	else
 	{
-		skin.Main_selectionColor2=skin.Main_selectionColor;
-		if (skin.Main_selectionColor2)
-			skin.Main_selection2.color=skin.Main_selection.color;
-		else
+		skin.Main_selection2=skin.Main_selection;
+		skin.Main_selection2.bIsOwned=false;
+		memcpy(skin.Main_selection_slices_X2,skin.Main_selection_slices_X,sizeof(skin.Main_selection_slices_X2));
+		memcpy(skin.Main_selection_slices_Y2,skin.Main_selection_slices_Y,sizeof(skin.Main_selection_slices_Y2));
+	}
+
+	if (bRTL && skin.Main_selection2.GetBitmap() && skin.Main_selection2.bIsOwned)
+		MirrorBitmap(skin.Main_selection2.GetBitmap());
+
+	memset(skin.Main_split_selection_slices_X,0,sizeof(skin.Main_split_selection_slices_X));
+	memset(skin.Main_split_selection_slices_Y,0,sizeof(skin.Main_split_selection_slices_Y));
+	str=parser.FindSetting(L"Main_split_selection");
+	if (str)
+	{
+		if (flags==(LOADMENU_MAIN|LOADMENU_RESOURCES))
 		{
-			skin.Main_selection2.bmp=skin.Main_selection.bmp;
-			skin.Main_selection232=skin.Main_selection32;
-			memcpy(skin.Main_selection_slices_X2,skin.Main_selection_slices_X,sizeof(skin.Main_selection_slices_X2));
-			memcpy(skin.Main_selection_slices_Y2,skin.Main_selection_slices_Y,sizeof(skin.Main_selection_slices_Y2));
+			int id=_wtol(str);
+			if (id)
+			{
+				str=parser.FindSetting(L"Main_split_selection_mask");
+				if (str && str[0]=='#')
+				{
+					int color;
+					LoadSkinNumbers(str,&color,1,false);
+					skin.Main_split_selection=LoadSkinBitmap(hMod,id,color|0xFF000000,skin.Main_background);
+				}
+				else
+				{
+					int id2=str?_wtol(str):0;
+					if (id2<0) id2=0;
+					skin.Main_split_selection=LoadSkinBitmap(hMod,id,id2,skin.Main_background);
+				}
+				if (!skin.Main_split_selection.GetBitmap()) return false;
+			}
 		}
 	}
+	str=parser.FindSetting(L"Main_split_selection_slices_X");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Main_split_selection_slices_X,_countof(skin.Main_split_selection_slices_X),false);
+	str=parser.FindSetting(L"Main_split_selection_slices_Y");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Main_split_selection_slices_Y,_countof(skin.Main_split_selection_slices_Y),false);
 
-	if (bRTL && !skin.Main_selectionColor && skin.Main_selection.bmp)
+	if (bRTL && skin.Main_split_selection.GetBitmap())
+		MirrorBitmap(skin.Main_split_selection.GetBitmap());
+
+	memset(skin.Main_split_selection_slices_X2,0,sizeof(skin.Main_split_selection_slices_X2));
+	memset(skin.Main_split_selection_slices_Y2,0,sizeof(skin.Main_split_selection_slices_Y2));
+	str=parser.FindSetting(L"Main_split_selection2");
+	if (str)
 	{
-		MirrorBitmap(skin.Main_selection.bmp);
-		int q=skin.Main_selection_slices_X[0]; skin.Main_selection_slices_X[0]=skin.Main_selection_slices_X[2]; skin.Main_selection_slices_X[2]=q;
+		if (flags==(LOADMENU_MAIN|LOADMENU_RESOURCES))
+		{
+			int id=_wtol(str);
+			if (id)
+			{
+				str=parser.FindSetting(L"Main_split_selection_mask2");
+				if (str && str[0]=='#')
+				{
+					int color;
+					LoadSkinNumbers(str,&color,1,false);
+					skin.Main_split_selection2=LoadSkinBitmap(hMod,id,color|0xFF000000,skin.Main_background);
+				}
+				else
+				{
+					int id2=str?_wtol(str):0;
+					if (id2<0) id2=0;
+					skin.Main_split_selection2=LoadSkinBitmap(hMod,id,id2,skin.Main_background);
+				}
+				if (!skin.Main_split_selection2.GetBitmap()) return false;
+			}
+		}
+		str=parser.FindSetting(L"Main_split_selection_slices_X2");
+		if (str)
+			LoadSkinNumbers(str,(int*)&skin.Main_split_selection_slices_X2,_countof(skin.Main_split_selection_slices_X2),false);
+		str=parser.FindSetting(L"Main_split_selection_slices_Y2");
+		if (str)
+			LoadSkinNumbers(str,(int*)&skin.Main_split_selection_slices_Y2,_countof(skin.Main_split_selection_slices_Y2),false);
+	}
+	else
+	{
+		skin.Main_split_selection2=skin.Main_split_selection;
+		skin.Main_split_selection2.bIsOwned=false;
+		memcpy(skin.Main_split_selection_slices_X2,skin.Main_split_selection_slices_X,sizeof(skin.Main_split_selection_slices_X2));
+		memcpy(skin.Main_split_selection_slices_Y2,skin.Main_split_selection_slices_Y,sizeof(skin.Main_split_selection_slices_Y2));
 	}
 
-	if (bRTL && !skin.Main_selectionColor2 && (skin.Main_selectionColor || skin.Main_selection2.bmp!=skin.Main_selection.bmp))
-	{
-		MirrorBitmap(skin.Main_selection2.bmp);
-		int q=skin.Main_selection_slices_X2[0]; skin.Main_selection_slices_X2[0]=skin.Main_selection_slices_X2[2]; skin.Main_selection_slices_X2[2]=q;
-	}
+	if (bRTL && skin.Main_split_selection2.bIsOwned && skin.Main_split_selection2.GetBitmap())
+		MirrorBitmap(skin.Main_split_selection2.GetBitmap());
 
 	skin.Main_arrow_Size.cx=skin.Main_arrow_Size2.cx=DEFAULT_ARROW_SIZE;
 	skin.Main_arrow_Size.cy=skin.Main_arrow_Size2.cy=0;
@@ -792,12 +963,12 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 			int id=_wtol(str);
 			if (id)
 			{
-				skin.Main_arrow=LoadSkinBitmap(hMod,id,0,skin.Main_arrow32,0);
-				if (!skin.Main_arrow) return false;
+				skin.Main_arrow=LoadSkinBitmap(hMod,id,0,0);
+				if (!skin.Main_arrow.GetBitmap()) return false;
 				if (bRTL)
-					MirrorBitmap(skin.Main_arrow);
+					MirrorBitmap(skin.Main_arrow.GetBitmap());
 				BITMAP info;
-				GetObject(skin.Main_arrow,sizeof(info),&info);
+				GetObject(skin.Main_arrow.GetBitmap(),sizeof(info),&info);
 				skin.Main_arrow_Size.cx=info.bmWidth;
 				skin.Main_arrow_Size.cy=info.bmHeight/2;
 			}
@@ -809,12 +980,12 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 			int id=_wtol(str);
 			if (id)
 			{
-				skin.Main_arrow2=LoadSkinBitmap(hMod,id,0,skin.Main_arrow232,0);
-				if (!skin.Main_arrow2) return false;
+				skin.Main_arrow2=LoadSkinBitmap(hMod,id,0,0);
+				if (!skin.Main_arrow2.GetBitmap()) return false;
 				if (bRTL)
-					MirrorBitmap(skin.Main_arrow2);
+					MirrorBitmap(skin.Main_arrow2.GetBitmap());
 				BITMAP info;
-				GetObject(skin.Main_arrow2,sizeof(info),&info);
+				GetObject(skin.Main_arrow2.GetBitmap(),sizeof(info),&info);
 				skin.Main_arrow_Size2.cx=info.bmWidth;
 				skin.Main_arrow_Size2.cy=info.bmHeight/2;
 			}
@@ -822,7 +993,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		else
 		{
 			skin.Main_arrow2=skin.Main_arrow;
-			skin.Main_arrow232=skin.Main_arrow32;
+			skin.Main_arrow2.bIsOwned=false;
 			skin.Main_arrow_Size2=skin.Main_arrow_Size;
 		}
 	}
@@ -850,10 +1021,10 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 			int id=_wtol(str);
 			if (id)
 			{
-				skin.Main_separator=LoadSkinBitmap(hMod,id,0,skin.Main_separator32,0);
-				if (!skin.Main_separator) return false;
+				skin.Main_separator=LoadSkinBitmap(hMod,id,0,0);
+				if (!skin.Main_separator.GetBitmap()) return false;
 				BITMAP info;
-				GetObject(skin.Main_separator,sizeof(info),&info);
+				GetObject(skin.Main_separator.GetBitmap(),sizeof(info),&info);
 				skin.Main_separatorHeight=info.bmHeight;
 				str=parser.FindSetting(L"Main_separator_slices_X");
 				if (str)
@@ -871,10 +1042,10 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 			int id=_wtol(str);
 			if (id)
 			{
-				skin.Main_separator2=LoadSkinBitmap(hMod,id,0,skin.Main_separator232,0);
-				if (!skin.Main_separator2) return false;
+				skin.Main_separator2=LoadSkinBitmap(hMod,id,0,0);
+				if (!skin.Main_separator2.GetBitmap()) return false;
 				BITMAP info;
-				GetObject(skin.Main_separator2,sizeof(info),&info);
+				GetObject(skin.Main_separator2.GetBitmap(),sizeof(info),&info);
 				skin.Main_separatorHeight2=info.bmHeight;
 				str=parser.FindSetting(L"Main_separator_slices_X2");
 				if (str)
@@ -888,7 +1059,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		else
 		{
 			skin.Main_separator2=skin.Main_separator;
-			skin.Main_separator232=skin.Main_separator32;
+			skin.Main_separator2.bIsOwned=false;
 			skin.Main_separatorHeight2=skin.Main_separatorHeight;
 			memcpy(skin.Main_separator_slices_X2,skin.Main_separator_slices_X,sizeof(skin.Main_separator_slices_X2));
 		}
@@ -899,10 +1070,10 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 			int id=_wtol(str);
 			if (id)
 			{
-				skin.Main_separatorV=LoadSkinBitmap(hMod,id,0,skin.Main_separatorV32,0);
-				if (!skin.Main_separatorV) return false;
+				skin.Main_separatorV=LoadSkinBitmap(hMod,id,0,0);
+				if (!skin.Main_separatorV.GetBitmap()) return false;
 				BITMAP info;
-				GetObject(skin.Main_separatorV,sizeof(info),&info);
+				GetObject(skin.Main_separatorV.GetBitmap(),sizeof(info),&info);
 				skin.Main_separatorWidth=info.bmWidth;
 				str=parser.FindSetting(L"Main_separator_slices_Y");
 				if (str)
@@ -920,8 +1091,8 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 			int id=_wtol(str);
 			if (id)
 			{
-				skin.Main_icon_frame=LoadSkinBitmap(hMod,id,0,skin.Main_icon_frame32,0);
-				if (!skin.Main_icon_frame) return false;
+				skin.Main_icon_frame=LoadSkinBitmap(hMod,id,0,0);
+				if (!skin.Main_icon_frame.GetBitmap()) return false;
 				str=parser.FindSetting(L"Main_icon_frame_slices_X");
 				if (str)
 					LoadSkinNumbers(str,skin.Main_icon_frame_slices_X,_countof(skin.Main_icon_frame_slices_X),false);
@@ -939,6 +1110,47 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 					memset(&skin.Main_icon_frame_offset,0,sizeof(skin.Main_icon_frame_offset));
 			}
 		}
+
+		if (bRTL && skin.Main_icon_frame.GetBitmap())
+			MirrorBitmap(skin.Main_icon_frame.GetBitmap());
+
+		str=parser.FindSetting(L"Main_icon_frame2");
+		if (str)
+		{
+			int id=_wtol(str);
+			if (id)
+			{
+				skin.Main_icon_frame2=LoadSkinBitmap(hMod,id,0,0);
+				if (!skin.Main_icon_frame2.GetBitmap()) return false;
+				str=parser.FindSetting(L"Main_icon_frame_slices_X2");
+				if (str)
+					LoadSkinNumbers(str,skin.Main_icon_frame_slices_X2,_countof(skin.Main_icon_frame_slices_X2),false);
+				else
+					memset(skin.Main_icon_frame_slices_X2,0,sizeof(skin.Main_icon_frame_slices_X2));
+				str=parser.FindSetting(L"Main_icon_frame_slices_Y2");
+				if (str)
+					LoadSkinNumbers(str,skin.Main_icon_frame_slices_Y2,_countof(skin.Main_icon_frame_slices_Y2),false);
+				else
+					memset(skin.Main_icon_frame_slices_Y2,0,sizeof(skin.Main_icon_frame_slices_Y2));
+				str=parser.FindSetting(L"Main_icon_frame_offset2");
+				if (str)
+					LoadSkinNumbers(str,(int*)&skin.Main_icon_frame_offset2,2,false);
+				else
+					memset(&skin.Main_icon_frame_offset2,0,sizeof(skin.Main_icon_frame_offset2));
+			}
+		}
+
+		if (bRTL && skin.Main_icon_frame2.GetBitmap())
+			MirrorBitmap(skin.Main_icon_frame2.GetBitmap());
+
+		if (!skin.Main_icon_frame2.GetBitmap())
+		{
+			skin.Main_icon_frame2=skin.Main_icon_frame;
+			skin.Main_icon_frame2.bIsOwned=false;
+			memcpy(skin.Main_icon_frame_slices_X2,skin.Main_icon_frame_slices_X,sizeof(skin.Main_icon_frame_slices_X2));
+			memcpy(skin.Main_icon_frame_slices_Y2,skin.Main_icon_frame_slices_Y,sizeof(skin.Main_icon_frame_slices_Y2));
+			skin.Main_icon_frame_offset2=skin.Main_icon_frame_offset;
+		}
 	}
 
 	str=parser.FindSetting(L"Main_icon_padding");
@@ -946,6 +1158,10 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		LoadSkinNumbers(str,(int*)&skin.Main_icon_padding,4,false);
 	else
 		skin.Main_icon_padding=DEFAULT_ICON_PADDING;
+
+	str=parser.FindSetting(L"Main_no_icons2");
+	skin.Main_no_icons2=(str && _wtol(str));
+	
 	str=parser.FindSetting(L"Main_text_padding");
 	if (str)
 		LoadSkinNumbers(str,(int*)&skin.Main_text_padding,4,false);
@@ -968,7 +1184,10 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	{
 		int id=_wtol(str);
 		if (id)
-			skin.Main_pager=LoadSkinBitmap(hMod,id,0,skin.Main_pager32,0);
+		{
+			skin.Main_pager=LoadSkinBitmap(hMod,id,0,0);
+			if (!skin.Main_pager.GetBitmap()) return false;
+		}
 	}
 	str=parser.FindSetting(L"Main_pager_slices_X");
 	if (str)
@@ -980,11 +1199,8 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		LoadSkinNumbers(str,skin.Main_pager_slices_Y,_countof(skin.Main_pager_slices_Y),false);
 	else
 		memset(skin.Main_pager_slices_Y,0,sizeof(skin.Main_pager_slices_Y));
-	if (bRTL && skin.Main_pager)
-	{
-		MirrorBitmap(skin.Main_pager);
-		int q=skin.Main_pager_slices_X[0]; skin.Main_pager_slices_X[0]=skin.Main_pager_slices_X[2]; skin.Main_pager_slices_X[2]=q;
-	}
+	if (bRTL && skin.Main_pager.GetBitmap())
+		MirrorBitmap(skin.Main_pager.GetBitmap());
 
 	str=parser.FindSetting(L"Main_pager_arrows");
 	if (str && flags==(LOADMENU_MAIN|LOADMENU_RESOURCES))
@@ -992,15 +1208,16 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		int id=_wtol(str);
 		if (id)
 		{
-			skin.Main_pager_arrows=LoadSkinBitmap(hMod,id,0,skin.Main_pager_arrows32,0);
+			skin.Main_pager_arrows=LoadSkinBitmap(hMod,id,0,0);
+			if (!skin.Main_pager_arrows.GetBitmap()) return false;
 			BITMAP info;
-			GetObject(skin.Main_pager_arrows,sizeof(info),&info);
+			GetObject(skin.Main_pager_arrows.GetBitmap(),sizeof(info),&info);
 			skin.Main_pager_arrow_Size.cx=info.bmWidth/2;
 			skin.Main_pager_arrow_Size.cy=info.bmHeight/2;
 		}
 	}
-	if (bRTL && skin.Main_pager_arrows)
-		MirrorBitmap(skin.Main_pager_arrows);
+	if (bRTL && skin.Main_pager_arrows.GetBitmap())
+		MirrorBitmap(skin.Main_pager_arrows.GetBitmap());
 
 	str=parser.FindSetting(L"User_bitmap");
 	if (str && flags==(LOADMENU_MAIN|LOADMENU_RESOURCES))
@@ -1008,11 +1225,10 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		int id=_wtol(str);
 		if (id)
 		{
-			bool b32;
-			skin.User_bitmap=LoadSkinBitmap(hMod,id,0,b32,0);
-			if (!skin.User_bitmap) return false;
+			skin.User_bitmap=LoadSkinBitmap(hMod,id,0,0);
+			if (!skin.User_bitmap.GetBitmap()) return false;
 			if (bRTL)
-				MirrorBitmap(skin.User_bitmap);
+				MirrorBitmap(skin.User_bitmap.GetBitmap());
 		}
 	}
 
@@ -1047,7 +1263,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		memset(&skin.User_frame_position,0,sizeof(skin.User_frame_position));
 
 	str=parser.FindSetting(L"User_image_offset");
-	if (str && skin.User_bitmap)
+	if (str && skin.User_bitmap.GetBitmap())
 		LoadSkinNumbers(str,(int*)&skin.User_image_offset,2,false);
 	else
 		skin.User_image_offset.x=skin.User_image_offset.y=2;
@@ -1121,11 +1337,21 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		if (id)
 		{
 			str=parser.FindSetting(L"Submenu_bitmap_mask");
-			int id2=str?_wtol(str):0;
-			skin.Submenu_bitmap=LoadSkinBitmap(hMod,id,id2,skin.Submenu_bitmap32,skin.Submenu_background);
-			if (!skin.Submenu_bitmap) return false;
+			if (str && str[0]=='#')
+			{
+				int color;
+				LoadSkinNumbers(str,&color,1,false);
+				skin.Submenu_bitmap=LoadSkinBitmap(hMod,id,color|0xFF000000,skin.Main_background);
+			}
+			else
+			{
+				int id2=str?_wtol(str):0;
+				if (id2<0) id2=0;
+				skin.Submenu_bitmap=LoadSkinBitmap(hMod,id,id2,skin.Submenu_background);
+			}
+			if (!skin.Submenu_bitmap.GetBitmap()) return false;
 			if (bRTL)
-				MirrorBitmap(skin.Submenu_bitmap);
+				MirrorBitmap(skin.Submenu_bitmap.GetBitmap());
 		}
 	}
 	memset(skin.Submenu_bitmap_slices_X,0,sizeof(skin.Submenu_bitmap_slices_X));
@@ -1140,13 +1366,44 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 
 	str=parser.FindSetting(L"Submenu_opacity");
 	skin.Submenu_opacity=MenuSkin::OPACITY_SOLID;
-	if (str && skin.Submenu_bitmap)
+	if (str && skin.Submenu_bitmap.GetBitmap())
 	{
 		if (_wcsicmp(str,L"region")==0) skin.Submenu_opacity=MenuSkin::OPACITY_REGION;
 		if (_wcsicmp(str,L"alpha")==0) skin.Submenu_opacity=MenuSkin::OPACITY_ALPHA;
 		if (_wcsicmp(str,L"glass")==0) skin.Submenu_opacity=MenuSkin::OPACITY_GLASS;
 		if (_wcsicmp(str,L"fullalpha")==0) skin.Submenu_opacity=MenuSkin::OPACITY_FULLALPHA;
 		if (_wcsicmp(str,L"fullglass")==0) skin.Submenu_opacity=MenuSkin::OPACITY_FULLGLASS;
+	}
+
+	skin.Main_FakeGlass=false;
+	skin.Submenu_FakeGlass=false;
+	if (GetWinVersion()==WIN_VER_WIN8)
+	{
+		// replace GLASS with ALPHA and enable the fake glass (alpha with less opacity)
+		if (skin.Main_opacity==MenuSkin::OPACITY_GLASS)
+		{
+			skin.Main_opacity=MenuSkin::OPACITY_ALPHA;
+			skin.Main_FakeGlass=true;
+		}
+		if (skin.Main_opacity==MenuSkin::OPACITY_FULLGLASS)
+		{
+			skin.Main_opacity=MenuSkin::OPACITY_FULLALPHA;
+			skin.Main_FakeGlass=true;
+		}
+		if (skin.Main_opacity2==MenuSkin::OPACITY_GLASS)
+			skin.Main_opacity2=MenuSkin::OPACITY_ALPHA;
+		if (skin.Main_opacity2==MenuSkin::OPACITY_FULLGLASS)
+			skin.Main_opacity2=MenuSkin::OPACITY_FULLALPHA;
+		if (skin.Submenu_opacity==MenuSkin::OPACITY_GLASS)
+		{
+			skin.Submenu_opacity=MenuSkin::OPACITY_ALPHA;
+			skin.Submenu_FakeGlass=true;
+		}
+		if (skin.Submenu_opacity==MenuSkin::OPACITY_FULLGLASS)
+		{
+			skin.Submenu_opacity=MenuSkin::OPACITY_FULLALPHA;
+			skin.Submenu_FakeGlass=true;
+		}
 	}
 
 	str=parser.FindSetting(L"Submenu_font");
@@ -1198,18 +1455,33 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	if (str)
 	{
 		if (str[0]=='#')
-			LoadSkinNumbers(str,(int*)&skin.Submenu_selection.color,1,true);
+		{
+			COLORREF col;
+			LoadSkinNumbers(str,(int*)&col,1,true);
+			skin.Submenu_selection=col;
+		}
 		else
 		{
-			skin.Submenu_selectionColor=false;
-			skin.Submenu_selection.bmp=NULL;
+			skin.Submenu_selection.bIsBitmap=true;
 			if (flags&LOADMENU_RESOURCES)
 			{
 				int id=_wtol(str);
 				if (id)
 				{
-					skin.Submenu_selection.bmp=LoadSkinBitmap(hMod,id,0,skin.Submenu_selection32,0);
-					if (!skin.Submenu_selection.bmp) return false;
+					str=parser.FindSetting(L"Submenu_selection_mask");
+					if (str && str[0]=='#')
+					{
+						int color;
+						LoadSkinNumbers(str,&color,1,false);
+						skin.Submenu_selection=LoadSkinBitmap(hMod,id,color|0xFF000000,skin.Main_background);
+					}
+					else
+					{
+						int id2=str?_wtol(str):0;
+						if (id2<0) id2=0;
+						skin.Submenu_selection=LoadSkinBitmap(hMod,id,id2,skin.Main_background);
+					}
+					if (!skin.Submenu_selection.GetBitmap()) return false;
 				}
 			}
 
@@ -1227,14 +1499,49 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	}
 	else
 	{
-		skin.Submenu_selection.color=GetSysColor(COLOR_HIGHLIGHT);
+		skin.Submenu_selection=GetSysColor(COLOR_HIGHLIGHT);
 	}
 
-	if (bRTL && !skin.Submenu_selectionColor && skin.Submenu_selection.bmp)
+	if (bRTL && skin.Submenu_selection.GetBitmap())
+		MirrorBitmap(skin.Submenu_selection.GetBitmap());
+
+	memset(skin.Submenu_split_selection_slices_X,0,sizeof(skin.Submenu_split_selection_slices_X));
+	memset(skin.Submenu_split_selection_slices_Y,0,sizeof(skin.Submenu_split_selection_slices_Y));
+	str=parser.FindSetting(L"Submenu_split_selection");
+	if (str)
 	{
-		MirrorBitmap(skin.Submenu_selection.bmp);
-		int q=skin.Submenu_selection_slices_X[0]; skin.Submenu_selection_slices_X[0]=skin.Submenu_selection_slices_X[2]; skin.Submenu_selection_slices_X[2]=q;
+		if (flags&LOADMENU_RESOURCES)
+		{
+			int id=_wtol(str);
+			if (id)
+			{
+				str=parser.FindSetting(L"Submenu_split_selection_mask");
+				if (str && str[0]=='#')
+				{
+					int color;
+					LoadSkinNumbers(str,&color,1,false);
+					skin.Submenu_split_selection=LoadSkinBitmap(hMod,id,color|0xFF000000,skin.Main_background);
+				}
+				else
+				{
+					int id2=str?_wtol(str):0;
+					if (id2<0) id2=0;
+					skin.Submenu_split_selection=LoadSkinBitmap(hMod,id,id2,skin.Main_background);
+				}
+				skin.Submenu_split_selection=LoadSkinBitmap(hMod,id,0,0);
+				if (!skin.Submenu_split_selection.GetBitmap()) return false;
+			}
+		}
 	}
+	str=parser.FindSetting(L"Submenu_split_selection_slices_X");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Submenu_split_selection_slices_X,_countof(skin.Submenu_split_selection_slices_X),false);
+	str=parser.FindSetting(L"Submenu_split_selection_slices_Y");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Submenu_split_selection_slices_Y,_countof(skin.Submenu_split_selection_slices_Y),false);
+
+	if (bRTL && skin.Submenu_split_selection.GetBitmap())
+		MirrorBitmap(skin.Submenu_split_selection.GetBitmap());
 
 	skin.Submenu_arrow_Size.cx=DEFAULT_ARROW_SIZE;
 	skin.Submenu_arrow_Size.cy=0;
@@ -1244,12 +1551,12 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		int id=_wtol(str);
 		if (id)
 		{
-			skin.Submenu_arrow=LoadSkinBitmap(hMod,id,0,skin.Submenu_arrow32,0);
-			if (!skin.Submenu_arrow) return false;
+			skin.Submenu_arrow=LoadSkinBitmap(hMod,id,0,0);
+			if (!skin.Submenu_arrow.GetBitmap()) return false;
 			if (bRTL)
-				MirrorBitmap(skin.Submenu_arrow);
+				MirrorBitmap(skin.Submenu_arrow.GetBitmap());
 			BITMAP info;
-			GetObject(skin.Submenu_arrow,sizeof(info),&info);
+			GetObject(skin.Submenu_arrow.GetBitmap(),sizeof(info),&info);
 			skin.Submenu_arrow_Size.cx=info.bmWidth;
 			skin.Submenu_arrow_Size.cy=info.bmHeight/2;
 		}
@@ -1269,10 +1576,10 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		int id=_wtol(str);
 		if (id)
 		{
-			skin.Submenu_separator=LoadSkinBitmap(hMod,id,0,skin.Submenu_separator32,0);
-			if (!skin.Submenu_separator) return false;
+			skin.Submenu_separator=LoadSkinBitmap(hMod,id,0,0);
+			if (!skin.Submenu_separator.GetBitmap()) return false;
 			BITMAP info;
-			GetObject(skin.Submenu_separator,sizeof(info),&info);
+			GetObject(skin.Submenu_separator.GetBitmap(),sizeof(info),&info);
 			skin.Submenu_separatorHeight=info.bmHeight;
 		}
 	}
@@ -1288,13 +1595,13 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		int id=_wtol(str);
 		if (id)
 		{
-			skin.Submenu_separatorV=LoadSkinBitmap(hMod,id,0,skin.Submenu_separatorV32,0);
-			if (!skin.Submenu_separatorV) return false;
+			skin.Submenu_separatorV=LoadSkinBitmap(hMod,id,0,0);
+			if (!skin.Submenu_separatorV.GetBitmap()) return false;
 			BITMAP info;
-			GetObject(skin.Submenu_separatorV,sizeof(info),&info);
+			GetObject(skin.Submenu_separatorV.GetBitmap(),sizeof(info),&info);
 			skin.Submenu_separatorWidth=info.bmWidth;
 			if (bRTL)
-				MirrorBitmap(skin.Submenu_separatorV);
+				MirrorBitmap(skin.Submenu_separatorV.GetBitmap());
 		}
 	}
 	str=parser.FindSetting(L"Submenu_separator_slices_Y");
@@ -1325,7 +1632,10 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	{
 		int id=_wtol(str);
 		if (id)
-			skin.Submenu_pager=LoadSkinBitmap(hMod,id,0,skin.Submenu_pager32,0);
+		{
+			skin.Submenu_pager=LoadSkinBitmap(hMod,id,0,0);
+			if (!skin.Submenu_pager.GetBitmap()) return false;
+		}
 	}
 	str=parser.FindSetting(L"Submenu_pager_slices_X");
 	if (str)
@@ -1338,14 +1648,17 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	else
 		memset(skin.Submenu_pager_slices_Y,0,sizeof(skin.Submenu_pager_slices_Y));
 
+	if (bRTL && skin.Submenu_pager.GetBitmap())
+		MirrorBitmap(skin.Submenu_pager.GetBitmap());
+
 	str=parser.FindSetting(L"Submenu_icon_frame");
 	if (str)
 	{
 		int id=_wtol(str);
 		if (id)
 		{
-			skin.Submenu_icon_frame=LoadSkinBitmap(hMod,id,0,skin.Submenu_icon_frame32,0);
-			if (!skin.Submenu_icon_frame) return false;
+			skin.Submenu_icon_frame=LoadSkinBitmap(hMod,id,0,0);
+			if (!skin.Submenu_icon_frame.GetBitmap()) return false;
 			str=parser.FindSetting(L"Submenu_icon_frame_slices_X");
 			if (str)
 				LoadSkinNumbers(str,skin.Submenu_icon_frame_slices_X,_countof(skin.Submenu_icon_frame_slices_X),false);
@@ -1364,11 +1677,8 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		}
 	}
 
-	if (bRTL && skin.Submenu_pager)
-	{
-		MirrorBitmap(skin.Submenu_pager);
-		int q=skin.Submenu_pager_slices_X[0]; skin.Submenu_pager_slices_X[0]=skin.Submenu_pager_slices_X[2]; skin.Submenu_pager_slices_X[2]=q;
-	}
+	if (bRTL && skin.Submenu_icon_frame.GetBitmap())
+		MirrorBitmap(skin.Submenu_icon_frame.GetBitmap());
 
 	str=parser.FindSetting(L"Submenu_pager_arrows");
 	if (str && (flags&LOADMENU_RESOURCES))
@@ -1376,15 +1686,16 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		int id=_wtol(str);
 		if (id)
 		{
-			skin.Submenu_pager_arrows=LoadSkinBitmap(hMod,id,0,skin.Submenu_pager_arrows32,0);
+			skin.Submenu_pager_arrows=LoadSkinBitmap(hMod,id,0,0);
+			if (!skin.Submenu_pager_arrows.GetBitmap()) return false;
 			BITMAP info;
-			GetObject(skin.Submenu_pager_arrows,sizeof(info),&info);
+			GetObject(skin.Submenu_pager_arrows.GetBitmap(),sizeof(info),&info);
 			skin.Submenu_pager_arrow_Size.cx=info.bmWidth/2;
 			skin.Submenu_pager_arrow_Size.cy=info.bmHeight/2;
 		}
 	}
-	if (bRTL && skin.Submenu_pager_arrows)
-		MirrorBitmap(skin.Submenu_pager_arrows);
+	if (bRTL && skin.Submenu_pager_arrows.GetBitmap())
+		MirrorBitmap(skin.Submenu_pager_arrows.GetBitmap());
 
 	str=parser.FindSetting(L"Search_bitmap");
 	if (str && (flags&LOADMENU_RESOURCES))
@@ -1392,8 +1703,8 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		int id=_wtol(str);
 		if (id)
 		{
-			skin.Search_bitmap=LoadSkinBitmap(hMod,id,0,skin.Search_bitmap32,0);
-			if (!skin.Search_bitmap) return false;
+			skin.Search_bitmap=LoadSkinBitmap(hMod,id,0,0);
+			if (!skin.Search_bitmap.GetBitmap()) return false;
 		}
 	}
 

@@ -14,7 +14,6 @@ static WNDPROC g_OldClassCaptionProc;
 static HBITMAP g_GlowBmp;
 static HBITMAP g_GlowBmpMax;
 static LONG g_bInjected; // the process is injected
-static bool g_bVista; // running on Vista
 static int g_DPI;
 static UINT g_Message; // private message to detect if the caption is subclassed
 static ATOM g_SubclassAtom;
@@ -182,7 +181,7 @@ static LRESULT CALLBACK SubclassCaptionProc( HWND hWnd, UINT uMsg, WPARAM wParam
 			{
 				// exclude the caption buttons
 				rc.right-=g_SysButtonSize.cx+5;
-				if (g_bVista) rc.bottom++;
+				if (GetWinVersion()==WIN_VER_VISTA) rc.bottom++;
 				if (!bMaximized)
 				{
 					rc.left+=g_CustomCaption[0].leftPadding;
@@ -361,7 +360,6 @@ void InitClassicIE9( HMODULE hModule )
 		}
 	}
 
-	g_bVista=(LOWORD(GetVersion())==0x0006);
 	g_Message=RegisterWindowMessage(L"ClassicIE9.Injected");
 	g_SubclassAtom=GlobalAddAtom(L"ClassicIE9.Subclass");
 	ChangeWindowMessageFilter(g_Message,MSGFLT_ADD);

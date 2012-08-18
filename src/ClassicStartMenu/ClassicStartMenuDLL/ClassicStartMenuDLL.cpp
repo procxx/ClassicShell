@@ -16,6 +16,7 @@
 #include <uxtheme.h>
 #include <htmlhelp.h>
 #include <dbghelp.h>
+#include <set>
 
 #define HOOK_DROPTARGET // define this to replace the IDropTarget of the start button
 
@@ -45,12 +46,12 @@ static DWORD g_LastClickTime;
 static DWORD g_LastHoverPos;
 static bool g_bCrashDump;
 static bool g_bStartScreen;
-static SIZE HOT_CORNER_SIZE={15,15};
-static int g_MetroModeCount;
+static int g_SkipMetroCount;
 static HWND g_StartButtonOld;
 static DWORD g_StartButtonOldSizes[12];
 const int FIRST_BUTTON_BITMAP=6801;
 static HWND g_SwitchList;
+static std::set<HWND> g_EdgeWindows;
 
 enum
 {
@@ -408,40 +409,128 @@ bool PointAroundStartButton( void )
 	}
 }
 
-#ifndef __IMetroMode_INTERFACE_DEFINED__
-// declare the IMetroMode interface so we don't need the Win8 SDK
-typedef enum METRO_MONITOR_MODE;
-interface IMonitorModeEvents;
+#ifndef __IAppVisibility_INTERFACE_DEFINED__
+// declare the IAppVisibility interface so we don't need the Win8 SDK
+typedef enum MONITOR_APP_VISIBILITY
+{
+    MAV_UNKNOWN	= 0,
+    MAV_NO_APP_VISIBLE	= 1,
+    MAV_APP_VISIBLE	= 2
+} 	MONITOR_APP_VISIBILITY;
 
-MIDL_INTERFACE("2246EA2D-CAEA-4444-A3C4-6DE827E44313")
-IMetroMode: public IUnknown
+MIDL_INTERFACE("6584CE6B-7D82-49C2-89C9-C6BC02BA8C38")
+IAppVisibilityEvents : public IUnknown
 {
 public:
-	virtual HRESULT STDMETHODCALLTYPE GetMonitorMode(
-		/* [in] */ __RPC__in HMONITOR hMonitor,
-		/* [out] */ __RPC__out METRO_MONITOR_MODE *pMode) = 0;
+    virtual HRESULT STDMETHODCALLTYPE AppVisibilityOnMonitorChanged( 
+        /* [in] */ __RPC__in HMONITOR hMonitor,
+        /* [in] */ MONITOR_APP_VISIBILITY previousMode,
+        /* [in] */ MONITOR_APP_VISIBILITY currentMode) = 0;
+    
+    virtual HRESULT STDMETHODCALLTYPE LauncherVisibilityChange( 
+        /* [in] */ BOOL currentVisibleState) = 0;
+    
+};
 
-	virtual HRESULT STDMETHODCALLTYPE IsLauncherVisible(
-		/* [out] */ __RPC__out BOOL *pfVisible) = 0;
+MIDL_INTERFACE("2246EA2D-CAEA-4444-A3C4-6DE827E44313")
+IAppVisibility : public IUnknown
+{
+public:
+    virtual HRESULT STDMETHODCALLTYPE GetAppVisibilityOnMonitor( 
+        /* [in] */ __RPC__in HMONITOR hMonitor,
+        /* [out] */ __RPC__out MONITOR_APP_VISIBILITY *pMode) = 0;
+    
+    virtual HRESULT STDMETHODCALLTYPE IsLauncherVisible( 
+        /* [out] */ __RPC__out BOOL *pfVisible) = 0;
+    
+    virtual HRESULT STDMETHODCALLTYPE Advise( 
+        /* [in] */ __RPC__in_opt IAppVisibilityEvents *pCallback,
+        /* [out] */ __RPC__out DWORD *pdwCookie) = 0;
+    
+    virtual HRESULT STDMETHODCALLTYPE Unadvise( 
+        /* [in] */ DWORD dwCookie) = 0;
+    
+};
 
-	virtual HRESULT STDMETHODCALLTYPE Advise(
-		/* [in] */ __RPC__in_opt IMonitorModeEvents *pCallback,
-		/* [out] */ __RPC__out DWORD *pdwCookie) = 0;
+#endif
 
-	virtual HRESULT STDMETHODCALLTYPE Unadvise(
-		/* [in] */ DWORD dwCookie) = 0;
+void ResetHotCorners( void )
+{
+	for (std::set<HWND>::const_iterator it=g_EdgeWindows.begin();it!=g_EdgeWindows.end();++it)
+		ShowWindow(*it,SW_SHOW);
+	g_EdgeWindows.clear();
+}
+
+	CComPtr<IAppVisibility> g_pAppVisibility;
+DWORD g_AppVisibilityMonitorCookie;
+
+class CMonitorModeEvents: public IAppVisibilityEvents
+{
+public:
+	CMonitorModeEvents( void ) { m_RefCount=1; }
+	// IUnknown
+	virtual STDMETHODIMP QueryInterface( REFIID riid, void **ppvObject )
+	{
+		*ppvObject=NULL;
+		if (IID_IUnknown==riid || __uuidof(IAppVisibilityEvents)==riid)
+		{
+			AddRef();
+			*ppvObject=(IDropTarget*)this;
+			return S_OK;
+		}
+		return E_NOINTERFACE;
+	}
+
+	virtual ULONG STDMETHODCALLTYPE AddRef( void ) 
+	{ 
+		return InterlockedIncrement(&m_RefCount);
+	}
+
+	virtual ULONG STDMETHODCALLTYPE Release( void )
+	{
+		long nTemp=InterlockedDecrement(&m_RefCount);
+		if (!nTemp) delete this;
+		return nTemp;
+	}
+
+	// IAppVisibilityEvents
+    virtual HRESULT STDMETHODCALLTYPE AppVisibilityOnMonitorChanged( HMONITOR hMonitor, MONITOR_APP_VISIBILITY previousMode, MONITOR_APP_VISIBILITY currentMode )
+	{
+		ResetHotCorners();
+		return S_OK;
+	}
+    
+    virtual HRESULT STDMETHODCALLTYPE LauncherVisibilityChange( BOOL currentVisibleState )
+	{
+		ResetHotCorners();
+		return S_OK;
+	}
+
+private:
+	LONG m_RefCount;
 };
 
 static const CLSID CLSID_MetroMode={0x7E5FE3D9,0x985F,0x4908,{0x91, 0xF9, 0xEE, 0x19, 0xF9, 0xFD, 0x15, 0x14}};
 
-#endif
+BOOL CALLBACK AppVisibleProc( HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData )
+{
+	bool *pData=(bool*)dwData;
+	MONITOR_APP_VISIBILITY mode;
+	if (SUCCEEDED(g_pAppVisibility->GetAppVisibilityOnMonitor(hMonitor,&mode)) && mode==MAV_APP_VISIBLE)
+		*pData=true;
+	return !*pData;
+}
 
+// Returns true if the start screen or any Metro app is visible
 static bool IsMetroMode( void )
 {
-	CComPtr<IMetroMode> pMetroMode;
-	pMetroMode.CoCreateInstance(CLSID_MetroMode);
-	BOOL bMetro;
-	return (pMetroMode && SUCCEEDED(pMetroMode->IsLauncherVisible(&bMetro)) && bMetro);
+	if (!g_pAppVisibility) return false;
+	BOOL bLauncher;
+	if (SUCCEEDED(g_pAppVisibility->IsLauncherVisible(&bLauncher)) && bLauncher)
+		return true;
+	bool bAppVisible=false;
+	EnumDisplayMonitors(NULL,NULL,AppVisibleProc,(LPARAM)&bAppVisible);
+	return bAppVisible;
 }
 
 static LRESULT CALLBACK HookAppManager( int code, WPARAM wParam, LPARAM lParam )
@@ -449,36 +538,52 @@ static LRESULT CALLBACK HookAppManager( int code, WPARAM wParam, LPARAM lParam )
 	if (code==HC_ACTION)
 	{
 		MSG *msg=(MSG*)lParam;
-		if ((msg->message==WM_MOUSEMOVE || msg->message==WM_LBUTTONDOWN) && GetSettingBool(L"DisableHotCorner") && !IsMetroMode())
+		if ((msg->message==WM_MOUSEMOVE || msg->message==WM_LBUTTONDOWN) && GetSettingInt(L"DisableHotCorner")>0 && !IsMetroMode())
 		{
 			// ignore the mouse messages if there is a menu
 			GUITHREADINFO info={sizeof(info)};
 			if (GetGUIThreadInfo(GetCurrentThreadId(),&info) && (info.flags&GUI_INMENUMODE))
 				return CallNextHookEx(NULL,code,wParam,lParam);
-			APPBARDATA appbar={sizeof(appbar),g_TaskBar};
-			SHAppBarMessage(ABM_GETTASKBARPOS,&appbar);
-			if (appbar.uEdge==ABE_BOTTOM)
+			int corner=GetSettingInt(L"DisableHotCorner");
+			if (corner==2)
 			{
-				// check if the mouse is over the taskbar
-				RECT rc;
-				GetWindowRect(g_TaskBar,&rc);
-				CPoint pt(GetMessagePos());
-				if (PtInRect(&rc,pt))
+				wchar_t className[256]={0};
+				GetClassName(msg->hwnd,className,_countof(className));
+				if (wcscmp(className,L"EdgeUiInputWndClass")==0)
 				{
-					if (msg->message==WM_LBUTTONDOWN)
+					// suppress the hot corners
+					msg->message=WM_NULL;
+					ShowWindow(msg->hwnd,SW_HIDE);
+					g_EdgeWindows.insert(msg->hwnd);
+				}
+			}
+			else if (corner==1)
+			{
+				APPBARDATA appbar={sizeof(appbar),g_TaskBar};
+				SHAppBarMessage(ABM_GETTASKBARPOS,&appbar);
+				if (appbar.uEdge==ABE_BOTTOM)
+				{
+					// check if the mouse is over the taskbar
+					RECT rc;
+					GetWindowRect(g_TaskBar,&rc);
+					CPoint pt(GetMessagePos());
+					if (PtInRect(&rc,pt))
 					{
-						// forward the mouse click to the taskbar
-						PostMessage(g_TaskBar,WM_NCLBUTTONDOWN,MK_LBUTTON,MAKELONG(pt.x,pt.y));
-						msg->message=WM_NULL;
-					}
-					wchar_t className[256]={0};
-					GetClassName(msg->hwnd,className,_countof(className));
-					if (wcscmp(className,L"ImmersiveSwitchList")==0)
-					{
-						// suppress the opening of the ImmersiveSwitchList
-						msg->message=WM_NULL;
-						ShowWindow(msg->hwnd,SW_HIDE); // hide the popup
-						g_SwitchList=msg->hwnd;
+						if (msg->message==WM_LBUTTONDOWN)
+						{
+							// forward the mouse click to the taskbar
+							PostMessage(g_TaskBar,WM_NCLBUTTONDOWN,MK_LBUTTON,MAKELONG(pt.x,pt.y));
+							msg->message=WM_NULL;
+						}
+						wchar_t className[256]={0};
+						GetClassName(msg->hwnd,className,_countof(className));
+						if (wcscmp(className,L"ImmersiveSwitchList")==0)
+						{
+							// suppress the opening of the ImmersiveSwitchList
+							msg->message=WM_NULL;
+							ShowWindow(msg->hwnd,SW_HIDE); // hide the popup
+							g_SwitchList=msg->hwnd;
+						}
 					}
 				}
 			}
@@ -595,11 +700,11 @@ static LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam
 	if (uMsg==WM_WINDOWPOSCHANGED && (((WINDOWPOS*)lParam)->flags&SWP_SHOWWINDOW))
 	{
 		g_LastHoverPos=GetMessagePos();
-		if (GetSettingInt(L"InitiallySelect")==1)
+		if (g_ProgramsButton && GetSettingInt(L"InitiallySelect")==1)
 			PostMessage(hWnd,WM_CLEAR,'CLSH',0);
 		PressStartButton(true);
 	}
-	if (uMsg==WM_CLEAR && wParam=='CLSH')
+	if (uMsg==WM_CLEAR && wParam=='CLSH' && g_ProgramsButton)
 	{
 		SetFocus(g_ProgramsButton);
 		return 0;
@@ -612,7 +717,7 @@ static LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam
 			PressStartButton(false);
 		}
 		g_bAllProgramsTimer=false;
-		KillTimer(g_ProgramsButton,'CLSM');
+		if (g_ProgramsButton) KillTimer(g_ProgramsButton,'CLSM');
 	}
 	if (uMsg==WM_DESTROY)
 		g_TopMenu=NULL;
@@ -623,7 +728,7 @@ static LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam
 	if (uMsg==WM_MOUSEACTIVATE && GetSettingBool(L"CascadeAll"))
 	{
 		CPoint pt(GetMessagePos());
-		if (WindowFromPoint(pt)==g_ProgramsButton && CMenuContainer::IsMenuOpened())
+		if (g_ProgramsButton && WindowFromPoint(pt)==g_ProgramsButton && CMenuContainer::IsMenuOpened())
 			return MA_NOACTIVATEANDEAT;
 		CMenuContainer::CloseProgramsMenu();
 	}
@@ -661,19 +766,17 @@ static BOOL CALLBACK FindWindowsMenuProc( HWND hwnd, LPARAM lParam )
 	if (_wcsicmp(name,L"DV2ControlHost")==0)
 	{
 		HWND w1=hwnd;
-		if (LOWORD(GetVersion())==0x0006)
+		if (GetWinVersion()==WIN_VER_VISTA)
 		{
 			w1=FindWindowEx(w1,NULL,L"Desktop Open Pane Host",NULL);
 			if (!w1) return TRUE;
 		}
 		w1=FindWindowEx(w1,NULL,L"Desktop More Programs Pane",NULL);
 		if (!w1) return TRUE;
-		HWND w2=GetDlgItem(w1,IDOK);
-		if (!w2) return TRUE;
 
 		g_TopMenu=hwnd;
 		g_AllPrograms=w1;
-		g_ProgramsButton=w2;
+		g_ProgramsButton=GetDlgItem(w1,IDOK); // this may not exist
 		return FALSE;
 	}
 	return TRUE;
@@ -741,22 +844,23 @@ static LRESULT CALLBACK SubclassTaskBarProc( HWND hWnd, UINT uMsg, WPARAM wParam
 				if (bHide)
 					flags=(flags&~SWP_SHOWWINDOW)|SWP_HIDEWINDOW;
 			}
-			DWORD version=LOWORD(GetVersion());
-			version=MAKEWORD(HIBYTE(version),LOBYTE(version));
-			bool bClassic;
-			if (version<0x0602)
-				bClassic=!IsAppThemed();
-			else
+			if (!IsStartButtonSmallIcons())
 			{
-				HIGHCONTRAST contrast={sizeof(contrast)};
-				bClassic=(SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON));
-			}
-			if (!bClassic)
-			{
-				if (appbar.uEdge==ABE_TOP)
-					OffsetRect(&rcTask,0,-1);
-				else if (appbar.uEdge==ABE_BOTTOM)
-					OffsetRect(&rcTask,0,1);
+				bool bClassic;
+				if (GetWinVersion()<WIN_VER_WIN8)
+					bClassic=!IsAppThemed();
+				else
+				{
+					HIGHCONTRAST contrast={sizeof(contrast)};
+					bClassic=(SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON));
+				}
+				if (!bClassic)
+				{
+					if (appbar.uEdge==ABE_TOP)
+						OffsetRect(&rcTask,0,-1);
+					else if (appbar.uEdge==ABE_BOTTOM)
+						OffsetRect(&rcTask,0,1);
+				}
 			}
 			HWND zPos=(pPos->flags&SWP_NOZORDER)?HWND_TOPMOST:pPos->hwndInsertAfter;
 			if (zPos==HWND_TOP && !(GetWindowLong(g_StartButton,GWL_EXSTYLE)&WS_EX_TOPMOST))
@@ -820,8 +924,8 @@ static LRESULT CALLBACK SubclassTaskBarProc( HWND hWnd, UINT uMsg, WPARAM wParam
 		inputs[3].ki.wVk=VK_LWIN;
 		inputs[3].ki.dwFlags=KEYEVENTF_KEYUP;
 		SendInput(_countof(inputs),inputs,sizeof(INPUT));
-		g_MetroModeCount--;
-		if (g_MetroModeCount<=0)
+		g_SkipMetroCount--;
+		if (g_SkipMetroCount<=0)
 			KillTimer(hWnd,'CLSM');
 		return 0;
 	}
@@ -902,7 +1006,7 @@ static void InitStartMenuDLL( void )
 			if (g_StartButtonOld)
 			{
 				ShowWindow(g_StartButtonOld,SW_HIDE);
-				if (LOWORD(GetVersion())==0x0106)
+				if (GetWinVersion()==WIN_VER_WIN7)
 				{
 					// Windows 7 draws the start button on the taskbar as well
 					// so we zero out the bitmap resources
@@ -961,17 +1065,24 @@ static void InitStartMenuDLL( void )
 		pNewTarget->Release();
 	}
 #endif
-	if (g_bReplaceButton)
+	if (GetWinVersion()>=WIN_VER_WIN8)
 	{
 		HWND appManager=FindWindow(L"ApplicationManager_DesktopShellWindow",NULL);
 		if (appManager)
 		{
 			DWORD thread=GetWindowThreadProcessId(appManager,NULL);
 			g_AppManagerHook=SetWindowsHookEx(WH_GETMESSAGE,HookAppManager,g_Instance,thread);
+			g_pAppVisibility.CoCreateInstance(CLSID_MetroMode);
+			if (g_pAppVisibility)
+			{
+				CMonitorModeEvents *monitor=new CMonitorModeEvents();
+				g_pAppVisibility->Advise(monitor,&g_AppVisibilityMonitorCookie);
+				monitor->Release();
+			}
 		}
 		if (GetSettingBool(L"SkipMetro"))
 		{
-			g_MetroModeCount=GetSettingInt(L"SkipMetroCount");
+			g_SkipMetroCount=GetSettingInt(L"SkipMetroCount");
 			SetTimer(g_TaskBar,'CLSM',500,NULL);
 		}
 	}
@@ -987,22 +1098,23 @@ void RecreateStartButton( void )
 	RECT rcTask2=rcTask;
 	APPBARDATA appbar={sizeof(appbar),g_TaskBar};
 	SHAppBarMessage(ABM_GETTASKBARPOS,&appbar);
-	DWORD version=LOWORD(GetVersion());
-	version=MAKEWORD(HIBYTE(version),LOBYTE(version));
-	bool bClassic;
-	if (version<0x0602)
-		bClassic=!IsAppThemed();
-	else
+	if (!IsTaskbarSmallIcons())
 	{
-		HIGHCONTRAST contrast={sizeof(contrast)};
-		bClassic=(SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON));
-	}
-	if (!bClassic)
-	{
-		if (appbar.uEdge==ABE_TOP)
-			OffsetRect(&rcTask2,0,-1);
-		else if (appbar.uEdge==ABE_BOTTOM)
-			OffsetRect(&rcTask2,0,1);
+		bool bClassic;
+		if (GetWinVersion()<WIN_VER_WIN8)
+			bClassic=!IsAppThemed();
+		else
+		{
+			HIGHCONTRAST contrast={sizeof(contrast)};
+			bClassic=(SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON));
+		}
+		if (!bClassic)
+		{
+			if (appbar.uEdge==ABE_TOP)
+				OffsetRect(&rcTask2,0,-1);
+			else if (appbar.uEdge==ABE_BOTTOM)
+				OffsetRect(&rcTask2,0,1);
+		}
 	}
 	g_StartButton=CreateStartButton(g_TaskBar,g_Rebar,rcTask2);
 	CStartMenuTarget *pNewTarget=new CStartMenuTarget();
@@ -1037,10 +1149,16 @@ static void CleanStartMenuDLL( void )
 	UnhookWindowsHookEx(g_StartHook);
 	if (g_AppManagerHook) UnhookWindowsHookEx(g_AppManagerHook);
 	g_AppManagerHook=NULL;
+	if (g_pAppVisibility)
+	{
+		g_pAppVisibility->Unadvise(g_AppVisibilityMonitorCookie);
+		g_pAppVisibility=NULL;
+	}
+	ResetHotCorners();
 	RemoveWindowSubclass(g_TaskBar,SubclassTaskBarProc,'CLSH');
 	if (g_StartButtonOld)
 	{
-		if (LOWORD(GetVersion())==0x0106)
+		if (GetWinVersion()==WIN_VER_WIN7)
 		{
 			// restore the bitmap sizes
 			HMODULE hExplorer=GetModuleHandle(NULL);
@@ -1170,7 +1288,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			else if (msg->wParam==MSG_SETTINGS)
 			{
 				if (GetSettingBool(L"EnableSettings"))
-					EditSettings(false);
+					EditSettings(false,0);
 			}
 			else if (msg->wParam==MSG_SHIFTWIN)
 			{
@@ -1343,7 +1461,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			msg->message=WM_NULL;
 		}
 
-		if (msg->message==WM_MOUSEMOVE && msg->hwnd==g_ProgramsButton && GetSettingBool(L"CascadeAll") && !(msg->wParam&MK_SHIFT))
+		if (msg->message==WM_MOUSEMOVE && g_ProgramsButton && msg->hwnd==g_ProgramsButton && GetSettingBool(L"CascadeAll") && !(msg->wParam&MK_SHIFT))
 		{
 			DWORD pos=GetMessagePos();
 			if (pos!=g_LastHoverPos && !g_bAllProgramsTimer)
@@ -1357,7 +1475,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			}
 			g_LastHoverPos=pos;
 		}
-		if (msg->message==WM_TIMER && msg->wParam=='CLSM' && msg->hwnd==g_ProgramsButton)
+		if (msg->message==WM_TIMER && msg->wParam=='CLSM' && g_ProgramsButton && msg->hwnd==g_ProgramsButton)
 		{
 			g_bAllProgramsTimer=false;
 			KillTimer(g_ProgramsButton,'CLSM');
@@ -1366,7 +1484,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				PostMessage(g_AllPrograms,WM_COMMAND,IDOK,(LPARAM)g_ProgramsButton);
 			msg->message=WM_NULL;
 		}
-		if (msg->message==WM_MOUSELEAVE && msg->hwnd==g_ProgramsButton)
+		if (msg->message==WM_MOUSELEAVE && g_ProgramsButton && msg->hwnd==g_ProgramsButton)
 		{
 			g_bAllProgramsTimer=false;
 			KillTimer(g_ProgramsButton,'CLSM');
@@ -1443,7 +1561,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			g_bStartButtonTimer=false;
 		}
 
-		if (msg->message==WM_NCRBUTTONUP && g_SwitchList && IsWindow(g_SwitchList))
+		if ((msg->message==WM_NCRBUTTONUP || msg->message==WM_RBUTTONUP) && msg->hwnd==g_TaskBar && g_SwitchList && IsWindow(g_SwitchList))
 		{
 			wchar_t className[256]={0};
 			GetClassName(g_SwitchList,className,_countof(className));
@@ -1515,7 +1633,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 					g_bInMenu=false;
 					if (res==CMD_SETTINGS)
 					{
-						EditSettings(false);
+						EditSettings(false,0);
 					}
 					if (res==CMD_HELP)
 					{

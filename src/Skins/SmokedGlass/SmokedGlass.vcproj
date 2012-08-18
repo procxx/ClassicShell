@@ -120,10 +120,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\main_bitmap_mask.bmp"
-				>
-			</File>
-			<File
 				RelativePath=".\pager.bmp"
 				>
 			</File>
@@ -157,6 +153,10 @@
 			</File>
 			<File
 				RelativePath=".\SmokedGlass.rc"
+				>
+			</File>
+			<File
+				RelativePath=".\split_selection.bmp"
 				>
 			</File>
 			<File

@@ -783,6 +783,18 @@
 				RelativePath=".\SkinDescription.txt"
 				>
 			</File>
+			<File
+				RelativePath=".\style_classic.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\style_vista.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\style_xp.bmp"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

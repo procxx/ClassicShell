@@ -4,5 +4,5 @@
 #pragma once
 
 void InitSettings( void );
-STARTMENUAPI void EditSettings( bool bModal );
+STARTMENUAPI void EditSettings( bool bModal, int tab );
 STARTMENUAPI void LogHookError( int error );

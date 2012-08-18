@@ -440,7 +440,7 @@ static bool GetPidlPath( PIDLIST_ABSOLUTE pidl, wchar_t *path )
 	path[0]=0;
 	if (SHGetPathFromIDList(pidl,path) && *path)
 		return true;
-	if (LOWORD(GetVersion())!=0x0006)
+	if (GetWinVersion()>=WIN_VER_WIN7)
 	{
 		// maybe it is a library - try the default save folder
 		CComPtr<IShellItem> pShellItem;
@@ -1594,7 +1594,7 @@ void CBandWindow::EnableButton( int cmd, bool bEnable )
 
 CExplorerBand::CExplorerBand( void )
 {
-	m_bSubclassRebar=(LOWORD(GetVersion())!=0x0006); // Windows 7 or 8
+	m_bSubclassRebar=GetWinVersion()>=WIN_VER_WIN7;
 	m_bSubclassedRebar=false;
 	m_TopWindow=NULL;
 }

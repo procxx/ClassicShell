@@ -5,6 +5,10 @@
 	Name="VistaAero"
 	ProjectGUID="{EDE9E4F2-53E5-42A0-93B4-00AD0B2FC097}"
 	RootNamespace="VistaAero"
+	SccProjectName="SAK"
+	SccAuxPath="SAK"
+	SccLocalPath="SAK"
+	SccProvider="SAK"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -154,6 +158,14 @@
 			</File>
 			<File
 				RelativePath=".\SkinDescription.txt"
+				>
+			</File>
+			<File
+				RelativePath=".\split_selection.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\split_selectionXP.bmp"
 				>
 			</File>
 			<File

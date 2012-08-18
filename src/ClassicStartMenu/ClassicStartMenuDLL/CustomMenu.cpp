@@ -109,6 +109,7 @@ static unsigned int ParseItemSettings( const wchar_t *name )
 		if (_wcsicmp(token,L"MULTICOLUMN")==0) settings|=StdMenuItem::MENU_MULTICOLUMN;
 		if (_wcsicmp(token,L"NOEXTENSIONS")==0) settings|=StdMenuItem::MENU_NOEXTENSIONS;
 		if (_wcsicmp(token,L"INLINE")==0) settings|=StdMenuItem::MENU_INLINE;
+		if (_wcsicmp(token,L"SPLIT")==0) settings|=StdMenuItem::MENU_SPLIT_BUTTON;
 	}
 	return settings;
 }

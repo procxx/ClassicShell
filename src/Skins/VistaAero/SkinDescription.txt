@@ -99,6 +99,10 @@ Main_selection=3
 Main_selection_slices_X=3,1,3
 Main_selection_slices_Y=4,66,4
 
+Main_split_selection=11
+Main_split_selection_slices_X=3,1,3,2,1,3
+Main_split_selection_slices_Y=4,66,4
+
 
 ;SUB-MENU SECTION - describes the look of the sub-menus
 
@@ -114,10 +118,14 @@ Submenu_text_color=#000000,#000000,#7F7F7F,#7F7F7F
 Submenu_selection=3
 Submenu_selection_slices_X=3,1,3
 Submenu_selection_slices_Y=4,66,4
+Submenu_split_selection=11
+Submenu_split_selection_slices_X=3,1,3,2,1,3
+Submenu_split_selection_slices_Y=4,66,4
 
 ; OPTIONS
 
 OPTION TWO_COLUMNS="Two Columns",0
+OPTION NO_ICONS="No Icons in Second Column",0, TWO_COLUMNS
 OPTION CAPTION="Caption",1, NOT TWO_COLUMNS, 0
 OPTION USER_IMAGE="Show User Picture",0
 OPTION USER_NAME="Show User Name",0
@@ -161,11 +169,14 @@ Main_padding2=3,10,4,8
 Main_selection2=6
 Main_selection_slices_X2=4,63,4
 Main_selection_slices_Y2=4,20,4
+Main_split_selection2=12
+Main_split_selection_slices_X2=4,63,4,0,16,4
+Main_split_selection_slices_Y2=4,20,4
 Main_arrow_color2=#FFFFFF,#FFFFFF
 Main_separator2=7
 Main_separator_slices_X2=15,100,15
 Main_icon_padding2=4,4,3,4
-Main_arrow_padding2=8,6
+Main_arrow_padding2=7,7
 
 
 [USER_IMAGE]
@@ -235,3 +246,6 @@ User_name_align=center
 
 [CENTER_NAME AND TWO_COLUMNS]
 User_name_align=center2
+
+[NO_ICONS]
+Main_no_icons2=1

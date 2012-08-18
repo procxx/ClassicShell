@@ -148,7 +148,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 		CoInitialize(NULL);
 		wchar_t exe[_MAX_PATH];
 		const wchar_t *args=SeparateArguments(pRunAs+7,exe);
-		if ((DWORD_PTR)ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL)>32 && !args && LOWORD(GetVersion())!=0x0006)
+		if ((DWORD_PTR)ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL)>32 && !args && GetWinVersion()>=WIN_VER_WIN7)
 		{
 			// on Windows 7 the executed documents are not automatically added to the recent document list
 			CComPtr<IShellLink> pLink;
@@ -189,7 +189,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	if (wcsstr(lpstrCmdLine,L"-testsettings")!=NULL)
 	{
 		CoInitialize(NULL);
-		EditSettings(true);
+		EditSettings(true,0);
 		CoUninitialize();
 		return 0;
 	}
@@ -258,12 +258,14 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	{
 		ChangeWindowMessageFilterEx(window,g_TaskbarCreatedMsg,MSGFLT_ADD,NULL);
 		ChangeWindowMessageFilterEx(window,WM_CLEAR,MSGFLT_ADD,NULL);
+		ChangeWindowMessageFilterEx(window,WM_OPEN,MSGFLT_ADD,NULL);
 		ChangeWindowMessageFilterEx(window,WM_CLOSE,MSGFLT_ADD,NULL);
 	}
 	else
 	{
 		ChangeWindowMessageFilter(g_TaskbarCreatedMsg,MSGFLT_ADD);
 		ChangeWindowMessageFilter(WM_CLEAR,MSGFLT_ADD);
+		ChangeWindowMessageFilter(WM_OPEN,MSGFLT_ADD);
 		ChangeWindowMessageFilter(WM_CLOSE,MSGFLT_ADD);
 	}
 

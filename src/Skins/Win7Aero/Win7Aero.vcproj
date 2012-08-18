@@ -62,7 +62,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				IgnoreImportLibrary="true"
-				OutputFile="$(SolutionDir)ClassicStartMenu\Skins\Windows 7 Aero.skin"
+				OutputFile="$(SolutionDir)ClassicStartMenu\Skins\Windows Aero.skin"
 				LinkIncremental="1"
 				GenerateDebugInformation="false"
 				ProgramDatabaseFile="$(OutDir)\$(ProjectName).pdb"
@@ -170,6 +170,14 @@
 			</File>
 			<File
 				RelativePath=".\SkinDescription.txt"
+				>
+			</File>
+			<File
+				RelativePath=".\split_selection.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\split_selectionXP.bmp"
 				>
 			</File>
 			<File

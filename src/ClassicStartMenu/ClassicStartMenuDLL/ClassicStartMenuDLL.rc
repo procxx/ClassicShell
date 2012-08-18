@@ -111,7 +111,7 @@ BEGIN
     LTEXT           "This skin is used by the cascading All Programs menu in the Windows start menu",IDC_STATICALLPROGS,7,150,297,8
 END
 
-IDD_CUSTOMMENU DIALOGEX 0, 0, 249, 223
+IDD_CUSTOMMENU DIALOGEX 0, 0, 249, 236
 STYLE DS_SETFONT | DS_CENTER | WS_POPUP | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 CAPTION "Edit Menu Item (%s)"
 FONT 9, "Segoe UI", 400, 0, 0x0
@@ -136,15 +136,29 @@ BEGIN
     CONTROL         "Open Up",IDC_CHECKOPENUP,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,155,44,10
     CONTROL         "Open Up (for sub-menus)",IDC_CHECKOPENUPREC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,168,97,10
     CONTROL         "Insert Sub-items as Buttons",IDC_CHECKINLINE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,181,106,10
+    CONTROL         "Split Button Item",IDC_CHECKSPLIT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,194,65,10
     CONTROL         "Don't Expand",IDC_CHECKNOEXPAND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,116,59,10
     CONTROL         "Multi-column",IDC_CHECKMULTICOLUMN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,129,60,10
     CONTROL         "Track Recent Items",IDC_CHECKTRACK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,142,78,10
     CONTROL         "Don't Track Recent Items",IDC_CHECKNOTRACK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,155,97,10
     CONTROL         "Place Items First",IDC_CHECKITEMSFIRST,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,168,69,10
     CONTROL         "Hide Extensions",IDC_CHECKNOEXT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,130,181,72,10
-    PUSHBUTTON      "Restore Defaults",IDC_BUTTONRESET,7,202,90,14
-    DEFPUSHBUTTON   "OK",IDOK,135,202,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,192,202,50,14
+    PUSHBUTTON      "Restore Defaults",IDC_BUTTONRESET,7,215,90,14
+    DEFPUSHBUTTON   "OK",IDOK,135,215,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,192,215,50,14
+END
+
+IDD_STYLESETTINGS DIALOGEX 0, 0, 307, 180
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN | WS_SYSMENU
+FONT 9, "Segoe UI", 400, 0, 0x0
+BEGIN
+    CONTROL         "<a>Windows Classic</a>",IDC_LINK_CLASSIC,"SysLink",WS_TABSTOP,7,27,61,8
+    CONTROL         "<a>Windows XP</a>",IDC_LINK_XP,"SysLink",WS_TABSTOP,80,27,49,8
+    CONTROL         "<a>Windows Vista/Windows 7</a>",IDC_LINK_VISTA,"SysLink",WS_TABSTOP,196,27,91,8
+    CONTROL         120,IDC_STATIC_CLASSIC,"Static",SS_BITMAP | SS_NOTIFY | SS_REALSIZEIMAGE,7,38,69,120
+    CONTROL         121,IDC_STATIC_XP,"Static",SS_BITMAP | SS_NOTIFY | SS_REALSIZEIMAGE,80,38,111,120
+    CONTROL         122,IDC_STATIC_VISTA,"Static",SS_BITMAP | SS_NOTIFY | SS_REALSIZEIMAGE,196,38,103,120
+    LTEXT           "Select a default style for the start menu. The style will determine the initial order for the menu items and the skin settings.",IDC_STATICTITLE,7,7,291,17
 END
 
 
@@ -201,7 +215,15 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 242
         TOPMARGIN, 7
-        BOTTOMMARGIN, 216
+        BOTTOMMARGIN, 229
+    END
+
+    IDD_STYLESETTINGS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 299
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 173
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -213,8 +235,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,5,1,0
- PRODUCTVERSION 3,5,1,0
+ FILEVERSION 3,6,0,0
+ PRODUCTVERSION 3,6,0,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -231,12 +253,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "3, 5, 1, 0"
+            VALUE "FileVersion", "3, 6, 0, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009-2012, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 5, 1, 0"
+            VALUE "ProductVersion", "3, 6, 0, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -277,6 +299,9 @@ IDB_BUTTON96M           BITMAP                  "button96m.bmp"
 IDB_BUTTON120M          BITMAP                  "button120m.bmp"
 IDB_BUTTON144M          BITMAP                  "button144m.bmp"
 IDB_BUTTON180M          BITMAP                  "button180m.bmp"
+IDB_STYLE_CLASSIC       BITMAP                  "style_classic.bmp"
+IDB_STYLE_XP            BITMAP                  "style_xp.bmp"
+IDB_STYLE_VISTA         BITMAP                  "style_vista.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -736,12 +761,32 @@ STRINGTABLE
 BEGIN
     IDS_BUTTON_SIZE         "Button Size"
     IDS_BUTTON_SIZE_TIP     "Select the width for the button when using a custom image"
-    IDS_HOT_CORNER          "Disable the Start screen popup"
-    IDS_HOT_CORNER_TIP      "When this is checked and the taskbar is at the bottom, moving the mouse to the bottom corner of the screen will not show the Start screen popup"
+    IDS_HOT_CORNERS         "Disable active corners"
+    IDS_HOT_CORNERS_TIP     "Select which active corners to disable"
     IDS_SKIP_METRO          "Skip Metro screen"
     IDS_SKIP_METRO_TIP      "Automatically skip the Metro screen after login and enter the Desktop"
     IDS_BUTTON_ICON         "Button Icon"
     IDS_BUTTON_ICON_TIP     "Select the icon for the classic Start button"
+    IDS_BUTTON_TIP          "Button tooltip"
+    IDS_BUTTON_TIP_TIP      "Select the tooltip for the Start button"
+    IDS_BUTTON_TEXT         "Button text"
+    IDS_BUTTON_TEXT_TIP     "Select the text for the classic Start button"
+    IDS_METRO_SETTINGS      "Windows 8 Settings"
+    IDS_DISABLE_NONE        "None"
+    IDS_DISABLE_NONE_TIP    "Don't disable any corners"
+    IDS_DISABLE_START       "Start screen"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_DISABLE_START_TIP   "Disable the Start screen popup at the bottom corner when the taskbar is at the bottom"
+    IDS_DISABLE_ALL         "All"
+    IDS_DISABLE_ALL_TIP     "Disable all corners"
+    IDS_ENABLE_BUTTON2      "Replace Start Button"
+    IDS_ENABLE_BUTTON_TIP2  "When this is checked, the Start button will be replaced with a custom image"
+    IDS_SPLIT_TIP           "The item will be split into separate parts for the command and for the sub-menu arrow"
+    IDS_STYLE_SETTINGS      "Start Menu Style"
+    IDS_CHANGE_STYLE        "The menu items and the skin settings will be reset to match the selected style. Do you want to continue?"
 END
 
 #endif    // English (U.S.) resources

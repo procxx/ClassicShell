@@ -66,6 +66,8 @@ END
 12                      BITMAP                  "user_bitmap.bmp"
 13                      BITMAP                  "main_bitmap2.bmp"
 14                      BITMAP                  "main_bitmap_mask2.bmp"
+15                      BITMAP                  "split_selection.bmp"
+16                      BITMAP                  "split_selectionXP.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //

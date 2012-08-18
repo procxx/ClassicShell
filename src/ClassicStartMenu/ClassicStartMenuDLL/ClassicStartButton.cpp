@@ -169,7 +169,11 @@ void CStartButton::UpdateButton( void )
 		HFONT font0=(HFONT)SelectObject(hSrc,m_Font);
 		SetTextColor(hSrc,GetSysColor(COLOR_BTNTEXT));
 		SetBkMode(hSrc,TRANSPARENT);
-		DrawText(hSrc,FindTranslation(L"Menu.Start",L"Start"),-1,&rc,DT_NOPREFIX|DT_SINGLELINE|DT_VCENTER);
+		CString startStr=GetSettingString(L"StartButtonText");
+		const wchar_t *startText=startStr;
+		if (startText[0]=='$')
+			startText=FindTranslation(startText+1,L"Start");
+		DrawText(hSrc,startText,-1,&rc,DT_NOPREFIX|DT_SINGLELINE|DT_VCENTER);
 		SelectObject(hSrc,bmp0);
 		// mark the button pixels as opaque
 		for (int y=START_BUTTON_OFFSET;y<m_Size.cy-START_BUTTON_OFFSET;y++)
@@ -292,10 +296,8 @@ LRESULT CStartButton::OnThemeChanged( UINT uMsg, WPARAM wParam, LPARAM lParam, B
 {
 	if (m_Theme) CloseThemeData(m_Theme);
 	m_Theme=NULL;
-	DWORD version=LOWORD(GetVersion());
-	version=MAKEWORD(HIBYTE(version),LOBYTE(version));
 	HIGHCONTRAST contrast={sizeof(contrast)};
-	if (version>=0x0602 && SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON))
+	if (GetWinVersion()>=WIN_VER_WIN8 && SystemParametersInfo(SPI_GETHIGHCONTRAST,sizeof(contrast),&contrast,0) && (contrast.dwFlags&HCF_HIGHCONTRASTON))
 	{
 		// only use themes on Win8 with high contrast
 		m_Theme=OpenThemeData(m_hWnd,L"button");
@@ -313,8 +315,11 @@ void CStartButton::SetPressed( bool bPressed )
 		KillTimer(TIMER_BLEND);
 		TOOLINFO tool={sizeof(tool),TTF_CENTERTIP|TTF_SUBCLASS|TTF_IDISHWND|TTF_TRANSPARENT|(m_bRTL?TTF_RTLREADING:0),m_hWnd};
 		tool.uId=(UINT_PTR)m_hWnd;
-		CString text=FindTranslation(L"Menu.Start",L"Start");
-		tool.lpszText=(wchar_t*)(const wchar_t*)text;
+		CString startStr=GetSettingString(L"StartButtonTip");
+		const wchar_t *startText=startStr;
+		if (startText[0]=='$')
+			startText=FindTranslation(startText+1,L"Start");
+		tool.lpszText=(wchar_t*)startText;
 		m_Tooltip.SendMessage(bPressed?TTM_DELTOOL:TTM_ADDTOOL,0,(LPARAM)&tool);
 		UpdateButton();
 	}
@@ -331,10 +336,8 @@ void CStartButton::LoadBitmap( void )
 	TStartButtonType buttonType=(TStartButtonType)GetSettingInt(L"StartButtonType",bDef);
 	if (bDef)
 	{
-		DWORD version=LOWORD(GetVersion());
-		version=MAKEWORD(HIBYTE(version),LOBYTE(version));
 		bool bClassic;
-		if (version<0x0602)
+		if (GetWinVersion()<WIN_VER_WIN8)
 			bClassic=!IsAppThemed();
 		else
 		{
@@ -360,7 +363,11 @@ void CStartButton::LoadBitmap( void )
 		HDC hdc=CreateCompatibleDC(NULL);
 		HFONT font0=(HFONT)SelectObject(hdc,m_Font);
 		RECT rc={0,0,0,0};
-		DrawText(hdc,FindTranslation(L"Menu.Start",L"Start"),-1,&rc,DT_NOPREFIX|DT_SINGLELINE|DT_CALCRECT);
+		CString startStr=GetSettingString(L"StartButtonText");
+		const wchar_t *startText=startStr;
+		if (startText[0]=='$')
+			startText=FindTranslation(startText+1,L"Start");
+		DrawText(hdc,startText,-1,&rc,DT_NOPREFIX|DT_SINGLELINE|DT_CALCRECT);
 		m_Size.cx=rc.right+START_ICON_SIZE+2*START_TEXT_PADDING+2*START_BUTTON_PADDING+2*START_BUTTON_OFFSET;
 		m_Size.cy=rc.bottom;
 		if (m_Size.cy<START_ICON_SIZE) m_Size.cy=START_ICON_SIZE;

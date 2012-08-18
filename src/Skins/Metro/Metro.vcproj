@@ -61,9 +61,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				IgnoreImportLibrary="true"
 				OutputFile="$(SolutionDir)ClassicStartMenu\Skins\Metro.skin"
 				LinkIncremental="1"
-				GenerateDebugInformation="true"
+				GenerateDebugInformation="false"
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -116,10 +117,6 @@
 			</File>
 			<File
 				RelativePath=".\main_bitmap2.bmp"
-				>
-			</File>
-			<File
-				RelativePath=".\menu_arrows.bmp"
 				>
 			</File>
 			<File

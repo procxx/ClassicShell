@@ -504,7 +504,7 @@ static CSetting g_Settings[]={
 	{L"ToolbarItems",CSetting::TYPE_MULTISTRING,0,0,g_DefaultToolbar,CSetting::FLAG_WARM},
 
 {L"StatusBar",CSetting::TYPE_GROUP,IDS_STATUS_SETTINGS},
-	{L"ShowFreeSpace",CSetting::TYPE_BOOL,IDS_FREE_SPACE,IDS_FREE_SPACE_TIP,-1,CSetting::FLAG_WARM|CSetting::FLAG_BASIC}, // 1 for Windows 7 and 0 for Vista
+	{L"ShowFreeSpace",CSetting::TYPE_BOOL,IDS_FREE_SPACE,IDS_FREE_SPACE_TIP,0,CSetting::FLAG_WARM|CSetting::FLAG_BASIC}, // 1 for Windows 7 and 0 for Vista
 	{L"ShowInfoTip",CSetting::TYPE_BOOL,IDS_INFO_TIP,IDS_INFO_TIP_TIP,1,CSetting::FLAG_WARM,L"ShowFreeSpace"},
 	{L"ForceRefreshWin7",CSetting::TYPE_BOOL,IDS_FORCE_REFRESH,IDS_FORCE_REFRESH_TIP,1,CSetting::FLAG_WARM,L"ShowFreeSpace"},
 
@@ -540,8 +540,8 @@ void UpdateSettings( void )
 	UpdateSetting(L"SmallIconSize",CComVariant((dpi>=120)?24:16),false);
 	UpdateSetting(L"LargeIconSize",CComVariant((dpi>=120)?32:24),false);
 	UpdateSetting(L"UpIconSize",CComVariant((dpi>=120)?36:30),false);
-	DWORD version=LOWORD(GetVersion());
-	if (version==0x0006)
+
+	if (GetWinVersion()==WIN_VER_VISTA)
 	{
 		// Vista
 		g_ContentName[0]=0;
@@ -553,7 +553,7 @@ void UpdateSettings( void )
 		UpdateSetting(L"HideScrollTip",CComVariant(0),false,true);
 		UpdateSetting(L"UpHotkey2",CComVariant(0),false,true);
 	}
-	else if (version==0x0106)
+	else if (GetWinVersion()==WIN_VER_WIN7)
 	{
 		// Windows 7
 		UpdateSetting(L"ShowFreeSpace",CComVariant(1),false);
@@ -569,14 +569,24 @@ void UpdateSettings( void )
 		// Windows 8
 		UpdateSetting(L"ShowCaption",CComVariant(0),false,true);
 		UpdateSetting(L"ShowIcon",CComVariant(0),false,true);
-		HideSettingGroup(L"StatusBar");
+		HideSettingGroup(L"StatusBar",true);
 		UpdateSetting(L"ShowFreeSpace",CComVariant(0),false,true);
 		UpdateSetting(L"FixFolderScroll",CComVariant(0),false,true);
-		HideSettingGroup(L"UpButton");
+		HideSettingGroup(L"UpButton",true);
 		UpdateSetting(L"ToolbarItems",CComVariant(g_DefaultToolbar2),false);
-		HideSettingGroup(L"StatusBar");
-		HideSettingGroup(L"FileOperation");
+		HideSettingGroup(L"StatusBar",true);
+		HideSettingGroup(L"FileOperation",true);
 	}
+
+	CRegKey regKey;
+	wchar_t language[100]=L"";
+	if (regKey.Open(HKEY_LOCAL_MACHINE,L"Software\\IvoSoft\\ClassicShell",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+	{
+		ULONG size=_countof(language);
+		if (regKey.QueryStringValue(L"DefaultLanguage",language,&size)!=ERROR_SUCCESS)
+			language[0]=0;
+	}
+	UpdateSetting(L"Language",language,false);
 }
 
 static bool g_bCopyHook0; // initial state of the copy hook before the settings are edited
@@ -655,5 +665,5 @@ void ShowExplorerSettings( void )
 		Sprintf(title,_countof(title),LoadStringEx(IDS_SETTINGS_TITLE_VER),ver>>24,(ver>>16)&0xFF,ver&0xFFFF);
 	else
 		Sprintf(title,_countof(title),LoadStringEx(IDS_SETTINGS_TITLE));
-	EditSettings(title,true);
+	EditSettings(title,true,0);
 }

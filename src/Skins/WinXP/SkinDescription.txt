@@ -68,6 +68,7 @@ Submenu_separator_slices_Y=50,75,50
 
 OPTION SMALL_ICONS="Small Icons",0
 OPTION LARGE_FONT="Large Font",0
+OPTION NO_ICONS="No Icons in Second Column",0
 OPTION USER_IMAGE="Show User Picture",0
 OPTION USER_NAME="Show User Name",0
 OPTION CENTER_NAME="Center User Name",0, USER_NAME, 0
@@ -108,3 +109,6 @@ User_name_position=15,15,-15,55
 
 [CENTER_NAME]
 User_name_align=center
+
+[NO_ICONS]
+Main_no_icons2=1
