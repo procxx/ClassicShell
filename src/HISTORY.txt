@@ -1,4 +1,11 @@
 ===============================================================================
+== Version 3.6.1 general release (Aug, 2012):
+
+- Fixes a critical bug found in the previous version (the "new version"
+  notification pops up too often)
+
+
+===============================================================================
 == Version 3.6.0 general release (Aug, 2012):
 
 - Windows 8 is now officially supported

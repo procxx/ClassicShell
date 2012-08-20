@@ -844,6 +844,15 @@ static LRESULT CALLBACK SubclassTaskBarProc( HWND hWnd, UINT uMsg, WPARAM wParam
 				if (bHide)
 					flags=(flags&~SWP_SHOWWINDOW)|SWP_HIDEWINDOW;
 			}
+			if (appbar.uEdge==ABE_TOP || appbar.uEdge==ABE_BOTTOM)
+			{
+				if (rcTask.left<info.rcMonitor.left) rcTask.left=info.rcMonitor.left;
+				if (rcTask.right>info.rcMonitor.right) rcTask.right=info.rcMonitor.right;
+			}
+			else
+			{
+				if (rcTask.top<info.rcMonitor.top) rcTask.top=info.rcMonitor.top;
+			}
 			if (!IsStartButtonSmallIcons())
 			{
 				bool bClassic;
@@ -1098,6 +1107,19 @@ void RecreateStartButton( void )
 	RECT rcTask2=rcTask;
 	APPBARDATA appbar={sizeof(appbar),g_TaskBar};
 	SHAppBarMessage(ABM_GETTASKBARPOS,&appbar);
+
+	MONITORINFO info={sizeof(info)};
+	GetMonitorInfo(MonitorFromWindow(g_TaskBar,MONITOR_DEFAULTTONEAREST),&info);
+	if (appbar.uEdge==ABE_TOP || appbar.uEdge==ABE_BOTTOM)
+	{
+		if (rcTask.left<info.rcMonitor.left) rcTask.left=info.rcMonitor.left;
+		if (rcTask.right>info.rcMonitor.right) rcTask.right=info.rcMonitor.right;
+	}
+	else
+	{
+		if (rcTask.top<info.rcMonitor.top) rcTask.top=info.rcMonitor.top;
+	}
+
 	if (!IsTaskbarSmallIcons())
 	{
 		bool bClassic;
@@ -1256,10 +1278,13 @@ STARTMENUAPI LRESULT CALLBACK HookProgMan( int code, WPARAM wParam, LPARAM lPara
 
 static bool WindowsMenuOpened( void )
 {
-	if (g_bReplaceButton && !g_StartButtonOld)
+	if (GetWinVersion()==WIN_VER_WIN8)
 		return IsMetroMode();
 	else
-		return (SendMessage(g_StartButton,BM_GETSTATE,0,0)&BST_PUSHED)!=0;
+	{
+		FindWindowsMenu();
+		return g_TopMenu && IsWindowVisible(g_TopMenu);
+	}
 }
 
 // WH_GETMESSAGE hook for the start button window
@@ -1408,6 +1433,8 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 						name=L"MiddleClick";
 					else if (GetKeyState(VK_SHIFT)<0)
 						name=L"ShiftClick";
+					else if (GetKeyState(VK_CONTROL)<0)
+						name=L"Hover";
 					else
 						name=L"MouseClick";
 					int control=GetSettingInt(name);

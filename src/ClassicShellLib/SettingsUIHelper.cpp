@@ -3618,6 +3618,7 @@ static DWORD WINAPI ThreadVersionCheck( void *param )
 		return 0;
 	}
 
+	regKey.SetDWORDValue(L"LastUpdateTime",curTime);
 	if (check==CHECK_UPDATE)
 	{
 		g_NewVersionCallback(newVersion,downloadUrl,news);
