@@ -119,6 +119,15 @@ Main_pager_arrows=5
 Main_arrow=6
 Main_arrow_color=#000000,#000000
 
+; Main_separator - ID of a bitmap resource to use for the main menu separator. If no value is set the system separator is used
+Main_separator=17
+
+; Main_separator_slices_X - the horizontal slices for the separator bitmap
+Main_separator_slices_X=8,6,8
+
+Main_arrow_padding=8,9
+
+
 ;SUB-MENU SECTION - describes the look of the sub-menus
 
 ; The width of the standard window border is subtracted from all sides
@@ -140,6 +149,9 @@ Submenu_pager_slices_X=3,10,3
 Submenu_pager_slices_Y=3,9,3
 Submenu_pager_arrows=5
 Submenu_arrow=7
+Submenu_separator_text_padding=6,4,4,8
+Submenu_separator_font="Segoe UI",normal,-10
+Submenu_separator_text_color=#0062ad
 
 
 
@@ -177,6 +189,8 @@ Submenu_font="Segoe UI",normal,-10
 
 [WHITE_SUBMENUS]
 Submenu_background=#FFFFFF
+Submenu_separator=18
+Submenu_separator_slices_X=8,6,8
 
 
 [TWO_COLUMNS]
@@ -256,6 +270,7 @@ Main_padding2=3,46,5,8
 
 [SMALL_ICONS]
 User_font="Segoe UI",bold,16
+Main_arrow_padding=7,7
 
 
 [(USER_IMAGE OR USER_NAME) AND NOT TWO_COLUMNS AND CAPTION]
@@ -272,6 +287,10 @@ User_name_align=center2
 
 [NO_ICONS]
 Main_no_icons2=1
+Main_text_padding2=1,7,8,7
+
+[NO_ICONS AND SMALL_ICONS]
+Main_text_padding2=1,3,8,4
 
 [NOT DISABLE_MASK]
 ; Main_selection_mask - a bitmap or a solid color in #RRGGBB format that is used to blend the selection bitmap with the glass color and the menu background color.

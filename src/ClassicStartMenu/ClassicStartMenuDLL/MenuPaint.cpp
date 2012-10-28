@@ -37,7 +37,10 @@ void CMenuContainer::MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RE
 {
 	int x0a=rDst.left;
 	int x1a=rDst.left+rMargins.left;
+	if (x1a>rDst.right) x1a=rDst.right;
 	int x2a=rDst.right-rMargins.right;
+	if (x2a<rDst.left) x2a=rDst.left;
+	if (x1a>x2a) x1a=x2a=(x1a+x2a)/2;
 	int x3a=rDst.right;
 	int x0b=rSrc.left;
 	int x1b=rSrc.left+rMargins.left;
@@ -46,7 +49,10 @@ void CMenuContainer::MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RE
 
 	int y0a=rDst.top;
 	int y1a=rDst.top+rMargins.top;
+	if (y1a>rDst.bottom) y1a=rDst.bottom;
 	int y2a=rDst.bottom-rMargins.bottom;
+	if (y2a<rDst.top) y2a=rDst.top;
+	if (y1a>y2a) y1a=y2a=(y1a+y2a)/2;
 	int y3a=rDst.bottom;
 	int y0b=rSrc.top;
 	int y1b=rSrc.top+rMargins.top;
@@ -823,15 +829,16 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 
 	MenuBitmap bmpSeparator[2]={0};
 	const int *sepSlicesX[2]={NULL,NULL};
+	int bmpSeparatorHeight[2]={0};
 	MenuBitmap bmpIconFrame[2]={0};
 	const int *frameSlicesX[2]={NULL,NULL};
 	const int *frameSlicesY[2]={NULL,NULL};
 	const POINT *iconFrameOffset[2]={NULL,NULL};
 	const RECT iconPadding[2]={m_bSubMenu?s_Skin.Submenu_icon_padding:s_Skin.Main_icon_padding,s_Skin.Main_icon_padding2};
-	const RECT textPadding[2]={m_bSubMenu?s_Skin.Submenu_text_padding:s_Skin.Main_text_padding,s_Skin.Main_text_padding2};
+	const RECT textPadding[4]={m_bSubMenu?s_Skin.Submenu_text_padding[0]:s_Skin.Main_text_padding[0],s_Skin.Main_text_padding2[0],m_bSubMenu?s_Skin.Submenu_text_padding[1]:s_Skin.Main_text_padding[1],s_Skin.Main_text_padding2[1]};
 	const SIZE arrPadding[2]={m_bSubMenu?s_Skin.Submenu_arrow_padding:s_Skin.Main_arrow_padding,s_Skin.Main_arrow_padding2};
 	MenuSkin::TOpacity opacity[2]={m_bSubMenu?s_Skin.Submenu_opacity:s_Skin.Main_opacity,s_Skin.Main_opacity2};
-	int glow[2]={m_bSubMenu?s_Skin.Submenu_glow_size:s_Skin.Main_glow_size,s_Skin.Main_glow_size2};
+	int glow[4]={m_bSubMenu?s_Skin.Submenu_glow_size[0]:s_Skin.Main_glow_size[0],s_Skin.Main_glow_size2[0],m_bSubMenu?s_Skin.Submenu_glow_size[1]:s_Skin.Main_glow_size[1],s_Skin.Main_glow_size2[1]};
 
 	MenuBitmap bmpSeparatorV={0};
 	int sepWidth=0;
@@ -841,10 +848,9 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 	const int *pagSlicesY=NULL;
 	MenuBitmap bmpPagerArrows={0};
 	SIZE pagArrowSize;
-	HIMAGELIST images=(m_Options&CONTAINER_LARGE)?g_IconManager.m_LargeIcons:g_IconManager.m_SmallIcons;
 	int iconSize=(m_Options&CONTAINER_LARGE)?g_IconManager.LARGE_ICON_SIZE:g_IconManager.SMALL_ICON_SIZE;
 
-	if (!s_Theme) glow[0]=glow[1]=0;
+	if (!s_Theme) glow[0]=glow[1]=glow[2]=glow[3]=0;
 
 	if (m_bSubMenu)
 	{
@@ -859,6 +865,7 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 		splitSelSlicesY[0]=s_Skin.Submenu_split_selection_slices_Y;
 
 		bmpSeparator[0]=s_Skin.Submenu_separator;
+		bmpSeparatorHeight[0]=s_Skin.Submenu_separatorHeight;
 		sepSlicesX[0]=s_Skin.Submenu_separator_slices_X;
 
 		bmpSeparatorV=s_Skin.Submenu_separatorV;
@@ -888,6 +895,7 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 		splitSelSlicesX[0]=s_Skin.Main_split_selection_slices_X;
 		splitSelSlicesY[0]=s_Skin.Main_split_selection_slices_Y;
 		bmpSeparator[0]=s_Skin.Main_separator;
+		bmpSeparatorHeight[0]=s_Skin.Main_separatorHeight;
 		sepSlicesX[0]=s_Skin.Main_separator_slices_X;
 
 		bmpIconFrame[0]=s_Skin.Main_icon_frame;
@@ -908,6 +916,7 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 			splitSelSlicesY[1]=s_Skin.Main_split_selection_slices_Y2;
 
 			bmpSeparator[1]=s_Skin.Main_separator2;
+			bmpSeparatorHeight[1]=s_Skin.Main_separatorHeight2;
 			sepSlicesX[1]=s_Skin.Main_separator_slices_X2;
 
 			bmpIconFrame[1]=s_Skin.Main_icon_frame2;
@@ -1082,30 +1091,65 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 		if (item.id==MENU_SEPARATOR)
 		{
 			// draw separator
-			if (itemRect.bottom>itemRect.top)
+			if (!item.bBlankSeparator && itemRect.bottom>itemRect.top)
 			{
-				if (bmpSeparator[index].GetBitmap())
+				RECT itemRect2=itemRect;
+				if (!item.name.IsEmpty())
 				{
-					HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpSeparator[index].GetBitmap());
-					RECT rSrc={0,0,sepSlicesX[index][0]+sepSlicesX[index][1]+sepSlicesX[index][2],itemRect.bottom-itemRect.top};
-					RECT rMargins={sepSlicesX[index][0],itemRect.bottom-itemRect.top,sepSlicesX[index][2],0};
-					MarginsBlit(hdc2,hdc,rSrc,itemRect,rMargins,bmpSeparator[index].bIs32);
-					SelectObject(hdc2,bmp0);
-				}
-				else
-				{
-					RECT rc=itemRect;
+					int index2=index+2;
+					SelectObject(hdc,m_Font[index2]);
+					COLORREF color=textColors[index][4];
+					RECT rc={itemRect.left+textPadding[index2].left,itemRect.top+m_TextTopOffset[index2]+textPadding[index2].top-textPadding[index2].bottom,
+						       itemRect.right-arrSize[index].cx-arrPadding[index].cx-arrPadding[index].cy-textPadding[index2].right,itemRect.bottom-m_TextTopOffset[index2]};
+					DWORD flags=DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOPREFIX;
 					if (s_Theme)
 					{
-						SIZE size;
-						if (SUCCEEDED(GetThemePartSize(s_Theme,hdc,TP_SEPARATORVERT,TS_NORMAL,NULL,TS_MIN,&size)))
-							OffsetRect(&rc,0,(rc.bottom-rc.top-size.cy)/2);
-						DrawThemeBackground(s_Theme,hdc,TP_SEPARATORVERT,TS_NORMAL,&rc,NULL);
+						DTTOPTS opts={sizeof(opts),DTT_TEXTCOLOR};
+						opts.crText=color;
+						if (glow[index2] || opacity[index]==MenuSkin::OPACITY_FULLALPHA || opacity[index]==MenuSkin::OPACITY_FULLGLASS)
+							opts.dwFlags|=DTT_COMPOSITED;
+						if (glow[index2])
+						{
+							opts.dwFlags|=DTT_GLOWSIZE;
+							opts.iGlowSize=glow[index2];
+						}
+						DrawThemeTextEx(s_Theme,hdc,0,0,item.name,item.name.GetLength(),flags,&rc,&opts);
 					}
 					else
 					{
-						rc.top=rc.bottom=(rc.top+rc.bottom)/2-1;
-						DrawEdge(hdc,&rc,EDGE_ETCHED,BF_TOP);
+						SetTextColor(hdc,color);
+						DrawText(hdc,item.name,item.name.GetLength(),&rc,flags);
+					}
+					SIZE size;
+					GetTextExtentPoint32(hdc,item.name,item.name.GetLength(),&size);
+					itemRect2.left=rc.left+size.cx+textPadding[index2].right;
+				}
+				if (itemRect2.left<itemRect2.right)
+				{
+					if (bmpSeparator[index].GetBitmap())
+					{
+						itemRect2.top=(itemRect2.top+itemRect2.bottom-bmpSeparatorHeight[index])/2;
+						itemRect2.bottom=itemRect2.top+bmpSeparatorHeight[index];
+						HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,bmpSeparator[index].GetBitmap());
+						RECT rSrc={0,0,sepSlicesX[index][0]+sepSlicesX[index][1]+sepSlicesX[index][2],bmpSeparatorHeight[index]};
+						RECT rMargins={sepSlicesX[index][0],bmpSeparatorHeight[index],sepSlicesX[index][2],0};
+						MarginsBlit(hdc2,hdc,rSrc,itemRect2,rMargins,bmpSeparator[index].bIs32);
+						SelectObject(hdc2,bmp0);
+					}
+					else
+					{
+						if (s_Theme)
+						{
+							SIZE size;
+							if (SUCCEEDED(GetThemePartSize(s_Theme,hdc,TP_SEPARATORVERT,TS_NORMAL,NULL,TS_MIN,&size)))
+								OffsetRect(&itemRect2,0,(itemRect2.bottom-itemRect2.top-size.cy)/2);
+							DrawThemeBackground(s_Theme,hdc,TP_SEPARATORVERT,TS_NORMAL,&itemRect2,NULL);
+						}
+						else
+						{
+							itemRect2.top=itemRect2.bottom=(itemRect2.top+itemRect2.bottom)/2-1;
+							DrawEdge(hdc,&itemRect2,EDGE_ETCHED,BF_TOP);
+						}
 					}
 				}
 			}
@@ -1122,10 +1166,14 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 		bool bSplit=false, bSplitLeft=false, bSplitRight=false;
 		if (bHot)
 		{
-			bSplit=(item.bFolder && item.bSplit);
+			bSplit=item.bSplit && (item.bFolder || (m_Options&CONTAINER_JUMPLIST));
 			bSplitLeft=(i==m_HotItem && !m_bHotArrow) || i==m_ContextItem;
 			bSplitRight=(i==m_HotItem && m_bHotArrow) || i==m_Submenu || i==m_ContextItem;
-			int splitX=itemRect.right-arrPadding[index].cx-arrPadding[index].cy-arrSize[index].cx-1;
+			int splitX=itemRect.right-arrPadding[index].cx-arrPadding[index].cy-1;
+			if (m_Options&CONTAINER_JUMPLIST)
+				splitX-=s_Skin.Pin_bitmap_Size.cx;
+			else
+				splitX-=arrSize[index].cx;
 			// draw selection background
 			if (bSplit && bmpSplitSelection[index].GetBitmap())
 			{
@@ -1291,7 +1339,11 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 				MarginsBlit(hdc2,hdc,rSrc,rDst,rMargins,bmpIconFrame[index].bIs32);
 				SelectObject(hdc2,bmp0);
 			}
-			ImageList_DrawEx(images,item.icon,hdc,iconX,iconY,0,0,CLR_NONE,CLR_NONE,ILD_NORMAL);
+			HIMAGELIST images=(m_Options&CONTAINER_LARGE)?g_IconManager.m_LargeIcons:((item.icon&CIconManager::ICON_TEMP_FLAG)?g_IconManager.m_TempSmallIcons:g_IconManager.m_SmallIcons);
+			if (item.icon&CIconManager::ICON_SHIELD_FLAG)
+				ImageList_DrawEx(images,(item.icon&CIconManager::ICON_INDEX_MASK),hdc,iconX,iconY,0,0,CLR_NONE,CLR_NONE,ILD_NORMAL|INDEXTOOVERLAYMASK(1));
+			else
+				ImageList_DrawEx(images,(item.icon&CIconManager::ICON_INDEX_MASK),hdc,iconX,iconY,0,0,CLR_NONE,CLR_NONE,ILD_NORMAL);
 		}
 
 		// draw text
@@ -1302,8 +1354,9 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 			color=textColors[index][bHotColor?3:2];
 		else
 			color=textColors[index][bHotColor?1:0];
-		RECT rc={itemRect.left+iconPadding[index].left+iconPadding[index].right+textPadding[index].left,itemRect.top+m_TextTopOffset[index],
-		         itemRect.right-arrSize[index].cx-arrPadding[index].cx-arrPadding[index].cy-textPadding[index].right,itemRect.bottom-m_TextTopOffset[index]};
+		RECT rc={itemRect.left+iconPadding[index].left+iconPadding[index].right+textPadding[index].left,itemRect.top+m_TextTopOffset[index]+textPadding[index].top-textPadding[index].bottom,
+		         itemRect.right-arrPadding[index].cx-arrPadding[index].cy-textPadding[index].right,itemRect.bottom-m_TextTopOffset[index]};
+		rc.right-=(m_Options&CONTAINER_JUMPLIST)?s_Skin.Pin_bitmap_Size.cx:arrSize[index].cx;
 		if (!bNoIcon)
 			rc.left+=iconSize;
 		DWORD flags=DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS;
@@ -1359,6 +1412,23 @@ void CMenuContainer::DrawBackground( HDC hdc, const RECT &drawRect )
 				AlphaBlend(hdc,x,y,4,7,hdc2,s_bRTL?0:10,0,4,7,func);
 				SelectObject(hdc2,bmp0);
 			}
+		}
+		else if (bHot && item.bSplit && (m_Options&CONTAINER_JUMPLIST))
+		{
+			int x=itemRect.right-arrPadding[index].cy-s_Skin.Pin_bitmap_Size.cx;
+			int y=(itemRect.top+itemRect.bottom-s_Skin.Pin_bitmap_Size.cy)/2;
+			HBITMAP bmp0=(HBITMAP)SelectObject(hdc2,s_Skin.Pin_bitmap.GetBitmap());
+			bool bPinned=s_JumpList.groups[LOWORD(item.jumpIndex)].type==CJumpGroup::TYPE_PINNED;
+			if (s_Skin.Pin_bitmap.bIs32)
+			{
+				BLENDFUNCTION func={AC_SRC_OVER,0,255,AC_SRC_ALPHA};
+				AlphaBlend(hdc,x,y,s_Skin.Pin_bitmap_Size.cx,s_Skin.Pin_bitmap_Size.cy,hdc2,bPinned?s_Skin.Pin_bitmap_Size.cx:0,!bSplitRight?s_Skin.Pin_bitmap_Size.cy:0,s_Skin.Pin_bitmap_Size.cx,s_Skin.Pin_bitmap_Size.cy,func);
+			}
+			else
+			{
+				BitBlt(hdc,x,y,s_Skin.Pin_bitmap_Size.cx,s_Skin.Pin_bitmap_Size.cy,hdc2,bPinned?s_Skin.Pin_bitmap_Size.cx:0,bSplitRight?s_Skin.Pin_bitmap_Size.cy:0,SRCCOPY);
+			}
+			SelectObject(hdc2,bmp0);
 		}
 	}
 
@@ -1506,17 +1576,25 @@ LRESULT CMenuContainer::OnPaint( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 			DeleteDC(hdcSearch);
 			DeleteObject(bmpSearch);
 		}
-		if (opacity==MenuSkin::OPACITY_GLASS || opacity==MenuSkin::OPACITY_ALPHA || (opacity==MenuSkin::OPACITY_REGION && uMsg==WM_PRINTCLIENT))
+		if (opacity==MenuSkin::OPACITY_REGION && uMsg==WM_PRINTCLIENT && m_bSubMenu && s_Skin.Submenu_bitmap.bIsBitmap && !s_Skin.Submenu_bitmap.bIs32)
 		{
-			RECT rc;
-			IntersectRect(&rc,&ps.rcPaint,&m_rContent);
-			BufferedPaintSetAlpha(hBufferedPaint,&rc,255);
+			// if the bitmap is 24-bit, the alpha channel may be undefined
+			BufferedPaintSetAlpha(hBufferedPaint,&ps.rcPaint,255);
 		}
-		if (m_bTwoColumns && (s_Skin.Main_opacity2==MenuSkin::OPACITY_GLASS || s_Skin.Main_opacity2==MenuSkin::OPACITY_ALPHA || (s_Skin.Main_opacity2==MenuSkin::OPACITY_REGION && uMsg==WM_PRINTCLIENT)))
+		else
 		{
-			RECT rc;
-			IntersectRect(&rc,&ps.rcPaint,&m_rContent2);
-			BufferedPaintSetAlpha(hBufferedPaint,&rc,255);
+			if (opacity==MenuSkin::OPACITY_GLASS || opacity==MenuSkin::OPACITY_ALPHA || (opacity==MenuSkin::OPACITY_REGION && uMsg==WM_PRINTCLIENT))
+			{
+				RECT rc;
+				IntersectRect(&rc,&ps.rcPaint,&m_rContent);
+				BufferedPaintSetAlpha(hBufferedPaint,&rc,255);
+			}
+			if (m_bTwoColumns && (s_Skin.Main_opacity2==MenuSkin::OPACITY_GLASS || s_Skin.Main_opacity2==MenuSkin::OPACITY_ALPHA || (s_Skin.Main_opacity2==MenuSkin::OPACITY_REGION && uMsg==WM_PRINTCLIENT)))
+			{
+				RECT rc;
+				IntersectRect(&rc,&ps.rcPaint,&m_rContent2);
+				BufferedPaintSetAlpha(hBufferedPaint,&rc,255);
+			}
 		}
 		EndBufferedPaint(hBufferedPaint,TRUE);
 	}

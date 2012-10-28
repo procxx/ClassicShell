@@ -111,6 +111,8 @@ LRESULT CStartButton::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 	m_Font=CreateFont(10*dpi/72,0,0,0,FW_BOLD,0,0,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Tahoma");
 	int val=1;
 	DwmSetWindowAttribute(m_hWnd,DWMWA_EXCLUDED_FROM_PEEK,&val,sizeof(val));
+	val=DWMFLIP3D_EXCLUDEABOVE;
+	DwmSetWindowAttribute(m_hWnd,DWMWA_FLIP3D_POLICY,&val,sizeof(val));
 	LoadBitmap();
 	m_Tooltip=CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_TRANSPARENT|(m_bRTL?WS_EX_LAYOUTRTL:0),TOOLTIPS_CLASS,NULL,WS_POPUP|TTS_NOPREFIX|TTS_ALWAYSTIP,0,0,0,0,NULL,NULL,g_Instance,NULL);
 	OnThemeChanged(WM_THEMECHANGED,0,0,bHandled);
@@ -319,7 +321,10 @@ void CStartButton::SetPressed( bool bPressed )
 		const wchar_t *startText=startStr;
 		if (startText[0]=='$')
 			startText=FindTranslation(startText+1,L"Start");
-		tool.lpszText=(wchar_t*)startText;
+		wchar_t buf[256];
+		Strcpy(buf,_countof(buf),startText);
+		DoEnvironmentSubst(buf,_countof(buf));
+		tool.lpszText=buf;
 		m_Tooltip.SendMessage(bPressed?TTM_DELTOOL:TTM_ADDTOOL,0,(LPARAM)&tool);
 		UpdateButton();
 	}

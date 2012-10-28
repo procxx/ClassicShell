@@ -7,7 +7,8 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-#include "afxres.h"
+#include "afxres.h"
+
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
@@ -235,8 +236,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,6,1,0
- PRODUCTVERSION 3,6,1,0
+ FILEVERSION 3,6,2,0
+ PRODUCTVERSION 3,6,2,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -253,12 +254,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "3, 6, 1, 0"
+            VALUE "FileVersion", "3, 6, 2, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009-2012, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 6, 1, 0"
+            VALUE "ProductVersion", "3, 6, 2, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -787,6 +788,35 @@ BEGIN
     IDS_SPLIT_TIP           "The item will be split into separate parts for the command and for the sub-menu arrow"
     IDS_STYLE_SETTINGS      "Start Menu Style"
     IDS_CHANGE_STYLE        "The menu items and the skin settings will be reset to match the selected style. Do you want to continue?"
+    IDS_OPEN_WSS            "Windows Start Screen"
+    IDS_OPEN_WSS_TIP        "The action will open the Start screen"
+    IDS_WSS_HOTKEY          "Additional Start screen hotkey"
+    IDS_WSS_HOTKEY_TIP      "Enter an additional hotkey for opening the Start screen"
+    IDS_JUMPLISTS           "Enable Jumplists"
+    IDS_JUMPLISTS_TIP       "When this is checked, programs in the main menu will have a sub-menu of recently used documents and common tasks"
+    IDS_MAX_JUMPLISTS       "Max items in jumplists"
+    IDS_MAX_JUMPLISTS_TIP   "Limit the number of items in the jumplists"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_JUMPLIST_KEYS       "Keyboard shortcuts for programs with jumplists"
+    IDS_JUMPLISTS_KEY_TIP   "Select the action to happen when you press the keyboard shortcut for a program with a jumplist"
+    IDS_KEY_SELECT          "Select"
+    IDS_KEY_SELECT_TIP      "The program will be selected"
+    IDS_KEY_RUN             "Run"
+    IDS_KEY_RUN_TIP         "The program will run"
+    IDS_KEY_OPEN            "Open jumplist"
+    IDS_KEY_OPEN_TIP        "The program will be selected and the jumplist will open"
+    IDS_APPS_TIP            "The Apps folder - contains all Windows Store apps (only on Windows 8)"
+    IDS_SPLIT_DELAY         "Delay multiplier for split buttons (%)"
+    IDS_SPLIT_DELAY_TIP     "Select percentage of the menu delay to use when hovering over the main portion of the split button. For example 200% means two times longer delay than normal"
+    IDS_OPEN_BOTH           "Start Menu in Desktop and Start Screen in Metro"
+    IDS_OPEN_BOTH_TIP       "The button will open the classic start menu when pressed in the Desktop and open the Windows start screen when pressed in a Metro app"
+    IDS_SHOW_COMPUTER       "Computer"
+    IDS_COMPUTER_TIP        "Show the contents of the computer"
+    IDS_SHOW_COMPUTER_TIP   "Select how to display the computer in the start menu"
+    IDS_SHOW_COMPUTER_TIP2  "Select how to display the computer in the start menu\nWarning: You don't have a Computer item in your custom menu, so this setting will be ignored"
 END
 
 #endif    // English (U.S.) resources
@@ -800,7 +830,8 @@ END
 // Generated from the TEXTINCLUDE 3 resource.
 //
 #include "..\..\ClassicShellLib\resource.h"
-#include "..\..\ClassicShellLib\ClassicShellLib.rc"
+#include "..\..\ClassicShellLib\ClassicShellLib.rc"
+
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
 

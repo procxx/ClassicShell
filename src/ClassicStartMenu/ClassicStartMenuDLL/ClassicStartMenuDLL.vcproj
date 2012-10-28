@@ -586,6 +586,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\JumpLists.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\LogManager.cpp"
 				>
 			</File>
@@ -599,6 +603,10 @@
 			</File>
 			<File
 				RelativePath=".\MenuPaint.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\MetroLinkManager.cpp"
 				>
 			</File>
 			<File
@@ -698,11 +706,19 @@
 				>
 			</File>
 			<File
+				RelativePath=".\JumpLists.h"
+				>
+			</File>
+			<File
 				RelativePath=".\LogManager.h"
 				>
 			</File>
 			<File
 				RelativePath=".\MenuContainer.h"
+				>
+			</File>
+			<File
+				RelativePath=".\MetroLinkManager.h"
 				>
 			</File>
 			<File

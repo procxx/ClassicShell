@@ -18,9 +18,9 @@
 wchar_t MenuSkin::s_SkinError[1024];
 
 const RECT DEFAULT_ICON_PADDING={3,3,3,3};
-const RECT DEFAULT_TEXT_PADDING={1,0,4,0};
+const RECT DEFAULT_TEXT_PADDING={1,0,8,0};
 const int DEFAULT_ARROW_SIZE=4;
-const SIZE DEFAULT_ARROW_PADDING={6,6};
+const SIZE DEFAULT_ARROW_PADDING={5,7};
 const int DEFAULT_SEPARATOR_WIDTH=4;
 
 void MenuBitmap::Init( bool bIsColor )
@@ -46,8 +46,10 @@ MenuSkin::MenuSkin( void )
 	Main_bitmap.Init();
 	Caption_font=NULL;
 	User_font=NULL;
-	Main_font=NULL;
-	Main_font2=NULL;
+	Main_font[0]=NULL;
+	Main_font[1]=NULL;
+	Main_font2[0]=NULL;
+	Main_font2[1]=NULL;
 	Main_selection.Init(true);
 	Main_selection2.Init(true);
 	Main_split_selection.Init();
@@ -63,7 +65,8 @@ MenuSkin::MenuSkin( void )
 	Main_pager_arrows.Init();
 	User_bitmap.Init();
 	Submenu_bitmap.Init();
-	Submenu_font=NULL;
+	Submenu_font[0]=NULL;
+	Submenu_font[1]=NULL;
 	Submenu_selection.Init(true);
 	Submenu_split_selection.Init();
 	Submenu_separator.Init();
@@ -72,6 +75,7 @@ MenuSkin::MenuSkin( void )
 	Submenu_icon_frame.Init();
 	Submenu_pager.Init();
 	Submenu_pager_arrows.Init();
+	Pin_bitmap.Init();
 	Search_bitmap.Init();
 }
 
@@ -86,8 +90,10 @@ void MenuSkin::Reset( void )
 	Main_bitmap.Reset();
 	if (Caption_font) DeleteObject(Caption_font);
 	if (User_font) DeleteObject(User_font);
-	if (Main_font) DeleteObject(Main_font);
-	if (Main_font2 && Main_font2!=Main_font) DeleteObject(Main_font2);
+	if (Main_font[0]) DeleteObject(Main_font[0]);
+	if (Main_font[1]) DeleteObject(Main_font[1]);
+	if (Main_font2[0]) DeleteObject(Main_font2[0]);
+	if (Main_font2[1]) DeleteObject(Main_font2[1]);
 	Main_selection.Reset(true);
 	Main_selection2.Reset(true);
 	Main_split_selection.Reset();
@@ -101,7 +107,8 @@ void MenuSkin::Reset( void )
 	Main_arrow2.Reset();
 	User_bitmap.Reset();
 	Submenu_bitmap.Reset();
-	if (Submenu_font) DeleteObject(Submenu_font);
+	if (Submenu_font[0]) DeleteObject(Submenu_font[0]);
+	if (Submenu_font[1]) DeleteObject(Submenu_font[1]);
 	Submenu_selection.Reset(true);
 	Submenu_split_selection.Reset();
 	Submenu_separator.Reset();
@@ -112,6 +119,7 @@ void MenuSkin::Reset( void )
 	Main_pager_arrows.Reset();
 	Submenu_pager.Reset();
 	Submenu_pager_arrows.Reset();
+	Pin_bitmap.Reset();
 	Search_bitmap.Reset();
 
 	Options.clear();
@@ -700,29 +708,43 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	skin.Main_large_icons=str && _wtol(str);
 
 	str=parser.FindSetting(L"Main_font");
-	skin.Main_font=LoadSkinFont(str,NULL,0,0,true);
+	skin.Main_font[0]=LoadSkinFont(str,NULL,0,0,true);
+	str=parser.FindSetting(L"Main_separator_font");
+	if (str)
+		skin.Main_font[1]=LoadSkinFont(str,NULL,0,0,true);
 
 	str=parser.FindSetting(L"Main_font2");
 	if (str)
-		skin.Main_font2=LoadSkinFont(str,NULL,0,0,true);
-	else
-		skin.Main_font2=skin.Main_font;
+		skin.Main_font2[0]=LoadSkinFont(str,NULL,0,0,true);
+	str=parser.FindSetting(L"Main_separator_font2");
+	if (str)
+		skin.Main_font2[1]=LoadSkinFont(str,NULL,0,0,true);
 
 	str=parser.FindSetting(L"Main_glow_size");
 	if (str)
-		skin.Main_glow_size=_wtol(str);
+		skin.Main_glow_size[0]=_wtol(str);
 	else
-		skin.Main_glow_size=0;
+		skin.Main_glow_size[0]=0;
+	str=parser.FindSetting(L"Main_separator_glow_size");
+	if (str)
+		skin.Main_glow_size[1]=_wtol(str);
+	else
+		skin.Main_glow_size[1]=skin.Main_glow_size[0];
 
 	str=parser.FindSetting(L"Main_glow_size2");
 	if (str)
-		skin.Main_glow_size2=_wtol(str);
+		skin.Main_glow_size2[0]=_wtol(str);
 	else
-		skin.Main_glow_size2=skin.Main_glow_size;
+		skin.Main_glow_size2[0]=skin.Main_glow_size[0];
+	str=parser.FindSetting(L"Main_separator_glow_size2");
+	if (str)
+		skin.Main_glow_size2[1]=_wtol(str);
+	else
+		skin.Main_glow_size2[1]=skin.Main_glow_size2[0];
 
 	str=parser.FindSetting(L"Main_text_color");
 	if (str)
-		LoadSkinNumbers(str,(int*)skin.Main_text_color,_countof(skin.Main_text_color),true);
+		LoadSkinNumbers(str,(int*)skin.Main_text_color,4,true);
 	else
 	{
 		skin.Main_text_color[0]=GetSysColor(COLOR_MENUTEXT);
@@ -730,11 +752,21 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		skin.Main_text_color[2]=GetSysColor(COLOR_GRAYTEXT);
 		skin.Main_text_color[3]=GetSysColor(COLOR_HIGHLIGHTTEXT);
 	}
+	str=parser.FindSetting(L"Main_separator_text_color");
+	if (str)
+		LoadSkinNumbers(str,(int*)skin.Main_text_color+4,1,true);
+	else
+		skin.Main_text_color[4]=skin.Main_text_color[0];
 	str=parser.FindSetting(L"Main_text_color2");
 	if (str)
-		LoadSkinNumbers(str,(int*)skin.Main_text_color2,_countof(skin.Main_text_color2),true);
+		LoadSkinNumbers(str,(int*)skin.Main_text_color2,4,true);
 	else
 		memcpy(skin.Main_text_color2,skin.Main_text_color,sizeof(skin.Main_text_color2));
+	str=parser.FindSetting(L"Main_separator_text_color2");
+	if (str)
+		LoadSkinNumbers(str,(int*)skin.Main_text_color2+4,1,true);
+	else
+		skin.Main_text_color2[4]=skin.Main_text_color2[0];
 	str=parser.FindSetting(L"Main_arrow_color");
 	if (str)
 		LoadSkinNumbers(str,(int*)skin.Main_arrow_color,_countof(skin.Main_arrow_color),true);
@@ -1164,9 +1196,14 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	
 	str=parser.FindSetting(L"Main_text_padding");
 	if (str)
-		LoadSkinNumbers(str,(int*)&skin.Main_text_padding,4,false);
+		LoadSkinNumbers(str,(int*)&skin.Main_text_padding[0],4,false);
 	else
-		skin.Main_text_padding=DEFAULT_TEXT_PADDING;
+		skin.Main_text_padding[0]=DEFAULT_TEXT_PADDING;
+	str=parser.FindSetting(L"Main_separator_text_padding");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Main_text_padding[1],4,false);
+	else
+		skin.Main_text_padding[1]=skin.Main_text_padding[0];
 
 	str=parser.FindSetting(L"Main_icon_padding2");
 	if (str)
@@ -1175,9 +1212,14 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		skin.Main_icon_padding2=skin.Main_icon_padding;
 	str=parser.FindSetting(L"Main_text_padding2");
 	if (str)
-		LoadSkinNumbers(str,(int*)&skin.Main_text_padding2,4,false);
+		LoadSkinNumbers(str,(int*)&skin.Main_text_padding2[0],4,false);
 	else
-		skin.Main_text_padding2=skin.Main_text_padding;
+		skin.Main_text_padding2[0]=skin.Main_text_padding[0];
+	str=parser.FindSetting(L"Main_separator_text_padding2");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Main_text_padding2[1],4,false);
+	else
+		skin.Main_text_padding2[1]=skin.Main_text_padding2[0];
 
 	str=parser.FindSetting(L"Main_pager");
 	if (str && flags==(LOADMENU_MAIN|LOADMENU_RESOURCES))
@@ -1407,17 +1449,25 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	}
 
 	str=parser.FindSetting(L"Submenu_font");
-	skin.Submenu_font=LoadSkinFont(str,NULL,0,0,true);
+	skin.Submenu_font[0]=LoadSkinFont(str,NULL,0,0,true);
+	str=parser.FindSetting(L"Submenu_separator_font");
+	if(str)
+		skin.Submenu_font[1]=LoadSkinFont(str,NULL,0,0,true);
 
 	str=parser.FindSetting(L"Submenu_glow_size");
 	if (str)
-		skin.Submenu_glow_size=_wtol(str);
+		skin.Submenu_glow_size[0]=_wtol(str);
 	else
-		skin.Submenu_glow_size=0;
+		skin.Submenu_glow_size[0]=0;
+	str=parser.FindSetting(L"Submenu_separator_glow_size");
+	if (str)
+		skin.Submenu_glow_size[1]=_wtol(str);
+	else
+		skin.Submenu_glow_size[1]=skin.Submenu_glow_size[0];
 
 	str=parser.FindSetting(L"Submenu_text_color");
 	if (str)
-		LoadSkinNumbers(str,(int*)skin.Submenu_text_color,_countof(skin.Submenu_text_color),true);
+		LoadSkinNumbers(str,(int*)skin.Submenu_text_color,4,true);
 	else
 	{
 		skin.Submenu_text_color[0]=GetSysColor(COLOR_MENUTEXT);
@@ -1425,6 +1475,12 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		skin.Submenu_text_color[2]=GetSysColor(COLOR_GRAYTEXT);
 		skin.Submenu_text_color[3]=GetSysColor(COLOR_HIGHLIGHTTEXT);
 	}
+	str=parser.FindSetting(L"Submenu_separator_text_color");
+	if (str)
+		LoadSkinNumbers(str,(int*)skin.Submenu_text_color+4,1,true);
+	else
+		skin.Submenu_text_color[4]=skin.Submenu_text_color[0];
+		
 	str=parser.FindSetting(L"Submenu_arrow_color");
 	if (str)
 		LoadSkinNumbers(str,(int*)skin.Submenu_arrow_color,_countof(skin.Submenu_arrow_color),true);
@@ -1623,9 +1679,14 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 		skin.Submenu_icon_padding=DEFAULT_ICON_PADDING;
 	str=parser.FindSetting(L"Submenu_text_padding");
 	if (str)
-		LoadSkinNumbers(str,(int*)&skin.Submenu_text_padding,4,false);
+		LoadSkinNumbers(str,(int*)&skin.Submenu_text_padding[0],4,false);
 	else
-		skin.Submenu_text_padding=DEFAULT_TEXT_PADDING;
+		skin.Submenu_text_padding[0]=DEFAULT_TEXT_PADDING;
+	str=parser.FindSetting(L"Submenu_separator_text_padding");
+	if (str)
+		LoadSkinNumbers(str,(int*)&skin.Submenu_text_padding[1],4,false);
+	else
+		skin.Submenu_text_padding[1]=skin.Submenu_text_padding[0];
 
 	str=parser.FindSetting(L"Submenu_pager");
 	if (str && (flags&LOADMENU_RESOURCES))
@@ -1696,6 +1757,59 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 	}
 	if (bRTL && skin.Submenu_pager_arrows.GetBitmap())
 		MirrorBitmap(skin.Submenu_pager_arrows.GetBitmap());
+
+	if (flags&LOADMENU_RESOURCES)
+	{
+		str=parser.FindSetting(L"Pin_bitmap");
+		if (str)
+		{
+			int id=_wtol(str);
+			if (id)
+			{
+				skin.Pin_bitmap=LoadSkinBitmap(hMod,id,0,0);
+				if (!skin.Pin_bitmap.GetBitmap()) return false;
+				BITMAP info;
+				GetObject(skin.Pin_bitmap.GetBitmap(),sizeof(info),&info);
+				skin.Pin_bitmap_Size.cx=info.bmWidth/2;
+				skin.Pin_bitmap_Size.cy=info.bmHeight/2;
+			}
+		}
+		else
+		{
+			int iconSize=CIconManager::SMALL_ICON_SIZE;
+			skin.Pin_bitmap_Size.cx=skin.Pin_bitmap_Size.cy=iconSize;
+			BITMAPINFO bi={0};
+			bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
+			bi.bmiHeader.biWidth=bi.bmiHeader.biHeight=iconSize*2;
+			bi.bmiHeader.biPlanes=1;
+			bi.bmiHeader.biBitCount=32;
+			RECT rc={0,0,iconSize*2,iconSize*2};
+
+			HDC hdc=CreateCompatibleDC(NULL);
+			unsigned int *bits;
+			HBITMAP bmp=CreateDIBSection(hdc,&bi,DIB_RGB_COLORS,(void**)&bits,NULL,0);
+			HGDIOBJ bmp0=SelectObject(hdc,bmp);
+			FillRect(hdc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
+
+			HMODULE hMod=LoadLibraryEx(L"imageres.dll",NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+			if (hMod)
+			{
+				HICON hIcon=(HICON)LoadImage(hMod,MAKEINTRESOURCE(5101),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+				DrawIconEx(hdc,0,0,hIcon,iconSize,iconSize,0,NULL,DI_NORMAL);
+				DrawIconEx(hdc,0,iconSize,hIcon,iconSize,iconSize,0,NULL,DI_NORMAL);
+				DestroyIcon(hIcon);
+				hIcon=(HICON)LoadImage(hMod,MAKEINTRESOURCE(5100),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+				DrawIconEx(hdc,iconSize,0,hIcon,iconSize,iconSize,0,NULL,DI_NORMAL);
+				DrawIconEx(hdc,iconSize,iconSize,hIcon,iconSize,iconSize,0,NULL,DI_NORMAL);
+				DestroyIcon(hIcon);
+				FreeLibrary(hMod);
+			}
+			SelectObject(hdc,bmp0);
+			DeleteDC(hdc);
+			skin.Pin_bitmap=bmp;
+			skin.Pin_bitmap.bIs32=true;
+		}
+	}
 
 	str=parser.FindSetting(L"Search_bitmap");
 	if (str && (flags&LOADMENU_RESOURCES))

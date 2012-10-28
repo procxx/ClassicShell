@@ -58,6 +58,9 @@ Submenu_selection=#1665CB
 Submenu_offset=5
 Submenu_separator=17
 Submenu_separator_slices_X=50,75,50
+Submenu_separator_text_padding=3,4,4,8
+Submenu_separator_font="Segoe UI",italic,-10
+Submenu_separator_text_color=#0062ad
 
 ; Submenu_separatorV - bitmap to use as a vertical separator between multiple columns
 Submenu_separatorV=18
@@ -112,3 +115,7 @@ User_name_align=center
 
 [NO_ICONS]
 Main_no_icons2=1
+Main_text_padding2=1,7,8,7
+
+[NO_ICONS AND SMALL_ICONS]
+Main_text_padding2=1,3,8,4

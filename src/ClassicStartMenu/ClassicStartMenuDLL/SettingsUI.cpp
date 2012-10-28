@@ -632,8 +632,10 @@ static CStdCommand g_StdCommands[]={
 	{L"COLUMN_BREAK",L"COLUMN_BREAK",IDS_BREAK_TIP},
 	{L"COLUMN_PADDING",L"COLUMN_PADDING",IDS_PADDING_TIP},
 	{L"programs",L"Programs",IDS_PROGRAMS_TIP,L"ProgramsMenu",L"$Menu.Programs",L"",L"shell32.dll,326",&FOLDERID_Programs,NULL,StdMenuItem::MENU_TRACK},
+	{L"apps",L"Apps",IDS_APPS_TIP,L"AppsMenu",L"$Menu.Apps",L"",L"shell32.dll,326",NULL,NULL,StdMenuItem::MENU_TRACK},
 	{L"favorites",L"Favorites",IDS_FAVORITES_TIP,L"FavoritesItem",L"$Menu.Favorites",L"",L"shell32.dll,322",&FOLDERID_Favorites},
 	{L"documents",L"Documents",IDS_DOCUMENTS_TIP,L"DocumentsItem",L"$Menu.Documents",L"",L"shell32.dll,327",&FOLDERID_Recent,NULL,StdMenuItem::MENU_ITEMS_FIRST},
+	{L"computer",L"Computer",IDS_COMPUTER_TIP,L"ComputerItem",L"",L"",L"",&FOLDERID_ComputerFolder},
 	{L"settings",L"Settings",IDS_SETTINGS_MENU_TIP,L"SettingsMenu",L"$Menu.Settings",L"",L"shell32.dll,330"},
 	{L"search",L"Search Menu",IDS_SEARCH_TIP,L"SearchMenu",L"$Menu.Search",L"",L"shell32.dll,323"},
 	{L"search_box",L"Search Box",IDS_SEARCH_BOX_TIP,L"SearchBoxItem",L"$Menu.SearchBox",NULL,L"none",NULL,NULL,StdMenuItem::MENU_TRACK},
@@ -670,10 +672,13 @@ static CStdCommand g_StdCommands[]={
 };
 
 const wchar_t *g_DefaultStartMenu=
-L"Items=COLUMN_PADDING, ProgramsMenu, COLUMN_BREAK, FavoritesItem, DocumentsItem, SettingsMenu, SearchMenu, HelpItem, RunItem, SEPARATOR, LogOffItem, UndockItem, DisconnectItem, ShutdownBoxItem, SearchBoxItem\n"
+L"Items=COLUMN_PADDING, ProgramsMenu, AppsMenu, COLUMN_BREAK, FavoritesItem, DocumentsItem, ComputerItem, SettingsMenu, SearchMenu, HelpItem, RunItem, SEPARATOR, LogOffItem, UndockItem, DisconnectItem, ShutdownBoxItem, SearchBoxItem\n"
 L"ProgramsMenu.Command=programs\n"
 L"ProgramsMenu.Label=$Menu.Programs\n"
 L"ProgramsMenu.Icon=shell32.dll,326\n"
+L"AppsMenu.Command=apps\n"
+L"AppsMenu.Label=$Menu.Apps\n"
+L"AppsMenu.Icon=shell32.dll,326\n"
 L"FavoritesItem.Command=favorites\n"
 L"FavoritesItem.Label=$Menu.Favorites\n"
 L"FavoritesItem.Icon=shell32.dll,322\n"
@@ -690,6 +695,7 @@ L"SearchMenu.Command=search\n"
 L"SearchMenu.Items=SearchFilesItem, SearchPrinterItem, SearchComputersItem, SearchPeopleItem\n"
 L"SearchMenu.Label=$Menu.Search\n"
 L"SearchMenu.Icon=shell32.dll,323\n"
+L"ComputerItem.Command=computer\n"
 L"HelpItem.Command=help\n"
 L"HelpItem.Label=$Menu.Help\n"
 L"HelpItem.Icon=shell32.dll,324\n"
@@ -779,13 +785,17 @@ L"ShutdownItem.Icon=none\n"
 ;
 
 const wchar_t *g_DefaultStartMenu2=
-L"Items=COLUMN_PADDING, ProgramsMenu, SearchBoxItem, COLUMN_BREAK, FavoritesItem, UserFilesItem, UserDocumentsItem, UserPicturesItem, DocumentsItem, SEPARATOR, SettingsMenu, SEPARATOR, SearchMenu, HelpItem, RunItem, COLUMN_PADDING, SEPARATOR, LogOffItem, UndockItem, DisconnectItem, ShutdownBoxItem\n"
+L"Items=COLUMN_PADDING, ProgramsMenu, AppsMenu, SearchBoxItem, COLUMN_BREAK, FavoritesItem, UserFilesItem, UserDocumentsItem, UserPicturesItem, ComputerItem, DocumentsItem, SEPARATOR, ControlPanelItem, SecurityItem, NetworkItem, PrintersItem, SEPARATOR, SearchMenu, HelpItem, RunItem, COLUMN_PADDING, SEPARATOR, ShutdownBoxItem\n"
 L"ProgramsMenu.Command=programs\n"
 L"ProgramsMenu.Label=$Menu.Programs\n"
 L"ProgramsMenu.Icon=shell32.dll,326\n"
+L"AppsMenu.Command=apps\n"
+L"AppsMenu.Label=$Menu.Apps\n"
+L"AppsMenu.Icon=shell32.dll,326\n"
 L"FavoritesItem.Command=favorites\n"
 L"FavoritesItem.Label=$Menu.Favorites\n"
 L"FavoritesItem.Icon=shell32.dll,322\n"
+L"ComputerItem.Command=computer\n"
 L"DocumentsItem.Command=documents\n"
 L"DocumentsItem.Settings=ITEMS_FIRST\n"
 L"SettingsMenu.Command=settings\n"
@@ -802,19 +812,10 @@ L"HelpItem.Icon=shell32.dll,324\n"
 L"RunItem.Command=run\n"
 L"RunItem.Label=$Menu.Run\n"
 L"RunItem.Icon=shell32.dll,328\n"
-L"LogOffItem.Command=logoff\n"
-L"LogOffItem.Label=$Menu.Logoff\n"
-L"LogOffItem.Icon=shell32.dll,325\n"
-L"UndockItem.Command=undock\n"
-L"UndockItem.Label=$Menu.Undock\n"
-L"UndockItem.Icon=shell32.dll,331\n"
-L"DisconnectItem.Command=disconnect\n"
-L"DisconnectItem.Label=$Menu.Disconnect\n"
-L"DisconnectItem.Icon=shell32.dll,329\n"
 L"ShutdownBoxItem.Command=shutdown_box\n"
 L"ShutdownBoxItem.Label=$Menu.ShutdownBox\n"
 L"ShutdownBoxItem.Icon=shell32.dll,329\n"
-L"ShutdownBoxItem.Items=SwitchUserItem, LockItem, SleepItem, HibernateItem, RestartItem, ShutdownItem\n"
+L"ShutdownBoxItem.Items=SwitchUserItem, LogOffItem, LockItem, SEPARATOR, SleepItem, HibernateItem, SEPARATOR, RestartItem, UndockItem, DisconnectItem, ShutdownItem\n"
 L"ShutdownBoxItem.Settings=SPLIT\n"
 L"SearchBoxItem.Command=search_box\n"
 L"SearchBoxItem.Label=$Menu.SearchBox\n"
@@ -840,18 +841,6 @@ L"PrintersItem.Command=printers\n"
 L"PrintersItem.Icon=shell32.dll,138\n"
 L"PrintersItem.Label=$Menu.Printers\n"
 L"PrintersItem.Tip=$Menu.PrintersTip\n"
-L"TaskbarSettingsItem.Command=taskbar_settings\n"
-L"TaskbarSettingsItem.Label=$Menu.Taskbar\n"
-L"TaskbarSettingsItem.Icon=shell32.dll,40\n"
-L"TaskbarSettingsItem.Tip=$Menu.TaskbarTip\n"
-L"ProgramsFeaturesItem.Command=programs_features\n"
-L"ProgramsFeaturesItem.Label=$Menu.Features\n"
-L"ProgramsFeaturesItem.Icon=shell32.dll,271\n"
-L"ProgramsFeaturesItem.Tip=$Menu.FeaturesTip\n"
-L"MenuSettingsItem.Command=menu_settings\n"
-L"MenuSettingsItem.Label=$Menu.ClassicSettings\n"
-L"MenuSettingsItem.Icon=,1\n"
-L"MenuSettingsItem.Tip=$Menu.SettingsTip\n"
 L"SearchFilesItem.Command=search_files\n"
 L"SearchFilesItem.Label=$Menu.SearchFiles\n"
 L"SearchFilesItem.Icon=shell32.dll,134\n"
@@ -870,6 +859,9 @@ L"SwitchUserItem.Icon=none\n"
 L"LockItem.Command=lock\n"
 L"LockItem.Label=$Menu.Lock\n"
 L"LockItem.Icon=none\n"
+L"LogOffItem.Command=logoff\n"
+L"LogOffItem.Label=$Menu.LogoffShort\n"
+L"LogOffItem.Icon=none\n"
 L"SleepItem.Command=sleep\n"
 L"SleepItem.Label=$Menu.Sleep\n"
 L"SleepItem.Icon=none\n"
@@ -879,6 +871,12 @@ L"HibernateItem.Icon=none\n"
 L"RestartItem.Command=restart\n"
 L"RestartItem.Label=$Menu.Restart\n"
 L"RestartItem.Icon=none\n"
+L"UndockItem.Command=undock\n"
+L"UndockItem.Label=$Menu.Undock\n"
+L"UndockItem.Icon=none\n"
+L"DisconnectItem.Command=disconnect\n"
+L"DisconnectItem.Label=$Menu.Disconnect\n"
+L"DisconnectItem.Icon=none\n"
 L"ShutdownItem.Command=shutdown\n"
 L"ShutdownItem.Label=$Menu.Shutdown\n"
 L"ShutdownItem.Icon=none\n"
@@ -1002,7 +1000,7 @@ LRESULT CEditMenuDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 	CheckDlgButton(IDC_CHECKINLINE,(m_pItem->settings&StdMenuItem::MENU_INLINE)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKSPLIT,(m_pItem->settings&StdMenuItem::MENU_SPLIT_BUTTON)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKNOEXT,(m_pItem->settings&StdMenuItem::MENU_NOEXTENSIONS)?BST_CHECKED:BST_UNCHECKED);
-	if (m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0)
+	if (m_pItem->pStdCommand && (wcscmp(m_pItem->pStdCommand->name,L"programs")==0 || wcscmp(m_pItem->pStdCommand->name,L"apps")==0))
 	{
 		CheckDlgButton(IDC_CHECKMULTICOLUMN,BST_CHECKED);
 		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(FALSE);
@@ -1131,7 +1129,7 @@ LRESULT CEditMenuDlg::OnOK( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHan
 	m_pItem->tip.TrimRight();
 
 	m_pItem->settings=0;
-	bool bPrograms=(m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0);
+	bool bForceMultiColumn=(m_pItem->pStdCommand && (wcscmp(m_pItem->pStdCommand->name,L"programs")==0 || wcscmp(m_pItem->pStdCommand->name,L"apps")==0));
 	if (IsDlgButtonChecked(IDC_CHECKSORTZA)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_SORTZA;
 	if (IsDlgButtonChecked(IDC_CHECKSORTZAREC)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_SORTZA_REC;
 	if (IsDlgButtonChecked(IDC_CHECKSORTONCE)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_SORTONCE;
@@ -1144,7 +1142,7 @@ LRESULT CEditMenuDlg::OnOK( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHan
 	if (IsDlgButtonChecked(IDC_CHECKINLINE)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_INLINE;
 	if (IsDlgButtonChecked(IDC_CHECKSPLIT)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_SPLIT_BUTTON;
 	if (IsDlgButtonChecked(IDC_CHECKNOEXT)==BST_CHECKED) m_pItem->settings|=StdMenuItem::MENU_NOEXTENSIONS;
-	if (bPrograms)
+	if (bForceMultiColumn)
 	{
 		// special handling of the Programs menu
 		// it is always MULTICOLUMN
@@ -1169,7 +1167,7 @@ LRESULT CEditMenuDlg::OnCommandChanged( WORD wNotifyCode, WORD wID, HWND hWndCtl
 	GetDlgItem(IDC_COMBOLINK).EnableWindow(bEnable);
 	GetDlgItem(IDC_BUTTONLINK).EnableWindow(bEnable);
 	GetDlgItem(IDC_BUTTONRESET).EnableWindow(m_pItem->pStdCommand && *m_pItem->pStdCommand->name);
-	if (m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0)
+	if (m_pItem->pStdCommand && (wcscmp(m_pItem->pStdCommand->name,L"programs")==0 || wcscmp(m_pItem->pStdCommand->name,L"apps")==0))
 	{
 		CheckDlgButton(IDC_CHECKMULTICOLUMN,BST_CHECKED);
 		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(FALSE);
@@ -1283,7 +1281,7 @@ LRESULT CEditMenuDlg::OnReset( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& b
 	CheckDlgButton(IDC_CHECKINLINE,(m_pItem->settings&StdMenuItem::MENU_INLINE)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKSPLIT,(m_pItem->settings&StdMenuItem::MENU_SPLIT_BUTTON)?BST_CHECKED:BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECKNOEXT,(m_pItem->settings&StdMenuItem::MENU_NOEXTENSIONS)?BST_CHECKED:BST_UNCHECKED);
-	if (m_pItem->pStdCommand && wcscmp(m_pItem->pStdCommand->name,L"programs")==0)
+	if (m_pItem->pStdCommand && (wcscmp(m_pItem->pStdCommand->name,L"programs")==0 || wcscmp(m_pItem->pStdCommand->name,L"apps")==0))
 	{
 		CheckDlgButton(IDC_CHECKMULTICOLUMN,BST_CHECKED);
 		GetDlgItem(IDC_CHECKMULTICOLUMN).EnableWindow(FALSE);
@@ -1303,16 +1301,13 @@ public:
 	CCustomMenuDlg( void ): CCustomTreeDlg(true,g_StdCommands) {}
 	bool Validate( void );
 
+	static void UpdateWarnings( void );
+
 protected:
 	virtual void ParseTreeItemExtra( CTreeItem *pItem, CSettingsParser &parser );
 	virtual void SerializeItemExtra( CTreeItem *pItem, std::vector<wchar_t> &stringBuilder );
 	virtual bool EditItem( CTreeItem *pItem, HWND tree, HTREEITEM hItem, std::vector<HMODULE> &modules );
-	virtual void InitItems( void ) { UpdateWarnings(); }
 	virtual void ItemsChanged( void ) { UpdateWarnings(); }
-
-private:
-	void UpdateWarnings( void );
-	bool FindMenuItem( HTREEITEM hParent, const wchar_t *command );
 };
 
 void CCustomMenuDlg::ParseTreeItemExtra( CTreeItem *pItem, CSettingsParser &parser )
@@ -1372,77 +1367,73 @@ bool CCustomMenuDlg::EditItem( CTreeItem *pItem, HWND tree, HTREEITEM hItem, std
 
 void CCustomMenuDlg::UpdateWarnings( void )
 {
-	CSettingsLockWrite lock;
+	const CSetting *pSetting=FindSetting(L"MenuItems");
+	ATLASSERT(pSetting->value.vt==VT_BSTR);
+	CString items=pSetting->value.bstrVal;
+
 	bool bWarning;
-	bWarning=!FindMenuItem(NULL,L"favorites");
-	UpdateSettingText(L"Favorites",bWarning?IDS_SHOW_FAVORITES_TIP2:IDS_SHOW_FAVORITES_TIP,-1,bWarning);
+	items.MakeLower();
+	items.Replace('\r','\n');
+	bWarning=!wcsstr(items,L".command=favorites\n");
+	UpdateSettingText(L"Favorites",-1,bWarning?IDS_SHOW_FAVORITES_TIP2:IDS_SHOW_FAVORITES_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"documents");
-	UpdateSettingText(L"Documents",bWarning?IDS_SHOW_DOCUMENTS_TIP2:IDS_SHOW_DOCUMENTS_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=documents\n");
+	UpdateSettingText(L"Documents",-1,bWarning?IDS_SHOW_DOCUMENTS_TIP2:IDS_SHOW_DOCUMENTS_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"user_files");
-	UpdateSettingText(L"UserFiles",bWarning?IDS_SHOW_USERFILES_TIP2:IDS_SHOW_USERFILES_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=computer\n");
+	UpdateSettingText(L"Computer",-1,bWarning?IDS_SHOW_COMPUTER_TIP2:IDS_SHOW_COMPUTER_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"user_documents");
-	UpdateSettingText(L"UserDocuments",bWarning?IDS_SHOW_USERDOCS_TIP2:IDS_SHOW_USERDOCS_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=user_files\n");
+	UpdateSettingText(L"UserFiles",-1,bWarning?IDS_SHOW_USERFILES_TIP2:IDS_SHOW_USERFILES_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"user_pictures");
-	UpdateSettingText(L"UserPictures",bWarning?IDS_SHOW_USERPICS_TIP2:IDS_SHOW_USERPICS_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=user_documents\n");
+	UpdateSettingText(L"UserDocuments",-1,bWarning?IDS_SHOW_USERDOCS_TIP2:IDS_SHOW_USERDOCS_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"control_panel") && !FindMenuItem(NULL,L"control_panel_categories");
-	UpdateSettingText(L"ControlPanel",bWarning?IDS_SHOW_CP_TIP2:IDS_SHOW_CP_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=user_pictures\n");
+	UpdateSettingText(L"UserPictures",-1,bWarning?IDS_SHOW_USERPICS_TIP2:IDS_SHOW_USERPICS_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"network_connections");
-	UpdateSettingText(L"Network",bWarning?IDS_SHOW_NETWORK_TIP2:IDS_SHOW_NETWORK_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=control_panel\n") && !wcsstr(items,L".command=control_panel_categories\n");
+	UpdateSettingText(L"ControlPanel",-1,bWarning?IDS_SHOW_CP_TIP2:IDS_SHOW_CP_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"printers");
-	UpdateSettingText(L"Printers",bWarning?IDS_SHOW_PRINTERS_TIP2:IDS_SHOW_PRINTERS_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=network_connections\n");
+	UpdateSettingText(L"Network",-1,bWarning?IDS_SHOW_NETWORK_TIP2:IDS_SHOW_NETWORK_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"shutdown_box");
-	UpdateSettingText(L"Shutdown",bWarning?IDS_SHOW_SHUTDOWN_TIP2:IDS_SHOW_SHUTDOWN_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=printers\n");
+	UpdateSettingText(L"Printers",-1,bWarning?IDS_SHOW_PRINTERS_TIP2:IDS_SHOW_PRINTERS_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"search_box");
-	UpdateSettingText(L"SearchBox",bWarning?IDS_SHOW_SEARCH_BOX_TIP2:IDS_SHOW_SEARCH_BOX_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=shutdown_box\n");
+	UpdateSettingText(L"Shutdown",-1,bWarning?IDS_SHOW_SHUTDOWN_TIP2:IDS_SHOW_SHUTDOWN_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"search");
-	UpdateSettingText(L"Search",bWarning?IDS_SHOW_SEARCH_TIP2:IDS_SHOW_SEARCH_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=search_box\n");
+	UpdateSettingText(L"SearchBox",-1,bWarning?IDS_SHOW_SEARCH_BOX_TIP2:IDS_SHOW_SEARCH_BOX_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"help");
-	UpdateSettingText(L"Help",bWarning?IDS_SHOW_HELP_TIP2:IDS_SHOW_HELP_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=search\n");
+	UpdateSettingText(L"Search",-1,bWarning?IDS_SHOW_SEARCH_TIP2:IDS_SHOW_SEARCH_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"run");
-	UpdateSettingText(L"Run",bWarning?IDS_SHOW_RUN_TIP2:IDS_SHOW_RUN_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=help\n");
+	UpdateSettingText(L"Help",-1,bWarning?IDS_SHOW_HELP_TIP2:IDS_SHOW_HELP_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"logoff");
-	UpdateSettingText(L"LogOff",bWarning?IDS_SHOW_LOGOFF_TIP2:IDS_SHOW_LOGOFF_TIP,-1,bWarning);
+	bWarning=!wcsstr(items,L".command=run\n");
+	UpdateSettingText(L"Run",-1,bWarning?IDS_SHOW_RUN_TIP2:IDS_SHOW_RUN_TIP,bWarning);
 
-	bWarning=!FindMenuItem(NULL,L"undock");
-	UpdateSettingText(L"Undock",bWarning?IDS_SHOW_UNDOCK_TIP2:IDS_SHOW_UNDOCK_TIP,-1,bWarning);
-}
+	bWarning=!wcsstr(items,L".command=logoff\n");
+	UpdateSettingText(L"LogOff",-1,bWarning?IDS_SHOW_LOGOFF_TIP2:IDS_SHOW_LOGOFF_TIP,bWarning);
 
-bool CCustomMenuDlg::FindMenuItem( HTREEITEM hParent, const wchar_t *command )
-{
-	if (hParent)
-	{
-		CTreeItem *pItem=GetItem(hParent);
-		if (!pItem) return false;
-		if (_wcsicmp(pItem->command,command)==0)
-			return true;
-	}
-	for (HTREEITEM hChild=hParent?GetChild(hParent):GetRoot();hChild;hChild=GetNext(hChild))
-		if (FindMenuItem(hChild,command))
-			return true;
-	return false;
+	bWarning=!wcsstr(items,L".command=undock\n");
+	UpdateSettingText(L"Undock",-1,bWarning?IDS_SHOW_UNDOCK_TIP2:IDS_SHOW_UNDOCK_TIP,bWarning);
 }
 
 class CCustomMenuPanel: public ISettingsPanel
 {
 public:
+	CCustomMenuPanel( void ) { m_bForceReset=false; }
 	virtual HWND Create( HWND parent );
 	virtual HWND Activate( CSetting *pGroup, const RECT &rect, bool bReset );
 	virtual bool Validate( HWND parent ) { return true; }
+	void ForceReset( void ) { m_bForceReset=true; }
 
 private:
+	bool m_bForceReset;
 	static CCustomMenuDlg s_Dialog;
 };
 
@@ -1457,7 +1448,8 @@ HWND CCustomMenuPanel::Create( HWND parent )
 
 HWND CCustomMenuPanel::Activate( CSetting *pGroup, const RECT &rect, bool bReset )
 {
-	s_Dialog.SetGroup(pGroup,bReset);
+	s_Dialog.SetGroup(pGroup,bReset || m_bForceReset);
+	m_bForceReset=false;
 	s_Dialog.SetWindowPos(HWND_TOP,&rect,SWP_SHOWWINDOW);
 	return s_Dialog.m_hWnd;
 }
@@ -1544,6 +1536,7 @@ static const wchar_t *g_StyleSettingNames[]=
 {
 	L"MenuItems",
 	L"Skin1",
+	L"SkinVariation1",
 	L"SkinOptions1",
 	L"SearchBox"
 };
@@ -1566,6 +1559,7 @@ LRESULT CMenuStyleDlg::OnClick( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& 
 	}
 	UpdateDefaults();
 	g_SkinSettingsPanel.ResetOptions();
+	g_CustomMenuPanel.ForceReset();
 
 	for (int i=0;i<_countof(g_StyleSettingNames);i++)
 	{
@@ -1696,10 +1690,12 @@ CSetting g_Settings[]={
 		{L"Nothing",CSetting::TYPE_RADIO,IDS_OPEN_NOTHING,IDS_OPEN_NOTHING_TIP},
 		{L"ClassicMenu",CSetting::TYPE_RADIO,IDS_OPEN_CSM,IDS_OPEN_CSM_TIP},
 		{L"WindowsMenu",CSetting::TYPE_RADIO,IDS_OPEN_WSM,IDS_OPEN_WSM_TIP},
+		{L"Both",CSetting::TYPE_RADIO,IDS_OPEN_BOTH,IDS_OPEN_BOTH_TIP},
 	{L"ShiftWin",CSetting::TYPE_INT,IDS_SHIFT_WIN,IDS_SHIFT_WIN_TIP,2,CSetting::FLAG_BASIC},
 		{L"Nothing",CSetting::TYPE_RADIO,IDS_OPEN_NOTHING,IDS_OPEN_NOTHING_TIP},
 		{L"ClassicMenu",CSetting::TYPE_RADIO,IDS_OPEN_CSM,IDS_OPEN_CSM_TIP},
 		{L"WindowsMenu",CSetting::TYPE_RADIO,IDS_OPEN_WSM,IDS_OPEN_WSM_TIP},
+		{L"Both",CSetting::TYPE_RADIO,IDS_OPEN_BOTH,IDS_OPEN_BOTH_TIP},
 	{L"MiddleClick",CSetting::TYPE_INT,IDS_MCLICK,IDS_MCLICK_TIP,0},
 		{L"Nothing",CSetting::TYPE_RADIO,IDS_OPEN_NOTHING,IDS_OPEN_NOTHING_TIP},
 		{L"ClassicMenu",CSetting::TYPE_RADIO,IDS_OPEN_CSM,IDS_OPEN_CSM_TIP},
@@ -1713,6 +1709,10 @@ CSetting g_Settings[]={
 	{L"WSMHotkey",CSetting::TYPE_HOTKEY,IDS_WSM_HOTKEY,IDS_WSM_HOTKEY_TIP,0},
 
 {L"SpecialItems",CSetting::TYPE_GROUP,IDS_SHOW_ITEMS},
+	{L"Computer",CSetting::TYPE_INT,IDS_SHOW_COMPUTER,IDS_SHOW_COMPUTER_TIP,1,CSetting::FLAG_BASIC},
+		{L"Hide",CSetting::TYPE_RADIO,IDS_ITEM_HIDE,IDS_ITEM_HIDE_TIP},
+		{L"Show",CSetting::TYPE_RADIO,IDS_ITEM_SHOW,IDS_ITEM_SHOW_TIP},
+		{L"Menu",CSetting::TYPE_RADIO,IDS_ITEM_MENU,IDS_ITEM_MENU_TIP},
 	{L"Favorites",CSetting::TYPE_INT,IDS_SHOW_FAVORITES,IDS_SHOW_FAVORITES_TIP,0,CSetting::FLAG_BASIC},
 		{L"Hide",CSetting::TYPE_RADIO,IDS_ITEM_HIDE,IDS_ITEM_HIDE_TIP},
 		{L"Show",CSetting::TYPE_RADIO,IDS_ITEM_SHOW,IDS_ITEM_SHOW_TIP},
@@ -1737,7 +1737,7 @@ CSetting g_Settings[]={
 		{L"Hide",CSetting::TYPE_RADIO,IDS_ITEM_HIDE,IDS_ITEM_HIDE_TIP},
 		{L"Show",CSetting::TYPE_RADIO,IDS_ITEM_SHOW,IDS_ITEM_SHOW_TIP},
 		{L"Menu",CSetting::TYPE_RADIO,IDS_ITEM_MENU,IDS_ITEM_MENU_TIP},
-	{L"ControlPanel",CSetting::TYPE_INT,IDS_SHOW_CP,IDS_SHOW_CP_TIP,1,CSetting::FLAG_BASIC},
+	{L"ControlPanel",CSetting::TYPE_INT,IDS_SHOW_CP,IDS_SHOW_CP_TIP,2,CSetting::FLAG_BASIC},
 		{L"Hide",CSetting::TYPE_RADIO,IDS_ITEM_HIDE,IDS_ITEM_HIDE_TIP},
 		{L"Show",CSetting::TYPE_RADIO,IDS_ITEM_SHOW,IDS_ITEM_SHOW_TIP},
 		{L"Menu",CSetting::TYPE_RADIO,IDS_ITEM_MENU,IDS_ITEM_MENU_TIP},
@@ -1756,7 +1756,7 @@ CSetting g_Settings[]={
 	{L"Search",CSetting::TYPE_BOOL,IDS_SHOW_SEARCH,IDS_SHOW_SEARCH_TIP,1},
 	{L"Help",CSetting::TYPE_BOOL,IDS_SHOW_HELP,IDS_SHOW_HELP_TIP,1},
 	{L"Run",CSetting::TYPE_BOOL,IDS_SHOW_RUN,IDS_SHOW_RUN_TIP,1},
-	{L"LogOff",CSetting::TYPE_BOOL,IDS_SHOW_LOGOFF,IDS_SHOW_LOGOFF_TIP,0,CSetting::FLAG_BASIC},
+	{L"LogOff",CSetting::TYPE_BOOL,IDS_SHOW_LOGOFF,IDS_SHOW_LOGOFF_TIP,1,CSetting::FLAG_BASIC},
 	{L"ConfirmLogOff",CSetting::TYPE_BOOL,IDS_CONFIRM_LOGOFF,IDS_CONFIRM_LOGOFF_TIP,0,0,L"LogOff"},
 	{L"Undock",CSetting::TYPE_BOOL,IDS_SHOW_UNDOCK,IDS_SHOW_UNDOCK_TIP,1},
 	{L"RemoteShutdown",CSetting::TYPE_BOOL,IDS_SHOW_RSHUTDOWN,IDS_SHOW_RSHUTDOWN_TIP,0},
@@ -1773,6 +1773,7 @@ CSetting g_Settings[]={
 	{L"EnableDragDrop",CSetting::TYPE_BOOL,IDS_DRAG_DROP,IDS_DRAG_DROP_TIP,1},
 	{L"ExpandFolderLinks",CSetting::TYPE_BOOL,IDS_EXPAND_LINKS,IDS_EXPAND_LINKS_TIP,1},
 	{L"MenuDelay",CSetting::TYPE_INT,IDS_MENU_DELAY,IDS_MENU_DELAY_TIP,-1,CSetting::FLAG_BASIC}, // system delay time
+	{L"SplitMenuDelay",CSetting::TYPE_INT,IDS_SPLIT_DELAY,IDS_SPLIT_DELAY_TIP,200}, // 2x system delay time
 	{L"InfotipDelay",CSetting::TYPE_STRING,IDS_TIP_DELAY,IDS_TIP_DELAY_TIP,L"400,4000"},
 	{L"FolderInfotipDelay",CSetting::TYPE_STRING,IDS_FTIP_DELAY,IDS_FTIP_DELAY_TIP,L"0,0"},
 	{L"MainMenuAnimation",CSetting::TYPE_INT,IDS_ANIMATION,IDS_ANIMATION_TIP,-1}, // system animation type
@@ -1792,6 +1793,12 @@ CSetting g_Settings[]={
 	{L"SubMenuScrollSpeed",CSetting::TYPE_INT,IDS_SUB_SCROLL_SPEED,IDS_SUB_SCROLL_SPEED_TIP,3},
 	{L"MenuFadeSpeed",CSetting::TYPE_INT,IDS_FADE_SPEED,IDS_FADE_SPEED_TIP,400},
 	{L"DragHideDelay",CSetting::TYPE_INT,IDS_DRAG_DELAY,IDS_DRAG_DELAY_TIP,4000},
+	{L"EnableJumplists",CSetting::TYPE_BOOL,IDS_JUMPLISTS,IDS_JUMPLISTS_TIP,1},
+	{L"MaxJumplists",CSetting::TYPE_INT,IDS_MAX_JUMPLISTS,IDS_MAX_JUMPLISTS_TIP,10,0,L"EnableJumplists"},
+	{L"JumplistKeys",CSetting::TYPE_INT,IDS_JUMPLIST_KEYS,IDS_JUMPLISTS_KEY_TIP,0,0,L"EnableJumplists"},
+		{L"Select",CSetting::TYPE_RADIO,IDS_KEY_SELECT,IDS_KEY_SELECT_TIP,0,0,L"EnableJumplists"},
+		{L"Run",CSetting::TYPE_RADIO,IDS_KEY_RUN,IDS_KEY_RUN_TIP,0,0,L"EnableJumplists"},
+		{L"Open",CSetting::TYPE_RADIO,IDS_KEY_OPEN,IDS_KEY_OPEN_TIP,0,0,L"EnableJumplists"},
 	{L"EnableAccessibility",CSetting::TYPE_BOOL,IDS_ACCESSIBILITY,IDS_ACCESSIBILITY_TIP,1},
 	{L"ShowNextToTaskbar",CSetting::TYPE_BOOL,IDS_NEXTTASKBAR,IDS_NEXTTASKBAR_TIP,0},
 	{L"UserPictureCommand",CSetting::TYPE_STRING,IDS_PIC_COMMAND,IDS_PIC_COMMAND_TIP,L"control nusrmgr.cpl"},
@@ -1913,6 +1920,7 @@ void UpdateSettings( void )
 	}
 
 	CMenuStyleDlg::UpdateDefaults();
+	CCustomMenuDlg::UpdateWarnings();
 
 	HDC hdc=GetDC(NULL);
 	int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
@@ -2018,6 +2026,32 @@ void UpdateSettings( void )
 			UpdateSetting(L"StartButtonType",CComVariant(0),false);
 		else
 			UpdateSetting(L"StartButtonType",CComVariant(1),false);
+
+		CSetting *pSetting=FindSetting(L"MouseClick")+3;
+		pSetting->nameID=IDS_OPEN_WSS;
+		pSetting->tipID=IDS_OPEN_WSS_TIP;
+
+		pSetting=FindSetting(L"ShiftClick")+3;
+		pSetting->nameID=IDS_OPEN_WSS;
+		pSetting->tipID=IDS_OPEN_WSS_TIP;
+
+		pSetting=FindSetting(L"WinKey")+3;
+		pSetting->nameID=IDS_OPEN_WSS;
+		pSetting->tipID=IDS_OPEN_WSS_TIP;
+
+		pSetting=FindSetting(L"ShiftWin")+3;
+		pSetting->nameID=IDS_OPEN_WSS;
+		pSetting->tipID=IDS_OPEN_WSS_TIP;
+
+		pSetting=FindSetting(L"MiddleClick")+3;
+		pSetting->nameID=IDS_OPEN_WSS;
+		pSetting->tipID=IDS_OPEN_WSS_TIP;
+
+		pSetting=FindSetting(L"Hover")+3;
+		pSetting->nameID=IDS_OPEN_WSS;
+		pSetting->tipID=IDS_OPEN_WSS_TIP;
+
+		UpdateSettingText(L"WSMHotkey",IDS_WSS_HOTKEY,IDS_WSS_HOTKEY_TIP,false);
 	}
 	else
 	{
@@ -2031,7 +2065,13 @@ void UpdateSettings( void )
 		else
 		{
 			HideSettingGroup(L"StartButton",true);
+			UpdateSetting(L"EnableJumplists",CComVariant(0),false,true);
+			UpdateSetting(L"MaxJumplists",CComVariant(0),false,true);
+			UpdateSetting(L"JumplistKeys",CComVariant(0),false,true);
 		}
+
+		FindSetting(L"WinKey")[4].flags|=CSetting::FLAG_HIDDEN;
+		FindSetting(L"ShiftWin")[4].flags|=CSetting::FLAG_HIDDEN;
 	}
 
 	{

@@ -57,7 +57,8 @@ enum
 {
 	OPEN_NOTHING,
 	OPEN_CLASSIC,
-	OPEN_WINDOWS
+	OPEN_WINDOWS,
+	OPEN_BOTH,
 };
 
 // MiniDumpNormal - minimal information
@@ -413,43 +414,43 @@ bool PointAroundStartButton( void )
 // declare the IAppVisibility interface so we don't need the Win8 SDK
 typedef enum MONITOR_APP_VISIBILITY
 {
-    MAV_UNKNOWN	= 0,
-    MAV_NO_APP_VISIBLE	= 1,
-    MAV_APP_VISIBLE	= 2
-} 	MONITOR_APP_VISIBILITY;
+	MAV_UNKNOWN	= 0,
+	MAV_NO_APP_VISIBLE	= 1,
+	MAV_APP_VISIBLE	= 2
+} MONITOR_APP_VISIBILITY;
 
 MIDL_INTERFACE("6584CE6B-7D82-49C2-89C9-C6BC02BA8C38")
 IAppVisibilityEvents : public IUnknown
 {
 public:
-    virtual HRESULT STDMETHODCALLTYPE AppVisibilityOnMonitorChanged( 
-        /* [in] */ __RPC__in HMONITOR hMonitor,
-        /* [in] */ MONITOR_APP_VISIBILITY previousMode,
-        /* [in] */ MONITOR_APP_VISIBILITY currentMode) = 0;
-    
-    virtual HRESULT STDMETHODCALLTYPE LauncherVisibilityChange( 
-        /* [in] */ BOOL currentVisibleState) = 0;
-    
+	virtual HRESULT STDMETHODCALLTYPE AppVisibilityOnMonitorChanged( 
+		/* [in] */ __RPC__in HMONITOR hMonitor,
+		/* [in] */ MONITOR_APP_VISIBILITY previousMode,
+		/* [in] */ MONITOR_APP_VISIBILITY currentMode) = 0;
+
+	virtual HRESULT STDMETHODCALLTYPE LauncherVisibilityChange( 
+		/* [in] */ BOOL currentVisibleState) = 0;
+
 };
 
 MIDL_INTERFACE("2246EA2D-CAEA-4444-A3C4-6DE827E44313")
 IAppVisibility : public IUnknown
 {
 public:
-    virtual HRESULT STDMETHODCALLTYPE GetAppVisibilityOnMonitor( 
-        /* [in] */ __RPC__in HMONITOR hMonitor,
-        /* [out] */ __RPC__out MONITOR_APP_VISIBILITY *pMode) = 0;
-    
-    virtual HRESULT STDMETHODCALLTYPE IsLauncherVisible( 
-        /* [out] */ __RPC__out BOOL *pfVisible) = 0;
-    
-    virtual HRESULT STDMETHODCALLTYPE Advise( 
-        /* [in] */ __RPC__in_opt IAppVisibilityEvents *pCallback,
-        /* [out] */ __RPC__out DWORD *pdwCookie) = 0;
-    
-    virtual HRESULT STDMETHODCALLTYPE Unadvise( 
-        /* [in] */ DWORD dwCookie) = 0;
-    
+	virtual HRESULT STDMETHODCALLTYPE GetAppVisibilityOnMonitor( 
+		/* [in] */ __RPC__in HMONITOR hMonitor,
+		/* [out] */ __RPC__out MONITOR_APP_VISIBILITY *pMode) = 0;
+
+	virtual HRESULT STDMETHODCALLTYPE IsLauncherVisible( 
+		/* [out] */ __RPC__out BOOL *pfVisible) = 0;
+
+	virtual HRESULT STDMETHODCALLTYPE Advise( 
+		/* [in] */ __RPC__in_opt IAppVisibilityEvents *pCallback,
+		/* [out] */ __RPC__out DWORD *pdwCookie) = 0;
+
+	virtual HRESULT STDMETHODCALLTYPE Unadvise( 
+		/* [in] */ DWORD dwCookie) = 0;
+
 };
 
 #endif
@@ -461,7 +462,7 @@ void ResetHotCorners( void )
 	g_EdgeWindows.clear();
 }
 
-	CComPtr<IAppVisibility> g_pAppVisibility;
+CComPtr<IAppVisibility> g_pAppVisibility;
 DWORD g_AppVisibilityMonitorCookie;
 
 class CMonitorModeEvents: public IAppVisibilityEvents
@@ -725,12 +726,13 @@ static LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam
 	{
 		if (CMenuContainer::s_pDragSource) return 0;
 	}
-	if (uMsg==WM_MOUSEACTIVATE && GetSettingBool(L"CascadeAll"))
+	if (uMsg==WM_MOUSEACTIVATE && GetSettingBool(L"CascadeAll") && CMenuContainer::IsMenuOpened())
 	{
 		CPoint pt(GetMessagePos());
-		if (g_ProgramsButton && WindowFromPoint(pt)==g_ProgramsButton && CMenuContainer::IsMenuOpened())
+		if (g_ProgramsButton && WindowFromPoint(pt)==g_ProgramsButton)
 			return MA_NOACTIVATEANDEAT;
 		CMenuContainer::CloseProgramsMenu();
+		return MA_ACTIVATEANDEAT;
 	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
@@ -1093,6 +1095,7 @@ static void InitStartMenuDLL( void )
 		{
 			g_SkipMetroCount=GetSettingInt(L"SkipMetroCount");
 			SetTimer(g_TaskBar,'CLSM',500,NULL);
+			PostMessage(g_TaskBar,WM_TIMER,'CLSM',0);
 		}
 	}
 }
@@ -1263,6 +1266,8 @@ STARTMENUAPI LRESULT CALLBACK HookProgMan( int code, WPARAM wParam, LPARAM lPara
 			// Win button pressed
 			FindTaskBar();
 			int control=GetSettingInt(L"WinKey");
+			if (control==OPEN_BOTH)
+				control=IsMetroMode()?OPEN_WINDOWS:OPEN_CLASSIC;
 			if (control!=OPEN_WINDOWS)
 			{
 				msg->message=WM_NULL;
@@ -1318,6 +1323,8 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			else if (msg->wParam==MSG_SHIFTWIN)
 			{
 				int control=GetSettingInt(L"ShiftWin");
+				if (control==OPEN_BOTH)
+					control=IsMetroMode()?OPEN_WINDOWS:OPEN_CLASSIC;
 				if (control==OPEN_CLASSIC)
 					ToggleStartMenu(g_StartButton,true);
 				else if (control==OPEN_WINDOWS)
@@ -1362,7 +1369,10 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 			if (!GetGUIThreadInfo(GetCurrentThreadId(),&info) || !(info.flags&GUI_INMENUMODE))
 			{
 				FindWindowsMenu();
-				if (GetSettingInt(L"WinKey")==OPEN_CLASSIC)
+				int control=GetSettingInt(L"WinKey");
+				if (control==OPEN_BOTH)
+					control=IsMetroMode()?OPEN_WINDOWS:OPEN_CLASSIC;
+				if (control==OPEN_CLASSIC)
 				{
 					msg->message=WM_NULL;
 					if (g_StartButton)
@@ -1456,19 +1466,19 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				&& (msg->wParam==HTCAPTION || !IsAppThemed())) // HACK: in Classic mode the start menu can show up even if wParam is not HTCAPTION (most likely a bug in Windows)
 			{
 				FindWindowsMenu();
-				const wchar_t *name;
-				if (msg->message==WM_NCMBUTTONDOWN || msg->message==WM_NCMBUTTONDBLCLK)
-					name=L"MiddleClick";
-				else if (GetKeyState(VK_SHIFT)<0)
-					name=L"ShiftClick";
-				else
-					name=L"MouseClick";
-				int control=GetSettingInt(name);
-				if (control==OPEN_NOTHING)
-					msg->message=WM_NULL;
-				else if (control==OPEN_CLASSIC)
+				if (PointAroundStartButton())
 				{
-					if (PointAroundStartButton())
+					const wchar_t *name;
+					if (msg->message==WM_NCMBUTTONDOWN || msg->message==WM_NCMBUTTONDBLCLK)
+						name=L"MiddleClick";
+					else if (GetKeyState(VK_SHIFT)<0)
+						name=L"ShiftClick";
+					else
+						name=L"MouseClick";
+					int control=GetSettingInt(name);
+					if (control==OPEN_NOTHING)
+						msg->message=WM_NULL;
+					else if (control==OPEN_CLASSIC)
 					{
 						// click on the taskbar around the start menu - toggle the menu
 						DWORD keyboard;
@@ -1476,9 +1486,9 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 						ToggleStartMenu(g_StartButton,keyboard!=0);
 						msg->message=WM_NULL;
 					}
+					else if (control==OPEN_WINDOWS && (msg->message==WM_NCMBUTTONDOWN || msg->message==WM_NCMBUTTONDBLCLK))
+						PostMessage(g_ProgWin,WM_SYSCOMMAND,SC_TASKLIST,'CLSM');
 				}
-				else if (control==OPEN_WINDOWS && (msg->message==WM_NCMBUTTONDOWN || msg->message==WM_NCMBUTTONDBLCLK))
-					PostMessage(g_ProgWin,WM_SYSCOMMAND,SC_TASKLIST,'CLSM');
 			}
 		}
 

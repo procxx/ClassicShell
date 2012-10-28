@@ -52,6 +52,7 @@ Main_arrow_color=#FFFFFF,#000000
 Main_arrow=13
 
 Main_padding=3,10,10,8
+Main_arrow_padding=8,9
 Main_selection=9
 Main_selection_slices_X=3,1,3
 Main_selection_slices_Y=4,66,4
@@ -64,8 +65,8 @@ Main_split_selection_slices_Y=4,66,4
 Main_icon_padding=3,3,3,3
 
 ; Main_text_padding - extra padding on the left/top/right/bottom of the text in the main menu
-; The default is 1,0,4,0
-Main_text_padding=1,0,4,0
+; The default is 1,0,8,0
+Main_text_padding=1,0,8,0
 
 ; Main_pager - a bitmap that contains the background for the pager buttons (the ones that scroll menus up and down)
 Main_pager=10
@@ -112,6 +113,10 @@ Submenu_separatorV=12
 ; Submenu_separator_slices_Y - vertical slices for Submenu_separatorV
 Submenu_separator_slices_Y=2,16,2
 
+Submenu_separator_text_padding=3,8,4,8
+Submenu_separator_font="Segoe UI",normal,-10
+
+
 ; OPTIONS
 
 OPTION TWO_COLUMNS="Two Columns",0
@@ -122,6 +127,7 @@ OPTION USER_NAME="Show User Name",0
 OPTION CENTER_NAME="Center User Name",0, USER_NAME, 0
 OPTION SMALL_ICONS="Small Icons",0
 OPTION LARGE_FONT="Large Font",0
+OPTION DISABLE_MASK="Reduce Glass Color",0
 
 AllPrograms_options=variations, LARGE_FONT
 
@@ -135,6 +141,7 @@ Main_large_icons=0
 Main_font="Segoe UI",normal,-9
 Caption_font="Segoe UI",normal,15
 Main_arrow=14
+Main_arrow_padding=7,7
 
 
 [LARGE_FONT]
@@ -250,3 +257,10 @@ User_name_position=0,0,0,0
 
 [NO_ICONS]
 Main_no_icons2=1
+Main_text_padding2=1,7,8,7
+
+[NO_ICONS AND SMALL_ICONS]
+Main_text_padding2=1,3,8,4
+
+[DISABLE_MASK]
+Main_bitmap_mask=0

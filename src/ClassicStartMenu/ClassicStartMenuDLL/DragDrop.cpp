@@ -223,11 +223,11 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 	else if (grfKeyState==0 && s_pDragSource==this)
 		*pdwEffect&=DROPEFFECT_MOVE;
 	else
-		*pdwEffect&=((s_pDragSource && (s_pDragSource->m_Options&CONTAINER_PROGRAMS))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
+		*pdwEffect&=((m_bSubMenu && s_pDragSource && (s_pDragSource->m_Options&CONTAINER_PROGRAMS))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
 
 	// only accept CFSTR_SHELLIDLIST data
 	FORMATETC format={s_ShellFormat,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-	if (s_bNoDragDrop || !m_pDropFoldera[0] || !(m_Options&CONTAINER_DROP) || m_pDragObject->QueryGetData(&format)!=S_OK)
+	if (s_bNoDragDrop || (!m_pDropFoldera[0] && s_pDragSource!=this) || !(m_Options&CONTAINER_DROP) || m_pDragObject->QueryGetData(&format)!=S_OK)
 		*pdwEffect=DROPEFFECT_NONE;
 
 	POINT p={pt.x,pt.y};
@@ -284,7 +284,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::DragOver( DWORD grfKeyState, POINTL pt
 		if ((GetMessageTime()-m_DragHoverTime)>(int)s_HoverTime && m_Submenu!=m_DragHoverItem)
 		{
 			// expand m_DragHoverItem
-			if (!m_Items[index].bFolder || m_Items[index].pItem1)
+			if (!m_Items[index].bJumpList && (!m_Items[index].bFolder || m_Items[index].pItem1))
 				ActivateItem(index,ACTIVATE_OPEN,NULL,GetKeyState(VK_SHIFT)<0);
 			if (!m_Items[index].bFolder)
 				SetHotItem(-1);
@@ -325,7 +325,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 		else if (grfKeyState==0 && s_pDragSource==this)
 			*pdwEffect&=DROPEFFECT_MOVE;
 		else
-			*pdwEffect&=((s_pDragSource && (s_pDragSource->m_Options&CONTAINER_PROGRAMS))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
+			*pdwEffect&=((m_bSubMenu && s_pDragSource && (s_pDragSource->m_Options&CONTAINER_PROGRAMS))?DROPEFFECT_MOVE:DROPEFFECT_LINK);
 		grfKeyState=0;
 	}
 	else if (!grfKeyState && (*pdwEffect&DROPEFFECT_LINK))

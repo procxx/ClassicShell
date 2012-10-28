@@ -813,12 +813,14 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 		else if (_wcsicmp(exe,L"sortby")==0)
 		{
 			CComQIPtr<IFolderView2> pView2=pView;
-			ViewByProperty(pView2,params,false);
+			if (pView2)
+				ViewByProperty(pView2,params,false);
 		}
 		else if (_wcsicmp(exe,L"groupby")==0)
 		{
 			CComQIPtr<IFolderView2> pView2=pView;
-			ViewByProperty(pView2,params,true);
+			if (pView2)
+				ViewByProperty(pView2,params,true);
 		}
 		else if (bArg3 || bArg4 || bArg5)
 		{
@@ -1269,7 +1271,7 @@ HRESULT STDMETHODCALLTYPE CMenuCallback::CallbackSM( LPSMDATA psmd, UINT uMsg, W
 					else
 					{
 						// execute file
-						SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_IDLIST};
+						SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_IDLIST|SEE_MASK_FLAG_LOG_USAGE};
 						execute.lpIDList=pidl;
 						execute.nShow=SW_SHOWNORMAL;
 						ShellExecuteEx(&execute);

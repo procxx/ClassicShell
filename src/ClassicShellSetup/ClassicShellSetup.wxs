@@ -556,6 +556,9 @@
         <Property Id="IE_BUILD" Value="0">
             <RegistrySearch Id="IEBuild" Root="HKLM" Key="Software\Microsoft\Internet Explorer" Name="Build" Type="raw" />
         </Property>
+        <Property Id="APPLICATIONFOLDER">
+            <RegistrySearch Id="Path" Root="HKLM" Key="Software\IvoSoft\ClassicShell" Name="Path" Type="raw" Win64="$(var.CS_WIN64)" />
+        </Property>
         <CustomAction Id="ViewReadme" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
         <CustomAction Id="LaunchStartMenu" Impersonate="yes" ExeCommand="" FileKey="ClassicStartMenu.exe" Return="asyncNoWait" />
         <CustomAction Id="CloseStartMenu" Impersonate="yes" BinaryKey="SetupHelper.exe" Return="ignore" ExeCommand="exitSM" />

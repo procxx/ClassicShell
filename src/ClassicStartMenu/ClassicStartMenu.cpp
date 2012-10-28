@@ -25,20 +25,44 @@ static void UnhookStartMenu( void )
 	g_StartHook=NULL;
 }
 
-static HWND HookStartMenu( bool bHookExplorer )
+enum THookMode
+{
+	HOOK_NONE, // don't hook Explorer, running as a separate exe
+	HOOK_NORMAL, // hook Explorer normally, no retry
+	HOOK_STARTUP, // retry to hook Explorer
+};
+
+static HWND HookStartMenu( THookMode mode )
 {
 	HMODULE hHookModule=GetModuleHandle(L"ClassicStartMenuDLL.dll");
 
 	// find the Progman window and the start button
-	HWND progWin=FindWindowEx(NULL,NULL,L"Progman",NULL);
-	if (!progWin) return NULL; // the Progman window may not be created yet (if Explorer is currently restarting)
 
+	HWND progWin;
+	bool bFindAppManager=(mode==HOOK_STARTUP && GetWinVersion()>=WIN_VER_WIN8);
+	for (int i=0;i<120;i++) // retry for 1 minute
+	{
+		if (bFindAppManager)
+			bFindAppManager=!FindWindow(L"ApplicationManager_DesktopShellWindow",NULL);
+		if (!bFindAppManager)
+		{
+			progWin=FindWindowEx(NULL,NULL,L"Progman",NULL);
+			if (progWin) break;
+			if (mode!=HOOK_STARTUP) return NULL; // the Progman window may not be created yet (if Explorer is currently restarting)
+		}
+		Sleep(500);
+	}
 	DWORD process;
 	DWORD thread=GetWindowThreadProcessId(progWin,&process);
 
-	if (!FindTaskBar(process)) return NULL; // the taskbar may not be created yet (if Explorer is currently restarting)
+	for (int i=0;i<10;i++) // retry for 5 sec
+	{
+		if (FindTaskBar(process)) break;
+		if (mode!=HOOK_STARTUP) return NULL; // the taskbar may not be created yet (if Explorer is currently restarting)
+		Sleep(500);
+	}
 
-	if (!bHookExplorer)
+	if (mode==HOOK_NONE)
 		return ToggleStartMenu(g_StartButton,false);
 
 	// install hooks in the explorer process
@@ -120,7 +144,7 @@ LRESULT CStartHookWindow::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 	if (wParam==TIMER_HOOK)
 	{
 		UnhookStartMenu();
-		HookStartMenu(true);
+		HookStartMenu(HOOK_NORMAL);
 		if (g_StartHook)
 			KillTimer(TIMER_HOOK);
 	}
@@ -148,20 +172,11 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 		CoInitialize(NULL);
 		wchar_t exe[_MAX_PATH];
 		const wchar_t *args=SeparateArguments(pRunAs+7,exe);
-		if ((DWORD_PTR)ShellExecute(NULL,NULL,exe,args,NULL,SW_SHOWNORMAL)>32 && !args && GetWinVersion()>=WIN_VER_WIN7)
-		{
-			// on Windows 7 the executed documents are not automatically added to the recent document list
-			CComPtr<IShellLink> pLink;
-			if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink,NULL,CLSCTX_INPROC_SERVER,IID_IShellLink,(LPVOID*)&pLink)))
-			{
-				// assume it is a link and try to get the target path
-				CComQIPtr<IPersistFile> pFile=pLink;
-				if (pFile && SUCCEEDED(pFile->Load(exe,STGM_READ)))
-					pLink->GetPath(exe,_countof(exe),NULL,0);
-			}
-			SHAddToRecentDocs(SHARD_PATH,exe);
-		}
-
+		SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_DOENVSUBST|SEE_MASK_FLAG_LOG_USAGE};
+		execute.lpFile=exe;
+		execute.lpParameters=args;
+		execute.nShow=SW_SHOWNORMAL;
+		ShellExecuteEx(&execute);
 		CoUninitialize();
 		return 0;
 	}
@@ -270,7 +285,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	}
 
 	MSG msg;
-	HWND menu=HookStartMenu(bHookExplorer);
+	HWND menu=HookStartMenu(bHookExplorer?HOOK_STARTUP:HOOK_NONE);
 	if (bHookExplorer && open>=0)
 		window.PostMessage(WM_OPEN,open,MSG_OPEN);
 	while ((bHookExplorer || IsWindow(menu)) && GetMessage(&msg,0,0,0))

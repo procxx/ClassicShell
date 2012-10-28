@@ -1,4 +1,16 @@
 ===============================================================================
+== Version 3.6.2 general release (Oct, 2012):
+
+- Added support for jump lists in the main menu
+
+- Added support for displaying and launching Windows Store apps in Windows 8
+
+- Faster skipping of the Metro screen in Windows 8
+
+- Fixed some bugs found in the previous version
+
+
+===============================================================================
 == Version 3.6.1 general release (Aug, 2012):
 
 - Fixes a critical bug found in the previous version (the "new version"

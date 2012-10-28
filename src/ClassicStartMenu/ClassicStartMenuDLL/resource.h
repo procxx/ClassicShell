@@ -460,12 +460,37 @@
 #define IDS_SPLIT_TIP                   3381
 #define IDS_STYLE_SETTINGS              3382
 #define IDS_CHANGE_STYLE                3383
+#define IDS_OPEN_WSS                    3384
+#define IDS_OPEN_WSS_TIP                3385
+#define IDS_WSS_HOTKEY                  3386
+#define IDS_WSS_HOTKEY_TIP              3387
+#define IDS_JUMPLISTS                   3388
+#define IDS_JUMPLISTS_TIP               3389
+#define IDS_MAX_JUMPLISTS               3390
+#define IDS_MAX_JUMPLISTS_TIP           3391
+#define IDS_JUMPLIST_KEYS               3392
+#define IDS_JUMPLISTS_KEY_TIP           3393
+#define IDS_KEY_SELECT                  3394
+#define IDS_KEY_SELECT_TIP              3395
+#define IDS_KEY_RUN                     3396
+#define IDS_KEY_RUN_TIP                 3397
+#define IDS_KEY_OPEN                    3398
+#define IDS_KEY_OPEN_TIP                3399
+#define IDS_APPS_TIP                    3400
+#define IDS_SPLIT_DELAY                 3401
+#define IDS_SPLIT_DELAY_TIP             3402
+#define IDS_OPEN_BOTH                   3403
+#define IDS_OPEN_BOTH_TIP               3404
+#define IDS_SHOW_COMPUTER               3405
+#define IDS_COMPUTER_TIP                3406
+#define IDS_SHOW_COMPUTER_TIP           3407
+#define IDS_SHOW_COMPUTER_TIP2          3408
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        123
+#define _APS_NEXT_RESOURCE_VALUE        124
 #define _APS_NEXT_COMMAND_VALUE         40001
 #define _APS_NEXT_CONTROL_VALUE         1071
 #define _APS_NEXT_SYMED_VALUE           101

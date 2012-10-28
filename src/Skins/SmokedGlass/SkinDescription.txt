@@ -37,8 +37,8 @@ Main_text_color=#FFFFFF,#FFFFFF,#9F9F9F,#AFAFAF
 ; If Main_arrow_color is not set, the first 2 colors of Main_text_color are used
 Main_arrow_color=#FFFFFF,#FFFFFF
 
-; Main_arrow_padding - padding on the left and right of the sub-menu arrow. The default is 6,6
-Main_arrow_padding=7,7
+; Main_arrow_padding - padding on the left and right of the sub-menu arrow. The default is 5,7
+Main_arrow_padding=8,9
 
 Main_padding=2,4,4,4
 Main_selection=3
@@ -54,8 +54,8 @@ Main_split_selection_slices_Y=4,20,4
 Main_icon_padding=4,3,3,3
 
 ; Main_text_padding - extra padding on the left/top/right/bottom of the text in the main menu
-; The default is 1,0,4,0
-Main_text_padding=1,0,4,0
+; The default is 1,0,8,0
+Main_text_padding=1,0,8,0
 
 ; Main_pager - a bitmap that contains the background for the pager buttons (the ones that scroll menus up and down)
 Main_pager=4
@@ -88,7 +88,6 @@ Submenu_padding=4,4,4,4
 Submenu_font="Segoe UI",normal,-9
 Submenu_text_color=#FFFFFF,#FFFFFF,#7F7F7F,#7F7F7F
 Submenu_arrow_color=#FFFFFF,#FFFFFF
-Submenu_arrow_padding=7,7
 Submenu_selection=3
 Submenu_selection_slices_X=4,63,4
 Submenu_selection_slices_Y=4,20,4
@@ -100,8 +99,11 @@ Submenu_pager=4
 Submenu_pager_slices_X=3,1,3
 Submenu_pager_slices_Y=4,4,4
 Submenu_pager_arrows=5
+Submenu_text_padding=1,0,8,0
 Submenu_separator=6
-Submenu_separator_slices_X=15,100,15
+Submenu_separator_slices_X=25,80,25
+Submenu_separator_text_padding=3,4,4,8
+Submenu_separator_font="Segoe UI",bold,-10
 
 ; Submenu_separatorV - bitmap to use as a vertical separator between multiple columns
 Submenu_separatorV=7
@@ -180,7 +182,7 @@ User_image_size=48
 ; User_frame_position - horizontal and vertical position of the user image frame in the main menu.
 ; Positive numbers mean offset from the left and the top. Negative numbers mean offset from the bottom and the right
 ; The horizontal position can also be "center", "center1" and "center2" to center the image relative to the whole menu or to the first or second column
-User_frame_position=-10,6
+User_frame_position=-6,6
 
 ; User_bitmap - the frame around the user picture
 User_bitmap=8
@@ -189,7 +191,6 @@ User_bitmap=8
 ; If User_bitmap is missing, the frame is assumed to be 0 pixels and this offset is ignored
 User_image_offset=8,8
 
-User_frame_position=-6,6
 
 [USER_IMAGE AND SMALL_ICONS]
 User_image_size=32
@@ -246,3 +247,7 @@ User_name_align=center2
 
 [NO_ICONS]
 Main_no_icons2=1
+Main_text_padding2=1,7,8,7
+
+[NO_ICONS AND SMALL_ICONS]
+Main_text_padding2=1,3,8,4

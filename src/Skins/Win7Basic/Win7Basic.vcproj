@@ -165,6 +165,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\separator.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\separator2.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\separatorXP.bmp"
 				>
 			</File>

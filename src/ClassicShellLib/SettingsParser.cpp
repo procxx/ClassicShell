@@ -251,6 +251,7 @@ bool CSkinParser::LoadVariation( const wchar_t *fname )
 	{
 		std::vector<const wchar_t*> lines;
 		lines.swap(m_Lines);
+		lines.push_back(L"[TRUE]");
 		ParseText();
 		m_Lines.insert(m_Lines.begin(),lines.begin(),lines.end());
 	}

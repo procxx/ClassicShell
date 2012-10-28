@@ -4,3 +4,4 @@ About=This is the default skin when no other skin is selected or if the selected
 AboutIcon=103
 Main_padding=2,2,2,2
 Submenu_padding=2,2,2,2
+Submenu_separator_text_padding=3,4,4,4

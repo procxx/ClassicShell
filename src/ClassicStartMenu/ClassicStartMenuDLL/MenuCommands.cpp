@@ -14,6 +14,7 @@
 #include "LogManager.h"
 #include "FNVHash.h"
 #include "ResourceHelper.h"
+#include "MetroLinkManager.h"
 #include "resource.h"
 #include <WtsApi32.h>
 #include <PowrProf.h>
@@ -206,6 +207,373 @@ static DWORD WINAPI SleepThread( void *param )
 	return 0;
 }
 
+void CMenuContainer::OpenSubMenu( int index, TActivateType type, bool bShift )
+{
+	const MenuItem &item=m_Items[index];
+	// open a submenu - create a new menu object
+	const StdMenuItem *pSubMenu=item.pStdItem?item.pStdItem->submenu:NULL;
+	bool bOpenUp=false;
+
+	int options=(type==ACTIVATE_OPEN_SEARCH)?CONTAINER_DRAG|CONTAINER_SEARCH:CONTAINER_DRAG|CONTAINER_DROP;
+	if (item.id==MENU_CONTROLPANEL)
+		options|=CONTAINER_CONTROLPANEL;
+	if (item.id==MENU_DOCUMENTS)
+		options|=CONTAINER_DOCUMENTS;
+	if (item.id==MENU_APPS)
+		options|=CONTAINER_APPS;
+	if (item.bPrograms)
+		options|=CONTAINER_PROGRAMS;
+	if (item.bLink || (m_Options&CONTAINER_LINK))
+		options|=CONTAINER_LINK;
+	if ((m_Options&CONTAINER_TRACK) || item.id==MENU_PROGRAMS || item.id==MENU_APPS)
+		options|=CONTAINER_TRACK;
+
+	if (item.id==MENU_RECENT_ITEMS)
+		options|=CONTAINER_RECENT;
+
+	if (m_Options&CONTAINER_OPENUP_REC)
+	{
+		options|=CONTAINER_OPENUP_REC;
+		bOpenUp=true;
+	}
+	if (m_Options&CONTAINER_SORTZA_REC)
+		options|=CONTAINER_SORTZA|CONTAINER_SORTZA_REC;
+
+	if (item.pStdItem)
+	{
+		if (item.pStdItem->settings&StdMenuItem::MENU_OPENUP)
+			bOpenUp=true;
+		if (item.pStdItem->settings&StdMenuItem::MENU_OPENUP_REC)
+			options|=CONTAINER_OPENUP_REC;
+		if (item.pStdItem->settings&StdMenuItem::MENU_SORTZA)
+			options|=CONTAINER_SORTZA;
+		if (item.pStdItem->settings&StdMenuItem::MENU_SORTZA_REC)
+			options|=CONTAINER_SORTZA_REC;
+		if (item.pStdItem->settings&StdMenuItem::MENU_SORTONCE)
+			options|=CONTAINER_SORTONCE;
+		if (item.pStdItem->settings&StdMenuItem::MENU_ITEMS_FIRST)
+			options|=CONTAINER_ITEMS_FIRST;
+		if (item.pStdItem->settings&StdMenuItem::MENU_TRACK)
+			options|=CONTAINER_TRACK;
+		if (item.pStdItem->settings&StdMenuItem::MENU_NOTRACK)
+			options&=~CONTAINER_TRACK;
+		if (item.pStdItem->settings&StdMenuItem::MENU_MULTICOLUMN)
+			options|=CONTAINER_MULTICOL_REC;
+		if (item.pStdItem->settings&StdMenuItem::MENU_NOEXTENSIONS)
+			options|=CONTAINER_NOEXTENSIONS;
+	}
+
+	if (item.bJumpList)
+		options=CONTAINER_JUMPLIST;
+	else if (item.pItem1 && s_pKnownFolders)
+	{
+		PIDLIST_ABSOLUTE pidl=item.pItem1;
+		if (item.bLink)
+		{
+			// resolve link
+			CComPtr<IShellFolder> pFolder;
+			PCUITEMID_CHILD child;
+			SHBindToParent(item.pItem1,IID_IShellFolder,(void**)&pFolder,&child);
+			CComPtr<IShellLink> pLink;
+			if (pFolder)
+				pFolder->GetUIObjectOf(g_OwnerWindow,1,&child,IID_IShellLink,NULL,(void**)&pLink);
+			if (pLink)
+				pLink->GetIDList(&pidl);
+		}
+		CComPtr<IKnownFolder> pFolder;
+		s_pKnownFolders->FindFolderFromIDList(pidl,&pFolder);
+		if (pidl && pidl!=item.pItem1)
+			ILFree(pidl);
+		if (pFolder)
+		{
+			KNOWNFOLDERID id;
+			if (SUCCEEDED(pFolder->GetId(&id)))
+			{
+				for (int i=0;g_SpecialFolders[i].folder;i++)
+					if (*g_SpecialFolders[i].folder==id)
+					{
+						if (g_SpecialFolders[i].settings&SpecialFolder::FOLDER_NOSUBFOLDERS)
+							options|=CONTAINER_NOSUBFOLDERS;
+						if (g_SpecialFolders[i].settings&SpecialFolder::FOLDER_NONEWFOLDER)
+							options|=CONTAINER_NONEWFOLDER;
+						if (g_SpecialFolders[i].settings&SpecialFolder::FOLDER_NODROP)
+							options&=~CONTAINER_DROP;
+						break;
+					}
+			}
+		}
+	}
+
+	if (m_Options&CONTAINER_NOEXTENSIONS)
+		options|=CONTAINER_NOEXTENSIONS;
+
+	if (item.id==MENU_PROGRAMS || item.id==MENU_APPS || (m_Options&CONTAINER_MULTICOL_REC))
+		options|=CONTAINER_MULTICOL_REC;
+	if ((options&CONTAINER_MULTICOL_REC) && !bShift)
+		options|=CONTAINER_MULTICOLUMN;
+
+	CMenuContainer *pMenu=new CMenuContainer(this,index,options,pSubMenu,item.pItem1,item.pItem2,m_RegName+L"\\"+item.name);
+	if (type==ACTIVATE_OPEN_SEARCH)
+	{
+		wchar_t text[256];
+		m_SearchBox.GetWindowText(text,_countof(text));
+		wchar_t *pText=text;
+		while (*pText==' ' || *pText=='\t')
+			pText++;
+		int len=Strlen(pText);
+		while (len>0 && (pText[len-1]==' ' || pText[len-1]=='\t'))
+			len--;
+		pText[len]=0;
+		CharUpper(pText);
+		pMenu->InitItems(m_SearchItems,pText);
+	}
+	else
+		pMenu->InitItems();
+
+	RECT itemRect;
+	GetItemRect(index,itemRect);
+	ClientToScreen(&itemRect);
+	RECT border={-s_Skin.Submenu_padding.left+s_Skin.Submenu_offset,-s_Skin.Submenu_padding.top,s_Skin.Submenu_padding.right-s_Skin.Submenu_offset,s_Skin.Submenu_padding.bottom};
+	if (s_bRTL)
+	{
+		// swap and change signs
+		int q=border.left; border.left=-border.right; border.right=-q;
+		// rc.left and rc.right coming from GetItemRect are swapped
+		q=itemRect.left; itemRect.left=itemRect.right; itemRect.right=q;
+	}
+	AdjustWindowRect(&border,s_SubmenuStyle,FALSE);
+
+	if (m_bSubMenu)
+		pMenu->m_MaxWidth=s_MainRect.right-s_MainRect.left;
+	else if (s_bExpandRight)
+		pMenu->m_MaxWidth=s_MainRect.right-itemRect.right-border.left;
+	else
+		pMenu->m_MaxWidth=itemRect.left+border.right-s_MainRect.left;
+
+	DWORD animFlags=AW_ACTIVATE;
+	{
+		bool bDef;
+		int anim=GetSettingInt(L"SubMenuAnimation",bDef);
+		if (bDef)
+		{
+			DWORD fade;
+			SystemParametersInfo(SPI_GETMENUFADE,NULL,&fade,0);
+			animFlags=AW_ACTIVATE|(fade?AW_BLEND:AW_SLIDE);
+		}
+		if (anim==3) animFlags=AW_ACTIVATE|((rand()<RAND_MAX/2)?AW_BLEND:AW_SLIDE);
+		else if (anim==1) animFlags=AW_ACTIVATE|AW_BLEND;
+		else if (anim==2) animFlags=AW_ACTIVATE|AW_SLIDE;
+	}
+
+	BOOL animate;
+	if ((animFlags&(AW_BLEND|AW_SLIDE))==0 || (m_Submenu>=0 && !GetSettingBool(L"SubMenuAnimationAlways")))
+		animate=FALSE;
+	else
+		SystemParametersInfo(SPI_GETMENUANIMATION,NULL,&animate,0);
+
+	// destroy old submenus
+	SetActiveWindow();
+	for (int i=(int)s_Menus.size()-2;s_Menus[i]!=this;i--)
+		if (!s_Menus[i]->m_bDestroyed)
+			s_Menus[i]->DestroyWindow();
+
+	// open submenu
+	HWND parent=GetParent();
+	pMenu->Create(parent,NULL,NULL,s_SubmenuStyle,WS_EX_TOOLWINDOW|WS_EX_TOPMOST|(s_bRTL?WS_EX_LAYOUTRTL:0));
+	if (!parent)
+	{
+		// place sub-menus in front of the taskbar
+		if (type==ACTIVATE_OPEN_SEARCH)
+			pMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE|SWP_NOACTIVATE);
+		else
+			pMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE);
+	}
+	RECT rc2;
+	pMenu->GetWindowRect(&rc2);
+
+	// position new menu
+	int w=rc2.right-rc2.left;
+	int h=rc2.bottom-rc2.top;
+
+	if (s_bExpandRight)
+	{
+		if (itemRect.right+border.left+w<=s_MainRect.right)
+		{
+			// right
+			rc2.left=itemRect.right+border.left;
+			rc2.right=rc2.left+w;
+			animFlags|=AW_HOR_POSITIVE;
+			pMenu->m_Options|=CONTAINER_LEFT;
+		}
+		else if (itemRect.left+border.right-w>=s_MainRect.left)
+		{
+			// left
+			rc2.right=itemRect.left+border.right;
+			rc2.left=rc2.right-w;
+			animFlags|=AW_HOR_NEGATIVE;
+		}
+		else
+		{
+			// right again
+			rc2.right=s_MainRect.right;
+			rc2.left=rc2.right-w;
+			if (!s_bRTL)
+			{
+				int minx=m_bSubMenu?s_MainRect.left:(itemRect.right+border.left);
+				if (rc2.left<minx)
+				{
+					rc2.left=minx;
+					rc2.right=minx+w;
+				}
+			}
+			animFlags|=AW_HOR_POSITIVE;
+			pMenu->m_Options|=CONTAINER_LEFT;
+		}
+	}
+	else
+	{
+		if (itemRect.left+border.right-w>=s_MainRect.left)
+		{
+			// left
+			rc2.right=itemRect.left+border.right;
+			rc2.left=rc2.right-w;
+			animFlags|=AW_HOR_NEGATIVE;
+		}
+		else if (itemRect.right+border.left+w<=s_MainRect.right)
+		{
+			// right
+			rc2.left=itemRect.right+border.left;
+			rc2.right=rc2.left+w;
+			animFlags|=AW_HOR_POSITIVE;
+			pMenu->m_Options|=CONTAINER_LEFT;
+		}
+		else
+		{
+			// left again
+			rc2.left=s_MainRect.left;
+			rc2.right=rc2.left+w;
+			if (s_bRTL)
+			{
+				int maxx=m_bSubMenu?s_MainRect.right:(itemRect.left+border.right);
+				if (rc2.right>maxx)
+				{
+					rc2.left=maxx-w;
+					rc2.right=maxx;
+				}
+			}
+			animFlags|=AW_HOR_NEGATIVE;
+		}
+	}
+
+	if (s_bRTL)
+		animFlags^=(AW_HOR_POSITIVE|AW_HOR_NEGATIVE); // RTL flips the animation
+
+	int padTop=0, padBottom=0;
+	if (pMenu->m_ScrollHeight)
+	{
+		RECT rcc=pMenu->m_rContent;
+		pMenu->ClientToScreen(&rcc);
+		padTop=rcc.top-rc2.top;
+		padBottom=rc2.bottom-rcc.bottom;
+	}
+
+	if (bOpenUp)
+	{
+		if (itemRect.bottom+border.bottom-h>=s_MainRect.top)
+		{
+			// up
+			rc2.bottom=itemRect.bottom+border.bottom;
+			rc2.top=rc2.bottom-h;
+		}
+		else if (itemRect.top+border.top+h<=s_MainRect.bottom)
+		{
+			// down
+			rc2.top=itemRect.top+border.top;
+			rc2.bottom=rc2.top+h;
+			pMenu->m_Options|=CONTAINER_TOP;
+		}
+		else
+		{
+			// up again
+			rc2.top=s_MainRect.top-padTop;
+			rc2.bottom=rc2.top+h;
+		}
+	}
+	else
+	{
+		if (itemRect.top+border.top+h<=s_MainRect.bottom)
+		{
+			// down
+			rc2.top=itemRect.top+border.top;
+			rc2.bottom=rc2.top+h;
+			pMenu->m_Options|=CONTAINER_TOP;
+		}
+		else if (itemRect.bottom+border.bottom-h>=s_MainRect.top)
+		{
+			// up
+			rc2.bottom=itemRect.bottom+border.bottom;
+			rc2.top=rc2.bottom-h;
+		}
+		else
+		{
+			// down again
+			rc2.bottom=s_MainRect.bottom+padBottom;
+			rc2.top=rc2.bottom-h;
+			pMenu->m_Options|=CONTAINER_TOP;
+		}
+	}
+
+	m_Submenu=index;
+	InvalidateItem(index);
+	if (type!=ACTIVATE_OPEN_SEARCH)
+		SetHotItem(index);
+	UpdateWindow();
+
+	if (type==ACTIVATE_OPEN_SEARCH)
+		pMenu->SetWindowPos(HWND_TOPMOST,&rc2,SWP_SHOWWINDOW|SWP_NOACTIVATE); // can't animate becase AnimateWindow steals focus (even without AW_ACTIVATE)
+	else if (animate)
+	{
+		pMenu->SetWindowPos(HWND_TOPMOST,&rc2,0);
+		int speed=GetSettingInt(L"SubMenuAnimationSpeed");
+		if (speed<=0) speed=MENU_ANIM_SPEED_SUBMENU;
+		else if (speed>=10000) speed=10000;
+		if (!AnimateWindow(pMenu->m_hWnd,speed,animFlags))
+		{
+			if (pMenu->m_SearchBox.m_hWnd)
+				pMenu->m_SearchBox.ShowWindow(SW_SHOW);
+			pMenu->ShowWindow(SW_SHOW); // show the menu anyway if AnimateWindow fails
+		}
+		else
+		{
+			if (pMenu->m_SearchBox.m_hWnd)
+				pMenu->m_SearchBox.ShowWindow(SW_SHOW);
+		}
+	}
+	else
+	{
+		if (pMenu->m_SearchBox.m_hWnd)
+			pMenu->m_SearchBox.ShowWindow(SW_SHOW);
+		pMenu->SetWindowPos(HWND_TOPMOST,&rc2,SWP_SHOWWINDOW);
+	}
+	if (type!=ACTIVATE_OPEN_SEARCH)
+		pMenu->SetFocus();
+	bool bSetHot=false;
+	if (type==ACTIVATE_OPEN_KBD || (type==ACTIVATE_OPEN_SEARCH && m_ResultsHash!=1))
+	{
+		for (int i=0;i<(int)pMenu->m_Items.size();i++)
+			if (pMenu->m_Items[i].id!=MENU_SEPARATOR)
+			{
+				pMenu->SetHotItem(i);
+				bSetHot=true;
+				break;
+			}
+	}
+	if (!bSetHot)
+		pMenu->SetHotItem(-1);
+	if (s_Tooltip.m_hWnd)
+		s_Tooltip.SetWindowPos(HWND_TOP,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE|SWP_NOACTIVATE);
+}
+
 // This function "activates" an item. The item can be activated in multiple ways:
 // ACTIVATE_SELECT - select the item, make sure it is visible
 // ACTIVATE_OPEN - if the item is a submenu, it is opened. otherwise the item is just selected (but all submenus are closed first)
@@ -297,359 +665,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			return;
 		}
 
-		// open a submenu - create a new menu object
-		const StdMenuItem *pSubMenu=item.pStdItem?item.pStdItem->submenu:NULL;
-		bool bOpenUp=false;
-
-		int options=(type==ACTIVATE_OPEN_SEARCH)?CONTAINER_DRAG|CONTAINER_SEARCH:CONTAINER_DRAG|CONTAINER_DROP;
-		if (item.id==MENU_CONTROLPANEL)
-			options|=CONTAINER_CONTROLPANEL;
-		if (item.id==MENU_DOCUMENTS)
-			options|=CONTAINER_DOCUMENTS;
-		if (item.bPrograms)
-			options|=CONTAINER_PROGRAMS;
-		if (item.bLink || (m_Options&CONTAINER_LINK))
-			options|=CONTAINER_LINK;
-		if ((m_Options&CONTAINER_TRACK) || (item.id==MENU_PROGRAMS))
-			options|=CONTAINER_TRACK;
-
-		if (item.id==MENU_RECENT_ITEMS)
-			options|=CONTAINER_RECENT;
-
-		if (m_Options&CONTAINER_OPENUP_REC)
-		{
-			options|=CONTAINER_OPENUP_REC;
-			bOpenUp=true;
-		}
-		if (m_Options&CONTAINER_SORTZA_REC)
-			options|=CONTAINER_SORTZA|CONTAINER_SORTZA_REC;
-
-		if (item.pStdItem)
-		{
-			if (item.pStdItem->settings&StdMenuItem::MENU_OPENUP)
-				bOpenUp=true;
-			if (item.pStdItem->settings&StdMenuItem::MENU_OPENUP_REC)
-				options|=CONTAINER_OPENUP_REC;
-			if (item.pStdItem->settings&StdMenuItem::MENU_SORTZA)
-				options|=CONTAINER_SORTZA;
-			if (item.pStdItem->settings&StdMenuItem::MENU_SORTZA_REC)
-				options|=CONTAINER_SORTZA_REC;
-			if (item.pStdItem->settings&StdMenuItem::MENU_SORTONCE)
-				options|=CONTAINER_SORTONCE;
-			if (item.pStdItem->settings&StdMenuItem::MENU_ITEMS_FIRST)
-				options|=CONTAINER_ITEMS_FIRST;
-			if (item.pStdItem->settings&StdMenuItem::MENU_TRACK)
-				options|=CONTAINER_TRACK;
-			if (item.pStdItem->settings&StdMenuItem::MENU_NOTRACK)
-				options&=~CONTAINER_TRACK;
-			if (item.pStdItem->settings&StdMenuItem::MENU_MULTICOLUMN)
-				options|=CONTAINER_MULTICOL_REC;
-			if (item.pStdItem->settings&StdMenuItem::MENU_NOEXTENSIONS)
-				options|=CONTAINER_NOEXTENSIONS;
-		}
-
-		if (item.pItem1 && s_pKnownFolders)
-		{
-			PIDLIST_ABSOLUTE pidl=item.pItem1;
-			if (item.bLink)
-			{
-				// resolve link
-				CComPtr<IShellFolder> pFolder;
-				PCUITEMID_CHILD child;
-				SHBindToParent(item.pItem1,IID_IShellFolder,(void**)&pFolder,&child);
-				CComPtr<IShellLink> pLink;
-				if (pFolder)
-					pFolder->GetUIObjectOf(g_OwnerWindow,1,&child,IID_IShellLink,NULL,(void**)&pLink);
-				if (pLink)
-					pLink->GetIDList(&pidl);
-			}
-			CComPtr<IKnownFolder> pFolder;
-			s_pKnownFolders->FindFolderFromIDList(pidl,&pFolder);
-			if (pidl && pidl!=item.pItem1)
-				ILFree(pidl);
-			if (pFolder)
-			{
-				KNOWNFOLDERID id;
-				if (SUCCEEDED(pFolder->GetId(&id)))
-				{
-					for (int i=0;g_SpecialFolders[i].folder;i++)
-						if (*g_SpecialFolders[i].folder==id)
-						{
-							if (g_SpecialFolders[i].settings&SpecialFolder::FOLDER_NOSUBFOLDERS)
-								options|=CONTAINER_NOSUBFOLDERS;
-							if (g_SpecialFolders[i].settings&SpecialFolder::FOLDER_NONEWFOLDER)
-								options|=CONTAINER_NONEWFOLDER;
-							if (g_SpecialFolders[i].settings&SpecialFolder::FOLDER_NODROP)
-								options&=~CONTAINER_DROP;
-							break;
-						}
-				}
-			}
-		}
-
-		if (m_Options&CONTAINER_NOEXTENSIONS)
-			options|=CONTAINER_NOEXTENSIONS;
-
-		if (options&CONTAINER_LINK)
-			options&=~(CONTAINER_MULTICOLUMN|CONTAINER_MULTICOL_REC);
-		else
-		{
-			if (item.id==MENU_PROGRAMS || (m_Options&CONTAINER_MULTICOL_REC))
-				options|=CONTAINER_MULTICOL_REC;
-			if ((options&CONTAINER_MULTICOL_REC) && !bShift)
-				options|=CONTAINER_MULTICOLUMN;
-		}
-		CMenuContainer *pMenu=new CMenuContainer(this,index,options,pSubMenu,item.pItem1,item.pItem2,m_RegName+L"\\"+item.name);
-		if (type==ACTIVATE_OPEN_SEARCH)
-		{
-			wchar_t text[256];
-			m_SearchBox.GetWindowText(text,_countof(text));
-			wchar_t *pText=text;
-			while (*pText==' ' || *pText=='\t')
-				pText++;
-			int len=Strlen(pText);
-			while (len>0 && (pText[len-1]==' ' || pText[len-1]=='\t'))
-				len--;
-			pText[len]=0;
-			CharUpper(pText);
-			pMenu->InitItems(m_SearchItems,pText);
-		}
-		else
-			pMenu->InitItems();
-
-		RECT itemRect;
-		GetItemRect(index,itemRect);
-		ClientToScreen(&itemRect);
-		RECT border={-s_Skin.Submenu_padding.left+s_Skin.Submenu_offset,-s_Skin.Submenu_padding.top,s_Skin.Submenu_padding.right-s_Skin.Submenu_offset,s_Skin.Submenu_padding.bottom};
-		if (s_bRTL)
-		{
-			// swap and change signs
-			int q=border.left; border.left=-border.right; border.right=-q;
-			// rc.left and rc.right coming from GetItemRect are swapped
-			q=itemRect.left; itemRect.left=itemRect.right; itemRect.right=q;
-		}
-		AdjustWindowRect(&border,s_SubmenuStyle,FALSE);
-
-		if (m_bSubMenu)
-			pMenu->m_MaxWidth=s_MainRect.right-s_MainRect.left;
-		else if (s_bExpandRight)
-			pMenu->m_MaxWidth=s_MainRect.right-itemRect.right-border.left;
-		else
-			pMenu->m_MaxWidth=itemRect.left+border.right-s_MainRect.left;
-
-		DWORD animFlags=AW_ACTIVATE;
-		{
-			bool bDef;
-			int anim=GetSettingInt(L"SubMenuAnimation",bDef);
-			if (bDef)
-			{
-				DWORD fade;
-				SystemParametersInfo(SPI_GETMENUFADE,NULL,&fade,0);
-				animFlags=AW_ACTIVATE|(fade?AW_BLEND:AW_SLIDE);
-			}
-			if (anim==3) animFlags=AW_ACTIVATE|((rand()<RAND_MAX/2)?AW_BLEND:AW_SLIDE);
-			else if (anim==1) animFlags=AW_ACTIVATE|AW_BLEND;
-			else if (anim==2) animFlags=AW_ACTIVATE|AW_SLIDE;
-		}
-
-		BOOL animate;
-		if ((animFlags&(AW_BLEND|AW_SLIDE))==0 || (m_Submenu>=0 && !GetSettingBool(L"SubMenuAnimationAlways")))
-			animate=FALSE;
-		else
-			SystemParametersInfo(SPI_GETMENUANIMATION,NULL,&animate,0);
-
-		// destroy old submenus
-		SetActiveWindow();
-		for (int i=(int)s_Menus.size()-2;s_Menus[i]!=this;i--)
-			if (!s_Menus[i]->m_bDestroyed)
-				s_Menus[i]->DestroyWindow();
-
-		// open submenu
-		HWND parent=GetParent();
-		pMenu->Create(parent,NULL,NULL,s_SubmenuStyle,WS_EX_TOOLWINDOW|WS_EX_TOPMOST|(s_bRTL?WS_EX_LAYOUTRTL:0));
-		if (!parent)
-		{
-			// place sub-menus in front of the taskbar
-			if (type==ACTIVATE_OPEN_SEARCH)
-				pMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE|SWP_NOACTIVATE);
-			else
-				pMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE);
-		}
-		RECT rc2;
-		pMenu->GetWindowRect(&rc2);
-
-		// position new menu
-		int w=rc2.right-rc2.left;
-		int h=rc2.bottom-rc2.top;
-
-		if (s_bExpandRight)
-		{
-			if (itemRect.right+border.left+w<=s_MainRect.right)
-			{
-				// right
-				rc2.left=itemRect.right+border.left;
-				rc2.right=rc2.left+w;
-				animFlags|=AW_HOR_POSITIVE;
-				pMenu->m_Options|=CONTAINER_LEFT;
-			}
-			else if (itemRect.left+border.right-w>=s_MainRect.left)
-			{
-				// left
-				rc2.right=itemRect.left+border.right;
-				rc2.left=rc2.right-w;
-				animFlags|=AW_HOR_NEGATIVE;
-			}
-			else
-			{
-				// right again
-				rc2.right=s_MainRect.right;
-				rc2.left=rc2.right-w;
-				if (!s_bRTL)
-				{
-					int minx=m_bSubMenu?s_MainRect.left:(itemRect.right+border.left);
-					if (rc2.left<minx)
-					{
-						rc2.left=minx;
-						rc2.right=minx+w;
-					}
-				}
-				animFlags|=AW_HOR_POSITIVE;
-				pMenu->m_Options|=CONTAINER_LEFT;
-			}
-		}
-		else
-		{
-			if (itemRect.left+border.right-w>=s_MainRect.left)
-			{
-				// left
-				rc2.right=itemRect.left+border.right;
-				rc2.left=rc2.right-w;
-				animFlags|=AW_HOR_NEGATIVE;
-			}
-			else if (itemRect.right+border.left+w<=s_MainRect.right)
-			{
-				// right
-				rc2.left=itemRect.right+border.left;
-				rc2.right=rc2.left+w;
-				animFlags|=AW_HOR_POSITIVE;
-				pMenu->m_Options|=CONTAINER_LEFT;
-			}
-			else
-			{
-				// left again
-				rc2.left=s_MainRect.left;
-				rc2.right=rc2.left+w;
-				if (s_bRTL)
-				{
-					int maxx=m_bSubMenu?s_MainRect.right:(itemRect.left+border.right);
-					if (rc2.right>maxx)
-					{
-						rc2.left=maxx-w;
-						rc2.right=maxx;
-					}
-				}
-				animFlags|=AW_HOR_NEGATIVE;
-			}
-		}
-
-		if (s_bRTL)
-			animFlags^=(AW_HOR_POSITIVE|AW_HOR_NEGATIVE); // RTL flips the animation
-
-		int padTop=0, padBottom=0;
-		if (pMenu->m_ScrollHeight)
-		{
-			RECT rcc=pMenu->m_rContent;
-			pMenu->ClientToScreen(&rcc);
-			padTop=rcc.top-rc2.top;
-			padBottom=rc2.bottom-rcc.bottom;
-		}
-
-		if (bOpenUp)
-		{
-			if (itemRect.bottom+border.bottom-h>=s_MainRect.top)
-			{
-				// up
-				rc2.bottom=itemRect.bottom+border.bottom;
-				rc2.top=rc2.bottom-h;
-			}
-			else if (itemRect.top+border.top+h<=s_MainRect.bottom)
-			{
-				// down
-				rc2.top=itemRect.top+border.top;
-				rc2.bottom=rc2.top+h;
-				pMenu->m_Options|=CONTAINER_TOP;
-			}
-			else
-			{
-				// up again
-				rc2.top=s_MainRect.top-padTop;
-				rc2.bottom=rc2.top+h;
-			}
-		}
-		else
-		{
-			if (itemRect.top+border.top+h<=s_MainRect.bottom)
-			{
-				// down
-				rc2.top=itemRect.top+border.top;
-				rc2.bottom=rc2.top+h;
-				pMenu->m_Options|=CONTAINER_TOP;
-			}
-			else if (itemRect.bottom+border.bottom-h>=s_MainRect.top)
-			{
-				// up
-				rc2.bottom=itemRect.bottom+border.bottom;
-				rc2.top=rc2.bottom-h;
-			}
-			else
-			{
-				// down again
-				rc2.bottom=s_MainRect.bottom+padBottom;
-				rc2.top=rc2.bottom-h;
-				pMenu->m_Options|=CONTAINER_TOP;
-			}
-		}
-
-		m_Submenu=index;
-		InvalidateItem(index);
-		if (type!=ACTIVATE_OPEN_SEARCH)
-			SetHotItem(index);
-		UpdateWindow();
-
-		if (type==ACTIVATE_OPEN_SEARCH)
-			pMenu->SetWindowPos(HWND_TOPMOST,&rc2,SWP_SHOWWINDOW|SWP_NOACTIVATE);
-		else if (animate)
-		{
-			pMenu->SetWindowPos(HWND_TOPMOST,&rc2,0);
-			int speed=GetSettingInt(L"SubMenuAnimationSpeed");
-			if (speed<=0) speed=MENU_ANIM_SPEED_SUBMENU;
-			else if (speed>=10000) speed=10000;
-			if (!AnimateWindow(pMenu->m_hWnd,speed,animFlags))
-			{
-				if (pMenu->m_SearchBox.m_hWnd)
-					pMenu->m_SearchBox.ShowWindow(SW_SHOW);
-				pMenu->ShowWindow(SW_SHOW); // show the menu anyway if AnimateWindow fails
-			}
-			else
-			{
-				if (pMenu->m_SearchBox.m_hWnd)
-					pMenu->m_SearchBox.ShowWindow(SW_SHOW);
-			}
-		}
-		else
-		{
-			if (pMenu->m_SearchBox.m_hWnd)
-				pMenu->m_SearchBox.ShowWindow(SW_SHOW);
-			pMenu->SetWindowPos(HWND_TOPMOST,&rc2,SWP_SHOWWINDOW);
-		}
-		if (type!=ACTIVATE_OPEN_SEARCH)
-			pMenu->SetFocus();
-		if (type==ACTIVATE_OPEN_KBD || (type==ACTIVATE_OPEN_SEARCH && m_ResultsHash!=1))
-			pMenu->SetHotItem(0);
-		else
-			pMenu->SetHotItem(-1);
-		if (s_Tooltip.m_hWnd)
-			s_Tooltip.SetWindowPos(HWND_TOP,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE|SWP_NOACTIVATE);
+		OpenSubMenu(index,type,bShift);
 		return;
 	}
 
@@ -674,6 +690,49 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			return;
 		}
 
+		if (m_Options&CONTAINER_JUMPLIST)
+		{
+			if (item.id==MENU_NO)
+			{
+				if (bKeepOpen)
+					LockSetForegroundWindow(LSFW_LOCK);
+				else
+				{
+					LockSetForegroundWindow(LSFW_UNLOCK);
+					FadeOutItem(index);
+				}
+				PlayMenuSound(SOUND_COMMAND);
+				ExecuteJumpItem(s_JumpAppId,s_JumpAppExe,s_JumpList.groups[LOWORD(item.jumpIndex)].items[HIWORD(item.jumpIndex)],g_OwnerWindow);
+			}
+			return;
+		}
+		if (item.bMetroLink)
+		{
+			if (bKeepOpen)
+				LockSetForegroundWindow(LSFW_LOCK);
+			else
+			{
+				LockSetForegroundWindow(LSFW_UNLOCK);
+				FadeOutItem(index);
+			}
+			PlayMenuSound(SOUND_COMMAND);
+			wchar_t path[_MAX_PATH];
+			if (SUCCEEDED(SHGetPathFromIDList(item.pItem1,path)))
+			{
+				ExecuteMetroLink(path);
+				if ((item.id==MENU_RECENT || (m_Options&CONTAINER_TRACK)) && s_bRecentItems)
+				{
+					AddMRUShortcut(path);
+					if (!(m_Options&CONTAINER_LINK))
+						AddItemRank(item.nameHash);
+				}
+			}
+			// close all menus when launching Metro apps
+			for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
+				if (!(*it)->m_bDestroyed)
+					(*it)->PostMessage(WM_CLOSE);
+			return;
+		}
 		if (!item.pItem1)
 		{
 			if (item.id<MENU_PROGRAMS) return; // non-executable item
@@ -915,25 +974,40 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	}
 	else
 	{
-		SHBindToParent(item.pItem1,IID_IShellFolder,(void**)&pFolder,&pidl);
-		if (FAILED(pFolder->GetUIObjectOf(g_OwnerWindow,1,&pidl,IID_IContextMenu,NULL,(void**)&pMenu)))
+		bool bQueryMenu=true;
+		if (m_Options&CONTAINER_JUMPLIST)
 		{
-			DestroyMenu(menu);
-			return;
+			wchar_t path[_MAX_PATH];
+			const CJumpItem &jumpItem=s_JumpList.groups[LOWORD(item.jumpIndex)].items[HIWORD(item.jumpIndex)];
+			// only items or links with no arguments can have a context menu
+			bQueryMenu=(type==ACTIVATE_MENU && (jumpItem.type==CJumpItem::TYPE_ITEM || (jumpItem.type==CJumpItem::TYPE_LINK && !jumpItem.bHasArguments)) && SHGetPathFromIDList(item.pItem1,path));
 		}
+		if (bQueryMenu)
+		{
+			SHBindToParent(item.pItem1,IID_IShellFolder,(void**)&pFolder,&pidl);
+			if (FAILED(pFolder->GetUIObjectOf(g_OwnerWindow,1,&pidl,IID_IContextMenu,NULL,(void**)&pMenu)))
+			{
+				DestroyMenu(menu);
+				return;
+			}
 
-		UINT flags=CMF_DEFAULTONLY;
-		if (type==ACTIVATE_MENU)
-		{
-			flags=CMF_NORMAL|CMF_CANRENAME;
-			if (bShift) flags|=CMF_EXTENDEDVERBS;
-		}
-		if (type==ACTIVATE_EXECUTE && bShift && bCtrl)
-			flags|=CMF_EXTENDEDVERBS;
-		if (FAILED(pMenu->QueryContextMenu(menu,0,CMD_LAST,32767,flags)))
-		{
-			DestroyMenu(menu);
-			return;
+			UINT flags=CMF_DEFAULTONLY;
+			if (type==ACTIVATE_MENU)
+			{
+				flags=CMF_NORMAL|CMF_CANRENAME;
+				if (bShift) flags|=CMF_EXTENDEDVERBS;
+			}
+			if (type==ACTIVATE_DELETE || type==ACTIVATE_PROPERTIES)
+				flags=CMF_NORMAL;
+			if (type==ACTIVATE_RENAME)
+				flags=CMF_NORMAL|CMF_CANRENAME;
+			if (type==ACTIVATE_EXECUTE && bShift && bCtrl)
+				flags|=CMF_EXTENDEDVERBS;
+			if (FAILED(pMenu->QueryContextMenu(menu,0,CMD_LAST,CMD_MAX,flags)))
+			{
+				DestroyMenu(menu);
+				return;
+			}
 		}
 
 		if (item.bFolder && item.pItem2)
@@ -943,32 +1017,29 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			for (int i=0;i<n;i++)
 			{
 				int id=GetMenuItemID(menu,i);
-				if (id>0)
+				char command[256];
+				if (id<CMD_LAST || id>CMD_MAX || FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+					command[0]=0;
+				if (_stricmp(command,"open")==0)
 				{
-					char command[256];
-					if (FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
-						command[0]=0;
-					if (_stricmp(command,"open")==0)
+					if (GetSettingBool(L"EnableExplorer"))
 					{
-						if (GetSettingBool(L"EnableExplorer"))
-						{
-							if (!s_bNoCommonFolders)
-								InsertMenu(menu,i+1,MF_BYPOSITION|MF_STRING,CMD_OPEN_ALL,FindTranslation(L"Menu.OpenAll",L"O&pen All Users"));
-							InsertMenu(menu,i+2,MF_BYPOSITION|MF_SEPARATOR,0,0);
-							i+=2;
-							n+=2;
-							continue;
-						}
-					}
-					else if (_stricmp(command,"rename")==0 || _stricmp(command,"delete")==0)
-					{
-						if (item.id!=MENU_PROGRAMS) continue;
-					}
-					else if (_stricmp(command,"properties")==0)
-					{
-						insertBefore=i;
+						if (!s_bNoCommonFolders)
+							InsertMenu(menu,i+1,MF_BYPOSITION|MF_STRING,CMD_OPEN_ALL,FindTranslation(L"Menu.OpenAll",L"O&pen All Users"));
+						InsertMenu(menu,i+2,MF_BYPOSITION|MF_SEPARATOR,0,0);
+						i+=2;
+						n+=2;
 						continue;
 					}
+				}
+				else if (_stricmp(command,"rename")==0 || _stricmp(command,"delete")==0)
+				{
+					if (item.id!=MENU_PROGRAMS) continue;
+				}
+				else if (_stricmp(command,"properties")==0)
+				{
+					insertBefore=i;
+					continue;
 				}
 				DeleteMenu(menu,i,MF_BYPOSITION);
 				i--;
@@ -982,19 +1053,27 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			for (int i=0;i<n;i++)
 			{
 				int id=GetMenuItemID(menu,i);
-				if (id>0)
-				{
-					char command[256];
-					if (FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+				char command[256];
+				if (id<CMD_LAST || id>CMD_MAX || FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
 						command[0]=0;
-					if (_stricmp(command,"properties")==0)
+				if (_stricmp(command,"properties")==0)
+				{
+					insertBefore=i;
+					continue;
+				}
+				if (!item.bMetroLink)
+				{
+					if (bShift)
 					{
-						insertBefore=i;
-						continue;
+						if (_stricmp(command,"delete")!=0 && _stricmp(command,"rename")!=0)
+							continue;
 					}
-					if (_stricmp(command,"open")==0 || _stricmp(command,"opencontaining")==0 || _stricmp(command,"runas")==0 || _stricmp(command,"runasuser")==0
-						|| _stricmp(command,"taskbarpin")==0 || _stricmp(command,"properties")==0)
-						continue;
+					else
+					{
+						if (_stricmp(command,"open")==0 || _stricmp(command,"opencontaining")==0 || _stricmp(command,"runas")==0 || _stricmp(command,"runasuser")==0
+							|| _stricmp(command,"taskbarpin")==0 || _stricmp(command,"properties")==0)
+							continue;
+					}
 				}
 				DeleteMenu(menu,i,MF_BYPOSITION);
 				i--;
@@ -1002,6 +1081,14 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			}
 			if (insertBefore==-1)
 				insertBefore=n;
+
+			if (item.bMetroLink)
+			{
+				InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,CMD_OPEN,FindTranslation(L"Menu.Open",L"&Open"));
+				SetMenuDefaultItem(menu,0,TRUE);
+				insertBefore++;
+				n++;
+			}
 
 			if (n>0)
 				InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
@@ -1011,6 +1098,35 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_EXPLORE,FindTranslation(L"Menu.Explore",L"&Explore"));
 			InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
 		}
+		else if (type==ACTIVATE_MENU && item.bMetroLink && (item.bProtectedLink || (m_Options&(CONTAINER_APPS|CONTAINER_SEARCH))))
+		{
+			// context menu for a Metro link - just open, properties and Explore
+			int n=GetMenuItemCount(menu);
+			for (int i=0;i<n;i++)
+			{
+				int id=GetMenuItemID(menu,i);
+				char command[256];
+				if (id<CMD_LAST || id>CMD_MAX || FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+					command[0]=0;
+				if (_stricmp(command,"properties")==0)
+				{
+					insertBefore=i;
+					continue;
+				}
+				DeleteMenu(menu,i,MF_BYPOSITION);
+				i--;
+				n--;
+			}
+			InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,CMD_OPEN,FindTranslation(L"Menu.Open",L"&Open"));
+			SetMenuDefaultItem(menu,0,TRUE);
+			insertBefore++;
+			if (GetSettingBool(L"EnableExplorer"))
+			{
+				InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
+				InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_EXPLORE,FindTranslation(L"Menu.Explore",L"&Explore"));
+				InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
+			}
+		}
 		else if (type==ACTIVATE_MENU && (m_Options&CONTAINER_SEARCH))
 		{
 			// context menu for a search item - remove delete, rename and link
@@ -1018,19 +1134,16 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			for (int i=0;i<n;i++)
 			{
 				int id=GetMenuItemID(menu,i);
-				if (id>0)
+				char command[256];
+				if (id<CMD_LAST || id>CMD_MAX || FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+					command[0]=0;
+				if (_stricmp(command,"properties")==0)
 				{
-					char command[256];
-					if (FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
-						command[0]=0;
-					if (_stricmp(command,"properties")==0)
-					{
-						insertBefore=i;
-						continue;
-					}
-					if (_stricmp(command,"delete")!=0 && _stricmp(command,"rename")!=0)
-						continue;
+					insertBefore=i;
+					continue;
 				}
+				if (_stricmp(command,"delete")!=0 && _stricmp(command,"rename")!=0)
+					continue;
 				DeleteMenu(menu,i,MF_BYPOSITION);
 				i--;
 				n--;
@@ -1048,26 +1161,73 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
 			}
 		}
+		else if (m_Options&CONTAINER_JUMPLIST)
+		{
+			// context menu for a jumplist item - just properties
+			int n=GetMenuItemCount(menu);
+			for (int i=0;i<n;i++)
+			{
+				int id=GetMenuItemID(menu,i);
+				char command[256];
+				if (id<CMD_LAST || id>CMD_MAX || FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+					command[0]=0;
+				if (_stricmp(command,"properties")==0)
+					continue;
+				DeleteMenu(menu,i,MF_BYPOSITION);
+				i--;
+				n--;
+			}
+			insertBefore=0;
+			const CJumpGroup &group=s_JumpList.groups[LOWORD(item.jumpIndex)];
+			InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_OPEN,FindTranslation(L"Menu.Open",L"&Open"));
+			SetMenuDefaultItem(menu,0,TRUE);
+			if (group.type!=CJumpGroup::TYPE_TASKS)
+			{
+				InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
+				if (group.type==CJumpGroup::TYPE_PINNED)
+					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_PIN,FindTranslation(L"Menu.Unpin",L"&Unpin from this list"));
+				else
+				{
+					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_PIN,FindTranslation(L"Menu.Pin",L"P&in to this list"));
+					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_DELETEMRU,FindTranslation(L"Menu.RemoveList",L"Remove &from this list"));
+				}
+				if (n>0)
+				{
+					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
+					if (GetSettingBool(L"EnableExplorer"))
+						InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_EXPLORE,FindTranslation(L"Menu.Explore",L"&Explore"));
+				}
+			}
+		}
 		else
 		{
 			int n=GetMenuItemCount(menu);
 			for (int i=0;i<n;i++)
 			{
 				int id=GetMenuItemID(menu,i);
-				if (id>0)
+				char command[256];
+				if (id<CMD_LAST || id>CMD_MAX || FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+					command[0]=0;
+				if (_stricmp(command,"properties")==0)
 				{
-					char command[256];
-					if (FAILED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
-						command[0]=0;
-					if (_stricmp(command,"properties")==0)
-					{
-						insertBefore=i;
-						break;
-					}
+					insertBefore=i;
+					continue;
+				}
+				if (item.bMetroLink && _stricmp(command,"rename")==0)
+				{
+					DeleteMenu(menu,i,MF_BYPOSITION);
+					i--;
+					n--;
 				}
 			}
 			if (insertBefore==-1)
 				insertBefore=n;
+			if (item.bMetroLink)
+			{
+				InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,CMD_OPEN,FindTranslation(L"Menu.Open",L"&Open"));
+				SetMenuDefaultItem(menu,0,TRUE);
+				insertBefore++;
+			}
 		}
 	}
 
@@ -1085,7 +1245,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			for (int i=0;i<n;i++)
 			{
 				int id=GetMenuItemID(menu,i);
-				if (id>=CMD_LAST && SUCCEEDED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+				if (id>=CMD_LAST && id<=CMD_MAX && SUCCEEDED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
 				{
 					if (_stricmp(command,"runas")==0)
 					{
@@ -1112,7 +1272,9 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	}
 	else if (type==ACTIVATE_RENAME || type==ACTIVATE_DELETE || type==ACTIVATE_PROPERTIES)
 	{
-		if (type==ACTIVATE_DELETE && item.id==MENU_RECENT)
+		if ((type==ACTIVATE_RENAME || type==ACTIVATE_DELETE) && item.bMetroLink && (item.bProtectedLink || (m_Options&(CONTAINER_APPS|CONTAINER_SEARCH))))
+			res=0;
+		else if (type==ACTIVATE_DELETE && item.id==MENU_RECENT)
 			res=CMD_DELETEMRU;
 		else
 		{
@@ -1128,7 +1290,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			for (int i=0;i<n;i++)
 			{
 				int id=GetMenuItemID(menu,i);
-				if (id>=CMD_LAST && SUCCEEDED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+				if (id>=CMD_LAST && id<=CMD_MAX && SUCCEEDED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
 				{
 					if (_stricmp(command,name)==0)
 					{
@@ -1150,7 +1312,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			for (int i=0;i<n;i++)
 			{
 				int id=GetMenuItemID(menu,i);
-				if (id>=CMD_LAST && SUCCEEDED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
+				if (id>=CMD_LAST && id<=CMD_MAX && SUCCEEDED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
 				{
 					if ((item.bFolder && _stricmp(command,"open")==0) || _stricmp(command,"opencontaining")==0)
 					{
@@ -1284,6 +1446,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		m_ContextItem=index;
 		InvalidateItem(index);
 		KillTimer(TIMER_HOVER);
+		KillTimer(TIMER_HOVER_SPLIT);
 		res=TrackPopupMenuEx(menu,TPM_LEFTBUTTON|TPM_RETURNCMD|TPM_VERTICAL|(IsLanguageRTL()?TPM_LAYOUTRTL:0),pt2.x,pt2.y,m_hWnd,pParams);
 		m_ContextItem=-1;
 		if (m_HotItem<0) SetHotItem(index);
@@ -1307,6 +1470,45 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	}
 
 	// handle our standard commands
+	if ((m_Options&CONTAINER_JUMPLIST) && res!=CMD_EXPLORE && res<CMD_LAST)
+	{
+		const CJumpGroup &group=s_JumpList.groups[LOWORD(item.jumpIndex)];
+		const CJumpItem &jumpItem=group.items[HIWORD(item.jumpIndex)];
+		if (res==CMD_OPEN)
+		{
+			ExecuteJumpItem(s_JumpAppId,s_JumpAppExe,jumpItem,g_OwnerWindow);
+		}
+		else if (res==CMD_PIN)
+		{
+			PinJumpItem(s_JumpAppId,s_JumpList,LOWORD(item.jumpIndex),HIWORD(item.jumpIndex),group.type!=CJumpGroup::TYPE_PINNED);
+			PostRefreshMessage();
+		}
+		else if (res==CMD_DELETEMRU)
+		{
+			RemoveJumpItem(s_JumpAppId,s_JumpList,LOWORD(item.jumpIndex),HIWORD(item.jumpIndex));
+			PostRefreshMessage();
+		}
+		return;
+	}
+	if (res==CMD_OPEN && item.bMetroLink)
+	{
+		wchar_t path[_MAX_PATH];
+		if (item.pItem1 && SUCCEEDED(SHGetPathFromIDList(item.pItem1,path)))
+		{
+			ExecuteMetroLink(path);
+			if ((item.id==MENU_RECENT || (m_Options&CONTAINER_TRACK)) && s_bRecentItems)
+			{
+				AddMRUShortcut(path);
+				if (!(m_Options&CONTAINER_LINK))
+					AddItemRank(item.nameHash);
+			}
+		}
+		// close all menus when launching Metro apps
+		for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
+			if (!(*it)->m_bDestroyed)
+				(*it)->PostMessage(WM_CLOSE);
+		return;
+	}
 	if (res==CMD_OPEN_ALL)
 	{
 		SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_IDLIST|SEE_MASK_INVOKEIDLIST};
@@ -1618,7 +1820,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 		bool bRefresh=(_stricmp(command,"delete")==0 || _stricmp(command,"link")==0);
 
-		CMINVOKECOMMANDINFOEX info={sizeof(info),CMIC_MASK_UNICODE};
+		CMINVOKECOMMANDINFOEX info={sizeof(info),CMIC_MASK_UNICODE|CMIC_MASK_FLAG_LOG_USAGE};
 		info.lpVerb=MAKEINTRESOURCEA(res-CMD_LAST);
 		info.lpVerbW=MAKEINTRESOURCEW(res-CMD_LAST);
 		info.nShow=SW_SHOWNORMAL;
@@ -1636,7 +1838,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		if (bRefresh)
 			info.fMask|=CMIC_MASK_NOASYNC; // wait for delete/link commands to finish so we can refresh the menu
 
-		if (GetWinVersion()<WIN_VER_WIN8)
+		if ((type!=ACTIVATE_MENU && type!=ACTIVATE_DELETE) || GetWinVersion()<WIN_VER_WIN8)
 		{
 			// prevent the menu from closing. the command may need a HWND to show its UI.
 			// this doesn't work on Win8 because the popups (like from the Delete command) are not top-most.
@@ -1654,24 +1856,6 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		::SetForegroundWindow(g_OwnerWindow);
 		::SetWindowPos(g_OwnerWindow,HWND_TOPMOST,rc.left,rc.top,rc.right-rc.left,rc.bottom-rc.top,0);
 		HRESULT hr=pMenu->InvokeCommand((LPCMINVOKECOMMANDINFO)&info);
-
-		// on Windows 7 the executed documents are not automatically added to the recent document list
-		if (SUCCEEDED(hr) && item.pItem1 && _stricmp(command,"open")==0 && !item.bFolder && GetWinVersion()>=WIN_VER_WIN7)
-		{
-			PIDLIST_ABSOLUTE path=item.pItem1;
-			// assume it is a link and try to get the target path
-			CComPtr<IShellLink> pLink;
-			if (pFolder)
-				pFolder->GetUIObjectOf(g_OwnerWindow,1,&pidl,IID_IShellLink,NULL,(void**)&pLink);
-			if (pLink)
-				pLink->GetIDList(&path);
-			if (path)
-			{
-				SHAddToRecentDocs(SHARD_PIDL,path);
-				if (path!=item.pItem1)
-					ILFree(path);
-			}
-		}
 		if (type==ACTIVATE_EXECUTE && SUCCEEDED(hr))
 		{
 			if ((item.id==MENU_RECENT || (m_Options&CONTAINER_TRACK)) && s_bRecentItems)
@@ -1708,7 +1892,13 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		{
 			SetForegroundWindow(m_hWnd);
 			SetActiveWindow();
-			SetFocus();
+			if (m_Options&CONTAINER_SEARCH)
+			{
+				m_pParent->m_SearchBox.SetFocus();
+				SetWindowPos(HWND_TOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+			}
+			else
+				SetFocus();
 		}
 		s_pDragSource=NULL;
 

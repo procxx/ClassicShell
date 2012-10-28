@@ -24,6 +24,29 @@ HANDLE CIconManager::s_PostloadEvent;
 
 CIconManager g_IconManager; // must be after s_PreloadedIcons and s_PreloadSection because the constructor starts a thread that uses the Preloaded stuff
 
+// Creates a shield icon in the bottom/right corner
+static HBITMAP GetShieldOverlay( HDC hdc, const wchar_t *path, int index, int iconSize )
+{
+	BITMAPINFO bi={0};
+	bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
+	bi.bmiHeader.biWidth=bi.bmiHeader.biHeight=iconSize;
+	bi.bmiHeader.biPlanes=1;
+	bi.bmiHeader.biBitCount=32;
+	RECT rc={0,0,iconSize,iconSize};
+
+	HBITMAP bmp=CreateDIBSection(hdc,&bi,DIB_RGB_COLORS,NULL,NULL,0);
+	HGDIOBJ bmp0=SelectObject(hdc,bmp);
+	FillRect(hdc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
+	HICON hIcon=ShExtractIcon(path,index,iconSize/2);
+	if (hIcon)
+	{
+		DrawIconEx(hdc,iconSize-iconSize/2,iconSize-iconSize/2,hIcon,iconSize/2,iconSize/2,0,NULL,DI_NORMAL);
+		DestroyIcon(hIcon);
+	}
+	SelectObject(hdc,bmp0);
+	return bmp;
+}
+
 void CIconManager::Init( void )
 {
 	wchar_t path[_MAX_PATH];
@@ -46,8 +69,31 @@ void CIconManager::Init( void )
 
 	bool bRTL=IsLanguageRTL();
 	// create the image lists
-	m_LargeIcons=ImageList_Create(LARGE_ICON_SIZE,LARGE_ICON_SIZE,ILC_COLOR32|ILC_MASK|(bRTL?ILC_MIRROR:0),1,16);
-	m_SmallIcons=ImageList_Create(SMALL_ICON_SIZE,SMALL_ICON_SIZE,ILC_COLOR32|ILC_MASK|(bRTL?ILC_MIRROR:0),1,16);
+	m_LargeIcons=ImageList_Create(LARGE_ICON_SIZE,LARGE_ICON_SIZE,ILC_COLOR32|ILC_MASK|(bRTL?ILC_MIRROR:0),2,16);
+	m_SmallIcons=ImageList_Create(SMALL_ICON_SIZE,SMALL_ICON_SIZE,ILC_COLOR32|ILC_MASK|(bRTL?ILC_MIRROR:0),2,16);
+	m_TempSmallIcons=ImageList_Create(SMALL_ICON_SIZE,SMALL_ICON_SIZE,ILC_COLOR32|ILC_MASK|(bRTL?ILC_MIRROR:0),2,16);
+
+	// add shield overlay icons
+	{
+		SHSTOCKICONINFO sii={sizeof(sii)};
+		HDC hdc=CreateCompatibleDC(NULL);
+		SHGetStockIconInfo(SIID_SHIELD,SHGSI_ICONLOCATION,&sii);
+
+		HBITMAP bmp=GetShieldOverlay(hdc,sii.szPath,sii.iIcon,LARGE_ICON_SIZE);
+		ImageList_AddMasked(m_LargeIcons,bmp,CLR_NONE);
+		ImageList_SetOverlayImage(m_LargeIcons,0,1);
+		DeleteObject(bmp);
+
+		bmp=GetShieldOverlay(hdc,sii.szPath,sii.iIcon,SMALL_ICON_SIZE);
+		ImageList_AddMasked(m_SmallIcons,bmp,CLR_NONE);
+		ImageList_SetOverlayImage(m_SmallIcons,0,1);
+		s_IconLocations.push_back(IconLocation());
+
+		ImageList_AddMasked(m_TempSmallIcons,bmp,CLR_NONE);
+		ImageList_SetOverlayImage(m_TempSmallIcons,0,1);
+		DeleteObject(bmp);
+		DeleteDC(hdc);
+	}
 
 	// add default blank icons (default icon for file with no extension)
 	SHFILEINFO info;
@@ -59,9 +105,11 @@ void CIconManager::Init( void )
 	if (SHGetFileInfo(L"file",FILE_ATTRIBUTE_NORMAL,&info,sizeof(info),SHGFI_USEFILEATTRIBUTES|SHGFI_ICON|SHGFI_SMALLICON))
 	{
 		ImageList_AddIcon(m_SmallIcons,info.hIcon);
+		ImageList_AddIcon(m_TempSmallIcons,info.hIcon);
 		s_IconLocations.push_back(IconLocation());
 		DestroyIcon(info.hIcon);
 	}
+	m_TempSmallCount=ImageList_GetImageCount(m_TempSmallIcons);
 
 	s_LoadingStage=LOAD_LOADING;
 	InitializeCriticalSection(&s_PreloadSection);
@@ -107,6 +155,7 @@ CIconManager::~CIconManager( void )
 {
 	if (m_LargeIcons) ImageList_Destroy(m_LargeIcons);
 	if (m_SmallIcons) ImageList_Destroy(m_SmallIcons);
+	if (m_TempSmallIcons) ImageList_Destroy(m_TempSmallIcons);
 }
 
 // Retrieves an icon from a shell folder and child ID
@@ -122,22 +171,24 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 	bool bUseFactory=false;
 	IconLocation loc;
 	unsigned int key;
+	int shieldFlag=0;
 	if (SUCCEEDED(hr))
 	{
 		// get the icon location
 		wchar_t location[_MAX_PATH];
 		int index=0;
 		UINT flags=0;
-		hr=pExtract->GetIconLocation(0,location,_countof(location),&index,&flags);
+		hr=pExtract->GetIconLocation(GIL_CHECKSHIELD,location,_countof(location),&index,&flags);
 		if (hr!=S_OK)
-			return 0;
+			return ICON_INDEX_DEFAULT;
 
+		shieldFlag=(flags&GIL_SHIELD)?ICON_SHIELD_FLAG:0;
 		// check if this location+index is in the cache
 		key=CalcFNVHash(location,CalcFNVHash(&index,4));
 		if (bLarge)
 		{
 			if (m_LargeCache.find(key)!=m_LargeCache.end())
-				return m_LargeCache[key];
+				return m_LargeCache[key]|shieldFlag;
 		}
 		else
 		{
@@ -146,7 +197,7 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 			if (m_SmallCache.find(key)!=m_SmallCache.end())
 				res=m_SmallCache[key];
 			LeaveCriticalSection(&s_PreloadSection);
-			if (res>=0) return res;
+			if (res>=0) return res|shieldFlag;
 		}
 
 		// extract the icon
@@ -206,22 +257,23 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 		CComPtr<IExtractIconA> pExtractA;
 		hr=pFolder->GetUIObjectOf(NULL,1,&item,IID_IExtractIconA,NULL,(void**)&pExtractA);
 		if (FAILED(hr))
-			return 0;
+			return ICON_INDEX_DEFAULT;
 
 		// get the icon location
 		char location[_MAX_PATH];
 		int index=0;
 		UINT flags=0;
-		hr=pExtractA->GetIconLocation(0,location,_countof(location),&index,&flags);
+		hr=pExtractA->GetIconLocation(GIL_CHECKSHIELD,location,_countof(location),&index,&flags);
 		if (hr!=S_OK)
-			return 0;
+			return ICON_INDEX_DEFAULT;
 
+		shieldFlag=(flags&GIL_SHIELD)?ICON_SHIELD_FLAG:0;
 		// check if this location+index is in the cache
 		key=CalcFNVHash(location,CalcFNVHash(&index,4));
 		if (bLarge)
 		{
 			if (m_LargeCache.find(key)!=m_LargeCache.end())
-				return m_LargeCache[key];
+				return m_LargeCache[key]|shieldFlag;
 		}
 		else
 		{
@@ -230,7 +282,7 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 			if (m_SmallCache.find(key)!=m_SmallCache.end())
 				res=m_SmallCache[key];
 			LeaveCriticalSection(&s_PreloadSection);
-			if (res>=0) return res;
+			if (res>=0) return res|shieldFlag;
 		}
 
 		// extract the icon
@@ -286,7 +338,7 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 	}
 
 	// add to the image list
-	int res=0;
+	int res=ICON_INDEX_DEFAULT;
 	if (bUseFactory)
 	{
 		// use the image factory to get icons that are larger than the system icon size
@@ -314,7 +366,7 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 		// post-load
 		res=ImageList_GetImageCount(m_SmallIcons);
 		ImageList_SetImageCount(m_SmallIcons,res+1);
-		ImageList_Copy(m_SmallIcons,res,m_SmallIcons,0,ILCF_MOVE);
+		ImageList_Copy(m_SmallIcons,res,m_SmallIcons,ICON_INDEX_DEFAULT,ILCF_MOVE);
 		loc.bTemp=true;
 	}
 
@@ -340,16 +392,197 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 #endif
 	}
 
-	return res;
+	return res|shieldFlag;
 }
 
 // Retrieves an icon from a file and icon index (index>=0 - icon index, index<0 - resource ID)
-int CIconManager::GetIcon( const wchar_t *location, int index, bool bLarge )
+int CIconManager::GetIcon( const wchar_t *location, int index, TIconType type )
 {
 	ProcessLoadedIcons();
 
 	// check if this location+index is in the cache
 	unsigned int key=CalcFNVHash(location,CalcFNVHash(&index,4));
+	if (type==ICON_TYPE_LARGE)
+	{
+		if (m_LargeCache.find(key)!=m_LargeCache.end())
+			return m_LargeCache[key];
+	}
+	else
+	{
+		if (type==ICON_TYPE_TEMP && m_TempSmallCache.find(key)!=m_TempSmallCache.end())
+			return m_TempSmallCache[key];
+		EnterCriticalSection(&s_PreloadSection);
+		int res=-1;
+		if (m_SmallCache.find(key)!=m_SmallCache.end())
+			res=m_SmallCache[key];
+		LeaveCriticalSection(&s_PreloadSection);
+		if (res>=0) return res;
+	}
+
+	// extract icon
+	HICON hIcon;
+	HMODULE hMod=*location?GetModuleHandle(PathFindFileName(location)):g_Instance;
+	int iconSize=(type==ICON_TYPE_LARGE)?LARGE_ICON_SIZE:SMALL_ICON_SIZE;
+	if (hMod && index<0)
+		hIcon=(HICON)LoadImage(hMod,MAKEINTRESOURCE(-index),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+	else
+		hIcon=ShExtractIcon(location,index==-1?0:index,iconSize);
+
+	// add to the image list
+	if (hIcon)
+	{
+		if (type==ICON_TYPE_LARGE)
+		{
+			index=ImageList_AddIcon(m_LargeIcons,hIcon);
+			DestroyIcon(hIcon);
+		}
+		else if (type==ICON_TYPE_TEMP)
+		{
+			index=ImageList_AddIcon(m_TempSmallIcons,hIcon);
+			DestroyIcon(hIcon);
+		}
+		else
+		{
+			index=ImageList_AddIcon(m_SmallIcons,hIcon);
+			DestroyIcon(hIcon);
+			EnterCriticalSection(&s_PostloadSection);
+			s_IconLocations.push_back(IconLocation());
+			LeaveCriticalSection(&s_PostloadSection);
+		}
+	}
+	else
+		index=ICON_INDEX_DEFAULT;
+
+	// add to the cache
+	if (type==ICON_TYPE_LARGE)
+		m_LargeCache[key]=index;
+	else if (type==ICON_TYPE_TEMP)
+	{
+		index|=ICON_TEMP_FLAG;
+		m_TempSmallCache[key]=index;
+	}
+	else
+	{
+		EnterCriticalSection(&s_PreloadSection);
+		m_SmallCache[key]=index;
+		LeaveCriticalSection(&s_PreloadSection);
+
+#ifdef _DEBUG
+		int n=ImageList_GetImageCount(m_SmallIcons);
+		ATLASSERT(n==s_IconLocations.size());
+#endif
+	}
+
+	return index;
+}
+
+static int g_MetroIconScales[]={80,100,140,180}; // 24, 30, 42, 54 pixels
+
+static bool FindMetroIcon( wchar_t *path, const wchar_t *fname, const wchar_t *ext, int iconSize )
+{
+	// pick the best sized icon
+	int start;
+	if (iconSize<=24)
+		start=0;
+	else if (iconSize<=30)
+		start=1;
+	else if (iconSize<=42)
+		start=2;
+	else
+		start=3;
+	int len=Strlen(path);
+	for (int i=start;i<_countof(g_MetroIconScales);i++) // correct size or bigger (will scale down)
+	{
+		Sprintf(path+len,_MAX_PATH-len,L"\\%s.scale-%d%s",fname,g_MetroIconScales[i],ext);
+		if (GetFileAttributes(path)!=INVALID_FILE_ATTRIBUTES)
+			return true;
+	}
+	for (int i=start-1;i>=0;i--) // smaller (will scale up)
+	{
+		Sprintf(path+len,_MAX_PATH-len,L"\\%s.scale-%d%s",fname,g_MetroIconScales[i],ext);
+		if (GetFileAttributes(path)!=INVALID_FILE_ATTRIBUTES)
+			return true;
+	}
+	Sprintf(path+len,_MAX_PATH-len,L"\\%s%s",fname,ext); // no scale modifier
+	if (GetFileAttributes(path)!=INVALID_FILE_ATTRIBUTES)
+		return true;
+	return false;
+}
+
+static HBITMAP LoadMetroIcon( const wchar_t *packagePath, const wchar_t *iconPath, DWORD color, int iconSize )
+{
+	SIZE size={iconSize-2,iconSize-2};
+
+	static wchar_t languages[100];
+	if (!languages[0])
+	{
+		ULONG size=4; // up to 4 languages
+		ULONG len=_countof(languages);
+		GetThreadPreferredUILanguages(MUI_LANGUAGE_NAME,&size,languages,&len);
+	}
+
+	wchar_t fname[_MAX_PATH];
+	Strcpy(fname,_countof(fname),iconPath);
+	wchar_t ext[_MAX_EXT];
+	wchar_t *pExt=PathFindExtension(fname);
+	Strcpy(ext,_countof(ext),pExt);
+	*pExt=NULL;
+	bool bFound=false;
+	wchar_t path[_MAX_PATH];
+	// pick the icon for the right language
+	for (const wchar_t *language=languages;*language;language+=Strlen(language)+1)
+	{
+		Sprintf(path,_countof(path),L"%s\\%s",packagePath,language);
+		bFound=FindMetroIcon(path,fname,ext,size.cx);
+		if (bFound)
+			break;
+	}
+
+	// no language
+	if (!bFound)
+	{
+		Strcpy(path,_countof(path),packagePath);
+		bFound=FindMetroIcon(path,fname,ext,size.cx);
+	}
+	if (!bFound) return NULL;
+
+	HBITMAP bmp=LoadImageFile(path,&size,true);
+	if (!bmp) return NULL;
+
+	// fill with the background color and paint the icon on top
+	BITMAPINFO bi={0};
+	bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
+	bi.bmiHeader.biWidth=bi.bmiHeader.biHeight=iconSize;
+	bi.bmiHeader.biPlanes=1;
+	bi.bmiHeader.biBitCount=32;
+	RECT rc={0,0,iconSize,iconSize};
+
+	HDC hdc=CreateCompatibleDC(NULL);
+	HGDIOBJ bmp0=SelectObject(hdc,bmp);
+	HDC hdc2=CreateCompatibleDC(NULL);
+	unsigned int *bits;
+	HBITMAP bmp2=CreateDIBSection(hdc2,&bi,DIB_RGB_COLORS,(void**)&bits,NULL,0);
+	int n=iconSize*iconSize;
+	color=((color&255)<<16)|(color&0xFF00)|((color>>16)&255)|0xFF000000;
+	for (int i=0;i<n;i++)
+		bits[i]=color;
+	HGDIOBJ bmp02=SelectObject(hdc2,bmp2);
+	BLENDFUNCTION func={AC_SRC_OVER,0,255,AC_SRC_ALPHA};
+	AlphaBlend(hdc2,1,1,iconSize-2,iconSize-2,hdc,0,0,iconSize-2,iconSize-2,func);
+	SelectObject(hdc2,bmp02);
+	DeleteDC(hdc2);
+	SelectObject(hdc,bmp0);
+	DeleteDC(hdc);
+	DeleteObject(bmp);
+	return bmp2;
+}
+
+int CIconManager::GetMetroIcon( const wchar_t *packagePath, const wchar_t *iconPath, DWORD color, bool bLarge )
+{
+	ProcessLoadedIcons();
+
+	// check if this location+color is in the cache
+	unsigned int key=CalcFNVHash(iconPath,CalcFNVHash(packagePath,CalcFNVHash(&color,4)));
 	if (bLarge)
 	{
 		if (m_LargeCache.find(key)!=m_LargeCache.end())
@@ -365,20 +598,15 @@ int CIconManager::GetIcon( const wchar_t *location, int index, bool bLarge )
 		if (res>=0) return res;
 	}
 
-	// extract icon
-	HICON hIcon;
-	HMODULE hMod=*location?GetModuleHandle(PathFindFileName(location)):g_Instance;
-	int iconSize=bLarge?LARGE_ICON_SIZE:SMALL_ICON_SIZE;
-	if (hMod && index<0)
-		hIcon=(HICON)LoadImage(hMod,MAKEINTRESOURCE(-index),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
-	else
-		hIcon=ShExtractIcon(location,index==-1?0:index,iconSize);
+	int index=ICON_INDEX_DEFAULT;
 
-	// add to the image list
-	if (hIcon)
+	// load bitmap
+	int iconSize=bLarge?LARGE_ICON_SIZE:SMALL_ICON_SIZE;
+	HBITMAP bmp=LoadMetroIcon(packagePath,iconPath,color,iconSize);
+	if (bmp)
 	{
-		index=ImageList_AddIcon(bLarge?m_LargeIcons:m_SmallIcons,hIcon);
-		DestroyIcon(hIcon);
+		index=ImageList_Add(bLarge?m_LargeIcons:m_SmallIcons,bmp,NULL);
+		DeleteObject(bmp);
 		if (!bLarge)
 		{
 			EnterCriticalSection(&s_PostloadSection);
@@ -386,8 +614,6 @@ int CIconManager::GetIcon( const wchar_t *location, int index, bool bLarge )
 			LeaveCriticalSection(&s_PostloadSection);
 		}
 	}
-	else
-		index=0;
 
 	// add to the cache
 	if (bLarge)
@@ -419,7 +645,7 @@ int CIconManager::GetCustomIcon( const wchar_t *path, bool bLarge )
 		*c=0;
 		index=-_wtol(c+1);
 	}
-	return GetIcon(text,index,bLarge);
+	return GetIcon(text,index,bLarge?ICON_TYPE_LARGE:ICON_TYPE_SMALL);
 }
 
 void CIconManager::ProcessLoadedIcons( void )
@@ -466,6 +692,13 @@ void CIconManager::ProcessLoadedIcons( void )
 	}
 	s_PreloadedBitmaps.clear();
 	LeaveCriticalSection(&s_PreloadSection);
+}
+
+// Resets the temp icon list
+void CIconManager::ResetTempIcons( void )
+{
+	ImageList_SetImageCount(m_TempSmallIcons,m_TempSmallCount);
+	m_TempSmallCache.clear();
 }
 
 // Recursive function to preload the icons for a folder
@@ -754,7 +987,8 @@ void CIconManager::ResetUsedIcons( void )
 // Marks the icon as used
 void CIconManager::AddUsedIcon( int icon )
 {
-	s_IconLocations[icon].bUsed=true;
+	if (!(icon&CIconManager::ICON_TEMP_FLAG))
+		s_IconLocations[icon&ICON_INDEX_MASK].bUsed=true;
 }
 
 // Wakes up the post-loading thread (also unlocks s_PostloadSection)

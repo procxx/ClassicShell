@@ -4,6 +4,7 @@
 #pragma once
 
 #include "SkinManager.h"
+#include "JumpLists.h"
 #include <vector>
 #include <map>
 
@@ -26,11 +27,14 @@ enum TMenuID
 	MENU_EMPTY,
 	MENU_EMPTY_TOP,
 	MENU_RECENT,
+	MENU_JUMPITEM,
 	MENU_COLUMN_PADDING,
 	MENU_COLUMN_BREAK,
 
 	// standard menu items
 	MENU_PROGRAMS,
+	MENU_APPS,
+	MENU_COMPUTER,
 	MENU_FAVORITES,
 	MENU_DOCUMENTS,
 		MENU_USERFILES,
@@ -181,30 +185,32 @@ public:
 	// options when creating a container
 	enum
 	{
-		CONTAINER_LARGE        = 0x000001, // use large icons
-		CONTAINER_MULTICOLUMN  = 0x000002, // use multiple columns instead of a single scrolling column
-		CONTAINER_MULTICOL_REC = 0x000004, // the children will be multi-column
-		CONTAINER_CONTROLPANEL = 0x000008, // this is the control panel, don't go into subfolders
-		CONTAINER_PROGRAMS     = 0x000010, // this is a folder from the Start Menu hierarchy (drop operations prefer link over move)
-		CONTAINER_DOCUMENTS    = 0x000020, // sort by time, limit the count (for recent documents)
-		CONTAINER_ALLPROGRAMS  = 0x000040, // this is the main menu of All Programs (combines the Start Menu and Programs folders)
-		CONTAINER_RECENT       = 0x000080, // insert recent programs (sorted by time)
-		CONTAINER_LINK         = 0x000100, // this is an expanded link to a folder (always scrolling)
-		CONTAINER_ITEMS_FIRST  = 0x000200, // put standard items at the top
-		CONTAINER_DRAG         = 0x000400, // allow items to be dragged out
-		CONTAINER_DROP         = 0x000800, // allow dropping of items
-		CONTAINER_LEFT         = 0x001000, // the window is aligned on the left
-		CONTAINER_TOP          = 0x002000, // the window is aligned on the top
-		CONTAINER_AUTOSORT     = 0x004000, // the menu is always in alphabetical order
-		CONTAINER_OPENUP_REC   = 0x008000, // the container's children will prefer to open up instead of down
-		CONTAINER_SORTZA       = 0x010000, // the container will sort backwards by default
-		CONTAINER_SORTZA_REC   = 0x020000, // the container's children will sort backwards by default
-		CONTAINER_SORTONCE     = 0x040000, // the container will save the sort order the first time the menu is opened
-		CONTAINER_TRACK        = 0x080000, // track shortcuts from this menu
-		CONTAINER_NOSUBFOLDERS = 0x100000, // don't go into subfolders
-		CONTAINER_NONEWFOLDER  = 0x200000, // don't show the "New Folder" command
-		CONTAINER_SEARCH       = 0x400000, // this is he search results submenu
-		CONTAINER_NOEXTENSIONS = 0x800000, // hide extensions
+		CONTAINER_LARGE        = 0x0000001, // use large icons
+		CONTAINER_MULTICOLUMN  = 0x0000002, // use multiple columns instead of a single scrolling column
+		CONTAINER_MULTICOL_REC = 0x0000004, // the children will be multi-column
+		CONTAINER_CONTROLPANEL = 0x0000008, // this is the control panel, don't go into subfolders
+		CONTAINER_PROGRAMS     = 0x0000010, // this is a folder from the Start Menu hierarchy (drop operations prefer link over move)
+		CONTAINER_DOCUMENTS    = 0x0000020, // sort by time, limit the count (for recent documents)
+		CONTAINER_ALLPROGRAMS  = 0x0000040, // this is the main menu of All Programs (combines the Start Menu and Programs folders)
+		CONTAINER_RECENT       = 0x0000080, // insert recent programs (sorted by time)
+		CONTAINER_LINK         = 0x0000100, // this is an expanded link to a folder (always scrolling)
+		CONTAINER_ITEMS_FIRST  = 0x0000200, // put standard items at the top
+		CONTAINER_DRAG         = 0x0000400, // allow items to be dragged out
+		CONTAINER_DROP         = 0x0000800, // allow dropping of items
+		CONTAINER_LEFT         = 0x0001000, // the window is aligned on the left
+		CONTAINER_TOP          = 0x0002000, // the window is aligned on the top
+		CONTAINER_AUTOSORT     = 0x0004000, // the menu is always in alphabetical order
+		CONTAINER_OPENUP_REC   = 0x0008000, // the container's children will prefer to open up instead of down
+		CONTAINER_SORTZA       = 0x0010000, // the container will sort backwards by default
+		CONTAINER_SORTZA_REC   = 0x0020000, // the container's children will sort backwards by default
+		CONTAINER_SORTONCE     = 0x0040000, // the container will save the sort order the first time the menu is opened
+		CONTAINER_TRACK        = 0x0080000, // track shortcuts from this menu
+		CONTAINER_NOSUBFOLDERS = 0x0100000, // don't go into subfolders
+		CONTAINER_NONEWFOLDER  = 0x0200000, // don't show the "New Folder" command
+		CONTAINER_SEARCH       = 0x0400000, // this is he search results submenu
+		CONTAINER_NOEXTENSIONS = 0x0800000, // hide extensions
+		CONTAINER_JUMPLIST     = 0x1000000, // this is a jumplist menu
+		CONTAINER_APPS         = 0x2000000, // this is the folder for Metro apps
 	};
 
 	CMenuContainer( CMenuContainer *pParent, int index, int options, const StdMenuItem *pStdItem, PIDLIST_ABSOLUTE path1, PIDLIST_ABSOLUTE path2, const CString &regName );
@@ -307,6 +313,10 @@ private:
 		bool bInlineFirst:1; // this item is the first from the inlined group
 		bool bInlineLast:1; // this item is the last from the inlined group
 		bool bSplit:1; // split button item
+		bool bJumpList:1; // this item has a jump list
+		bool bMetroLink:1; // this is a Windows 8 Metro shortcut
+		bool bProtectedLink:1; // this is a protected Metro shortcut (can't be deleted or renamed)
+		bool bBlankSeparator:1; // this is a blank separator that is the same size as normal items
 		char priority; // used for sorting of the All Programs menu
 
 		// pair of shell items. 2 items are used to combine a user folder with a common folder (I.E. user programs/common programs)
@@ -316,6 +326,7 @@ private:
 		{
 			UINT accelerator; // accelerator character, 0 if none
 			FILETIME time; // timestamp of the file (for sorting recent documents)
+			int jumpIndex; // MAKELONG(group,item)
 		};
 
 		bool operator<( const MenuItem &x ) const
@@ -422,7 +433,7 @@ private:
 	int m_ContextItem; // force this to be the hot item while a context menu is up
 	HBITMAP m_Bitmap; // the background bitmap
 	HBITMAP m_ArrowsBitmap[4]; // normal, selected, normal2, selected2
-	HFONT m_Font[2];
+	HFONT m_Font[4]; // first, second, first separator, second separator
 	HRGN m_Region; // the outline region
 	int m_MaxWidth;
 	bool m_bTwoColumns;
@@ -431,7 +442,7 @@ private:
 	int m_ItemHeight[2];
 	int m_MaxItemWidth[2];
 	int m_IconTopOffset[2]; // offset from the top of the item to the top of the icon
-	int m_TextTopOffset[2]; // offset from the top of the item to the top of the text
+	int m_TextTopOffset[4]; // offset from the top of the item to the top of the text
 	RECT m_rUser1; // the user image (0,0,0,0 if the user image is not shown)
 	RECT m_rUser2; // the user name (0,0,0,0 if the user name is not shown)
 	RECT m_rPadding; // padding in the menu where right-click is possible
@@ -458,6 +469,7 @@ private:
 		PIDLIST_ABSOLUTE pidl;
 		int rank;
 		mutable int icon;
+		bool bMetroLink;
 
 		bool MatchText( const wchar_t *search ) const;
 		bool operator<( const SearchItem &item ) const { return rank>item.rank || (rank==item.rank && wcscmp(name,item.name)<0); }
@@ -470,7 +482,8 @@ private:
 	// additional commands for the context menu
 	enum
 	{
-		CMD_OPEN_ALL=1,
+		CMD_OPEN=1,
+		CMD_OPEN_ALL,
 		CMD_SORT,
 		CMD_AUTOSORT,
 		CMD_NEWFOLDER,
@@ -478,8 +491,10 @@ private:
 		CMD_DELETEMRU,
 		CMD_DELETEALL,
 		CMD_EXPLORE,
+		CMD_PIN,
 
-		CMD_LAST
+		CMD_LAST,
+		CMD_MAX=32767
 	};
 
 	// ways to activate a menu item
@@ -521,10 +536,11 @@ private:
 	{
 		// timer ID
 		TIMER_HOVER=1,
-		TIMER_SCROLL=2,
-		TIMER_TOOLTIP_SHOW=3,
-		TIMER_TOOLTIP_HIDE=4,
-		TIMER_BALLOON_HIDE=5,
+		TIMER_HOVER_SPLIT=2,
+		TIMER_SCROLL=3,
+		TIMER_TOOLTIP_SHOW=4,
+		TIMER_TOOLTIP_HIDE=5,
+		TIMER_BALLOON_HIDE=6,
 
 		MCM_REFRESH=WM_USER+10, // posted to force the container to refresh its contents
 		MCM_SETCONTEXTITEM=WM_USER+11, // sets the item for the context menu. wParam is the nameHash of the item
@@ -542,6 +558,9 @@ private:
 		MRU_PROGRAMS_COUNT=20,
 		MRU_DEFAULT_COUNT=5,
 	};
+
+	void AddFirstFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSOLUTE path, std::vector<MenuItem> &items, int options, unsigned int hash0 );
+	void AddSecondFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSOLUTE path, std::vector<MenuItem> &items, int options, unsigned int hash0 );
 
 	// pPt - optional point in screen space (used only by ACTIVATE_EXECUTE and ACTIVATE_MENU)
 	void ActivateItem( int index, TActivateType type, const POINT *pPt, bool bNoModifiers=false );
@@ -577,12 +596,14 @@ private:
 	void AddStandardItems( void );
 	void UpdateAccelerators( int first, int last );
 	void ExecuteCommandElevated( const wchar_t *command );
+	void OpenSubMenu( int index, TActivateType type, bool bShift );
 
 	enum
 	{
 		COLLECT_RECURSIVE =1, // go into subfolders
 		COLLECT_PROGRAMS  =2, // only collect programs (.exe, .com, etc)
 		COLLECT_FOLDERS   =4, // include folder items
+		COLLECT_METRO     =8, // check for metro links (non-recursive)
 	};
 
 	void CollectSearchItemsInt( IShellFolder *pFolder, PIDLIST_ABSOLUTE pidl, int flags, int &count );
@@ -591,6 +612,7 @@ private:
 	static int s_ScrollMenus; // global scroll menus setting
 	static bool s_bRTL; // RTL layout
 	static bool s_bKeyboardCues; // show keyboard cues
+	static bool s_bOverrideFirstDown; // the first down key from the search box will select the top item
 	static bool s_bExpandRight; // prefer expanding submenus to the right
 	static bool s_bRecentItems; // show and track recent items
 	static bool s_bBehindTaskbar; // the main menu is behind the taskbar (when the taskbar is horizontal)
@@ -609,6 +631,7 @@ private:
 	static RECT s_MainRect; // area of the main monitor
 	static DWORD s_TaskbarState; // the state of the taskbar (ABS_AUTOHIDE and ABS_ALWAYSONTOP)
 	static DWORD s_HoverTime;
+	static DWORD s_SplitHoverTime;
 	static DWORD s_XMouse;
 	static DWORD s_SubmenuStyle;
 	static CLIPFORMAT s_ShellFormat; // CFSTR_SHELLIDLIST
@@ -646,6 +669,10 @@ private:
 	static void LoadItemRanks( void );
 	static void AddItemRank( unsigned int hash );
 
+	static wchar_t s_JumpAppId[_MAX_PATH];
+	static wchar_t s_JumpAppExe[_MAX_PATH];
+	static CJumpList s_JumpList;
+
 	static MenuSkin s_Skin;
 
 	friend class COwnerWindow;
@@ -654,8 +681,6 @@ private:
 
 	static int CompareMenuString( const wchar_t *str1, const wchar_t *str2 );
 	static void MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins, bool bAlpha );
-	static void AddFirstFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSOLUTE path, std::vector<MenuItem> &items, int options, unsigned int hash0 );
-	static void AddSecondFolder( CComPtr<IShellFolder> pFolder, PIDLIST_ABSOLUTE path, std::vector<MenuItem> &items, int options, unsigned int hash0 );
 	static void UpdateUsedIcons( void );
 	static LRESULT CALLBACK SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 };

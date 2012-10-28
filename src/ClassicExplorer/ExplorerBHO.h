@@ -39,6 +39,8 @@ public:
 		m_Rebar=NULL;
 		m_TopWindow=NULL;
 		m_Breadcrumbs=NULL;
+		m_Progress=NULL;
+		m_Status=NULL;
 		m_Hook=m_HookKbd=NULL;
 		m_Balloon=NULL;
 	}
@@ -128,6 +130,8 @@ private:
 	HHOOK m_Hook;
 	HHOOK m_HookKbd;
 	HWND m_Breadcrumbs;
+	HWND m_Progress;
+	HWND m_Status;
 	char m_AltD;
 
 	struct ComboItem
@@ -149,9 +153,9 @@ private:
 	static LRESULT CALLBACK SubclassTreeParentProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
-	static LRESULT CALLBACK RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
-	static LRESULT CALLBACK BreadcrumbSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
-	static LRESULT CALLBACK ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+	static LRESULT CALLBACK SubclassRebarProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+	static LRESULT CALLBACK SubclassBreadcrumbProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+	static LRESULT CALLBACK SubclassProgressProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(ExplorerBHO), CExplorerBHO)

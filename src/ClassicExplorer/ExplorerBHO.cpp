@@ -460,7 +460,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM 
 }
 
 // Subclass the rebar in the title bar to handle the title bar Up button
-LRESULT CALLBACK CExplorerBHO::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+LRESULT CALLBACK CExplorerBHO::SubclassRebarProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	if (uMsg==WM_NOTIFY && ((NMHDR*)lParam)->hwndFrom==(HWND)dwRefData && ((NMHDR*)lParam)->code==NM_CUSTOMDRAW)
 	{
@@ -563,7 +563,7 @@ LRESULT CALLBACK CExplorerBHO::RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM w
 }
 
 // Subclass the breadcrumbs to make them show the full path
-LRESULT CALLBACK CExplorerBHO::BreadcrumbSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+LRESULT CALLBACK CExplorerBHO::SubclassBreadcrumbProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	CExplorerBHO *pThis=(CExplorerBHO*)uIdSubclass;
 	if (*pThis->m_CurPath)
@@ -656,7 +656,7 @@ LRESULT CALLBACK CExplorerBHO::BreadcrumbSubclassProc( HWND hWnd, UINT uMsg, WPA
 }
 
 // Subclass the progress bar behind the address bar to remove the history and replace it with a list of parent folders
-LRESULT CALLBACK CExplorerBHO::ProgressSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+LRESULT CALLBACK CExplorerBHO::SubclassProgressProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	CExplorerBHO *pThis=(CExplorerBHO*)uIdSubclass;
 
@@ -1048,7 +1048,7 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 					m_Toolbar.SendMessage(TB_SETBUTTONSIZE,0,MAKELONG(size,size));
 
 					m_bRemapBands=true;
-					SetWindowSubclass(rebar,RebarSubclassProc,(UINT_PTR)this,(DWORD_PTR)m_Toolbar.m_hWnd);
+					SetWindowSubclass(rebar,SubclassRebarProc,(UINT_PTR)this,(DWORD_PTR)m_Toolbar.m_hWnd);
 					REBARBANDINFO info={sizeof(info),RBBIM_CHILD|RBBIM_ID|RBBIM_CHILDSIZE|RBBIM_IDEALSIZE|RBBIM_SIZE|RBBIM_STYLE};
 					info.fStyle=RBBS_HIDETITLE|RBBS_NOGRIPPER|RBBS_FIXEDSIZE;
 					info.hwndChild=m_Toolbar.m_hWnd;
@@ -1081,13 +1081,14 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 						if (breadcrumbs)
 						{
 							m_bNoBreadcrumbs=true;
-							SetWindowSubclass(breadcrumbs,BreadcrumbSubclassProc,(UINT_PTR)this,0);
+							SetWindowSubclass(breadcrumbs,SubclassBreadcrumbProc,(UINT_PTR)this,0);
 						}
 					}
 					if (progress && AddressBarHistory)
 					{
+						m_Progress=progress;
 						m_ComboBox=FindWindowEx(progress,NULL,WC_COMBOBOXEX,NULL);
-						SetWindowSubclass(progress,ProgressSubclassProc,(UINT_PTR)this,AddressBarHistory);
+						SetWindowSubclass(progress,SubclassProgressProc,(UINT_PTR)this,AddressBarHistory);
 						m_NavigateMsg=RegisterWindowMessage(L"ClassicShell.Navigate");
 					}
 				}
@@ -1108,6 +1109,7 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 						FreeSpace|=SPACE_WIN7;
 					SetWindowSubclass(status,SubclassStatusProc,(UINT_PTR)this,FreeSpace);
 					m_bForceRefresh=(bWin7 && GetSettingBool(L"ForceRefreshWin7"));
+					m_Status=status;
 				}
 			}
 			s_AutoNavDelay=GetSettingInt(L"AutoNavDelay");
@@ -1125,9 +1127,18 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 		if (m_HookKbd)
 			UnhookWindowsHookEx(m_HookKbd);
 		m_HookKbd=NULL;
+		if (m_Status)
+			RemoveWindowSubclass(m_Status,SubclassStatusProc,(UINT_PTR)this);
+		m_Status=NULL;
+		if (m_Progress)
+			RemoveWindowSubclass(m_Progress,SubclassProgressProc,(UINT_PTR)this);
+		m_Progress=NULL;
+		if (m_bNoBreadcrumbs)
+			RemoveWindowSubclass(m_Breadcrumbs,SubclassBreadcrumbProc,(UINT_PTR)this);
 		m_Breadcrumbs=NULL;
+		m_bNoBreadcrumbs=false;
 		if (m_Rebar)
-			RemoveWindowSubclass(m_Rebar,RebarSubclassProc,(UINT_PTR)this);
+			RemoveWindowSubclass(m_Rebar,SubclassRebarProc,(UINT_PTR)this);
 		m_pBrowser=NULL;
 		if (m_pWebBrowser && m_dwEventCookie!=0xFEFEFEFE)
 			DispEventUnadvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
@@ -1192,18 +1203,21 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 					// http://github.com/ijprest/Explorer7Fixes - Copyright (c) 2010 Ian Prest
 
 					CComQIPtr<IFolderView2> pView2=pFolderView;
-					// Turn on the sort header!
-					pView2->SetCurrentFolderFlags(FWF_NOHEADERINALLVIEWS,0);
-					// It seems the ItemsView doesn't respect the FWF_NOHEADERINALLVIEWS flag
-					// until the view has been refreshed.  Rather than call Refresh, we just
-					// briefly change the view mode and change it back.
-					FOLDERVIEWMODE viewMode;
-					int itemSize=0;
-					pView2->GetViewModeAndIconSize(&viewMode,&itemSize);
-					if (viewMode!=FVM_DETAILS)
+					if (pView2)
 					{
-						pView2->SetViewModeAndIconSize(viewMode==FVM_LIST?FVM_SMALLICON:FVM_LIST,itemSize);
-						pView2->SetViewModeAndIconSize(viewMode,itemSize);
+						// Turn on the sort header!
+						pView2->SetCurrentFolderFlags(FWF_NOHEADERINALLVIEWS,0);
+						// It seems the ItemsView doesn't respect the FWF_NOHEADERINALLVIEWS flag
+						// until the view has been refreshed.  Rather than call Refresh, we just
+						// briefly change the view mode and change it back.
+						FOLDERVIEWMODE viewMode;
+						int itemSize=0;
+						pView2->GetViewModeAndIconSize(&viewMode,&itemSize);
+						if (viewMode!=FVM_DETAILS)
+						{
+							pView2->SetViewModeAndIconSize(viewMode==FVM_LIST?FVM_SMALLICON:FVM_LIST,itemSize);
+							pView2->SetViewModeAndIconSize(viewMode,itemSize);
+						}
 					}
 					// ***********************************************************************
 

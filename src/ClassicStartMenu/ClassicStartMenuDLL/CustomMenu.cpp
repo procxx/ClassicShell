@@ -16,6 +16,7 @@ static StdMenuItem g_StdMenu[]=
 	// * means the command is not executable (for things like Settings, or for items that have FOLDERID)
 	{L"*programs",MENU_PROGRAMS,&FOLDERID_Programs,&FOLDERID_CommonPrograms},
 	{L"*favorites",MENU_FAVORITES,&FOLDERID_Favorites},
+	{L"*computer",MENU_COMPUTER,&FOLDERID_ComputerFolder},
 	{L"*documents",MENU_DOCUMENTS,&FOLDERID_Recent},
 	{L"*settings",MENU_SETTINGS},
 	{L"*search",MENU_SEARCH},
@@ -48,6 +49,7 @@ static StdMenuItem g_StdMenu[]=
 	{L"lock",MENU_LOCK},
 	{L"*recent_items",MENU_RECENT_ITEMS},
 	{L"search_box",MENU_SEARCH_BOX},
+	{L"*apps",MENU_APPS},
 };
 
 // {52528a6b-b9e3-4add-b60d-58 8c 2d ba 84 2d} (define homegroup GUID, so we don't need the Windows 7 SDK to compile Classic Shell)

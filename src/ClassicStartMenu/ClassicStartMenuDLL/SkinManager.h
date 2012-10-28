@@ -96,14 +96,14 @@ struct MenuSkin
 
 	bool Main_large_icons;
 
-	HFONT Main_font;
-	HFONT Main_font2;
-	int Main_glow_size;
-	int Main_glow_size2;
+	HFONT Main_font[2];
+	HFONT Main_font2[2];
+	int Main_glow_size[2]; // text, separator
+	int Main_glow_size2[2]; // text, separator
 	COLORREF Main_background;
 	COLORREF Main_background2;
-	COLORREF Main_text_color[4]; // normal, selected, disabled, selected+disabled
-	COLORREF Main_text_color2[4]; // normal, selected, disabled, selected+disabled
+	COLORREF Main_text_color[5]; // normal, selected, disabled, selected+disabled, separator
+	COLORREF Main_text_color2[5]; // normal, selected, disabled, selected+disabled, separator
 	COLORREF Main_arrow_color[2]; // normal, selected
 	COLORREF Main_arrow_color2[2]; // normal, selected
 	RECT Main_padding;
@@ -146,8 +146,8 @@ struct MenuSkin
 	bool Main_no_icons2;
 	RECT Main_icon_padding;
 	RECT Main_icon_padding2;
-	RECT Main_text_padding;
-	RECT Main_text_padding2;
+	RECT Main_text_padding[2]; // text, separator
+	RECT Main_text_padding2[2]; // text, separator
 	MenuBitmap Main_pager;
 	int Main_pager_slices_X[3];
 	int Main_pager_slices_Y[3];
@@ -173,10 +173,10 @@ struct MenuSkin
 	int Submenu_bitmap_slices_Y[3];
 	TOpacity Submenu_opacity;
 
-	HFONT Submenu_font;
-	int Submenu_glow_size;
+	HFONT Submenu_font[2];
+	int Submenu_glow_size[2]; // text, separator
 	COLORREF Submenu_background;
-	COLORREF Submenu_text_color[4]; // normal, selected, disabled, selected+disabled
+	COLORREF Submenu_text_color[5]; // normal, selected, disabled, selected+disabled, separator
 	COLORREF Submenu_arrow_color[2]; // normal, selected
 	RECT Submenu_padding;
 	int Submenu_offset;
@@ -204,12 +204,15 @@ struct MenuSkin
 	POINT Submenu_icon_frame_offset;
 
 	RECT Submenu_icon_padding;
-	RECT Submenu_text_padding;
+	RECT Submenu_text_padding[2]; // text, separator
 	MenuBitmap Submenu_pager;
 	int Submenu_pager_slices_X[3];
 	int Submenu_pager_slices_Y[3];
 	MenuBitmap Submenu_pager_arrows;
 	SIZE Submenu_pager_arrow_Size;
+
+	MenuBitmap Pin_bitmap;
+	SIZE Pin_bitmap_Size;
 
 	// SEARCH SECTION
 	MenuBitmap Search_bitmap;

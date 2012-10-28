@@ -24,6 +24,38 @@ static void LogText( const char *format, ... )
 	}
 }
 
+static void StartStartMenu( DWORD sessionId )
+{
+	// run the classic start menu on logon
+	HANDLE hUser;
+	if (WTSQueryUserToken(sessionId,&hUser))
+	{
+		STARTUPINFO startupInfo={sizeof(STARTUPINFO),NULL,L"Winsta0\\Default"};
+		PROCESS_INFORMATION processInfo;
+		wchar_t path[_MAX_PATH];
+		GetModuleFileName(NULL,path,_countof(path));
+		PathRemoveFileSpec(path);
+		PathAppend(path,L"ClassicStartMenu.exe -startup");
+		LogText("Starting process: %S\n",path);
+		if(CreateProcessAsUser(hUser,NULL,path,NULL,NULL,TRUE,NORMAL_PRIORITY_CLASS,NULL,NULL,&startupInfo,&processInfo))
+		{
+			CloseHandle(processInfo.hProcess);
+			CloseHandle(processInfo.hThread);
+		}
+		else
+		{
+			int err=GetLastError();
+			LogText("CreateProcessAsUser failed: %d\n",err);
+		}
+		CloseHandle(hUser);
+	}
+	else
+	{
+		int err=GetLastError();
+		LogText("WTSQueryUserToken failed: %d\n",err);
+	}
+}
+
 static DWORD WINAPI ServiceHandlerEx(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext)
 {
 	LogText("Control: %d, Event: %d\n",dwControl,dwEventType);
@@ -44,34 +76,7 @@ static DWORD WINAPI ServiceHandlerEx(DWORD dwControl, DWORD dwEventType, LPVOID 
 		case SERVICE_CONTROL_SESSIONCHANGE:
 			if (dwEventType==WTS_SESSION_LOGON)
 			{
-				// run the classic start menu on logon
-				HANDLE hUser;
-				if (WTSQueryUserToken(((WTSSESSION_NOTIFICATION*)lpEventData)->dwSessionId,&hUser))
-				{
-					STARTUPINFO startupInfo={sizeof(STARTUPINFO),NULL,L"Winsta0\\Default"};
-					PROCESS_INFORMATION processInfo;
-					wchar_t path[_MAX_PATH];
-					GetModuleFileName(NULL,path,_countof(path));
-					PathRemoveFileSpec(path);
-					PathAppend(path,L"ClassicStartMenu.exe -startup");
-					LogText("Starting process: %S\n",path);
-					if(CreateProcessAsUser(hUser,NULL,path,NULL,NULL,TRUE,NORMAL_PRIORITY_CLASS,NULL,NULL,&startupInfo,&processInfo))
-					{
-						CloseHandle(processInfo.hProcess);
-						CloseHandle(processInfo.hThread);
-					}
-					else
-					{
-						int err=GetLastError();
-						LogText("CreateProcessAsUser failed: %d\n",err);
-					}
-					CloseHandle(hUser);
-				}
-				else
-				{
-					int err=GetLastError();
-					LogText("WTSQueryUserToken failed: %d\n",err);
-				}
+				StartStartMenu(((WTSSESSION_NOTIFICATION*)lpEventData)->dwSessionId);
 			}
 			return NO_ERROR;
 		default:
@@ -83,6 +88,20 @@ static DWORD WINAPI ServiceHandlerEx(DWORD dwControl, DWORD dwEventType, LPVOID 
 
 static void WINAPI ServiceMain( DWORD dwArgc, LPTSTR *lpszArgv )
 {
+	WTS_SESSION_INFO *pInfos;
+	DWORD count;
+	if (WTSEnumerateSessions(WTS_CURRENT_SERVER_HANDLE,NULL,1,&pInfos,&count))
+	{
+		for (DWORD i=0;i<count;i++)
+		{
+			LogText("Session %d (%d)\n",pInfos[i].SessionId,pInfos[i].State);
+			if (pInfos[i].State==WTSActive)
+			{
+				StartStartMenu(pInfos[i].SessionId);
+			}
+		}
+		WTSFreeMemory(pInfos);
+	}
 	g_hServiceStatus=RegisterServiceCtrlHandlerEx(g_ServiceName,ServiceHandlerEx,NULL);
 	if (g_hServiceStatus)
 	{
@@ -164,6 +183,7 @@ int wmain( int argc, const wchar_t *argv[] )
 		}
 		RegCloseKey(hKey);
 	}
+
 	StartServiceCtrlDispatcher(DispatchTable);
 	return 0;
 }

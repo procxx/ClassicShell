@@ -557,6 +557,7 @@ HTREEITEM CSettingsTree::CreateStdItem( const CStdCommand *pCommand, HTREEITEM h
 	pNewItem->icon=pCommand->icon;
 	pNewItem->iconD=pCommand->iconD;
 	pNewItem->pStdCommand=pCommand;
+	pNewItem->settings=pCommand->settings;
 
 	if (pCommand->itemName)
 	{
@@ -1739,13 +1740,13 @@ void CCustomTreeDlg::SerializeItem( HTREEITEM hItem, std::vector<wchar_t> &strin
 
 void CCustomTreeDlg::SerializeData( void )
 {
-	ItemsChanged();
 	std::vector<wchar_t> stringBuilder;
 	SerializeItem(NULL,stringBuilder);
 	stringBuilder.push_back(0);
 	CSettingsLockWrite lock;
 	m_pSetting->value=CComVariant(&stringBuilder[0]);
 	m_pSetting->flags&=~CSetting::FLAG_DEFAULT;
+	ItemsChanged();
 }
 
 void CCustomTreeDlg::CreateTreeItems( CSettingsParser &parser, HTREEITEM hParent, const CSettingsParser::TreeItem *pItems, int index )
@@ -3085,7 +3086,7 @@ void CTreeSettingsDlg::UpdateEditPosition( void )
 const CSetting *CTreeSettingsDlg::GetNextSetting( const CSetting *pSetting )
 {
 	pSetting++;
-	if (pSetting->type==CSetting::TYPE_RADIO)
+	if (pSetting->type==CSetting::TYPE_RADIO && !(pSetting->flags&CSetting::FLAG_HIDDEN))
 		return pSetting;
 
 	if (m_bBasic)
@@ -3487,13 +3488,14 @@ LRESULT CLanguageSettingsDlg::OnSelChange( WORD wNotifyCode, WORD wID, HWND hWnd
 	{
 		*end=0;
 		m_pSetting->value=CComVariant(name);
-		m_pSetting->flags&=~CSetting::FLAG_DEFAULT;
 	}
 	else
-	{
 		m_pSetting->value=CComVariant(L"");
+
+	if (_wcsicmp(m_pSetting->value.bstrVal,m_pSetting->defValue.bstrVal)==0)
 		m_pSetting->flags|=CSetting::FLAG_DEFAULT;
-	}
+	else
+		m_pSetting->flags&=~CSetting::FLAG_DEFAULT;
 	return 0;
 }
 
