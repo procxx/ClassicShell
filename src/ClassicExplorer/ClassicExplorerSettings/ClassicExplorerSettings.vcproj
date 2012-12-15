@@ -21,6 +21,7 @@
 			OutputDirectory="..\$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
+			UseOfATL="1"
 			CharacterSet="1"
 			>
 			<Tool
@@ -96,6 +97,7 @@
 			OutputDirectory="..\$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
+			UseOfATL="1"
 			CharacterSet="1"
 			WholeProgramOptimization="0"
 			>

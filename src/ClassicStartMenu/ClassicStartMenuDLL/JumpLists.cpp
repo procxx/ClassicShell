@@ -70,6 +70,22 @@ GUID IID_IApplicationResolver8={0xde25675a,0x72de,0x44b4,{0x93,0x73,0x05,0x17,0x
 static CComPtr<IApplicationResolver> g_pAppResolver;
 static int g_AppResolverTime;
 
+static CString GetPropertyStoreString( IPropertyStore *pStore, REFPROPERTYKEY key )
+{
+	PROPVARIANT val;
+	PropVariantInit(&val);
+	CString res;
+	if (SUCCEEDED(pStore->GetValue(key,&val)))
+	{
+		if (val.vt==VT_LPWSTR || val.vt==VT_BSTR)
+			res=val.pwszVal;
+		else if (val.vt==VT_LPSTR)
+			res=val.pszVal;
+	}
+	PropVariantClear(&val);
+	return res;
+}
+
 // Creates the app id resolver object
 void CreateAppResolver( void )
 {
@@ -92,8 +108,7 @@ void CreateAppResolver( void )
 
 // Returns the App ID and the target exe for the given shortcut
 // appid must be _MAX_PATH characters
-// exe must be _MAX_PATH characters (optional)
-bool GetAppInfoForLink( PIDLIST_ABSOLUTE pidl, wchar_t *appid, wchar_t *appexe )
+bool GetAppInfoForLink( PIDLIST_ABSOLUTE pidl, wchar_t *appid )
 {
 	if (GetWinVersion()<WIN_VER_WIN7)
 		return false;
@@ -107,23 +122,6 @@ bool GetAppInfoForLink( PIDLIST_ABSOLUTE pidl, wchar_t *appid, wchar_t *appexe )
 	if (FAILED(pFolder->GetUIObjectOf(NULL,1,&child,IID_IShellLink,NULL,(void**)&pLink)))
 		return false;
 
-	if (appexe)
-	{
-		if (FAILED(pLink->Resolve(NULL,SLR_INVOKE_MSI|SLR_NO_UI|SLR_NOUPDATE)))
-			return false;
-
-		PIDLIST_ABSOLUTE target;
-		if (FAILED(pLink->GetIDList(&target)))
-			return false;
-
-		wchar_t exe[_MAX_PATH];
-		HRESULT hr=SHGetPathFromIDList(target,exe);
-		ILFree(target);
-		if (FAILED(hr))
-			return false;
-		Strcpy(appexe,_MAX_PATH,exe);
-	}
-
 	CComQIPtr<IPropertyStore> pStore=pLink;
 	if (pStore)
 	{
@@ -136,13 +134,13 @@ bool GetAppInfoForLink( PIDLIST_ABSOLUTE pidl, wchar_t *appid, wchar_t *appexe )
 			return false;
 		}
 		PropVariantClear(&val);
-		if (SUCCEEDED(pStore->GetValue(PKEY_AppUserModel_ID,&val)) && (val.vt==VT_LPWSTR || val.vt==VT_BSTR))
+
+		CString str=GetPropertyStoreString(pStore,PKEY_AppUserModel_ID);
+		if (!str.IsEmpty())
 		{
-			Strcpy(appid,_MAX_PATH,val.pwszVal);
-			PropVariantClear(&val);
+			Strcpy(appid,_MAX_PATH,str);
 			return true;
 		}
-		PropVariantClear(&val);
 	}
 
 	CComPtr<IShellItem> pItem;
@@ -249,13 +247,13 @@ static void AddJumpItem( CJumpGroup &group, IUnknown *pUnknown )
 			}
 			else
 			{
-				if (SUCCEEDED(pStore->GetValue(PKEY_Title,&val)) && (val.vt==VT_LPWSTR || val.vt==VT_BSTR))
+				CString str=GetPropertyStoreString(pStore,PKEY_Title);
+				if (!str.IsEmpty())
 				{
 					wchar_t name[256];
-					SHLoadIndirectString(val.pwszVal,name,_countof(name),NULL);
+					SHLoadIndirectString(str,name,_countof(name),NULL);
 					item.name=name;
 				}
-				PropVariantClear(&val);
 			}
 		}
 		PIDLIST_ABSOLUTE pidl;
@@ -278,12 +276,16 @@ static void AddJumpItem( CJumpGroup &group, IUnknown *pUnknown )
 				CoTaskMemFree(pName);
 			}
 			ILFree(pidl);
-			wchar_t args[1024];
-			if (SUCCEEDED(pLink->GetArguments(args,_countof(args))) && args[0])
+			CComQIPtr<IPropertyStore> pStore=pLink;
+			if (pStore)
 			{
-				LOG_MENU(LOG_OPEN,L"Jumplist Link Args: %s",args);
-				item.hash=CalcFNVHash(args,item.hash);
-				item.bHasArguments=true;
+				CString args=GetPropertyStoreString(pStore,PKEY_Link_Arguments);
+				if (!args.IsEmpty())
+				{
+					LOG_MENU(LOG_OPEN,L"Jumplist Link Args: %s",args);
+					item.hash=CalcFNVHash(args,item.hash);
+					item.bHasArguments=true;
+				}
 			}
 		}
 		LOG_MENU(LOG_OPEN,L"Jumplist Link Name: %s",item.name);
@@ -325,9 +327,9 @@ static unsigned int CalcLinkStreamHash( IStorage *pStorage, int stream )
 		CoTaskMemFree(pName);
 	}
 	ILFree(pidl);
-	wchar_t args[1024];
-	if (SUCCEEDED(pLink->GetArguments(args,_countof(args))))
-		hash=CalcFNVHash(args,hash);
+	CComQIPtr<IPropertyStore> pStore=pLink;
+	if (pStore)
+		hash=CalcFNVHash(GetPropertyStoreString(pStore,PKEY_Link_Arguments),hash);
 	return hash;
 }
 
@@ -587,13 +589,13 @@ bool GetJumplist( const wchar_t *appid, CJumpList &list, int maxCount )
 }
 
 // Executes the given item using the correct application
-bool ExecuteJumpItem( const wchar_t *appid, const wchar_t *appexe, const CJumpItem &item, HWND hwnd )
+bool ExecuteJumpItem( const wchar_t *appid, PIDLIST_ABSOLUTE appexe, const CJumpItem &item, HWND hwnd )
 {
 	ATLASSERT(GetWinVersion()>=WIN_VER_WIN7);
 	if (!item.pItem) return false;
 	if (item.type==CJumpItem::TYPE_ITEM)
 	{
-		LOG_MENU(LOG_OPEN,L"Execute Item: name=%s, appid=%s, appexe=%s",item.name,appid,appexe);
+		LOG_MENU(LOG_OPEN,L"Execute Item: name=%s, appid=%s",item.name,appid);
 		CComQIPtr<IShellItem> pItem=item.pItem;
 		if (!pItem)
 			return false;
@@ -604,7 +606,7 @@ bool ExecuteJumpItem( const wchar_t *appid, const wchar_t *appexe, const CJumpIt
 		Strcpy(ext,_countof(ext),PathFindExtension(pName));
 		CoTaskMemFree(pName);
 
-		// find the correct association handler and invoke it on the item
+		// find the correct association handler by appid and invoke it on the item
 		CComPtr<IEnumAssocHandlers> pEnumHandlers;
 		if (ext[0] && SUCCEEDED(SHAssocEnumHandlers(ext,ASSOC_FILTER_RECOMMENDED,&pEnumHandlers)))
 		{
@@ -613,40 +615,65 @@ bool ExecuteJumpItem( const wchar_t *appid, const wchar_t *appexe, const CJumpIt
 			while (SUCCEEDED(pEnumHandlers->Next(1,&pHandler,&count)) && count==1)
 			{
 				CComQIPtr<IObjectWithAppUserModelID> pObject=pHandler;
-				bool bFound=false;
 				if (pObject)
 				{
 					wchar_t *pID;
 					if (SUCCEEDED(pObject->GetAppID(&pID)))
 					{
 						// found explicit appid
-						bFound=(_wcsicmp(appid,pID)==0);
-						CoTaskMemFree(pID);
-						if (bFound)
+						if (_wcsicmp(appid,pID)==0)
+						{
+							CoTaskMemFree(pID);
 							LOG_MENU(LOG_OPEN,L"Found handler appid");
+							CComPtr<IDataObject> pDataObject;
+							if (SUCCEEDED(pItem->BindToHandler(NULL,BHID_DataObject,IID_IDataObject,(void**)&pDataObject)) && SUCCEEDED(pHandler->Invoke(pDataObject)))
+								return true;
+							break;
+						}
+						CoTaskMemFree(pID);
 					}
-				}
-				if (!bFound)
-				{
-					wchar_t *pExe;
-					if (SUCCEEDED(pHandler->GetName(&pExe)))
-					{
-						bFound=(_wcsicmp(appexe,pExe)==0);
-						CoTaskMemFree(pExe);
-						if (bFound)
-							LOG_MENU(LOG_OPEN,L"Found handler appexe");
-					}
-				}
-				if (bFound)
-				{
-					CComPtr<IDataObject> pDataObject;
-					if (SUCCEEDED(pItem->BindToHandler(NULL,BHID_DataObject,IID_IDataObject,(void**)&pDataObject)) && SUCCEEDED(pHandler->Invoke(pDataObject)))
-						return true;
-					break;
 				}
 				pHandler=NULL;
 			}
+			pEnumHandlers=NULL;
+
+			// find the correct association handler by exe name and invoke it on the item
+			CComPtr<IShellFolder> pFolder;
+			PCUITEMID_CHILD child;
+			CComPtr<IShellLink> pLink;
+			if (SUCCEEDED(SHAssocEnumHandlers(ext,ASSOC_FILTER_RECOMMENDED,&pEnumHandlers)) && SUCCEEDED(SHBindToParent(appexe,IID_IShellFolder,(void**)&pFolder,&child)) && SUCCEEDED(pFolder->GetUIObjectOf(NULL,1,&child,IID_IShellLink,NULL,(void**)&pLink)))
+			{
+				PIDLIST_ABSOLUTE target;
+				if (SUCCEEDED(pLink->Resolve(NULL,SLR_INVOKE_MSI|SLR_NO_UI|SLR_NOUPDATE)) && SUCCEEDED(pLink->GetIDList(&target)))
+				{
+					wchar_t exe[_MAX_PATH];
+					HRESULT hr=SHGetPathFromIDList(target,exe);
+					ILFree(target);
+					if (SUCCEEDED(hr))
+					{
+						while (SUCCEEDED(pEnumHandlers->Next(1,&pHandler,&count)) && count==1)
+						{
+							wchar_t *pExe;
+							if (SUCCEEDED(pHandler->GetName(&pExe)))
+							{
+								if (_wcsicmp(exe,pExe)==0)
+								{
+									CoTaskMemFree(pExe);
+									LOG_MENU(LOG_OPEN,L"Found handler appexe %s",exe);
+									CComPtr<IDataObject> pDataObject;
+									if (SUCCEEDED(pItem->BindToHandler(NULL,BHID_DataObject,IID_IDataObject,(void**)&pDataObject)) && SUCCEEDED(pHandler->Invoke(pDataObject)))
+										return true;
+									break;
+								}
+								CoTaskMemFree(pExe);
+							}
+							pHandler=NULL;
+						}
+					}
+				}
+			}
 		}
+
 		// couldn't find a handler, execute the old way
 		SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_IDLIST|SEE_MASK_FLAG_LOG_USAGE};
 		execute.nShow=SW_SHOWNORMAL;
@@ -922,20 +949,16 @@ void PinJumpItem( const wchar_t *appid, const CJumpList &list, int groupIdx, int
 				// for links with a valid path the name is a crc of the path, arguments, and title
 				CharUpper(text);
 				unsigned __int64 crc=CalcCRC64((unsigned char*)text,Strlen(text)*2);
-				if (pLink->GetArguments(text,_countof(text))==S_OK)
-					crc=CalcCRC64((unsigned char*)text,Strlen(text)*2,crc);
 				CComQIPtr<IPropertyStore> pStore=pLink;
 				if (pStore)
 				{
-					PROPVARIANT val;
-					PropVariantInit(&val);
-					if (SUCCEEDED(pStore->GetValue(PKEY_Title,&val)) && (val.vt==VT_LPWSTR || val.vt==VT_BSTR))
-					{
-						SHLoadIndirectString(val.pwszVal,text,_countof(text),NULL);
-						CharUpper(text);
-						crc=CalcCRC64((unsigned char*)text,Strlen(text)*2,crc);
-					}
-					PropVariantClear(&val);
+					Strcpy(text,_countof(text),GetPropertyStoreString(pStore,PKEY_Link_Arguments));
+					crc=CalcCRC64((unsigned char*)text,Strlen(text)*2,crc);
+
+					CString str=GetPropertyStoreString(pStore,PKEY_Title);
+					SHLoadIndirectString(str,text,_countof(text),NULL);
+					CharUpper(text);
+					crc=CalcCRC64((unsigned char*)text,Strlen(text)*2,crc);
 				}
 				Sprintf(text,_countof(text),L"%I64x",crc);
 				item.name=text;

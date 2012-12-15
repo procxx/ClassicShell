@@ -485,6 +485,12 @@
 #define IDS_COMPUTER_TIP                3406
 #define IDS_SHOW_COMPUTER_TIP           3407
 #define IDS_SHOW_COMPUTER_TIP2          3408
+#define IDS_OPEN_DESKTOP                3409
+#define IDS_OPEN_DESKTOP_TIP            3410
+#define IDS_SORT_DATE                   3411
+#define IDS_SORT_DATE_TIP               3412
+#define IDS_ENABLE_TASKBARS             3413
+#define IDS_ENABLE_TASKBARS_TIP         3414
 
 // Next default values for new objects
 // 

@@ -1,4 +1,16 @@
 ===============================================================================
+== Version 3.6.3 general release (Dec, 2012):
+
+- Improved performance of the start menu
+
+- Added new Metro-style start button image
+
+- Added support for multiple taskbars in Windows 8
+
+- Fixed some bugs found in the previous version
+
+
+===============================================================================
 == Version 3.6.2 general release (Oct, 2012):
 
 - Added support for jump lists in the main menu

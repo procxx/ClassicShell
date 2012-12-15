@@ -11,11 +11,11 @@ enum TStartButtonType
 	START_BUTTON_CUSTOM,
 };
 
-HWND CreateStartButton( HWND taskBar, HWND rebar, const RECT &rcTask );
-void DestroyStartButton( void );
-void UpdateStartButton( void );
-void PressStartButton( bool bPressed );
-SIZE GetStartButtonSize( void );
-bool IsStartButtonSmallIcons( void );
+HWND CreateStartButton( int taskbarId, HWND taskBar, HWND rebar, const RECT &rcTask );
+void DestroyStartButton( int taskbarId );
+void UpdateStartButton( int taskbarId );
+void PressStartButton( int taskbarId, bool bPressed );
+SIZE GetStartButtonSize( int taskbarId );
+bool IsStartButtonSmallIcons( int taskbarId );
 bool IsTaskbarSmallIcons( void );
-void TaskBarMouseMove( void );
+void TaskBarMouseMove( int taskbarId );

@@ -16,7 +16,7 @@ STARTMENUAPI bool FindTaskBar( DWORD process );
 STARTMENUAPI LRESULT CALLBACK HookInject( int code, WPARAM wParam, LPARAM lParam );
 
 // Toggle the start menu. bKeyboard - set to true to show the keyboard cues
-STARTMENUAPI HWND ToggleStartMenu( HWND startButton, bool bKeyboard );
+STARTMENUAPI HWND ToggleStartMenu( int taskbarId, bool bKeyboard );
 
 // Enable or disable the tooltip for the start button
 void EnableStartTooltip( bool bEnable );
@@ -24,7 +24,21 @@ void EnableStartTooltip( bool bEnable );
 // Restore the original drop target
 void UnhookDropTarget( void );
 
-extern HWND STARTMENUAPI g_StartButton, g_TaskBar, g_OwnerWindow;
+struct TaskbarInfo
+{
+	TaskbarInfo( void ) { taskBar=startButton=rebar=NULL; rebarOffset.cx=rebarOffset.cy=0; bTimer=false; }
+	int taskbarId;
+	HWND taskBar;
+	HWND startButton;
+	HWND rebar;
+	SIZE rebarOffset;
+	bool bTimer;
+};
+
+TaskbarInfo *GetTaskbarInfo( int taskbarId );
+UINT GetTaskbarPosition( HWND taskBar, MONITORINFO *pInfo, HMONITOR *pMonitor, RECT *pRc );
+
+extern HWND STARTMENUAPI g_TaskBar, g_OwnerWindow;
 extern HWND g_TopMenu, g_AllPrograms, g_ProgramsButton, g_UserPic; // from the Windows menu
 
 enum TMenuMsgParam // wParam for the ClassicStartMenu.StartMenuMsg message
@@ -38,6 +52,7 @@ enum TMenuMsgParam // wParam for the ClassicStartMenu.StartMenuMsg message
 	MSG_FINDMENU, // find Windows menu
 	MSG_EXIT, // unhook everything and exit
 	MSG_HOTKEYS, // updates the hotkeys
+	MSG_NEWTASKBAR, // new taskbar is created, lParam is the HWND
 };
 
 STARTMENUAPI extern enum _MINIDUMP_TYPE MiniDumpType;
@@ -53,6 +68,6 @@ enum THotkeys
 // Set the hotkeys and controls for the start menu
 void EnableHotkeys( THotkeys enable );
 
-void RecreateStartButton( void );
-bool PointAroundStartButton( void );
+void RecreateStartButton( int taskbarId );
+bool PointAroundStartButton( int taskbarId );
 void ResetHotCorners( void );

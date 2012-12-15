@@ -24,6 +24,7 @@
 			OutputDirectory="$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="4"
+			UseOfATL="1"
 			CharacterSet="1"
 			>
 			<Tool
@@ -86,6 +87,7 @@
 			OutputDirectory="$(ConfigurationName)64"
 			IntermediateDirectory="$(ConfigurationName)64"
 			ConfigurationType="4"
+			UseOfATL="1"
 			CharacterSet="1"
 			>
 			<Tool
@@ -149,6 +151,7 @@
 			OutputDirectory="$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="4"
+			UseOfATL="1"
 			CharacterSet="1"
 			WholeProgramOptimization="0"
 			>
@@ -214,6 +217,7 @@
 			OutputDirectory="$(ConfigurationName)64"
 			IntermediateDirectory="$(ConfigurationName)64"
 			ConfigurationType="4"
+			UseOfATL="1"
 			CharacterSet="1"
 			WholeProgramOptimization="0"
 			>

@@ -9,8 +9,7 @@
 
 // Returns the App ID and the target exe for the given shortcut
 // appid must be _MAX_PATH characters
-// exe must be _MAX_PATH characters (optional)
-bool GetAppInfoForLink( PIDLIST_ABSOLUTE pidl, wchar_t *appid, wchar_t *appexe );
+bool GetAppInfoForLink( PIDLIST_ABSOLUTE pidl, wchar_t *appid );
 
 // Returns true if the given shortcut has a jumplist (it may be empty)
 bool HasJumplist( const wchar_t *appid );
@@ -62,7 +61,7 @@ struct CJumpList
 bool GetJumplist( const wchar_t *appid, CJumpList &list, int maxCount );
 
 // Executes the given item using the correct application
-bool ExecuteJumpItem( const wchar_t *appid, const wchar_t *appexe, const CJumpItem &item, HWND hwnd );
+bool ExecuteJumpItem( const wchar_t *appid, PIDLIST_ABSOLUTE appexe, const CJumpItem &item, HWND hwnd );
 
 // Removes the given item from the jumplist
 void RemoveJumpItem( const wchar_t *appid, CJumpList &list, int groupIdx, int itemIdx );

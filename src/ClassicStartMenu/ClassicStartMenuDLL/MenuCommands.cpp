@@ -380,13 +380,13 @@ void CMenuContainer::OpenSubMenu( int index, TActivateType type, bool bShift )
 	// open submenu
 	HWND parent=GetParent();
 	pMenu->Create(parent,NULL,NULL,s_SubmenuStyle,WS_EX_TOOLWINDOW|WS_EX_TOPMOST|(s_bRTL?WS_EX_LAYOUTRTL:0));
-	if (!parent)
+	if (!parent && s_TaskBar)
 	{
 		// place sub-menus in front of the taskbar
 		if (type==ACTIVATE_OPEN_SEARCH)
-			pMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE|SWP_NOACTIVATE);
+			pMenu->SetWindowPos(s_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE|SWP_NOACTIVATE);
 		else
-			pMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE);
+			pMenu->SetWindowPos(s_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE);
 	}
 	RECT rc2;
 	pMenu->GetWindowRect(&rc2);
@@ -702,7 +702,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 					FadeOutItem(index);
 				}
 				PlayMenuSound(SOUND_COMMAND);
-				ExecuteJumpItem(s_JumpAppId,s_JumpAppExe,s_JumpList.groups[LOWORD(item.jumpIndex)].items[HIWORD(item.jumpIndex)],g_OwnerWindow);
+				ExecuteJumpItem(s_JumpAppId,m_Path1a[0],s_JumpList.groups[LOWORD(item.jumpIndex)].items[HIWORD(item.jumpIndex)],g_OwnerWindow);
 			}
 			return;
 		}
@@ -1213,7 +1213,13 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 					insertBefore=i;
 					continue;
 				}
-				if (item.bMetroLink && _stricmp(command,"rename")==0)
+				if (item.pStdItem && item.pStdItem->link && *item.pStdItem->link && (_stricmp(command,"rename")==0 || _stricmp(command,"delete")==0))
+				{
+					DeleteMenu(menu,i,MF_BYPOSITION);
+					i--;
+					n--;
+				}
+				else if (item.bMetroLink && _stricmp(command,"rename")==0)
 				{
 					DeleteMenu(menu,i,MF_BYPOSITION);
 					i--;
@@ -1476,7 +1482,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		const CJumpItem &jumpItem=group.items[HIWORD(item.jumpIndex)];
 		if (res==CMD_OPEN)
 		{
-			ExecuteJumpItem(s_JumpAppId,s_JumpAppExe,jumpItem,g_OwnerWindow);
+			ExecuteJumpItem(s_JumpAppId,m_Path1a[0],jumpItem,g_OwnerWindow);
 		}
 		else if (res==CMD_PIN)
 		{
@@ -1551,7 +1557,6 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 	if (res==CMD_NEWFOLDER)
 	{
-		s_pDragSource=this; // HACK - prevent the menu from closing
 		g_RenameText=item.name;
 		g_RenamePos=pPt;
 		bool bAllPrograms=s_bAllPrograms;
@@ -1582,6 +1587,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			}
 		}
 
+		s_bPreventClosing=true;
 		if (SUCCEEDED(pFolder->CreateViewObject(g_OwnerWindow,IID_IContextMenu,(void**)&pMenu2)))
 		{
 			if (SUCCEEDED(pMenu2->QueryContextMenu(menu2,0,1,32767,CMF_NORMAL)))
@@ -1596,6 +1602,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			}
 		}
 		DestroyMenu(menu2);
+		s_bPreventClosing=false;
 
 		PITEMID_CHILD newPidl=NULL;
 		unsigned int newHash=0;
@@ -1637,23 +1644,29 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 
 		PostRefreshMessage();
-		PostMessage(MCM_SETCONTEXTITEM,newHash);
+		if (!m_bDestroyed)
+			PostMessage(MCM_SETCONTEXTITEM,newHash);
 		// show the Rename dialog box
+		s_bPreventClosing=true;
 		if (newPidl && DialogBox(g_Instance,MAKEINTRESOURCE(s_bRTL?IDD_RENAMER:IDD_RENAME),g_OwnerWindow,RenameDlgProc))
 		{
 			pFolder->SetNameOf(g_OwnerWindow,newPidl,g_RenameText,SHGDN_INFOLDER|SHGDN_FOREDITING,NULL);
 			PostRefreshMessage();
 		}
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
-			(*it)->EnableWindow(TRUE); // enable all menus
+			if (!(*it)->m_bDestroyed)
+				(*it)->EnableWindow(TRUE); // enable all menus
 		if (bAllPrograms) ::EnableWindow(g_TopMenu,TRUE);
-		SetForegroundWindow(m_hWnd);
-		SetActiveWindow();
-		SetFocus();
-		s_pDragSource=NULL;
+		if (!m_bDestroyed)
+		{
+			SetForegroundWindow(m_hWnd);
+			SetActiveWindow();
+			SetFocus();
+			Invalidate();
+			if (m_HotItem<0) SetHotItem(index);
+		}
+		s_bPreventClosing=false;
 		m_ContextItem=-1;
-		if (m_HotItem<0) SetHotItem(index);
-		Invalidate();
 		DestroyMenu(menu);
 		return;
 	}
@@ -1752,7 +1765,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		{
 			// show the Rename dialog box
 
-			s_pDragSource=this; // HACK - prevent the menu from closing
+			s_bPreventClosing=true;
 			STRRET str;
 			if (SUCCEEDED(pFolder->GetDisplayNameOf(pidl,SHGDN_FOREDITING,&str)))
 			{
@@ -1777,6 +1790,12 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 			if (bRenamed)
 			{
+				if (GetWinVersion()>=WIN_VER_WIN8)
+				{
+					SetForegroundWindow(m_hWnd);
+					SetActiveWindow();
+					SetFocus();
+				}
 				// perform the rename operation
 				PITEMID_CHILD newPidl;
 				if (SUCCEEDED(pFolder->SetNameOf(g_OwnerWindow,pidl,g_RenameText,SHGDN_INFOLDER|SHGDN_FOREDITING,&newPidl)))
@@ -1808,12 +1827,16 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				PostRefreshMessage();
 			}
 			for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
-				(*it)->EnableWindow(TRUE); // enable all menus
+				if (!(*it)->m_bDestroyed)
+					(*it)->EnableWindow(TRUE); // enable all menus
 			if (bAllPrograms) ::EnableWindow(g_TopMenu,TRUE);
-			SetForegroundWindow(m_hWnd);
-			SetActiveWindow();
-			SetFocus();
-			s_pDragSource=NULL;
+			if (!m_bDestroyed)
+			{
+				SetForegroundWindow(m_hWnd);
+				SetActiveWindow();
+				SetFocus();
+			}
+			s_bPreventClosing=false;
 			DestroyMenu(menu);
 			return;
 		}
@@ -1839,12 +1862,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			info.fMask|=CMIC_MASK_NOASYNC; // wait for delete/link commands to finish so we can refresh the menu
 
 		if ((type!=ACTIVATE_MENU && type!=ACTIVATE_DELETE) || GetWinVersion()<WIN_VER_WIN8)
-		{
-			// prevent the menu from closing. the command may need a HWND to show its UI.
-			// this doesn't work on Win8 because the popups (like from the Delete command) are not top-most.
-			// better to close the menu than to have a popup appear behind.
-			s_pDragSource=this;
-		}
+			s_bPreventClosing=true;
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			(*it)->EnableWindow(FALSE); // disable all menus
 		bool bAllPrograms=s_bAllPrograms;
@@ -1900,9 +1918,9 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			else
 				SetFocus();
 		}
-		s_pDragSource=NULL;
+		s_bPreventClosing=false;
 
-		if (!bKeepOpen)
+		if (!bKeepOpen && !bRefresh)
 		{
 			HWND active=GetActiveWindow();
 			if (active!=m_hWnd && active!=g_OwnerWindow)

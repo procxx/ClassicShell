@@ -179,6 +179,7 @@ public:
 		MESSAGE_HANDLER( MCM_REDRAWEDIT, OnRedrawEdit )
 		MESSAGE_HANDLER( MCM_REFRESHICONS, OnRefreshIcons )
 		MESSAGE_HANDLER( MCM_SETHOTITEM, OnSetHotItem )
+		MESSAGE_HANDLER( s_StartMenuMsg, OnStartMenuMsg )
 		COMMAND_CODE_HANDLER( EN_CHANGE, OnEditChange )
 	END_MSG_MAP()
 
@@ -225,7 +226,7 @@ public:
 	static bool IsMenuOpened( void ) { return !s_Menus.empty(); }
 	static bool IsMenuWindow( HWND hWnd );
 	static bool IgnoreTaskbarTimers( void ) { return !s_Menus.empty() && (s_TaskbarState&ABS_AUTOHIDE); }
-	static HWND ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAllPrograms );
+	static HWND ToggleStartMenu( int taskbarId, bool bKeyboard, bool bAllPrograms );
 	static bool ProcessMouseMessage( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 	static void RefreshIcons( void );
 
@@ -289,6 +290,7 @@ protected:
 	LRESULT OnRedrawEdit( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnRefreshIcons( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnSetHotItem( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnStartMenuMsg( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnEditChange( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	virtual void OnFinalMessage( HWND ) { Release(); }
 
@@ -326,8 +328,8 @@ private:
 		{
 			UINT accelerator; // accelerator character, 0 if none
 			FILETIME time; // timestamp of the file (for sorting recent documents)
-			int jumpIndex; // MAKELONG(group,item)
 		};
+		int jumpIndex; // MAKELONG(group,item)
 
 		bool operator<( const MenuItem &x ) const
 		{
@@ -626,6 +628,7 @@ private:
 	static bool s_bAllPrograms; // this is the All Programs menu of the Windows start menu
 	static bool s_bNoCommonFolders; // don't show the common folders (start menu and programs)
 	static char s_bActiveDirectory; // the Active Directory services are available (-1 - uninitialized)
+	static bool s_bPreventClosing; // prevents the menus from closing even if they lose focus
 	static CMenuContainer *s_pDragSource; // the source of the current drag operation
 	static bool s_bRightDrag; // dragging with the right mouse button
 	static RECT s_MainRect; // area of the main monitor
@@ -637,6 +640,8 @@ private:
 	static CLIPFORMAT s_ShellFormat; // CFSTR_SHELLIDLIST
 	static CComPtr<IShellFolder> s_pDesktop; // cached pointer of the desktop object
 	static CComPtr<IKnownFolderManager> s_pKnownFolders;
+	static int s_TaskBarId;
+	static HWND s_TaskBar, s_StartButton; // the current taskbar and start button
 	static HWND s_LastFGWindow; // stores the foreground window to restore later when the menu closes
 	static HTHEME s_Theme;
 	static HTHEME s_PagerTheme;
@@ -670,7 +675,6 @@ private:
 	static void AddItemRank( unsigned int hash );
 
 	static wchar_t s_JumpAppId[_MAX_PATH];
-	static wchar_t s_JumpAppExe[_MAX_PATH];
 	static CJumpList s_JumpList;
 
 	static MenuSkin s_Skin;
@@ -683,6 +687,19 @@ private:
 	static void MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins, bool bAlpha );
 	static void UpdateUsedIcons( void );
 	static LRESULT CALLBACK SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+
+	struct StartMenuParams
+	{
+		HWND startButton;
+		HWND taskbar;
+		RECT startButtonRect;
+		RECT taskbarRect;
+		RECT monitorRect;
+		DWORD uEdge;
+	};
+
+	static StartMenuParams s_StartMenuParams;
+	static UINT s_StartMenuMsg;
 };
 
 class CMenuFader: public CWindowImpl<CMenuFader>

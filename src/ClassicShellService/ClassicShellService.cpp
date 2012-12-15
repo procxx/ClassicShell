@@ -3,6 +3,7 @@
 #include <shlwapi.h>
 #include <stdio.h>
 #include <time.h>
+#include <dbghelp.h>
 
 static const wchar_t *g_ServiceName=L"ClassicShellService";
 static SERVICE_STATUS_HANDLE g_hServiceStatus;
@@ -153,6 +154,72 @@ static void UninstallService( void )
 
 #endif
 
+// MiniDumpNormal - minimal information
+// MiniDumpWithDataSegs - include global variables
+// MiniDumpWithFullMemory - include heap
+MINIDUMP_TYPE MiniDumpType=MiniDumpNormal;
+
+static DWORD WINAPI SaveCrashDump( void *pExceptionInfo )
+{
+	HMODULE dbghelp=NULL;
+	{
+		wchar_t path[_MAX_PATH];
+		GetModuleFileName(NULL,path,_countof(path));
+		PathRemoveFileSpec(path);
+
+		dbghelp=LoadLibrary(L"dbghelp.dll");
+
+		LPCTSTR szResult = NULL;
+
+		typedef BOOL (WINAPI *MINIDUMPWRITEDUMP)(HANDLE hProcess, DWORD dwPid, HANDLE hFile, MINIDUMP_TYPE DumpType,
+			CONST PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
+			CONST PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
+			CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam
+			);
+		MINIDUMPWRITEDUMP dump=NULL;
+		if (dbghelp)
+			dump=(MINIDUMPWRITEDUMP)GetProcAddress(dbghelp,"MiniDumpWriteDump");
+		if (dump)
+		{
+			HANDLE file;
+			for (int i=1;;i++)
+			{
+				wchar_t fname[_MAX_PATH];
+				_swprintf(fname,L"%s\\CS_Crash%d.dmp",path,i);
+				file=CreateFile(fname,GENERIC_WRITE,0,NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);
+				if (file!=INVALID_HANDLE_VALUE || GetLastError()!=ERROR_FILE_EXISTS) break;
+			}
+			if (file!=INVALID_HANDLE_VALUE)
+			{
+				_MINIDUMP_EXCEPTION_INFORMATION ExInfo;
+				ExInfo.ThreadId = GetCurrentThreadId();
+				ExInfo.ExceptionPointers = (_EXCEPTION_POINTERS*)pExceptionInfo;
+				ExInfo.ClientPointers = NULL;
+
+				dump(GetCurrentProcess(),GetCurrentProcessId(),file,MiniDumpType,&ExInfo,NULL,NULL);
+				CloseHandle(file);
+			}
+		}
+	}
+	if (dbghelp) FreeLibrary(dbghelp);
+	TerminateProcess(GetCurrentProcess(),10);
+	return 0;
+}
+
+LONG _stdcall TopLevelFilter( _EXCEPTION_POINTERS *pExceptionInfo )
+{
+	if (pExceptionInfo->ExceptionRecord->ExceptionCode==EXCEPTION_STACK_OVERFLOW)
+	{
+		// start a new thread to get a fresh stack (hoping there is enough stack left for CreateThread)
+		HANDLE thread=CreateThread(NULL,0,SaveCrashDump,pExceptionInfo,0,NULL);
+		WaitForSingleObject(thread,INFINITE);
+		CloseHandle(thread);
+	}
+	else
+		SaveCrashDump(pExceptionInfo);
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+
 int wmain( int argc, const wchar_t *argv[] )
 {
 #ifndef BUILD_SETUP
@@ -180,6 +247,17 @@ int wmain( int argc, const wchar_t *argv[] )
 			PathRemoveFileSpec(g_LogName);
 			PathAppend(g_LogName,L"service.log");
 			LogText("Starting service\n");
+		}
+
+		DWORD dump;
+		size=sizeof(dump);
+
+		if (RegQueryValueEx(hKey,L"CrashDump",0,NULL,(BYTE*)&dump,&size)==ERROR_SUCCESS && dump>0)
+		{
+			if (dump==1) MiniDumpType=MiniDumpNormal;
+			if (dump==2) MiniDumpType=MiniDumpWithDataSegs;
+			if (dump==3) MiniDumpType=MiniDumpWithFullMemory;
+			SetUnhandledExceptionFilter(TopLevelFilter);
 		}
 		RegCloseKey(hKey);
 	}

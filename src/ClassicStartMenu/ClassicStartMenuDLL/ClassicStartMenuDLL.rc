@@ -236,8 +236,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,6,2,0
- PRODUCTVERSION 3,6,2,0
+ FILEVERSION 3,6,3,0
+ PRODUCTVERSION 3,6,3,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -254,12 +254,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "3, 6, 2, 0"
+            VALUE "FileVersion", "3, 6, 3, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009-2012, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 6, 2, 0"
+            VALUE "ProductVersion", "3, 6, 3, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -816,7 +816,17 @@ BEGIN
     IDS_SHOW_COMPUTER       "Computer"
     IDS_COMPUTER_TIP        "Show the contents of the computer"
     IDS_SHOW_COMPUTER_TIP   "Select how to display the computer in the start menu"
+END
+
+STRINGTABLE 
+BEGIN
     IDS_SHOW_COMPUTER_TIP2  "Select how to display the computer in the start menu\nWarning: You don't have a Computer item in your custom menu, so this setting will be ignored"
+    IDS_OPEN_DESKTOP        "Start Menu in Desktop and shows Desktop in Metro"
+    IDS_OPEN_DESKTOP_TIP    "The button will open the classic start menu when pressed in the Desktop and show the Desktop when pressed in the start screen"
+    IDS_SORT_DATE           "By Date"
+    IDS_SORT_DATE_TIP       "The recent documents will be sorted by date of last use"
+    IDS_ENABLE_TASKBARS     "Show on all taskbars"
+    IDS_ENABLE_TASKBARS_TIP "When this is checked, each taskbar will have its own start button"
 END
 
 #endif    // English (U.S.) resources

@@ -158,10 +158,22 @@ CIconManager::~CIconManager( void )
 	if (m_TempSmallIcons) ImageList_Destroy(m_TempSmallIcons);
 }
 
+static DWORD g_IconLevel=-1; // 0 - shield, 1 - 0, 2 - skip
+
 // Retrieves an icon from a shell folder and child ID
 int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLarge )
 {
 	ProcessLoadedIcons();
+
+	if (g_IconLevel==-1)
+	{
+		g_IconLevel=1;
+		CRegKey regKey;
+		if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicStartMenu",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+			regKey.QueryDWORDValue(L"IconLevel",g_IconLevel);
+	}
+	if (g_IconLevel==2)
+		return ICON_INDEX_DEFAULT;
 
 	// get the IExtractIcon object
 	CComPtr<IExtractIcon> pExtract;
@@ -172,17 +184,18 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 	IconLocation loc;
 	unsigned int key;
 	int shieldFlag=0;
+	int gilFlags=g_IconLevel==0?GIL_CHECKSHIELD:0;
 	if (SUCCEEDED(hr))
 	{
 		// get the icon location
 		wchar_t location[_MAX_PATH];
 		int index=0;
 		UINT flags=0;
-		hr=pExtract->GetIconLocation(GIL_CHECKSHIELD,location,_countof(location),&index,&flags);
+		hr=pExtract->GetIconLocation(gilFlags,location,_countof(location),&index,&flags);
 		if (hr!=S_OK)
 			return ICON_INDEX_DEFAULT;
 
-		shieldFlag=(flags&GIL_SHIELD)?ICON_SHIELD_FLAG:0;
+		shieldFlag=(g_IconLevel==0 && (flags&GIL_SHIELD))?ICON_SHIELD_FLAG:0;
 		// check if this location+index is in the cache
 		key=CalcFNVHash(location,CalcFNVHash(&index,4));
 		if (bLarge)
@@ -263,11 +276,11 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 		char location[_MAX_PATH];
 		int index=0;
 		UINT flags=0;
-		hr=pExtractA->GetIconLocation(GIL_CHECKSHIELD,location,_countof(location),&index,&flags);
+		hr=pExtractA->GetIconLocation(gilFlags,location,_countof(location),&index,&flags);
 		if (hr!=S_OK)
 			return ICON_INDEX_DEFAULT;
 
-		shieldFlag=(flags&GIL_SHIELD)?ICON_SHIELD_FLAG:0;
+		shieldFlag=(g_IconLevel==0 && (flags&GIL_SHIELD))?ICON_SHIELD_FLAG:0;
 		// check if this location+index is in the cache
 		key=CalcFNVHash(location,CalcFNVHash(&index,4));
 		if (bLarge)
@@ -379,7 +392,7 @@ int CIconManager::GetIcon( IShellFolder *pFolder, PCUITEMID_CHILD item, bool bLa
 		m_SmallCache[key]=res;
 		LeaveCriticalSection(&s_PreloadSection);
 
-		if (res>0)
+		if (res>ICON_INDEX_DEFAULT)
 		{
 			EnterCriticalSection(&s_PostloadSection);
 			s_IconLocations.push_back(loc);
@@ -421,10 +434,9 @@ int CIconManager::GetIcon( const wchar_t *location, int index, TIconType type )
 
 	// extract icon
 	HICON hIcon;
-	HMODULE hMod=*location?GetModuleHandle(PathFindFileName(location)):g_Instance;
 	int iconSize=(type==ICON_TYPE_LARGE)?LARGE_ICON_SIZE:SMALL_ICON_SIZE;
-	if (hMod && index<0)
-		hIcon=(HICON)LoadImage(hMod,MAKEINTRESOURCE(-index),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+	if (!*location)
+		hIcon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(-index),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
 	else
 		hIcon=ShExtractIcon(location,index==-1?0:index,iconSize);
 

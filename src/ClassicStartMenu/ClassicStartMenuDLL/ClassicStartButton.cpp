@@ -60,6 +60,7 @@ protected:
 private:
 	enum { TIMER_BLEND=1, TIMER_LEAVE=2 };
 
+	int m_TaskbarId;
 	SIZE m_Size;
 	HBITMAP m_Bitmap, m_Blendmap;
 	unsigned int *m_Bits, *m_BlendBits;
@@ -81,6 +82,7 @@ private:
 
 CStartButton::CStartButton( void )
 {
+	m_TaskbarId=-1;
 	m_Bitmap=m_Blendmap=NULL;
 	m_Icon=NULL;
 	m_Font=NULL;
@@ -92,7 +94,9 @@ CStartButton::CStartButton( void )
 
 LRESULT CStartButton::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	m_bRTL=((CREATESTRUCT*)lParam)->lpCreateParams!=NULL;
+	int params=(int)(((CREATESTRUCT*)lParam)->lpCreateParams);
+	m_bRTL=(params&1)!=0;
+	m_TaskbarId=params>>1;
 	m_bSmallIcons=IsTaskbarSmallIcons();
 	std::vector<HMODULE> modules;
 	m_Icon=NULL;
@@ -276,7 +280,7 @@ LRESULT CStartButton::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	else if (wParam==TIMER_LEAVE)
 	{
 		CPoint pt(GetMessagePos());
-		if (WindowFromPoint(pt)!=m_hWnd && !PointAroundStartButton())
+		if (WindowFromPoint(pt)!=m_hWnd && !PointAroundStartButton(m_TaskbarId))
 		{
 			KillTimer(TIMER_LEAVE);
 			SetHot(false);
@@ -439,15 +443,18 @@ void CStartButton::LoadBitmap( void )
 	}
 }
 
-static CStartButton g_StartButtonWnd;
+static std::map<int,CStartButton> g_StartButtons;
 
-HWND CreateStartButton( HWND taskBar, HWND rebar, const RECT &rcTask )
+HWND CreateStartButton( int taskbarId, HWND taskBar, HWND rebar, const RECT &rcTask )
 {
 	bool bRTL=(GetWindowLong(rebar,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)!=0;
-	g_StartButtonWnd.Create(taskBar,NULL,NULL,WS_POPUP,WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_LAYERED,0U,(void*)(bRTL?1:0));
-	SIZE size=g_StartButtonWnd.GetSize();
+	CStartButton &button=g_StartButtons[taskbarId];
+	button.Create(taskBar,NULL,NULL,WS_POPUP,WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_LAYERED,0U,(void*)(taskbarId*2+(bRTL?1:0)));
+	SIZE size=button.GetSize();
 	RECT rcButton;
-	if (GetWindowLong(rebar,GWL_STYLE)&CCS_VERT)
+	MONITORINFO info;
+	UINT uEdge=GetTaskbarPosition(taskBar,&info,NULL,NULL);
+	if (uEdge==ABE_LEFT || uEdge==ABE_RIGHT)
 	{
 		rcButton.left=(rcTask.left+rcTask.right-size.cx)/2;
 		rcButton.top=rcTask.top;
@@ -464,45 +471,58 @@ HWND CreateStartButton( HWND taskBar, HWND rebar, const RECT &rcTask )
 	}
 	rcButton.right=rcButton.left+size.cx;
 	rcButton.bottom=rcButton.top+size.cy;
-	g_StartButtonWnd.SetWindowPos(HWND_TOP,&rcButton,SWP_SHOWWINDOW|SWP_NOOWNERZORDER|SWP_NOACTIVATE);
+	button.SetWindowPos(HWND_TOP,&rcButton,SWP_SHOWWINDOW|SWP_NOOWNERZORDER|SWP_NOACTIVATE);
 
-	MONITORINFO info={sizeof(info)};
-	GetMonitorInfo(MonitorFromWindow(g_StartButtonWnd,MONITOR_DEFAULTTONEAREST),&info);
 	RECT rc;
 	IntersectRect(&rc,&rcButton,&info.rcMonitor);
 	HRGN rgn=CreateRectRgn(rc.left-rcButton.left,rc.top-rcButton.top,rc.right-rcButton.left,rc.bottom-rcButton.top);
-	if (!SetWindowRgn(g_StartButtonWnd,rgn,FALSE))
+	if (!SetWindowRgn(button,rgn,FALSE))
 		DeleteObject(rgn);
 
-	g_StartButtonWnd.UpdateButton();
-	return g_StartButtonWnd.m_hWnd;
+	button.UpdateButton();
+	return button.m_hWnd;
 }
 
-void DestroyStartButton( void )
+void DestroyStartButton( int taskbarId )
 {
-	if (g_StartButtonWnd.m_hWnd)
-		g_StartButtonWnd.DestroyWindow();
+	std::map<int,CStartButton>::iterator it=g_StartButtons.find(taskbarId);
+	if (it!=g_StartButtons.end())
+	{
+		if (it->second.m_hWnd)
+			it->second.DestroyWindow();
+		g_StartButtons.erase(it);
+	}
 }
 
-void UpdateStartButton( void )
+void UpdateStartButton( int taskbarId )
 {
-	g_StartButtonWnd.UpdateButton();
+	std::map<int,CStartButton>::iterator it=g_StartButtons.find(taskbarId);
+	if (it!=g_StartButtons.end())
+		it->second.UpdateButton();
 }
 
-void PressStartButton( bool bPressed )
+void PressStartButton( int taskbarId, bool bPressed )
 {
-	if (g_StartButtonWnd.m_hWnd)
-		g_StartButtonWnd.SetPressed(bPressed);
+	std::map<int,CStartButton>::iterator it=g_StartButtons.find(taskbarId);
+	if (it!=g_StartButtons.end())
+		it->second.SetPressed(bPressed);
 }
 
-SIZE GetStartButtonSize( void )
+SIZE GetStartButtonSize( int taskbarId )
 {
-	return g_StartButtonWnd.GetSize();
+	std::map<int,CStartButton>::iterator it=g_StartButtons.find(taskbarId);
+	if (it!=g_StartButtons.end())
+		return it->second.GetSize();
+	SIZE size={0,0};
+	return size;
 }
 
-bool IsStartButtonSmallIcons( void )
+bool IsStartButtonSmallIcons( int taskbarId )
 {
-	return g_StartButtonWnd.GetSmallIcons();
+	std::map<int,CStartButton>::iterator it=g_StartButtons.find(taskbarId);
+	if (it!=g_StartButtons.end())
+		return it->second.GetSmallIcons();
+	return false;
 }
 
 bool IsTaskbarSmallIcons( void )
@@ -514,7 +534,9 @@ bool IsTaskbarSmallIcons( void )
 	return regKey.QueryDWORDValue(L"TaskbarSmallIcons",val)!=ERROR_SUCCESS || val;
 }
 
-void TaskBarMouseMove( void )
+void TaskBarMouseMove( int taskbarId )
 {
-	g_StartButtonWnd.TaskBarMouseMove();
+	std::map<int,CStartButton>::iterator it=g_StartButtons.find(taskbarId);
+	if (it!=g_StartButtons.end())
+		it->second.TaskBarMouseMove();
 }

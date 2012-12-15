@@ -9,6 +9,7 @@
 #include "ClassicStartMenuDLL.h"
 #include "FNVHash.h"
 #include "Settings.h"
+#include "ResourceHelper.h"
 #include <algorithm>
 
 // CIDropSource - a basic IDropSource implementation. nothing to see here
@@ -137,12 +138,14 @@ bool CMenuContainer::DragOut( int index )
 
 	// do drag drop
 	s_pDragSource=this;
+	s_bPreventClosing=true;
 	m_DragIndex=index;
 	CIDropSource src(!bLeft);
 	DWORD dwEffect=DROPEFFECT_COPY|DROPEFFECT_MOVE|DROPEFFECT_LINK;
 	HRESULT res=SHDoDragDrop(NULL,pDataObj,&src,dwEffect,&dwEffect);
 
 	s_pDragSource=NULL;
+	s_bPreventClosing=false;
 
 	if (src.IsClosed())
 	{
@@ -407,17 +410,21 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 				(*it)->EnableWindow(FALSE); // disable all menus
 		bool bAllPrograms=s_bAllPrograms;
 		if (bAllPrograms) ::EnableWindow(g_TopMenu,FALSE);
-		CMenuContainer *pOld=s_pDragSource;
-		if (!s_pDragSource) s_pDragSource=this; // HACK: ensure s_pDragSource is not NULL even if dragging from external source (prevents the menu from closing)
+		bool bOld=s_bPreventClosing;
+		s_bPreventClosing=true;
+		AddRef();
 		pTarget->Drop(pDataObj,grfKeyState,pt,pdwEffect);
-		s_pDragSource=pOld;
+		s_bPreventClosing=bOld;
 		for (std::vector<CMenuContainer*>::iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			if (!(*it)->m_bDestroyed)
 				(*it)->EnableWindow(TRUE); // enable all menus
 		if (bAllPrograms) ::EnableWindow(g_TopMenu,TRUE);
-		SetForegroundWindow(m_hWnd);
-		SetActiveWindow();
-		SetFocus();
+		if (!m_bDestroyed)
+		{
+			SetForegroundWindow(m_hWnd);
+			SetActiveWindow();
+			SetFocus();
+		}
 
 		if (!(m_Options&CONTAINER_AUTOSORT))
 		{
@@ -436,6 +443,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 			SaveItemOrder(items);
 		}
 		PostRefreshMessage();
+		Release();
 	}
 	return S_OK;
 }

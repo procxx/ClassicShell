@@ -226,10 +226,10 @@ LRESULT CALLBACK CExplorerBHO::HookExplorer( int nCode, WPARAM wParam, LPARAM lP
 	if (nCode==HCBT_CREATEWND)
 	{
 		HWND hWnd=(HWND)wParam;
-		CBT_CREATEWND *create=(CBT_CREATEWND*)lParam;
-		if (create->lpcs->lpszClass>(LPTSTR)0xFFFF && _wcsicmp(create->lpcs->lpszClass,WC_TREEVIEW)==0)
+		CBT_CREATEWND *pCreate=(CBT_CREATEWND*)lParam;
+		if (pCreate->lpcs->lpszClass>(LPTSTR)0xFFFF && _wcsicmp(pCreate->lpcs->lpszClass,WC_TREEVIEW)==0)
 		{
-			HWND parent=GetAncestor(create->lpcs->hwndParent,GA_ROOT);
+			HWND parent=GetAncestor(pCreate->lpcs->hwndParent,GA_ROOT);
 			wchar_t name[256];
 			if (GetClassName(parent,name,_countof(name)) && _wcsicmp(name,L"CabinetWClass")==0)
 			{

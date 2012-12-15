@@ -99,6 +99,7 @@ bool CMenuContainer::s_bExtensionSort=false;
 bool CMenuContainer::s_bAllPrograms=false;
 bool CMenuContainer::s_bNoCommonFolders=false;
 char CMenuContainer::s_bActiveDirectory=-1;
+bool CMenuContainer::s_bPreventClosing=false;
 CMenuContainer *CMenuContainer::s_pDragSource=NULL;
 bool CMenuContainer::s_bRightDrag;
 std::vector<CMenuContainer*> CMenuContainer::s_Menus;
@@ -107,10 +108,11 @@ std::map<unsigned int,int> CMenuContainer::s_MenuScrolls;
 CString CMenuContainer::s_MRUShortcuts[MRU_PROGRAMS_COUNT];
 std::vector<CMenuContainer::ItemRank> CMenuContainer::s_ItemRanks;
 wchar_t CMenuContainer::s_JumpAppId[_MAX_PATH];
-wchar_t CMenuContainer::s_JumpAppExe[_MAX_PATH];
 CJumpList CMenuContainer::s_JumpList;
 CComPtr<IShellFolder> CMenuContainer::s_pDesktop;
 CComPtr<IKnownFolderManager> CMenuContainer::s_pKnownFolders;
+int CMenuContainer::s_TaskBarId;
+HWND CMenuContainer::s_TaskBar, CMenuContainer::s_StartButton;
 HWND CMenuContainer::s_LastFGWindow;
 HTHEME CMenuContainer::s_Theme;
 HTHEME CMenuContainer::s_PagerTheme;
@@ -132,6 +134,8 @@ DWORD CMenuContainer::s_XMouse;
 DWORD CMenuContainer::s_SubmenuStyle;
 CLIPFORMAT CMenuContainer::s_ShellFormat;
 MenuSkin CMenuContainer::s_Skin;
+CMenuContainer::StartMenuParams CMenuContainer::s_StartMenuParams;
+UINT CMenuContainer::s_StartMenuMsg;
 std::vector<CMenuFader*> CMenuFader::s_Faders;
 
 static BOOL CALLBACK FindAutoComplete( HWND hwnd, LPARAM lParam )
@@ -425,9 +429,11 @@ CMenuContainer::~CMenuContainer( void )
 		if (m_pParent->m_Submenu==m_ParentIndex)
 		{
 			if (!m_pParent->m_bDestroyed)
+			{
 				m_pParent->InvalidateItem(m_ParentIndex);
-			if (m_pParent->m_HotItem<0 && !(m_Options&CONTAINER_SEARCH))
-				m_pParent->SetHotItem(m_ParentIndex);
+				if (m_pParent->m_HotItem<0 && !(m_Options&CONTAINER_SEARCH))
+					m_pParent->SetHotItem(m_ParentIndex);
+			}
 			m_pParent->m_Submenu=-1;
 		}
 	}
@@ -801,7 +807,7 @@ void CMenuContainer::InitItems( void )
 	if (m_Options&CONTAINER_JUMPLIST)
 	{
 		s_JumpList.Clear();
-		if (GetAppInfoForLink(m_Path1a[0],s_JumpAppId,s_JumpAppExe))
+		if (GetAppInfoForLink(m_Path1a[0],s_JumpAppId))
 			GetJumplist(s_JumpAppId,s_JumpList,GetSettingInt(L"MaxJumplists"));
 
 		for (int g=0;g<(int)s_JumpList.groups.size();g++)
@@ -890,6 +896,7 @@ void CMenuContainer::InitItems( void )
 		}
 
 		UpdateUsedIcons();
+		UpdateAccelerators(0,(int)m_Items.size());
 		return;
 	}
 
@@ -1219,7 +1226,7 @@ void CMenuContainer::InitItems( void )
 			if (item.bLink && !item.bFolder && item.pItem1)
 			{
 				wchar_t appid[_MAX_PATH];
-				item.bFolder=(GetAppInfoForLink(item.pItem1,appid,NULL) && HasJumplist(appid));
+				item.bFolder=(GetAppInfoForLink(item.pItem1,appid) && HasJumplist(appid));
 				item.bJumpList=item.bFolder;
 				item.bSplit=item.bFolder;
 			}
@@ -1980,7 +1987,7 @@ void CMenuContainer::InitWindow( void )
 		int dy2=0;
 		if (rc.bottom>mainBottom)
 			dy2=mainBottom-rc.bottom;
-		if (rc.top+dy<mainTop)
+		if (rc.top+dy2<mainTop)
 			dy2=mainTop-rc.top;
 		OffsetRect(&rc,0,dy2);
 	}
@@ -2127,7 +2134,8 @@ LRESULT CMenuContainer::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 		BufferedPaintInit();
 	if (this==s_Menus[0])
 		s_FirstMenu=m_hWnd;
-	InitWindow();
+	else
+		InitWindow();
 	m_HotPos=GetMessagePos();
 	if (GetSettingBool(L"EnableAccessibility"))
 	{
@@ -2331,6 +2339,13 @@ LRESULT CMenuContainer::OnSetHotItem( UINT uMsg, WPARAM wParam, LPARAM lParam, B
 	return 0;
 }
 
+LRESULT CMenuContainer::OnStartMenuMsg( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	if (lParam)
+		s_StartMenuParams=*(StartMenuParams*)lParam;
+	return 0;
+}
+
 // Extensions to look for in the PATH directories
 static const wchar_t *pProgramExtensions[]=
 {
@@ -2403,7 +2418,7 @@ void CMenuContainer::CollectSearchItemsInt( IShellFolder *pFolder, PIDLIST_ABSOL
 						item.pidl=ILCombine(pidl,child);
 						item.icon=-1;
 						item.bMetroLink=false;
-						if ((flags&COLLECT_METRO) && (itemFlags&SFGAO_LINK))
+						if ((flags&COLLECT_METRO) && (itemFlags&SFGAO_LINK) && GetWinVersion()>=WIN_VER_WIN8)
 						{
 							wchar_t path[_MAX_PATH];
 							if (SUCCEEDED(SHGetPathFromIDList(item.pidl,path)) && GetMetroLinkInfo(path,&item.name,NULL,false))
@@ -2696,8 +2711,8 @@ void CMenuContainer::SetActiveWindow( void )
 	HWND active=GetActiveWindow();
 	if (active!=m_hWnd && active!=m_SearchBox.m_hWnd)
 		::SetActiveWindow(m_hWnd);
-	if (!m_bSubMenu && s_bBehindTaskbar)
-		SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE); // make sure the top menu stays behind the taskbar
+	if (!m_bSubMenu && s_bBehindTaskbar && s_TaskBar)
+		SetWindowPos(s_TaskBar,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE); // make sure the top menu stays behind the taskbar
 }
 
 void CMenuContainer::PostRefreshMessage( void )
@@ -2825,14 +2840,12 @@ LRESULT CMenuContainer::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 		s_Tooltip.SendMessage(TTM_TRACKACTIVATE,TRUE,(LPARAM)&tool);
 
 		// make sure the tooltip is inside the monitor
-		MONITORINFO info={sizeof(info)};
-		GetMonitorInfo(MonitorFromPoint(pt,MONITOR_DEFAULTTONEAREST),&info);
 		s_Tooltip.GetWindowRect(&rc);
 		int dx=0, dy=0;
-		if (rc.left<info.rcMonitor.left) dx=info.rcMonitor.left-rc.left;
-		if (rc.right+dx>info.rcMonitor.right) dx-=rc.right-info.rcMonitor.right;
-		if (rc.top<info.rcMonitor.top) dy=info.rcMonitor.top-rc.top;
-		if (rc.bottom+dy>info.rcMonitor.bottom) dy-=rc.bottom-info.rcMonitor.bottom;
+		if (rc.left<s_MainRect.left) dx=s_MainRect.left-rc.left;
+		if (rc.right+dx>s_MainRect.right) dx-=rc.right-s_MainRect.right;
+		if (rc.top<s_MainRect.top) dy=s_MainRect.top-rc.top;
+		if (rc.bottom+dy>s_MainRect.bottom) dy-=rc.bottom-s_MainRect.bottom;
 		if (dx || dy)
 			s_Tooltip.SendMessage(TTM_TRACKPOSITION,0,MAKELONG(pt.x+dx,pt.y+dy));
 
@@ -3296,7 +3309,9 @@ LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 			}
 		}
 		s_FirstMenu=m_hWnd;
-		PressStartButton(false);
+		PressStartButton(s_TaskBarId,false);
+		s_TaskBar=s_StartButton=NULL;
+		s_TaskBarId=-1;
 	}
 	return 0;
 }
@@ -3330,21 +3345,20 @@ LRESULT CMenuContainer::OnActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 		return 0;
 	}
 #ifdef ALLOW_DEACTIVATE
-	if (s_pDragSource) return 0;
-	// check if another menu window is being activated
-	// if not, close all menus
 	if (lParam)
 	{
+		if (s_bPreventClosing && (::GetWindowLong((HWND)lParam,GWL_EXSTYLE)&WS_EX_TOPMOST))
+			return 0;
+
+		// check if another menu window is being activated
+		// if not, close all menus
 		for (std::vector<CMenuContainer*>::const_iterator it=s_Menus.begin();it!=s_Menus.end();++it)
 			if ((*it)->m_hWnd==(HWND)lParam || (*it)->m_SearchBox.m_hWnd==(HWND)lParam)
 				return 0;
+
+		if ((HWND)lParam==g_OwnerWindow || (HWND)lParam==g_TopMenu)
+			return 0;
 	}
-
-	if (g_OwnerWindow && (HWND)lParam==g_OwnerWindow)
-		return 0;
-
-	if (g_TopMenu && (HWND)lParam==g_TopMenu)
-		return 0;
 
 	for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
 		if ((*it)->m_hWnd && !(*it)->m_bDestroyed)
@@ -3605,7 +3619,7 @@ bool CMenuContainer::GetDescription( int index, wchar_t *text, int size )
 		CoTaskMemFree(tip);
 		return true;
 	}
-	return false;
+	return bLabel;
 }
 
 LRESULT CMenuContainer::OnLButtonDown( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
@@ -3918,10 +3932,13 @@ void CMenuContainer::LoadItemOrder( void )
 			it->row=0;
 	}
 
-	// sort by row, then by bFolder, then by name
-	s_bExtensionSort=(m_Options&CONTAINER_DOCUMENTS) && GetSettingInt(L"SortRecentDocuments")==1;
-	std::sort(m_Items.begin(),m_Items.end());
-	s_bExtensionSort=false;
+	if (!(m_Options&CONTAINER_DOCUMENTS) || GetSettingInt(L"SortRecentDocuments")!=2)
+	{
+		// sort by row, then by bFolder, then by name
+		s_bExtensionSort=(m_Options&CONTAINER_DOCUMENTS) && GetSettingInt(L"SortRecentDocuments")==1;
+		std::sort(m_Items.begin(),m_Items.end());
+		s_bExtensionSort=false;
+	}
 	if (m_Options&CONTAINER_SORTZA)
 		std::reverse(m_Items.begin(),m_Items.end());
 
@@ -4102,14 +4119,14 @@ bool CMenuContainer::CloseStartMenu( void )
 {
 	if (s_Menus.empty()) return false;
 
-	::SetActiveWindow(g_StartButton);
+	::SetActiveWindow(s_StartButton?s_StartButton:g_TaskBar);
 
-	if (s_LastFGWindow && s_LastFGWindow!=GetDesktopWindow() && s_LastFGWindow!=GetShellWindow())
+	if (s_LastFGWindow && s_LastFGWindow!=GetDesktopWindow() && s_LastFGWindow!=GetShellWindow() && s_TaskBar)
 	{
 		// don't activate the last application if it was a full-screen window on the same monitor as the taskbar.
 		// leave the taskbar up instead
 		MONITORINFO info={sizeof(info)};
-		GetMonitorInfo(MonitorFromWindow(g_TaskBar,MONITOR_DEFAULTTOPRIMARY),&info);
+		GetMonitorInfo(MonitorFromWindow(s_TaskBar,MONITOR_DEFAULTTOPRIMARY),&info);
 		RECT rc;
 		::GetWindowRect(s_LastFGWindow,&rc);
 		if (memcmp(&info.rcMonitor,&rc,sizeof(RECT))!=0)
@@ -4167,7 +4184,7 @@ static void NewVersionCallback( DWORD newVersion, CString downloadUrl, CString n
 }
 
 // Toggles the start menu
-HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAllPrograms )
+HWND CMenuContainer::ToggleStartMenu( int taskbarId, bool bKeyboard, bool bAllPrograms )
 {
 	s_bAllPrograms=false;
 	if (bAllPrograms)
@@ -4186,7 +4203,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 			return NULL;
 
 		s_LastFGWindow=GetForegroundWindow();
-		SetForegroundWindow(g_StartButton);
+		SetForegroundWindow(GetTaskbarInfo(taskbarId)->startButton);
 		EnableStartTooltip(false);
 	}
 
@@ -4207,6 +4224,13 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 			}
 		}
 	}
+
+	if (!s_StartMenuMsg)
+		s_StartMenuMsg=RegisterWindowMessage(L"ClassicStartMenu.StartMenuMsg");
+	s_StartMenuParams.uEdge=0xFFFFFFFF;
+	s_TaskBarId=taskbarId;
+	s_TaskBar=GetTaskbarInfo(taskbarId)->taskBar;
+	s_StartButton=GetTaskbarInfo(taskbarId)->startButton;
 	s_bAllPrograms=bAllPrograms;
 	int level=GetSettingInt(L"LogLevel");
 	if (level>0)
@@ -4232,7 +4256,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	if (bErr)
 		LoadDefaultMenuSkin(s_Skin,LOADMENU_MAIN|LOADMENU_RESOURCES);
 
-	PressStartButton(true);
+	PressStartButton(s_TaskBarId,true);
 	g_IconManager.ResetTempIcons();
 	s_ScrollMenus=GetSettingInt(L"ScrollType");
 	s_bExpandLinks=GetSettingBool(L"ExpandFolderLinks");
@@ -4255,22 +4279,22 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 
 	APPBARDATA appbar={sizeof(appbar)};
 	s_TaskbarState=(DWORD)SHAppBarMessage(ABM_GETSTATE,&appbar);
+
 	// the taskbar on Windows 7 (and most likely later versions) is always on top even though it doesn't have the ABS_ALWAYSONTOP flag.
 	if (GetWinVersion()>=WIN_VER_WIN7)
 	{
 		// also check the WS_EX_TOPMOST style - maybe some tool like DisableTaskbarOnTop is messing with it
-		if (::GetWindowLong(g_TaskBar,GWL_EXSTYLE)&WS_EX_TOPMOST)
+		if (::GetWindowLong(s_TaskBar,GWL_EXSTYLE)&WS_EX_TOPMOST)
 			s_TaskbarState|=ABS_ALWAYSONTOP;
 	}
 
-	appbar.hWnd=g_TaskBar;
-	// get the taskbar orientation - top/bottom/left/right. the documentation says only the bounding rectangle (rc) is returned, but seems
-	// that also uEdge is returned. hopefully this won't break in the future. it is tricky to calculate the position of the taskbar only
-	// based on the bounding rectangle. there may be other appbars docked on each side, the taskbar can be set to auto-hide, etc. tricky.
-	SHAppBarMessage(ABM_GETTASKBARPOS,&appbar);
+	HMONITOR monitor;
+	MONITORINFO info;
+	RECT taskbarRect;
+	UINT uEdge=GetTaskbarPosition(s_TaskBar,&info,&monitor,&taskbarRect);
 
 	if (!bAllPrograms && (s_TaskbarState&ABS_AUTOHIDE))
-		::SetActiveWindow(g_TaskBar);
+		::SetActiveWindow(s_TaskBar);
 
 	if (s_bActiveDirectory==-1)
 	{
@@ -4360,7 +4384,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 				}
 				break;
 			case MENU_SECURITY:
-				g_StdOptions[i].options=bRemote?MENU_ENABLED:0;
+				g_StdOptions[i].options=bRemote?MENU_ENABLED|MENU_EXPANDED:0;
 				break;
 			case MENU_NETWORK:
 				g_StdOptions[i].options=0;
@@ -4445,14 +4469,14 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 				}
 				break;
 			case MENU_SLEEP:
-				g_StdOptions[i].options=(powerCaps.SystemS1 || powerCaps.SystemS2 || powerCaps.SystemS3)?MENU_ENABLED:0;
+				g_StdOptions[i].options=(powerCaps.SystemS1 || powerCaps.SystemS2 || powerCaps.SystemS3)?MENU_ENABLED|MENU_EXPANDED:0;
 				break;
 			case MENU_HIBERNATE:
-				g_StdOptions[i].options=powerCaps.HiberFilePresent?MENU_ENABLED:0;
+				g_StdOptions[i].options=powerCaps.HiberFilePresent?MENU_ENABLED|MENU_EXPANDED:0;
 				break;
 			case MENU_SWITCHUSER:
 				{
-					g_StdOptions[i].options=MENU_ENABLED;
+					g_StdOptions[i].options=MENU_ENABLED|MENU_EXPANDED;
 					CComPtr<IShellDispatch2> pShellDisp;
 					if (SUCCEEDED(CoCreateInstance(CLSID_Shell,NULL,CLSCTX_SERVER,IID_IShellDispatch2,(void**)&pShellDisp)))
 					{
@@ -4463,7 +4487,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 				}
 				break;
 			case MENU_APPS:
-				g_StdOptions[i].options=(GetWinVersion()>=WIN_VER_WIN8)?MENU_ENABLED:0;
+				g_StdOptions[i].options=(GetWinVersion()>=WIN_VER_WIN8)?MENU_ENABLED|MENU_EXPANDED:0;
 				break;
 		}
 		LOG_MENU(LOG_OPEN,L"ItemOptions[%d]=%d",i,g_StdOptions[i].options);
@@ -4474,64 +4498,6 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	s_bKeyboardCues=bKeyboard;
 	s_bRecentItems=GetSettingBool(L"RecentPrograms");
 
-	// make sure the menu stays on the same monitor as the task bar
-	MONITORINFO info={sizeof(info)};
-	GetMonitorInfo(MonitorFromWindow(g_TaskBar,MONITOR_DEFAULTTOPRIMARY),&info);
-	{
-		RECT rc;
-		UnionRect(&rc,&info.rcWork,&appbar.rc);
-		IntersectRect(&s_MainRect,&rc,&info.rcMonitor);
-	}
-
-	RECT taskbarRect;
-	::GetWindowRect(g_TaskBar,&taskbarRect);
-	s_HoverTime=GetSettingInt(L"MenuDelay");
-	s_SplitHoverTime=(s_HoverTime*GetSettingInt(L"SplitMenuDelay"))/100;
-
-	RECT startRect;
-	if (startButton)
-	{
-		::GetWindowRect(startButton,&startRect);
-	}
-	else
-	{
-		// no start button. try to guess the rect
-		startRect=taskbarRect;
-		if (appbar.uEdge==ABE_LEFT || appbar.uEdge==ABE_RIGHT)
-			startRect.bottom=startRect.top;
-		else if (::GetWindowLong(g_TaskBar,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)
-			startRect.left=startRect.right-(startRect.bottom-startRect.top);
-		else
-			startRect.right=startRect.left+(startRect.bottom-startRect.top);
-	}
-
-	s_TipShowTime=400;
-	s_TipHideTime=4000;
-	CString str=GetSettingString(L"InfotipDelay");
-	if (!str.IsEmpty())
-	{
-		wchar_t token[256];
-		str=GetToken(str,token,_countof(token),L", \t");
-		int time=_wtol(token);
-		if (time>=0) s_TipShowTime=time;
-		str=GetToken(str,token,_countof(token),L", \t");
-		time=_wtol(token);
-		if (time>=0) s_TipHideTime=time;
-	}
-
-	s_TipHideTimeFolder=s_TipShowTimeFolder=0;
-	str=GetSettingString(L"FolderInfotipDelay");
-	if (!str.IsEmpty())
-	{
-		wchar_t token[256];
-		str=GetToken(str,token,_countof(token),L", \t");
-		int time=_wtol(token);
-		if (time>=0) s_TipShowTimeFolder=time;
-		str=GetToken(str,token,_countof(token),L", \t");
-		time=_wtol(token);
-		if (time>=0) s_TipHideTimeFolder=time;
-	}
-
 	// create the top menu from the Start Menu folders
 	PIDLIST_ABSOLUTE path1;
 	PIDLIST_ABSOLUTE path2;
@@ -4540,18 +4506,23 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 		path2=NULL;
 	else
 		SHGetKnownFolderIDList(FOLDERID_CommonStartMenu,0,NULL,&path2);
-
 	int options=CONTAINER_PROGRAMS|CONTAINER_DRAG|CONTAINER_DROP;
-	if (s_Skin.Main_large_icons && !bAllPrograms)
-		options|=CONTAINER_LARGE;
-
-	DWORD animFlags=0;
+	unsigned int rootSettings=0;
+	const StdMenuItem *pRoot=NULL;
+	if (bAllPrograms)
 	{
-		int anim=GetSettingInt(bAllPrograms?L"SubMenuAnimation":L"MainMenuAnimation");
-		if (anim==3) animFlags=((rand()<RAND_MAX/2)?AW_BLEND:AW_SLIDE);
-		else if (anim==1) animFlags=AW_BLEND;
-		else if (anim==2) animFlags=AW_SLIDE;
+		options|=CONTAINER_ALLPROGRAMS;
 	}
+	else
+	{
+		pRoot=ParseCustomMenu(rootSettings);
+	}
+
+	bool bTopMost=(s_TaskbarState&ABS_ALWAYSONTOP)!=0 || bAllPrograms;
+
+	SystemParametersInfo(SPI_GETACTIVEWINDOWTRACKING,NULL,&s_XMouse,0);
+	if (s_XMouse)
+		SystemParametersInfo(SPI_SETACTIVEWINDOWTRACKING,NULL,(PVOID)FALSE,SPIF_SENDCHANGE);
 
 	s_bBehindTaskbar=!bAllPrograms;
 	s_bShowTopEmpty=false;
@@ -4587,6 +4558,189 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 			s_Skin.Submenu_opacity=MenuSkin::OPACITY_REGION;
 	}
 
+	s_HoverTime=GetSettingInt(L"MenuDelay");
+	s_SplitHoverTime=(s_HoverTime*GetSettingInt(L"SplitMenuDelay"))/100;
+
+	CMenuContainer *pStartMenu=new CMenuContainer(NULL,bAllPrograms?0:-1,options,pRoot,path1,path2,bAllPrograms?L"Software\\IvoSoft\\ClassicStartMenu\\Order2":L"Software\\IvoSoft\\ClassicStartMenu\\Order");
+
+	HWND owner=NULL;
+	if (bAllPrograms && (uEdge==ABE_LEFT || uEdge==ABE_RIGHT))
+		owner=g_TopMenu;
+	RECT dummyRc={info.rcMonitor.left,info.rcMonitor.top,info.rcMonitor.left+100,info.rcMonitor.top+100};
+	if (!pStartMenu->Create(owner,&dummyRc,NULL,bAllPrograms?s_SubmenuStyle:dwStyle,WS_EX_TOOLWINDOW|((bTopMost || !s_bBehindTaskbar)?WS_EX_TOPMOST:0)|(s_bRTL?WS_EX_LAYOUTRTL:0)))
+	{
+		FreeMenuSkin(s_Skin);
+		return NULL;
+	}
+	dummyRc.right++;
+	pStartMenu->SetWindowPos(NULL,&dummyRc,SWP_NOZORDER);
+
+	RECT startRect;
+
+	HMONITOR monitor2=MonitorFromWindow(bAllPrograms?g_ProgramsButton:pStartMenu->m_hWnd,MONITOR_DEFAULTTONEAREST);
+	if (s_StartMenuParams.uEdge!=0xFFFFFFFF)
+	{
+		s_StartButton=s_StartMenuParams.startButton;
+		s_TaskBar=s_StartMenuParams.taskbar;
+		uEdge=s_StartMenuParams.uEdge;
+		s_MainRect=s_StartMenuParams.monitorRect;
+		startRect=s_StartMenuParams.startButtonRect;
+		taskbarRect=s_StartMenuParams.taskbarRect;
+	}
+	else if (monitor!=monitor2)
+	{
+		// somebody has moved the menu to another monitor. recalculate the working area and the taskbar orientation
+		info.cbSize=sizeof(info);
+		GetMonitorInfo(monitor2,&info);
+		s_MainRect=info.rcMonitor;
+		s_StartButton=s_TaskBar=NULL;
+		if (bAllPrograms)
+		{
+			::GetWindowRect(g_ProgramsButton,&startRect);
+		}
+		else
+		{
+			RECT rc;
+			pStartMenu->GetWindowRect(&rc);
+			startRect=rc;
+			taskbarRect=info.rcMonitor;
+			int dx=(rc.left+rc.right-info.rcMonitor.left-info.rcMonitor.right)/2;
+			int dy=(rc.top+rc.bottom-info.rcMonitor.top-info.rcMonitor.bottom)/2;
+			if (dx<0 && dy<0)
+			{
+				// top-left corner
+				startRect.bottom=startRect.top;
+				startRect.right=startRect.left;
+				if (rc.top-info.rcMonitor.top>rc.left-info.rcMonitor.left)
+				{
+					// top
+					taskbarRect.bottom=rc.top;
+					uEdge=ABE_TOP;
+				}
+				else
+				{
+					// left
+					taskbarRect.right=rc.left;
+					uEdge=ABE_LEFT;
+				}
+			}
+			else if (dx<0 && dy>=0)
+			{
+				// bottom-left corner
+				startRect.top=startRect.bottom;
+				startRect.right=startRect.left;
+				if (info.rcMonitor.bottom-rc.bottom>rc.left-info.rcMonitor.left)
+				{
+					// bottom
+					taskbarRect.top=rc.bottom;
+					uEdge=ABE_BOTTOM;
+				}
+				else
+				{
+					// left
+					taskbarRect.right=rc.left;
+					uEdge=ABE_LEFT;
+				}
+			}
+			else if (dx>=0 && dy<0)
+			{
+				// top-right corner
+				startRect.bottom=startRect.top;
+				startRect.left=startRect.right;
+				if (rc.top-info.rcMonitor.top>info.rcMonitor.right-rc.right)
+				{
+					// top
+					taskbarRect.bottom=rc.top;
+					uEdge=ABE_TOP;
+				}
+				else
+				{
+					// right
+					taskbarRect.left=rc.right;
+					uEdge=ABE_RIGHT;
+				}
+			}
+			else
+			{
+				// bottom-right corner
+				startRect.top=startRect.bottom;
+				startRect.left=startRect.right;
+				if (info.rcMonitor.bottom-rc.bottom>info.rcMonitor.right-rc.right)
+				{
+					// bottom
+					taskbarRect.top=rc.bottom;
+					uEdge=ABE_BOTTOM;
+				}
+				else
+				{
+					// right
+					taskbarRect.left=rc.right;
+					uEdge=ABE_RIGHT;
+				}
+			}
+		}
+	}
+	else
+	{
+		RECT rc;
+		UnionRect(&rc,&info.rcWork,&taskbarRect);
+		IntersectRect(&s_MainRect,&rc,&info.rcMonitor);
+
+		if (s_StartButton)
+		{
+			::GetWindowRect(s_StartButton,&startRect);
+		}
+		else if (s_TaskBar)
+		{
+			// no start button. try to guess the rect
+			startRect=taskbarRect;
+			if (uEdge==ABE_LEFT || uEdge==ABE_RIGHT)
+				startRect.bottom=startRect.top;
+			else if (::GetWindowLong(s_TaskBar,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)
+				startRect.left=startRect.right-(startRect.bottom-startRect.top);
+			else
+				startRect.right=startRect.left+(startRect.bottom-startRect.top);
+		}
+	}
+
+	s_TipShowTime=400;
+	s_TipHideTime=4000;
+	CString str=GetSettingString(L"InfotipDelay");
+	if (!str.IsEmpty())
+	{
+		wchar_t token[256];
+		str=GetToken(str,token,_countof(token),L", \t");
+		int time=_wtol(token);
+		if (time>=0) s_TipShowTime=time;
+		str=GetToken(str,token,_countof(token),L", \t");
+		time=_wtol(token);
+		if (time>=0) s_TipHideTime=time;
+	}
+
+	s_TipHideTimeFolder=s_TipShowTimeFolder=0;
+	str=GetSettingString(L"FolderInfotipDelay");
+	if (!str.IsEmpty())
+	{
+		wchar_t token[256];
+		str=GetToken(str,token,_countof(token),L", \t");
+		int time=_wtol(token);
+		if (time>=0) s_TipShowTimeFolder=time;
+		str=GetToken(str,token,_countof(token),L", \t");
+		time=_wtol(token);
+		if (time>=0) s_TipHideTimeFolder=time;
+	}
+
+	if (s_Skin.Main_large_icons && !bAllPrograms)
+		options|=CONTAINER_LARGE;
+
+	DWORD animFlags=0;
+	{
+		int anim=GetSettingInt(bAllPrograms?L"SubMenuAnimation":L"MainMenuAnimation");
+		if (anim==3) animFlags=((rand()<RAND_MAX/2)?AW_BLEND:AW_SLIDE);
+		else if (anim==1) animFlags=AW_BLEND;
+		else if (anim==2) animFlags=AW_SLIDE;
+	}
+
 	RECT margin={0,0,0,0};
 	AdjustWindowRect(&margin,s_SubmenuStyle,FALSE);
 	s_Skin.Submenu_padding.left+=margin.left; if (s_Skin.Submenu_padding.left<0) s_Skin.Submenu_padding.left=0;
@@ -4595,7 +4749,6 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	s_Skin.Submenu_padding.bottom-=margin.bottom; if (s_Skin.Submenu_padding.bottom<0) s_Skin.Submenu_padding.bottom=0;
 
 	RECT rc;
-	const StdMenuItem *pRoot=NULL;
 
 	if (bAllPrograms)
 	{
@@ -4650,12 +4803,12 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 		if (!bTheme)
 			memset(&margin,0,sizeof(margin)); // in Classic mode don't offset the main menu by the border size
 
-		if ((appbar.uEdge==ABE_LEFT || appbar.uEdge==ABE_RIGHT) && GetSettingBool(L"ShowNextToTaskbar"))
+		if ((uEdge==ABE_LEFT || uEdge==ABE_RIGHT) && GetSettingBool(L"ShowNextToTaskbar"))
 		{
 			// when the taskbar is on the side and the menu is not on top of it
 			// the start button is assumed at the top
 			rc.top=rc.bottom=s_MainRect.top+margin.top;
-			if (appbar.uEdge==ABE_LEFT)
+			if (uEdge==ABE_LEFT)
 			{
 				rc.left=rc.right=taskbarRect.right+margin.left;
 				options|=CONTAINER_LEFT;
@@ -4672,7 +4825,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 		}
 		else
 		{
-			if (appbar.uEdge==ABE_BOTTOM)
+			if (uEdge==ABE_BOTTOM)
 			{
 				// taskbar is at the bottom
 				rc.top=rc.bottom=taskbarRect.top+margin.bottom;
@@ -4680,7 +4833,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 				// animate up
 				animFlags|=AW_VER_NEGATIVE;
 			}
-			else if (appbar.uEdge==ABE_TOP)
+			else if (uEdge==ABE_TOP)
 			{
 				// taskbar is at the top
 				rc.top=rc.bottom=taskbarRect.bottom+margin.top;
@@ -4715,8 +4868,6 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 			}
 		}
 
-		unsigned int rootSettings;
-		pRoot=ParseCustomMenu(rootSettings);
 		if (GetSettingBool(L"MainSortZA")) options|=CONTAINER_SORTZA;
 		if (GetSettingBool(L"MainSortOnce")) options|=CONTAINER_SORTONCE;
 		if (s_bRecentItems && !(rootSettings&StdMenuItem::MENU_NORECENT))
@@ -4725,33 +4876,24 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 
 	if (!bAllPrograms && GetSettingBool(L"EnableJumplists"))
 		CreateAppResolver();
-	CMenuContainer *pStartMenu=new CMenuContainer(NULL,bAllPrograms?0:-1,options,pRoot,path1,path2,bAllPrograms?L"Software\\IvoSoft\\ClassicStartMenu\\Order2":L"Software\\IvoSoft\\ClassicStartMenu\\Order");
+
+	// reposition start menu
+	pStartMenu->SetWindowPos((bTopMost || !s_bBehindTaskbar)?HWND_TOPMOST:HWND_TOP,&rc,(monitor!=monitor2 && !bAllPrograms)?SWP_NOMOVE|SWP_NOSIZE:0);
+
+	pStartMenu->m_Options=options;
 	pStartMenu->InitItems();
 	pStartMenu->m_MaxWidth=s_MainRect.right-s_MainRect.left;
 	ILFree(path1);
 	if (path2)
 		ILFree(path2);
 
-	bool bTopMost=(s_TaskbarState&ABS_ALWAYSONTOP)!=0 || bAllPrograms;
-
-	SystemParametersInfo(SPI_GETACTIVEWINDOWTRACKING,NULL,&s_XMouse,0);
-	if (s_XMouse)
-		SystemParametersInfo(SPI_SETACTIVEWINDOWTRACKING,NULL,(PVOID)FALSE,SPIF_SENDCHANGE);
-
-	HWND owner=NULL;
-	if (bAllPrograms && (appbar.uEdge==ABE_LEFT || appbar.uEdge==ABE_RIGHT))
-		owner=g_TopMenu;
-	if (!pStartMenu->Create(owner,&rc,NULL,bAllPrograms?s_SubmenuStyle:dwStyle,WS_EX_TOOLWINDOW|((bTopMost || !s_bBehindTaskbar)?WS_EX_TOPMOST:0)|(s_bRTL?WS_EX_LAYOUTRTL:0)))
-	{
-		FreeMenuSkin(s_Skin);
-		return NULL;
-	}
 	if (GetSettingBool(L"MenuShadow"))
 		SetClassLong(pStartMenu->m_hWnd,GCL_STYLE,GetClassLong(pStartMenu->m_hWnd,GCL_STYLE)|CS_DROPSHADOW);
 	else
 		SetClassLong(pStartMenu->m_hWnd,GCL_STYLE,GetClassLong(pStartMenu->m_hWnd,GCL_STYLE)&~CS_DROPSHADOW);
 	pStartMenu->SetHotItem((bKeyboard && bAllPrograms)?0:-1);
 
+	pStartMenu->InitWindow();
 	if (bAllPrograms)
 	{
 		::InvalidateRect(g_ProgramsButton,NULL,TRUE);
@@ -4764,8 +4906,8 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	else
 		SystemParametersInfo(SPI_GETMENUANIMATION,NULL,&animate,0);
 
-	if (s_bBehindTaskbar)
-		::SetWindowPos(g_TaskBar,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE); // bring the start button on top
+	if (s_TaskBar && s_bBehindTaskbar)
+		::SetWindowPos(s_TaskBar,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); // bring the start button on top
 	if (animate)
 	{
 		int speed=GetSettingInt(bAllPrograms?L"SubMenuAnimationSpeed":L"MainMenuAnimationSpeed");
@@ -4804,20 +4946,20 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 	}
 	SetForegroundWindow(pStartMenu->m_hWnd);
 	SwitchToThisWindow(pStartMenu->m_hWnd,FALSE); // just in case
-	if (s_bBehindTaskbar)
+	if (s_TaskBar && s_bBehindTaskbar)
 	{
 		// position the start button on top
-		if (startButton)
-			::SetWindowPos(startButton,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+		if (s_StartButton)
+			::SetWindowPos(s_StartButton,bTopMost?HWND_TOPMOST:HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
 		// position the start menu behind the taskbar
-		pStartMenu->SetWindowPos(g_TaskBar,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+		pStartMenu->SetWindowPos(s_TaskBar,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
 	}
 
 	if (bErr && GetSettingBool(L"ReportSkinErrors") && !*MenuSkin::s_SkinError)
 	{
 		Strcpy(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_UNKNOWN));
 	}
-	if (*MenuSkin::s_SkinError && GetSettingBool(L"ReportSkinErrors"))
+	if (*MenuSkin::s_SkinError && GetSettingBool(L"ReportSkinErrors") && s_StartButton)
 	{
 		Strcat(MenuSkin::s_SkinError,_countof(MenuSkin::s_SkinError),LoadStringEx(IDS_SKIN_ERR_DISABLE));
 		s_TooltipBalloon=CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|(s_bRTL?WS_EX_LAYOUTRTL:0),TOOLTIPS_CLASS,NULL,WS_POPUP|TTS_BALLOON|TTS_CLOSE|TTS_NOPREFIX,0,0,0,0,pStartMenu->m_hWnd,NULL,g_Instance,NULL);
@@ -4834,7 +4976,7 @@ HWND CMenuContainer::ToggleStartMenu( HWND startButton, bool bKeyboard, bool bAl
 		{
 			s_TooltipBalloon.SendMessage(TTM_SETTITLE,TTI_WARNING,(LPARAM)(const wchar_t*)LoadStringEx(IDS_SKIN_WARN));
 		}
-		::GetWindowRect(g_StartButton,&rc);
+		::GetWindowRect(s_StartButton,&rc);
 		s_TooltipBalloon.SendMessage(TTM_TRACKPOSITION,0,MAKELONG((rc.left+rc.right)/2,(rc.top+rc.bottom)/2));
 		s_TooltipBalloon.SendMessage(TTM_TRACKACTIVATE,TRUE,(LPARAM)&tool);
 		pStartMenu->SetTimer(TIMER_BALLOON_HIDE,10000);

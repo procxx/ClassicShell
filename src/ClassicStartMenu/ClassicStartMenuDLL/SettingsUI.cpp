@@ -1691,6 +1691,7 @@ CSetting g_Settings[]={
 		{L"ClassicMenu",CSetting::TYPE_RADIO,IDS_OPEN_CSM,IDS_OPEN_CSM_TIP},
 		{L"WindowsMenu",CSetting::TYPE_RADIO,IDS_OPEN_WSM,IDS_OPEN_WSM_TIP},
 		{L"Both",CSetting::TYPE_RADIO,IDS_OPEN_BOTH,IDS_OPEN_BOTH_TIP},
+		{L"Desktop",CSetting::TYPE_RADIO,IDS_OPEN_DESKTOP,IDS_OPEN_DESKTOP_TIP},
 	{L"ShiftWin",CSetting::TYPE_INT,IDS_SHIFT_WIN,IDS_SHIFT_WIN_TIP,2,CSetting::FLAG_BASIC},
 		{L"Nothing",CSetting::TYPE_RADIO,IDS_OPEN_NOTHING,IDS_OPEN_NOTHING_TIP},
 		{L"ClassicMenu",CSetting::TYPE_RADIO,IDS_OPEN_CSM,IDS_OPEN_CSM_TIP},
@@ -1725,6 +1726,7 @@ CSetting g_Settings[]={
 	{L"SortRecentDocuments",CSetting::TYPE_INT,IDS_SORT_DOCS,IDS_SORT_DOCS_TIP,0,0,L"Documents=2"},
 		{L"Name",CSetting::TYPE_RADIO,IDS_SORT_NAME,IDS_SORT_NAME_TIP},
 		{L"Extension",CSetting::TYPE_RADIO,IDS_SORT_EXT,IDS_SORT_EXT_TIP},
+		{L"Date",CSetting::TYPE_RADIO,IDS_SORT_DATE,IDS_SORT_DATE_TIP},
 	{L"UserFiles",CSetting::TYPE_INT,IDS_SHOW_USERFILES,IDS_SHOW_USERFILES_TIP,1},
 		{L"Hide",CSetting::TYPE_RADIO,IDS_ITEM_HIDE,IDS_ITEM_HIDE_TIP},
 		{L"Show",CSetting::TYPE_RADIO,IDS_ITEM_SHOW,IDS_ITEM_SHOW_TIP},
@@ -1888,6 +1890,7 @@ CSetting g_Settings[]={
 
 {L"StartButton",CSetting::TYPE_GROUP,IDS_START_BUTTON},
 	{L"EnableStartButton",CSetting::TYPE_BOOL,IDS_ENABLE_BUTTON,IDS_ENABLE_BUTTON_TIP,1,CSetting::FLAG_BASIC|CSetting::FLAG_COLD},
+	{L"AllTaskbars",CSetting::TYPE_BOOL,IDS_ENABLE_TASKBARS,IDS_ENABLE_TASKBARS_TIP,1,CSetting::FLAG_COLD,L"EnableStartButton"},
 	{L"StartButtonTip",CSetting::TYPE_STRING,IDS_BUTTON_TIP,IDS_BUTTON_TIP_TIP,L"$Menu.Start",0,L"EnableStartButton"},
 	{L"StartButtonType",CSetting::TYPE_INT,IDS_BUTTON_TYPE,IDS_BUTTON_TYPE_TIP,0,0,L"EnableStartButton"},
 		{L"ClasicButton",CSetting::TYPE_RADIO,IDS_CLASSIC_BUTTON,IDS_CLASSIC_BUTTON_TIP},
@@ -1960,7 +1963,7 @@ void UpdateSettings( void )
 
 	DWORD logoff1=SHRestricted(REST_STARTMENULOGOFF);
 	DWORD logoff2=SHRestricted(REST_FORCESTARTMENULOGOFF);
-	UpdateSetting(L"LogOff",CComVariant((logoff1!=1 && (logoff1==2 || logoff2))?1:0),logoff1 || logoff2);
+	UpdateSetting(L"LogOff",CComVariant((logoff2 || logoff1!=1)?1:0),logoff1 || logoff2);
 
 	bool bNoClose=SHRestricted(REST_NOCLOSE)!=0;
 	UpdateSetting(L"Shutdown",CComVariant(bNoClose?0:2),bNoClose);
@@ -2057,6 +2060,7 @@ void UpdateSettings( void )
 	{
 		HideSettingGroup(L"Metro",true);
 		UpdateSetting(L"EnableStartButton",CComVariant(0),false);
+		UpdateSetting(L"AllTaskbars",CComVariant(0),false,true);
 		if (GetWinVersion()==WIN_VER_WIN7)
 		{
 			UpdateSettingText(L"EnableStartButton",IDS_ENABLE_BUTTON2,IDS_ENABLE_BUTTON_TIP2,false);
@@ -2071,6 +2075,7 @@ void UpdateSettings( void )
 		}
 
 		FindSetting(L"WinKey")[4].flags|=CSetting::FLAG_HIDDEN;
+		FindSetting(L"WinKey")[5].flags|=CSetting::FLAG_HIDDEN;
 		FindSetting(L"ShiftWin")[4].flags|=CSetting::FLAG_HIDDEN;
 	}
 
@@ -2121,7 +2126,7 @@ void ClosingSettings( HWND hWnd, int flags, int command )
 		if (path==START_BUTTON_CUSTOM)
 			path=CalcFNVHash(GetSettingString(L"StartButtonPath"));
 		if (path!=g_ButtonPath || g_ButtonSize!=GetSettingInt(L"StartButtonSize") || g_ButtonIcon!=icon || g_ButtonText!=text || g_ButtonTip!=tip)
-			RecreateStartButton();
+			RecreateStartButton(-1);
 		ResetHotCorners();
 	}
 }

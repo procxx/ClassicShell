@@ -81,12 +81,17 @@ bool GetMetroLinkInfo( const wchar_t *path, CString *pName, int *pIcon, bool bLa
 		std::map<unsigned int,MetroLinkInfo>::const_iterator it=g_MetroLinkCache.find(key);
 		if (it!=g_MetroLinkCache.end() && CompareFileTime(&data.ftLastWriteTime,&it->second.timestamp)==0)
 		{
+			if (it->second.name.IsEmpty())
+				return false;
 			*pName=it->second.name;
 			if (pIcon)
 				*pIcon=g_IconManager.GetMetroIcon(it->second.packagePath,it->second.iconPath,it->second.color,bLarge);
 			return true;
 		}
 	}
+	MetroLinkInfo &info=g_MetroLinkCache[key];
+	info.timestamp=data.ftLastWriteTime;
+
 	CComPtr<IShellLink> pLink;
 	CString appid, package, packagePath, iconPath;
 	DWORD color;
@@ -170,17 +175,12 @@ bool GetMetroLinkInfo( const wchar_t *path, CString *pName, int *pIcon, bool bLa
 		Strcpy(str,_countof(str),pName);
 		CoTaskMemFree(pName);
 	}
-	{
-		MetroLinkInfo info;
-		info.timestamp=data.ftLastWriteTime;
-		info.appid=appid;
-		info.name=str;
-		info.package=package;
-		info.packagePath=packagePath;
-		info.iconPath=iconPath;
-		info.color=color;
-		g_MetroLinkCache[key]=info;
-	}
+	info.appid=appid;
+	info.name=str;
+	info.package=package;
+	info.packagePath=packagePath;
+	info.iconPath=iconPath;
+	info.color=color;
 	*pName=str;
 	if (pIcon)
 		*pIcon=g_IconManager.GetMetroIcon(packagePath,iconPath,color,bLarge);
@@ -228,11 +228,23 @@ static const CLSID CLSID_ApplicationActivationManager={0x45BA127D,0x10A8,0x46EA,
 static DWORD CALLBACK ExecuteThread( void *param )
 {
 	CoInitialize(NULL);
+	CComPtr<IApplicationActivationManager> pActivationManager;
+	if (SUCCEEDED(pActivationManager.CoCreateInstance(CLSID_ApplicationActivationManager)))
+	{
+		DWORD pid;
+		pActivationManager->ActivateApplication((wchar_t*)param,NULL,AO_NONE,&pid);
+	}
+	CoUninitialize();
+	free(param);
+	return 0;
+}
+
+void ExecuteMetroLink( const wchar_t *path )
+{
 	CString appid;
 
 	wchar_t PATH[_MAX_PATH];
-	Strcpy(PATH,_countof(PATH),(wchar_t*)param);
-	free(param);
+	Strcpy(PATH,_countof(PATH),path);
 	CharUpper(PATH);
 	unsigned int key=CalcFNVHash(PATH);
 
@@ -243,42 +255,29 @@ static DWORD CALLBACK ExecuteThread( void *param )
 	{
 		CComPtr<IShellLink> pLink;
 		if (FAILED(pLink.CoCreateInstance(CLSID_ShellLink)))
-			goto end;
+			return;
 		CComQIPtr<IPersistFile> pFile=pLink;
 		if (!pFile || FAILED(pFile->Load(PATH,STGM_READ)))
-			goto end;
+			return;
 		CComQIPtr<IPropertyStore> pStore=pLink;
 		if (!pStore)
-			goto end;
+			return;
 
 		PROPVARIANT val;
 		PropVariantInit(&val);
 		if (FAILED(pStore->GetValue(PKEY_AppUserModel_ID,&val)))
-			goto end;
+			return;
 		if (val.vt==VT_LPWSTR || val.vt==VT_BSTR)
 			appid=val.pwszVal;
 		PropVariantClear(&val);
 	}
-	if (appid.IsEmpty())
-		goto end;
+	if (!appid.IsEmpty())
 	{
-		CComPtr<IApplicationActivationManager> pActivationManager;
-		if (FAILED(pActivationManager.CoCreateInstance(CLSID_ApplicationActivationManager)))
-			goto end;
-		DWORD pid;
-		pActivationManager->ActivateApplication(appid,NULL,AO_NONE,&pid);
+		wchar_t exePath[_MAX_PATH];
+		GetModuleFileName(NULL,exePath,_countof(exePath));
+		if (_wcsicmp(PathFindFileName(exePath),L"explorer.exe")==0)
+			CreateThread(NULL,0,ExecuteThread,_wcsdup(appid),0,NULL);
+		else
+			ExecuteThread(_wcsdup(appid));
 	}
-end:
-	CoUninitialize();
-	return 0;
-}
-
-void ExecuteMetroLink( const wchar_t *path )
-{
-	wchar_t exePath[_MAX_PATH];
-	GetModuleFileName(NULL,exePath,_countof(exePath));
-	if (_wcsicmp(PathFindFileName(exePath),L"explorer.exe")==0)
-		CreateThread(NULL,0,ExecuteThread,_wcsdup(path),0,NULL);
-	else
-		ExecuteThread(_wcsdup(path));
 }

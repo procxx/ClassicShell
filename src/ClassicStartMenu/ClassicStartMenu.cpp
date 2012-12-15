@@ -63,7 +63,7 @@ static HWND HookStartMenu( THookMode mode )
 	}
 
 	if (mode==HOOK_NONE)
-		return ToggleStartMenu(g_StartButton,false);
+		return ToggleStartMenu(-1,false);
 
 	// install hooks in the explorer process
 	thread=GetWindowThreadProcessId(g_TaskBar,NULL);
