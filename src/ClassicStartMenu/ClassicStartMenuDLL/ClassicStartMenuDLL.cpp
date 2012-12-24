@@ -1998,7 +1998,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 					}
 				}
 			}
-			else if (g_WinStartButton)
+			else if (g_bReplaceButton && g_WinStartButton)
 			{
 				CPoint pt(GetMessagePos());
 				ScreenToClient(g_WinStartButton,&pt);

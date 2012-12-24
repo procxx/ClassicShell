@@ -1963,7 +1963,7 @@ void UpdateSettings( void )
 
 	DWORD logoff1=SHRestricted(REST_STARTMENULOGOFF);
 	DWORD logoff2=SHRestricted(REST_FORCESTARTMENULOGOFF);
-	UpdateSetting(L"LogOff",CComVariant((logoff2 || logoff1!=1)?1:0),logoff1 || logoff2);
+	UpdateSetting(L"LogOff",CComVariant((logoff1!=1)?1:0),logoff1 || logoff2);
 
 	bool bNoClose=SHRestricted(REST_NOCLOSE)!=0;
 	UpdateSetting(L"Shutdown",CComVariant(bNoClose?0:2),bNoClose);

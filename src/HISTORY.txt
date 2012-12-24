@@ -1,4 +1,11 @@
 ===============================================================================
+== Version 3.6.4 general release (Dec, 2012):
+===============================================================================
+
+- Fixed a frezing problem when right-clicking on the start button
+
+
+===============================================================================
 == Version 3.6.3 general release (Dec, 2012):
 
 - Improved performance of the start menu

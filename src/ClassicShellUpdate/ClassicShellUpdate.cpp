@@ -400,7 +400,8 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	if (wcsstr(lpstrCmdLine,L"-popup")!=NULL)
 	{
 		g_UpdateDlg.UpdateData();
-		int sleep=timeGetTime()-time0;
+		// wait at least 5 seconds before showing the balloon
+		int sleep=5000-(timeGetTime()-time0);
 		if (sleep>0)
 			Sleep(sleep);
 		HWND balloon=CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW|(IsLanguageRTL()?WS_EX_LAYOUTRTL:0),TOOLTIPS_CLASS,NULL,WS_POPUP|TTS_CLOSE|TTS_NOPREFIX,0,0,0,0,NULL,NULL,g_Instance,NULL);

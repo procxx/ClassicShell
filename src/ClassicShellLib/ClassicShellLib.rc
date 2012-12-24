@@ -248,7 +248,7 @@ END
 
 STRINGTABLE 
 BEGIN
-    IDS_VERSION_URL         "http://classicshell.sourceforge.net/latest_version.txt"
+    IDS_VERSION_URL         "http://www.classicshell.net/files/latest_version.txt"
 END
 
 #endif    // English (U.S.) resources

@@ -3582,6 +3582,16 @@ static DWORD WINAPI ThreadVersionCheck( void *param )
 	CString downloadUrl, news;
 	TVersionCheck check=(TVersionCheck)(int)param;
 	CString url=LoadStringEx(IDS_VERSION_URL);
+	{
+		CRegKey regKeyLng;
+		wchar_t language[100]=L".";
+		if (regKeyLng.Open(HKEY_LOCAL_MACHINE,L"Software\\IvoSoft\\ClassicShell",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+		{
+			ULONG size=_countof(language)-1;
+			if (regKeyLng.QueryStringValue(L"DefaultLanguage",language+1,&size)==ERROR_SUCCESS && size>1)
+				url+=language;
+		}
+	}
 	bool res=false;
 	HINTERNET hInternet=InternetOpen(L"Classic Shell",INTERNET_OPEN_TYPE_PRECONFIG,NULL,NULL,0);
 	if (hInternet)
