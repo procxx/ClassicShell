@@ -2151,7 +2151,7 @@ LRESULT CMenuContainer::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 
 bool CMenuContainer::GetItemRect( int index, RECT &rc )
 {
-	if (index>=0 && index<=(int)m_Items.size())
+	if (index>=0 && index<(int)m_Items.size())
 	{
 		rc=m_Items[index].itemRect;
 		if (m_ScrollHeight>0 && index<m_ScrollCount)
@@ -4891,9 +4891,9 @@ HWND CMenuContainer::ToggleStartMenu( int taskbarId, bool bKeyboard, bool bAllPr
 		SetClassLong(pStartMenu->m_hWnd,GCL_STYLE,GetClassLong(pStartMenu->m_hWnd,GCL_STYLE)|CS_DROPSHADOW);
 	else
 		SetClassLong(pStartMenu->m_hWnd,GCL_STYLE,GetClassLong(pStartMenu->m_hWnd,GCL_STYLE)&~CS_DROPSHADOW);
-	pStartMenu->SetHotItem((bKeyboard && bAllPrograms)?0:-1);
 
 	pStartMenu->InitWindow();
+	pStartMenu->SetHotItem((bKeyboard && bAllPrograms)?0:-1);
 	if (bAllPrograms)
 	{
 		::InvalidateRect(g_ProgramsButton,NULL,TRUE);

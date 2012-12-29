@@ -125,6 +125,11 @@ LONG _stdcall TopLevelFilter( _EXCEPTION_POINTERS *pExceptionInfo )
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
+void InvalidParameterHandler( const wchar_t* expression, const wchar_t* function, const wchar_t* file, unsigned int line, uintptr_t pReserved )
+{
+	*(int*)0=0; // force a crash to generate a dump
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 // COwnerWindow - a special window used as owner for some UI elements, like the ones created by IContextMenu::InvokeCommand.
@@ -1159,6 +1164,7 @@ static void InitStartMenuDLL( void )
 		if (level==2) MiniDumpType=MiniDumpWithDataSegs;
 		if (level==3) MiniDumpType=MiniDumpWithFullMemory;
 		SetUnhandledExceptionFilter(TopLevelFilter);
+		_set_invalid_parameter_handler(InvalidParameterHandler);
 		g_bCrashDump=true;
 	}
 	FindTaskBar();
@@ -1587,7 +1593,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 				if (taskBar)
 				{
 					int control=GetSettingInt((msg->wParam==MSG_DRAG)?L"MouseClick":L"ShiftClick");
-					if (control==OPEN_CLASSIC || (control==OPEN_WINDOWS && GetWinVersion()<WIN_VER_WIN8))
+					if (control==OPEN_CLASSIC || (control==OPEN_WINDOWS && GetWinVersion()>=WIN_VER_WIN8))
 						ToggleStartMenu(taskBar->taskbarId,true);
 					else if (control==OPEN_WINDOWS)
 						PostMessage(g_ProgWin,WM_SYSCOMMAND,SC_TASKLIST,'CLSM');
