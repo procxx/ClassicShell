@@ -73,7 +73,7 @@ BEGIN
             VALUE "FileDescription", "en-US"
             VALUE "FileVersion", "1, 0, 0, 1"
             VALUE "InternalName", "en-US"
-            VALUE "LegalCopyright", "Copyright (C) 2009-2012, Ivo Beltchev"
+            VALUE "LegalCopyright", "Copyright (C) 2009-2013, Ivo Beltchev"
             VALUE "OriginalFilename", "en-US"
             VALUE "ProductName", "Classic Shell"
             VALUE "ProductVersion", "1, 0, 0, 1"

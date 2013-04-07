@@ -235,8 +235,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,6,5,0
- PRODUCTVERSION 3,6,5,0
+ FILEVERSION 3,6,6,0
+ PRODUCTVERSION 3,6,6,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -253,12 +253,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "3, 6, 5, 0"
+            VALUE "FileVersion", "3, 6, 6, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
-            VALUE "LegalCopyright", "Copyright (C) 2009-2012, Ivo Beltchev"
+            VALUE "LegalCopyright", "Copyright (C) 2009-2013, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 6, 5, 0"
+            VALUE "ProductVersion", "3, 6, 6, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -826,6 +826,8 @@ BEGIN
     IDS_SORT_DATE_TIP       "The recent documents will be sorted by date of last use"
     IDS_ENABLE_TASKBARS     "Show on all taskbars"
     IDS_ENABLE_TASKBARS_TIP "When this is checked, each taskbar will have its own start button"
+    IDS_TASKBAR_TRANS       "Disable taskbar transparency"
+    IDS_TASKBAR_TRANS_TIP   "When this is checked, the taskbar will be opaque"
 END
 
 #endif    // English (U.S.) resources

@@ -1,20 +1,21 @@
 CLASSIC SHELL
-Version 3.6.4 general release
+Version 3.6.6 general release
 
 Classic Shell adds some missing features to Windows Vista, Windows 7 and Windows 8 -
 like a classic start menu, start button, a toolbar for Windows Explorer and others.
 
-The latest version can be found on Source Forge:
-http://classicshell.sourceforge.net/
-
-Report problems in the Classic Shell bug tracker:
-http://sourceforge.net/tracker/?group_id=290975&atid=1230788
+The latest version can be found on the Classic Shell website:
+http://www.classicshell.net/
 
 For answers to frequently asked questions look here:
-http://classicshell.sourceforge.net/faq.html
-Or use the forums to get help:
-Help: http://sourceforge.net/projects/classicshell/forums/forum/1049756
-Discussion: http://sourceforge.net/projects/classicshell/forums/forum/1049755
+http://www.classicshell.net/faq/
+
+Or use the discussion forums to get help:
+http://www.classicshell.net/forum/viewforum.php?f=6
+
+Report problems in the Classic Shell development forums:
+http://www.classicshell.net/forum/viewforum.php?f=11
+
 
 
 ///////////////////////////////////////////////////////////////////////////////

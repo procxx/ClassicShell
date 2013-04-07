@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #define STRICT_TYPED_ITEMIDS
@@ -479,13 +479,16 @@ const wchar_t *SeparateArguments( const wchar_t *command, wchar_t *program )
 		wchar_t prog2[_MAX_PATH];
 		memcpy(prog2,command,len*2);
 		prog2[len]=0;
+		if (len>0 && prog2[len-1]=='\\')
+			prog2[len-1]=0;
 		WIN32_FIND_DATA data;
 		HANDLE h=FindFirstFile(prog2,&data);
 		if (h!=INVALID_HANDLE_VALUE)
 		{
 			// found a valid file
 			FindClose(h);
-			memcpy(program,prog2,len*2+2);
+			memcpy(program,command,len*2);
+			program[len]=0;
 			if (*space)
 				args=space+1;
 			else

@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
@@ -304,6 +304,7 @@ class CEditCustomItemDlg: public CResizeableDlg<CEditCustomItemDlg>
 {
 public:
 	CEditCustomItemDlg( CTreeItem *pItem, std::vector<HMODULE> &modules ): m_Modules(modules) { m_pItem=pItem; }
+	virtual ~CEditCustomItemDlg( void );
 	void SetEnableParent( HWND parent ) { m_EnableParent=parent; }
 	bool GetResult( void ) { return m_bResult; }
 
@@ -337,7 +338,7 @@ protected:
 	bool BrowseIcon( wchar_t *text );
 
 private:
-	std::vector<HMODULE> m_Modules;
+	std::vector<HMODULE> &m_Modules;
 	HWND m_EnableParent;
 	bool m_bResult;
 	HICON m_hIcon;

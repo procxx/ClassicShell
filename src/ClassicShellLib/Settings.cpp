@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include <windows.h>
@@ -833,34 +833,42 @@ void CSettingsManager::ResetSettings( void )
 HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 {
 	if (m_ImageList) return m_ImageList;
-	int size=TreeView_GetItemHeight(tree);
-	if (size>16 && size<20) size=16; // avoid weird sizes that can distort the icons
-	m_ImageList=ImageList_Create(size,size,ILC_COLOR32|ILC_MASK|((GetWindowLong(tree,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)?ILC_MIRROR:0),0,23);
+	HTHEME theme=OpenThemeData(tree,L"button");
+	HDC hdc=CreateCompatibleDC(NULL);
+	int iconSize=(TreeView_GetItemHeight(tree)<32)?16:32;
+	int checkSize=16;
+	if (theme)
+	{
+		SIZE val={16,16};
+		if (GetThemePartSize(theme,hdc,BP_RADIOBUTTON,RBS_UNCHECKEDNORMAL,NULL,TS_DRAW,&val)==S_OK)
+			checkSize=val.cx;
+	}
+	int imageSize=iconSize>checkSize?iconSize:checkSize;
+	int iconOffset=(imageSize-iconSize)/2;
+	int checkOffset=(imageSize-checkSize)/2;
+	m_ImageList=ImageList_Create(imageSize,imageSize,ILC_COLOR32|ILC_MASK|((GetWindowLong(tree,GWL_EXSTYLE)&WS_EX_LAYOUTRTL)?ILC_MIRROR:0),0,23);
 	BITMAPINFO dib={sizeof(dib)};
-	dib.bmiHeader.biWidth=size;
-	dib.bmiHeader.biHeight=-size;
+	dib.bmiHeader.biWidth=imageSize;
+	dib.bmiHeader.biHeight=-imageSize;
 	dib.bmiHeader.biPlanes=1;
 	dib.bmiHeader.biBitCount=32;
 	dib.bmiHeader.biCompression=BI_RGB;
-	HDC hdc=CreateCompatibleDC(NULL);
 	HDC hdcMask=CreateCompatibleDC(NULL);
 	HBITMAP bmp=CreateDIBSection(hdc,&dib,DIB_RGB_COLORS,NULL,NULL,0);
 	HBITMAP bmpMask=CreateDIBSection(hdcMask,&dib,DIB_RGB_COLORS,NULL,NULL,0);
-
-	HTHEME theme=OpenThemeData(tree,L"button");
 
 	for (int i=0;i<13;i++)
 	{
 		HBITMAP bmp0=(HBITMAP)SelectObject(hdc,bmp);
 		HBITMAP bmp1=(HBITMAP)SelectObject(hdcMask,bmpMask);
-		RECT rc={0,0,size,size};
+		RECT rc={0,0,imageSize,imageSize};
 		FillRect(hdc,&rc,(HBRUSH)(COLOR_WINDOW+1));
 		FillRect(hdcMask,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
 		if (i==1)
 		{
-			HICON icon=(HICON)LoadImage(_AtlBaseModule.GetResourceInstance(),MAKEINTRESOURCE(IDI_ICONLOCK),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
-			DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
-			DrawIconEx(hdcMask,0,0,icon,size,size,0,NULL,DI_MASK);
+			HICON icon=(HICON)LoadImage(_AtlBaseModule.GetResourceInstance(),MAKEINTRESOURCE(IDI_ICONLOCK),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+			DrawIconEx(hdc,iconOffset,iconOffset,icon,iconSize,iconSize,0,NULL,DI_NORMAL);
+			DrawIconEx(hdcMask,iconOffset,iconOffset,icon,iconSize,iconSize,0,NULL,DI_MASK);
 			DestroyIcon(icon);
 		}
 		else if (i==2 || i==3)
@@ -868,21 +876,21 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 			HMODULE hShell32=GetModuleHandle(L"shell32.dll");
 			if (hShell32)
 			{
-				HICON icon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(16775),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
-				DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
+				HICON icon=(HICON)LoadImage(hShell32,MAKEINTRESOURCE(151),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+				DrawIconEx(hdc,iconOffset,iconOffset,icon,iconSize,iconSize,0,NULL,DI_NORMAL);
 				DestroyIcon(icon);
 			}
 		}
 		else if (i==12)
 		{
-			HICON icon=(HICON)LoadImage(_AtlBaseModule.GetResourceInstance(),MAKEINTRESOURCE(IDI_ICONWARNING),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
-			DrawIconEx(hdc,0,0,icon,size,size,0,NULL,DI_NORMAL);
-			DrawIconEx(hdcMask,0,0,icon,size,size,0,NULL,DI_MASK);
+			HICON icon=(HICON)LoadImage(_AtlBaseModule.GetResourceInstance(),MAKEINTRESOURCE(IDI_ICONWARNING),IMAGE_ICON,iconSize,iconSize,LR_DEFAULTCOLOR);
+			DrawIconEx(hdc,iconOffset,iconOffset,icon,iconSize,iconSize,0,NULL,DI_NORMAL);
+			DrawIconEx(hdcMask,iconOffset,iconOffset,icon,iconSize,iconSize,0,NULL,DI_MASK);
 			DestroyIcon(icon);
 		}
 		else if (i>3)
 		{
-			InflateRect(&rc,-1,-1);
+			RECT rcCheck={checkOffset,checkOffset,checkOffset+checkSize,checkOffset+checkSize};
 			if (theme)
 			{
 				if ((i-4)&4)
@@ -892,7 +900,7 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 					else if (state==1) state=RBS_UNCHECKEDDISABLED;
 					else if (state==2) state=RBS_CHECKEDNORMAL;
 					else state=RBS_CHECKEDDISABLED;
-					DrawThemeBackground(theme,hdc,BP_RADIOBUTTON,state,&rc,NULL);
+					DrawThemeBackground(theme,hdc,BP_RADIOBUTTON,state,&rcCheck,NULL);
 				}
 				else
 				{
@@ -901,7 +909,7 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 					else if (state==1) state=CBS_UNCHECKEDDISABLED;
 					else if (state==2) state=CBS_CHECKEDNORMAL;
 					else state=CBS_CHECKEDDISABLED;
-					DrawThemeBackground(theme,hdc,BP_CHECKBOX,state,&rc,NULL);
+					DrawThemeBackground(theme,hdc,BP_CHECKBOX,state,&rcCheck,NULL);
 				}
 			}
 			else
@@ -910,7 +918,7 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 				if ((i-4)&1) state|=DFCS_INACTIVE;
 				if ((i-4)&2) state|=DFCS_CHECKED;
 				if ((i-4)&4) state|=DFCS_BUTTONRADIO;
-				DrawFrameControl(hdc,&rc,DFC_BUTTON,state);
+				DrawFrameControl(hdc,&rcCheck,DFC_BUTTON,state);
 			}
 		}
 		SelectObject(hdc,bmp0);
@@ -922,7 +930,7 @@ HIMAGELIST CSettingsManager::GetImageList( HWND tree )
 	{
 		HBITMAP bmp0=(HBITMAP)SelectObject(hdc,bmp);
 		HBITMAP bmp1=(HBITMAP)SelectObject(hdcMask,bmpMask);
-		RECT rc={0,0,size,size};
+		RECT rc={0,0,imageSize,imageSize};
 		FillRect(hdc,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
 		FillRect(hdcMask,&rc,(HBRUSH)GetStockObject(BLACK_BRUSH));
 		SelectObject(hdc,bmp0);

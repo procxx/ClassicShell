@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #pragma once
@@ -337,9 +337,9 @@ private:
 			if (priority>x.priority) return false;
 			if (row<x.row) return true;
 			if (row>x.row) return false;
-			if (bFolder && !x.bFolder) return true;
-			if (!bFolder && x.bFolder) return false;
-			if (bFolder)
+			if ((bFolder && !bJumpList) && !(x.bFolder && !x.bJumpList)) return true;
+			if (!(bFolder && !bJumpList) && (x.bFolder && !x.bJumpList)) return false;
+			if (bFolder && !bJumpList)
 			{
 				const wchar_t *drive1=name.IsEmpty()?NULL:wcschr((const wchar_t*)name+1,':');
 				const wchar_t *drive2=x.name.IsEmpty()?NULL:wcschr((const wchar_t*)x.name+1,':');
@@ -371,12 +371,13 @@ private:
 		CString name;
 		unsigned int nameHash;
 		bool bFolder;
+		bool bJumpList;
 
 		bool operator<( const SortMenuItem &x ) const
 		{
-			if (bFolder && !x.bFolder) return true;
-			if (!bFolder && x.bFolder) return false;
-			if (bFolder)
+			if ((bFolder && !bJumpList) && !(x.bFolder && !x.bJumpList)) return true;
+			if (!(bFolder && !bJumpList) && (x.bFolder && !x.bJumpList)) return false;
+			if (bFolder && !bJumpList)
 			{
 				const wchar_t *drive1=name.IsEmpty()?NULL:wcschr((const wchar_t*)name+1,':');
 				const wchar_t *drive2=x.name.IsEmpty()?NULL:wcschr((const wchar_t*)x.name+1,':');
@@ -408,6 +409,7 @@ private:
 	CMenuContainer *m_pParent; // parent menu
 	int m_ParentIndex; // the index of this menu in the parent (usually matches m_pParent->m_Submenu)
 	int m_Submenu; // the item index of the opened submenu
+	int m_SubShowTime; // the time when the submenu was shown
 	int m_HotItem;
 	int m_InsertMark;
 	bool m_bInsertAfter;
@@ -629,6 +631,7 @@ private:
 	static bool s_bNoCommonFolders; // don't show the common folders (start menu and programs)
 	static char s_bActiveDirectory; // the Active Directory services are available (-1 - uninitialized)
 	static bool s_bPreventClosing; // prevents the menus from closing even if they lose focus
+	static bool s_bDisableHover; // disable hovering while the search box has the focus
 	static CMenuContainer *s_pDragSource; // the source of the current drag operation
 	static bool s_bRightDrag; // dragging with the right mouse button
 	static RECT s_MainRect; // area of the main monitor

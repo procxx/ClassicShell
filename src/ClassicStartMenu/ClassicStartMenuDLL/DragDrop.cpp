@@ -1,5 +1,5 @@
 // ## MenuContainer.h
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // DragDrop.cpp - handles the drag and drop functionality of CMenuContainer
@@ -367,7 +367,7 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it,idx++)
 				if (it->id==MENU_NO)
 				{
-					SortMenuItem item={it->name,it->nameHash,it->bFolder};
+					SortMenuItem item={it->name,it->nameHash,it->bFolder,it->bJumpList};
 					items.push_back(item);
 				}
 				else
@@ -433,12 +433,12 @@ HRESULT STDMETHODCALLTYPE CMenuContainer::Drop( IDataObject *pDataObj, DWORD grf
 			for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it,idx++)
 				if (it->id==MENU_NO)
 				{
-					SortMenuItem item={it->name,it->nameHash,it->bFolder};
+					SortMenuItem item={it->name,it->nameHash,it->bFolder,it->bJumpList};
 					items.push_back(item);
 				}
 				else if (idx<before)
 					skip++;
-			SortMenuItem ins={L"",FNV_HASH0,false};
+			SortMenuItem ins={L"",FNV_HASH0,false,false};
 			items.insert(items.begin()+(before-skip),ins);
 			SaveItemOrder(items);
 		}

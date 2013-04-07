@@ -1,5 +1,5 @@
 // ## MenuContainer.h
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // MenuCommands.cpp - handles the commands and actions of CMenuContainer
@@ -524,6 +524,7 @@ void CMenuContainer::OpenSubMenu( int index, TActivateType type, bool bShift )
 	}
 
 	m_Submenu=index;
+	m_SubShowTime=0;
 	InvalidateItem(index);
 	if (type!=ACTIVATE_OPEN_SEARCH)
 		SetHotItem(index);
@@ -700,6 +701,9 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				{
 					LockSetForegroundWindow(LSFW_UNLOCK);
 					FadeOutItem(index);
+					for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
+						if (!(*it)->m_bDestroyed)
+							(*it)->PostMessage(WM_CLOSE);
 				}
 				PlayMenuSound(SOUND_COMMAND);
 				ExecuteJumpItem(s_JumpAppId,m_Path1a[0],s_JumpList.groups[LOWORD(item.jumpIndex)].items[HIWORD(item.jumpIndex)],g_OwnerWindow);
@@ -752,7 +756,10 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			{
 				for (std::vector<CMenuContainer*>::reverse_iterator it=s_Menus.rbegin();it!=s_Menus.rend();++it)
 					if (!(*it)->m_bDestroyed)
+					{
+						(*it)->ShowWindow(SW_HIDE);
 						(*it)->PostMessage(WM_CLOSE);
+					}
 			}
 		}
 	}
@@ -888,7 +895,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			}
 			break;
 		case MENU_RESTART: // restart
-			if (GetWinVersion()==WIN_VER_WIN8 && bShift)
+			if (GetWinVersion()>=WIN_VER_WIN8 && bShift)
 			{
 				STARTUPINFO startupInfo={sizeof(startupInfo)};
 				PROCESS_INFORMATION processInfo;
@@ -918,7 +925,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 #ifndef EWX_HYBRID_SHUTDOWN
 #define EWX_HYBRID_SHUTDOWN 0x00400000
 #endif
-			if (GetWinVersion()==WIN_VER_WIN8 && !bShift)
+			if (GetWinVersion()>=WIN_VER_WIN8 && !bShift)
 				ExitWindowsEx(EWX_SHUTDOWN|EWX_HYBRID_SHUTDOWN,0);
 			else
 				ExitWindowsEx(EWX_SHUTDOWN,0);
@@ -1185,11 +1192,11 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 			{
 				InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_SEPARATOR,0,0);
 				if (group.type==CJumpGroup::TYPE_PINNED)
-					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_PIN,FindTranslation(L"Menu.Unpin",L"&Unpin from this list"));
+					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_PIN,FindTranslation(L"JumpList.Unpin",L"&Unpin from this list"));
 				else
 				{
-					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_PIN,FindTranslation(L"Menu.Pin",L"P&in to this list"));
-					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_DELETEMRU,FindTranslation(L"Menu.RemoveList",L"Remove &from this list"));
+					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_PIN,FindTranslation(L"JumpList.Pin",L"P&in to this list"));
+					InsertMenu(menu,insertBefore++,MF_BYPOSITION|MF_STRING,CMD_DELETEMRU,FindTranslation(L"JumpList.Remove",L"Remove &from this list"));
 				}
 				if (n>0)
 				{
@@ -1476,7 +1483,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	}
 
 	// handle our standard commands
-	if ((m_Options&CONTAINER_JUMPLIST) && res!=CMD_EXPLORE && res<CMD_LAST)
+	if ((m_Options&CONTAINER_JUMPLIST) && res!=CMD_EXPLORE && res<CMD_LAST && item.id!=MENU_EMPTY)
 	{
 		const CJumpGroup &group=s_JumpList.groups[LOWORD(item.jumpIndex)];
 		const CJumpItem &jumpItem=group.items[HIWORD(item.jumpIndex)];
@@ -1530,14 +1537,14 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
 			if (it->id==MENU_NO)
 			{
-				SortMenuItem item={it->name,it->nameHash,it->bFolder};
+				SortMenuItem item={it->name,it->nameHash,it->bFolder,it->bJumpList};
 				items.push_back(item);
 			}
-			std::sort(items.begin(),items.end());
-			if (m_Options&CONTAINER_SORTZA)
-				std::reverse(items.begin(),items.end());
-			SaveItemOrder(items);
-			PostRefreshMessage();
+		std::sort(items.begin(),items.end());
+		if (m_Options&CONTAINER_SORTZA)
+			std::reverse(items.begin(),items.end());
+		SaveItemOrder(items);
+		PostRefreshMessage();
 	}
 
 	if (res==CMD_AUTOSORT)
@@ -1816,7 +1823,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 							for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
 								if (it->id==MENU_NO)
 								{
-									SortMenuItem item={it->name,it->nameHash,it->bFolder};
+									SortMenuItem item={it->name,it->nameHash,it->bFolder,it->bJumpList};
 									items.push_back(item);
 								}
 								SaveItemOrder(items);

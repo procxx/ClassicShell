@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -14,6 +14,7 @@
 #include "ResourceHelper.h"
 #include "dllmain.h"
 #include <uxtheme.h>
+#include <dwmapi.h>
 #include <htmlhelp.h>
 #include <dbghelp.h>
 #include <set>
@@ -551,6 +552,12 @@ void ResetHotCorners( void )
 	g_EdgeWindows.clear();
 }
 
+void RedrawTaskbars( void )
+{
+	for (std::map<int,TaskbarInfo>::const_iterator it=g_TaskbarInfos.begin();it!=g_TaskbarInfos.end();++it)
+		InvalidateRect(it->second.taskBar,NULL,TRUE);
+}
+
 CComPtr<IAppVisibility> g_pAppVisibility;
 DWORD g_AppVisibilityMonitorCookie;
 
@@ -912,7 +919,7 @@ static BOOL CALLBACK FindWindowsMenuProc( HWND hwnd, LPARAM lParam )
 
 static void FindWindowsMenu( void )
 {
-	if (!g_TopMenu)
+	if (!g_TopMenu && GetWinVersion()<WIN_VER_WIN8)
 	{
 		ATLASSERT(GetCurrentThreadId()==GetWindowThreadProcessId(g_TaskBar,NULL));
 		EnumThreadWindows(GetCurrentThreadId(),FindWindowsMenuProc,0);
@@ -1068,6 +1075,11 @@ static LRESULT CALLBACK SubclassTaskBarProc( HWND hWnd, UINT uMsg, WPARAM wParam
 			KillTimer(hWnd,'CLSM');
 		return 0;
 	}
+	if (uMsg==WM_PAINT)
+	{
+		DWM_BLURBEHIND blur={DWM_BB_ENABLE,GetWinVersion()<WIN_VER_WIN8?!GetSettingBool(L"NoTaskbarTransparency"):GetSettingBool(L"NoTaskbarTransparency")};
+		DwmEnableBlurBehindWindow(hWnd,&blur);
+	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
@@ -1134,6 +1146,7 @@ static void HandleSecondaryTaskbar( HWND hwnd )
 		SetWindowSubclass(taskBar.rebar,SubclassRebarProc,'CLSH',taskbarId);
 	}
 	SetWindowSubclass(taskBar.taskBar,SubclassTaskBarProc,'CLSH',taskbarId);
+	InvalidateRect(taskBar.taskBar,NULL,TRUE);
 	RecreateStartButton(taskbarId);
 
 	if (taskBar.startButton)
@@ -1223,11 +1236,13 @@ static void InitStartMenuDLL( void )
 			SetWindowSubclass(taskBar.rebar,SubclassRebarProc,'CLSH',taskbarId);
 		}
 		SetWindowSubclass(taskBar.taskBar,SubclassTaskBarProc,'CLSH',taskbarId);
+		InvalidateRect(taskBar.taskBar,NULL,TRUE);
 		RecreateStartButton(taskbarId);
 	}
 	else
 	{
 		SetWindowSubclass(taskBar.taskBar,SubclassTaskBarProc,'CLSH',taskbarId);
+		InvalidateRect(taskBar.taskBar,NULL,TRUE);
 		taskBar.startButton=g_WinStartButton;
 	}
 #ifdef HOOK_DROPTARGET
@@ -1290,12 +1305,12 @@ void RecreateStartButton( int taskbarId )
 		UINT uEdge=GetTaskbarPosition(taskBar->taskBar,&info,NULL,NULL);
 		if (uEdge==ABE_TOP || uEdge==ABE_BOTTOM)
 		{
-			if (rcTask.left<info.rcMonitor.left) rcTask.left=info.rcMonitor.left;
-			if (rcTask.right>info.rcMonitor.right) rcTask.right=info.rcMonitor.right;
+			if (rcTask2.left<info.rcMonitor.left) rcTask2.left=info.rcMonitor.left;
+			if (rcTask2.right>info.rcMonitor.right) rcTask2.right=info.rcMonitor.right;
 		}
 		else
 		{
-			if (rcTask.top<info.rcMonitor.top) rcTask.top=info.rcMonitor.top;
+			if (rcTask2.top<info.rcMonitor.top) rcTask2.top=info.rcMonitor.top;
 		}
 
 		if (!IsTaskbarSmallIcons())
@@ -1401,6 +1416,9 @@ static void CleanStartMenuDLL( void )
 			RemoveWindowSubclass(it->second.rebar,SubclassRebarProc,'CLSH');
 		}
 		RemoveWindowSubclass(it->second.taskBar,SubclassTaskBarProc,'CLSH');
+		DWM_BLURBEHIND blur={DWM_BB_ENABLE,GetWinVersion()<WIN_VER_WIN8};
+		DwmEnableBlurBehindWindow(it->second.taskBar,&blur);
+		InvalidateRect(it->second.taskBar,NULL,TRUE);
 		RECT rc;
 		GetWindowRect(it->second.taskBar,&rc);
 		PostMessage(it->second.taskBar,WM_THEMECHANGED,0,0);
@@ -1442,6 +1460,17 @@ static BOOL CALLBACK FindImmersiveWindows( HWND hwnd, LPARAM lParam )
 	if (wcscmp(name,L"SearchPane")==0)
 		((HWND*)lParam)[2]=hwnd;
 	return TRUE;
+}
+
+static bool WindowsMenuOpened( void )
+{
+	if (GetWinVersion()>=WIN_VER_WIN8)
+		return GetMetroMode(NULL)!=METRO_NONE;
+	else
+	{
+		FindWindowsMenu();
+		return g_TopMenu && IsWindowVisible(g_TopMenu);
+	}
 }
 
 // WH_GETMESSAGE hook for the Progman window
@@ -1521,7 +1550,15 @@ STARTMENUAPI LRESULT CALLBACK HookProgMan( int code, WPARAM wParam, LPARAM lPara
 				}
 
 				if (control==OPEN_WINDOWS)
-					PostMessage(g_TaskBar,g_StartMenuMsg,MSG_FINDMENU,0);
+				{
+					if (g_TopMenu && IsWindowVisible(g_TopMenu))
+					{
+						SetForegroundWindow(GetDefaultTaskbarInfo()->startButton);
+						msg->message=WM_NULL;
+					}
+					else
+						PostMessage(g_TaskBar,g_StartMenuMsg,MSG_FINDMENU,0);
+				}
 				else
 				{
 					msg->message=WM_NULL;
@@ -1532,17 +1569,6 @@ STARTMENUAPI LRESULT CALLBACK HookProgMan( int code, WPARAM wParam, LPARAM lPara
 		}
 	}
 	return CallNextHookEx(NULL,code,wParam,lParam);
-}
-
-static bool WindowsMenuOpened( void )
-{
-	if (GetWinVersion()==WIN_VER_WIN8)
-		return GetMetroMode(NULL)!=METRO_NONE;
-	else
-	{
-		FindWindowsMenu();
-		return g_TopMenu && IsWindowVisible(g_TopMenu);
-	}
 }
 
 // WH_GETMESSAGE hook for the start button window

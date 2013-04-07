@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -334,6 +334,9 @@ static MenuBitmap LoadSkinBitmap( HMODULE hMod, int index, int maskIndex, COLORR
 			tGetColorizationParameters GetColorizationParameters=(tGetColorizationParameters)GetProcAddress(GetModuleHandle(L"dwmapi.dll"),MAKEINTRESOURCEA(127));
 			if (GetColorizationParameters && SUCCEEDED(GetColorizationParameters(&params)))
 			{
+				if (GetWinVersion()>=WIN_VER_WIN8)
+					params.ColorizationOpaqueBlend=0; // Win8 has no transparency
+
 				// boost the color balance to better match the Windows 7 menu
 				params.ColorizationColorBalance=(int)(100.f*powf(params.ColorizationColorBalance/100.f,0.5f));
 				int ir=(params.ColorizationColor>>16)&255;
@@ -1419,7 +1422,7 @@ static bool LoadSkin( HMODULE hMod, MenuSkin &skin, const wchar_t *variation, co
 
 	skin.Main_FakeGlass=false;
 	skin.Submenu_FakeGlass=false;
-	if (GetWinVersion()==WIN_VER_WIN8)
+	if (GetWinVersion()>=WIN_VER_WIN8)
 	{
 		// replace GLASS with ALPHA and enable the fake glass (alpha with less opacity)
 		if (skin.Main_opacity==MenuSkin::OPACITY_GLASS)

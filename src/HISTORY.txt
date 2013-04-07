@@ -1,4 +1,15 @@
 ===============================================================================
+== Version 3.6.6 general release (Apr, 2013):
+===============================================================================
+
+- New setting to disable the taskbar transparency
+
+- Improved compatibility with future versions of Windows
+
+- Fixed some bugs found in the previous version
+
+
+===============================================================================
 == Version 3.6.5 general release (Dec, 2012):
 ===============================================================================
 

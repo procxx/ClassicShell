@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #define STRICT_TYPED_ITEMIDS
@@ -859,6 +859,12 @@ LRESULT CCommandsTree::OnChar( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+
+CEditCustomItemDlg::~CEditCustomItemDlg( void )
+{
+	if (m_hIcon) DestroyIcon(m_hIcon);
+	if (m_hIconD) DestroyIcon(m_hIconD);
+}
 
 void CEditCustomItemDlg::InitDialog( CWindow commandCombo, const CStdCommand *pStdcommands, CWindow linkCombo, const KNOWNFOLDERID *const *pCommonLinks )
 {
@@ -2415,6 +2421,7 @@ LRESULT CTreeSettingsDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam,
 		m_Tree.SetWindowLong(GWL_STYLE,m_Tree.GetWindowLong(GWL_STYLE)|TVS_TRACKSELECT);
 		SetWindowTheme(m_Tree,L"Explorer",NULL);
 	}
+	m_Tree.SendMessage(TVM_SETEXTENDEDSTYLE,TVS_EX_DOUBLEBUFFER,TVS_EX_DOUBLEBUFFER);
 	SetWindowSubclass(m_Tree,SubclassTreeProc,'CLSH',0);
 	HINSTANCE hInstance=_AtlBaseModule.GetResourceInstance();
 
@@ -3582,6 +3589,8 @@ static DWORD WINAPI ThreadVersionCheck( void *param )
 	CString downloadUrl, news;
 	TVersionCheck check=(TVersionCheck)(int)param;
 	CString url=LoadStringEx(IDS_VERSION_URL);
+	if (GetWinVersion()==WIN_VER_VISTA)
+		url+=".V";
 	{
 		CRegKey regKeyLng;
 		wchar_t language[100]=L".";
@@ -3687,8 +3696,8 @@ bool CheckForNewVersion( TVersionCheck check, tNewVersionCallback callback )
 		DWORD lastTime;
 		if (regKey.QueryDWORDValue(L"LastUpdateTime",lastTime)!=ERROR_SUCCESS)
 			lastTime=0;
-		if ((curTime-lastTime)<24)
-			return false; // check daily
+		if ((curTime-lastTime)<168)
+			return false; // check weekly
 
 		g_bCheckingVersion=true;
 		if (check==CHECK_AUTO_WAIT)

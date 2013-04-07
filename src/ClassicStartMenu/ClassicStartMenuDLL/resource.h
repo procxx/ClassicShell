@@ -491,6 +491,8 @@
 #define IDS_SORT_DATE_TIP               3412
 #define IDS_ENABLE_TASKBARS             3413
 #define IDS_ENABLE_TASKBARS_TIP         3414
+#define IDS_TASKBAR_TRANS               3415
+#define IDS_TASKBAR_TRANS_TIP           3416
 
 // Next default values for new objects
 // 

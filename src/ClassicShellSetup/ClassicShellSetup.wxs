@@ -547,9 +547,9 @@
         <Property Id="ALLUSERS" Value="1" />
         <Property Id="WixShellExecTarget" Value="[#ClassicShellReadme.rtf]" />
         <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
-        <Property Id="ARPHELPLINK" Value="http://sourceforge.net/projects/classicshell/forums/forum/1049756" />
+        <Property Id="ARPHELPLINK" Value="http://www.classicshell.net/forum/" />
         <Property Id="ARPSIZE" Value="9000" />
-        <Property Id="ARPURLINFOABOUT" Value="http://classicshell.sourceforge.net/" />
+        <Property Id="ARPURLINFOABOUT" Value="http://www.classicshell.net/" />
         <Property Id="ARPNOMODIFY" Value="1" />
         <Property Id="ARPNOREPAIR" Value="1" />
         <Property Id="START_MENU_FOLDER" Value="1" />

@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -47,7 +47,7 @@ static CSetting g_Settings[]={
 void UpdateSettings( void )
 {
 	bool bVista=(GetWinVersion()==WIN_VER_VISTA);
-	bool bWin8=(GetWinVersion()==WIN_VER_WIN8);
+	bool bWin8=(GetWinVersion()>=WIN_VER_WIN8);
 
 	BOOL bComposition=0;
 	if (FAILED(DwmIsCompositionEnabled(&bComposition)))

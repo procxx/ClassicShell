@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 // MenuContainer.cpp - contains the main logic of CMenuContainer
@@ -100,6 +100,7 @@ bool CMenuContainer::s_bAllPrograms=false;
 bool CMenuContainer::s_bNoCommonFolders=false;
 char CMenuContainer::s_bActiveDirectory=-1;
 bool CMenuContainer::s_bPreventClosing=false;
+bool CMenuContainer::s_bDisableHover=false;
 CMenuContainer *CMenuContainer::s_pDragSource=NULL;
 bool CMenuContainer::s_bRightDrag;
 std::vector<CMenuContainer*> CMenuContainer::s_Menus;
@@ -262,6 +263,7 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 				CWindow(hWnd).GetWindowText(text);
 				wchar_t command[1024];
 				Strcpy(command,_countof(command),text);
+				DoEnvironmentSubst(command,_countof(command));
 				if (GetKeyState(VK_SHIFT)<0 && GetKeyState(VK_CONTROL)<0)
 				{
 					pSearchMenu->ExecuteCommandElevated(command);
@@ -270,7 +272,7 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 				{
 					wchar_t exe[_MAX_PATH];
 					const wchar_t *args=SeparateArguments(command,exe);
-					SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_DOENVSUBST|SEE_MASK_FLAG_LOG_USAGE};
+					SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_FLAG_LOG_USAGE};
 					execute.lpFile=exe;
 					execute.lpParameters=args;
 					execute.nShow=SW_SHOWNORMAL;
@@ -315,6 +317,7 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 	if (uMsg==WM_MOUSEACTIVATE)
 	{
 		pParent->ActivateItem(pParent->m_SearchIndex,ACTIVATE_SELECT,NULL);
+		s_bDisableHover=true;
 		// close all sub-menus
 		for (int i=(int)s_Menus.size()-1;s_Menus[i]!=pParent;i--)
 			if (!s_Menus[i]->m_bDestroyed && !(s_Menus[i]->m_Options&CONTAINER_SEARCH))
@@ -324,7 +327,7 @@ LRESULT CALLBACK CMenuContainer::SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM
 	{
 		pParent->SetSearchState(SEARCH_BLANK);
 	}
-	if (uMsg==WM_KILLFOCUS && !s_pDragSource)
+	if (uMsg==WM_KILLFOCUS && !s_bPreventClosing)
 	{
 		box.SetWindowText(L"");
 		pParent->SetSearchState(SEARCH_NONE);
@@ -2599,6 +2602,8 @@ void CMenuContainer::SetSearchState( TSearchState state )
 	}
 	InvalidateRect(&m_Items[m_SearchIndex].itemRect);
 	m_SearchState=state;
+	if (m_SearchState==SEARCH_NONE)
+		s_bDisableHover=false;
 }
 
 LRESULT CMenuContainer::OnEditChange( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
@@ -2745,8 +2750,11 @@ LRESULT CMenuContainer::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 		// the mouse hovers over an item. open it.
 		if (m_HoverItem>=0 && (!m_Items[m_HoverItem].bSplit || m_bHotArrow))
 		{
-			if (m_HoverItem!=m_Submenu && m_HoverItem==m_HotItem)
+			if (m_HoverItem!=m_Submenu && m_HoverItem==m_HotItem && !s_bDisableHover && m_SearchState<=SEARCH_BLANK)
+			{
 				ActivateItem(m_HoverItem,ACTIVATE_OPEN,NULL);
+				m_SubShowTime=GetTickCount();
+			}
 			m_HoverItem=-1;
 			KillTimer(TIMER_HOVER_SPLIT);
 		}
@@ -2757,8 +2765,11 @@ LRESULT CMenuContainer::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 	{
 		LOG_MENU(LOG_MOUSE,L"End Hover Split, hover=%d, hot=%d, submenu=%d",m_HoverItem,m_HotItem,m_Submenu);
 		// the mouse hovers over an item. open it.
-		if (m_HoverItem!=m_Submenu && m_HoverItem==m_HotItem)
+		if (m_HoverItem!=m_Submenu && m_HoverItem==m_HotItem && !s_bDisableHover && m_SearchState<=SEARCH_BLANK)
+		{
 			ActivateItem(m_HoverItem,ACTIVATE_OPEN,NULL);
+			m_SubShowTime=GetTickCount();
+		}
 		m_HoverItem=-1;
 		KillTimer(TIMER_HOVER);
 		KillTimer(TIMER_HOVER_SPLIT);
@@ -3435,7 +3446,7 @@ LRESULT CMenuContainer::OnMouseMove( UINT uMsg, WPARAM wParam, LPARAM lParam, BO
 			if ((m_Submenu>=0 && index!=m_Submenu) || (m_Submenu<0 && m_Items[index].bFolder))
 			{
 				// initialize the hover timer
-				if (m_HoverItem!=index && m_SearchState!=SEARCH_TEXT && m_SearchState!=SEARCH_MORE)
+				if (m_HoverItem!=index && !s_bDisableHover && m_SearchState<=SEARCH_BLANK)
 				{
 					m_HoverItem=index;
 					SetTimer(TIMER_HOVER,s_HoverTime);
@@ -3536,7 +3547,7 @@ bool CMenuContainer::GetDescription( int index, wchar_t *text, int size )
 		return true;
 	}
 
-	if ((m_Options&CONTAINER_JUMPLIST) && item.id!=MENU_SEPARATOR)
+	if ((m_Options&CONTAINER_JUMPLIST) && item.id!=MENU_SEPARATOR && item.id!=MENU_EMPTY)
 	{
 		const CJumpGroup &group=s_JumpList.groups[LOWORD(item.jumpIndex)];
 		const CJumpItem &jumpItem=group.items[HIWORD(item.jumpIndex)];
@@ -3735,7 +3746,7 @@ LRESULT CMenuContainer::OnLButtonUp( UINT uMsg, WPARAM wParam, LPARAM lParam, BO
 				ActivateItem(index,ACTIVATE_EXECUTE,&pt2);
 				return 0;
 			}
-			if (index==m_Submenu)
+			if (index==m_Submenu && (!m_SubShowTime || (int)(GetTickCount()-m_SubShowTime)>500))
 			{
 				// second click on the arrow closes the menus
 				SetActiveWindow();
@@ -3948,7 +3959,7 @@ void CMenuContainer::LoadItemOrder( void )
 		for (std::vector<MenuItem>::const_iterator it=m_Items.begin();it!=m_Items.end();++it)
 			if (it->id==MENU_NO)
 			{
-				SortMenuItem item={it->name,it->nameHash,it->bFolder};
+				SortMenuItem item={it->name,it->nameHash,it->bFolder,it->bJumpList};
 				items.push_back(item);
 			}
 		SaveItemOrder(items);
@@ -4800,8 +4811,7 @@ HWND CMenuContainer::ToggleStartMenu( int taskbarId, bool bKeyboard, bool bAllPr
 			s_Skin.Main_padding2.bottom-=margin.bottom; if (s_Skin.Main_padding2.bottom<0) s_Skin.Main_padding2.bottom=0;
 		}
 
-		if (!bTheme)
-			memset(&margin,0,sizeof(margin)); // in Classic mode don't offset the main menu by the border size
+		memset(&margin,0,sizeof(margin)); // don't offset the menu by the border size (leaks into the next monitor)
 
 		if ((uEdge==ABE_LEFT || uEdge==ABE_RIGHT) && GetSettingBool(L"ShowNextToTaskbar"))
 		{

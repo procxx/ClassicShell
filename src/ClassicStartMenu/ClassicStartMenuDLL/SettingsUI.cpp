@@ -1,4 +1,4 @@
-\// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #include "stdafx.h"
@@ -1901,6 +1901,7 @@ CSetting g_Settings[]={
 	{L"StartButtonSize",CSetting::TYPE_INT,IDS_BUTTON_SIZE,IDS_BUTTON_SIZE_TIP,0,0,L"#StartButtonType=3"},
 	{L"StartButtonIcon",CSetting::TYPE_ICON,IDS_BUTTON_ICON,IDS_BUTTON_ICON_TIP,L",1",0,L"#StartButtonType=0"},
 	{L"StartButtonText",CSetting::TYPE_STRING,IDS_BUTTON_TEXT,IDS_BUTTON_TEXT_TIP,L"$Menu.Start",0,L"#StartButtonType=0"},
+	{L"NoTaskbarTransparency",CSetting::TYPE_BOOL,IDS_TASKBAR_TRANS,IDS_TASKBAR_TRANS_TIP,0},
 
 {L"Language",CSetting::TYPE_GROUP,IDS_LANGUAGE_SETTINGS_SM,0,0,0,NULL,GetLanguageSettings()},
 	{L"Language",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_COLD|CSetting::FLAG_SHARED},
@@ -1959,7 +1960,10 @@ void UpdateSettings( void )
 	UpdateSetting(L"MenuFadeSpeed",CComVariant(fade?400:0),false);
 
 	UpdateSetting(L"Favorites",CComVariant(0),SHRestricted(REST_NOFAVORITESMENU)!=0);
-	UpdateSetting(L"Documents",CComVariant(2),SHRestricted(REST_NORECENTDOCSMENU)!=0);
+	if (SHRestricted(REST_NORECENTDOCSMENU))
+		UpdateSetting(L"Documents",CComVariant(0),true);
+	else
+		UpdateSetting(L"Documents",CComVariant(2),false);
 
 	DWORD logoff1=SHRestricted(REST_STARTMENULOGOFF);
 	DWORD logoff2=SHRestricted(REST_FORCESTARTMENULOGOFF);
@@ -2019,7 +2023,7 @@ void UpdateSettings( void )
 	}
 	UpdateSetting(L"MenuUsername",CComVariant(title),false);
 
-	if (GetWinVersion()==WIN_VER_WIN8)
+	if (GetWinVersion()>=WIN_VER_WIN8)
 	{
 		HideSettingGroup(L"WindowsMenu",true);
 		HideSettingGroup(L"AllProgramsSkin",true);
@@ -2059,6 +2063,7 @@ void UpdateSettings( void )
 	else
 	{
 		HideSettingGroup(L"Metro",true);
+		UpdateSetting(L"SkipMetro",CComVariant(0),false,true);
 		UpdateSetting(L"EnableStartButton",CComVariant(0),false);
 		UpdateSetting(L"AllTaskbars",CComVariant(0),false,true);
 		if (GetWinVersion()==WIN_VER_WIN7)
@@ -2127,8 +2132,9 @@ void ClosingSettings( HWND hWnd, int flags, int command )
 			path=CalcFNVHash(GetSettingString(L"StartButtonPath"));
 		if (path!=g_ButtonPath || g_ButtonSize!=GetSettingInt(L"StartButtonSize") || g_ButtonIcon!=icon || g_ButtonText!=text || g_ButtonTip!=tip)
 			RecreateStartButton(-1);
-		ResetHotCorners();
 	}
+	ResetHotCorners();
+	RedrawTaskbars();
 }
 
 void EditSettings( bool bModal, int tab )

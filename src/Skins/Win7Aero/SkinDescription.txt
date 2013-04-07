@@ -1,7 +1,7 @@
 ; Windows Aero skin
 
 ; About - text to use in the About box for this skin. use \n for new line
-About=Windows Aero skin\n\nDefault skin to use for the Windows Aero theme.\n\nPart of <A HREF="http://classicshell.sourceforge.net/">Classic Shell</A> (c) 2009-2012, Ivo Beltchev
+About=Windows Aero skin\n\nDefault skin to use for the Windows Aero theme.\n\nPart of <A HREF="http://www.classicshell.net/">Classic Shell</A> (c) 2009-2013, Ivo Beltchev
 
 ; AboutIcon - the ID of an icon resource to use in the About box
 AboutIcon=1

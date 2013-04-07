@@ -1,4 +1,4 @@
-// Classic Shell (c) 2009-2012, Ivo Beltchev
+// Classic Shell (c) 2009-2013, Ivo Beltchev
 // The sources for Classic Shell are distributed under the MIT open source license
 
 #define _WIN32_WINNT 0x0600
@@ -285,7 +285,7 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	// warning about being beta
 	if (!bQuiet)
 	{
-		if (MessageBox(NULL,L"Warning!\nThis is a beta version of Classic Shell. It contains features that are not fully tested. Please report any problems in the Source Forge forum. If you prefer a stable build over the latest features, you can download one of the \"general release\" versions like 1.0.3.\nDo you want to continue with the installation?",L"Classic Shell Setup",MB_YESNO|MB_ICONWARNING)==IDNO)
+		if (MessageBox(NULL,L"Warning!\nThis is a beta version of Classic Shell. It contains features that are not fully tested. Please report any problems in the Classic Shell forums. If you prefer a stable build over the latest features, you can download one of the \"general release\" versions like 1.0.3.\nDo you want to continue with the installation?",L"Classic Shell Setup",MB_YESNO|MB_ICONWARNING)==IDNO)
 			return 99;
 	}
 */
