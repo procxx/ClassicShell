@@ -46,6 +46,7 @@ static bool g_bInMenu;
 static DWORD g_LastClickTime;
 static DWORD g_LastHoverPos;
 static bool g_bCrashDump;
+static bool g_bOpaqueTaskbar;
 static int g_SkipMetroCount;
 static DWORD g_StartButtonOldSizes[12];
 const int FIRST_BUTTON_BITMAP=6801;
@@ -1075,9 +1076,9 @@ static LRESULT CALLBACK SubclassTaskBarProc( HWND hWnd, UINT uMsg, WPARAM wParam
 			KillTimer(hWnd,'CLSM');
 		return 0;
 	}
-	if (uMsg==WM_PAINT)
+	if (uMsg==WM_PAINT && g_bOpaqueTaskbar)
 	{
-		DWM_BLURBEHIND blur={DWM_BB_ENABLE,GetWinVersion()<WIN_VER_WIN8?!GetSettingBool(L"NoTaskbarTransparency"):GetSettingBool(L"NoTaskbarTransparency")};
+		DWM_BLURBEHIND blur={DWM_BB_ENABLE,GetWinVersion()>=WIN_VER_WIN8};
 		DwmEnableBlurBehindWindow(hWnd,&blur);
 	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
@@ -1193,6 +1194,7 @@ static void InitStartMenuDLL( void )
 	TaskbarInfo &taskBar=g_TaskbarInfos[taskbarId];
 	taskBar.taskBar=g_TaskBar;
 	taskBar.taskbarId=taskbarId;
+	g_bOpaqueTaskbar=GetSettingBool(L"NoTaskbarTransparency2");
 	if (g_bReplaceButton)
 	{
 		taskBar.rebar=FindWindowEx(g_TaskBar,NULL,REBARCLASSNAME,NULL);
@@ -1281,7 +1283,7 @@ static void InitStartMenuDLL( void )
 			PostMessage(g_TaskBar,WM_TIMER,'CLSM',0);
 		}
 	}
-	if (g_bReplaceButton && GetSettingBool(L"AllTaskbars"))
+	if ((g_bReplaceButton && GetSettingBool(L"AllTaskbars")) || g_bOpaqueTaskbar)
 	{
 		EnumWindows(HookAllTaskbarsEnum,0);
 		g_NewTaskbarHook=SetWindowsHookEx(WH_CBT,HookNewTaskbar,g_Instance,GetCurrentThreadId());
@@ -1416,11 +1418,12 @@ static void CleanStartMenuDLL( void )
 			RemoveWindowSubclass(it->second.rebar,SubclassRebarProc,'CLSH');
 		}
 		RemoveWindowSubclass(it->second.taskBar,SubclassTaskBarProc,'CLSH');
-		DWM_BLURBEHIND blur={DWM_BB_ENABLE,GetWinVersion()<WIN_VER_WIN8};
-		DwmEnableBlurBehindWindow(it->second.taskBar,&blur);
+		if (g_bOpaqueTaskbar)
+		{
+			DWM_BLURBEHIND blur={DWM_BB_ENABLE,GetWinVersion()<WIN_VER_WIN8};
+			DwmEnableBlurBehindWindow(it->second.taskBar,&blur);
+		}
 		InvalidateRect(it->second.taskBar,NULL,TRUE);
-		RECT rc;
-		GetWindowRect(it->second.taskBar,&rc);
 		PostMessage(it->second.taskBar,WM_THEMECHANGED,0,0);
 		if (it->second.bTimer)
 			KillTimer(it->second.startButton,'CLSM');

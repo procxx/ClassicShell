@@ -1,5 +1,5 @@
 CLASSIC SHELL
-Version 3.6.6 general release
+Version 3.6.7 general release
 
 Classic Shell adds some missing features to Windows Vista, Windows 7 and Windows 8 -
 like a classic start menu, start button, a toolbar for Windows Explorer and others.

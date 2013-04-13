@@ -672,6 +672,14 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 
 	bool bKeepOpen=(type==ACTIVATE_EXECUTE) && bShift && !bCtrl;
 
+	CString search;
+	for (CMenuContainer *pSearchMenu=this;pSearchMenu;pSearchMenu=pSearchMenu->m_pParent)
+		if (pSearchMenu->m_SearchBox.m_hWnd)
+		{
+			pSearchMenu->m_SearchBox.GetWindowText(search);
+			break;
+		}
+
 	if (type==ACTIVATE_EXECUTE)
 	{
 		if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP) return;
@@ -782,13 +790,6 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		// regular command item
 		if (type!=ACTIVATE_EXECUTE) return;
 
-		CString search;
-		for (CMenuContainer *pSearchMenu=this;pSearchMenu;pSearchMenu=pSearchMenu->m_pParent)
-			if (pSearchMenu->m_SearchBox.m_hWnd)
-			{
-				pSearchMenu->m_SearchBox.GetWindowText(search);
-				break;
-			}
 		if (bKeepOpen)
 			LockSetForegroundWindow(LSFW_LOCK);
 		else

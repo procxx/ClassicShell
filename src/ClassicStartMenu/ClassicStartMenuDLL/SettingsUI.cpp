@@ -1901,7 +1901,7 @@ CSetting g_Settings[]={
 	{L"StartButtonSize",CSetting::TYPE_INT,IDS_BUTTON_SIZE,IDS_BUTTON_SIZE_TIP,0,0,L"#StartButtonType=3"},
 	{L"StartButtonIcon",CSetting::TYPE_ICON,IDS_BUTTON_ICON,IDS_BUTTON_ICON_TIP,L",1",0,L"#StartButtonType=0"},
 	{L"StartButtonText",CSetting::TYPE_STRING,IDS_BUTTON_TEXT,IDS_BUTTON_TEXT_TIP,L"$Menu.Start",0,L"#StartButtonType=0"},
-	{L"NoTaskbarTransparency",CSetting::TYPE_BOOL,IDS_TASKBAR_TRANS,IDS_TASKBAR_TRANS_TIP,0},
+	{L"NoTaskbarTransparency2",CSetting::TYPE_BOOL,IDS_TASKBAR_TRANS,IDS_TASKBAR_TRANS_TIP,0,CSetting::FLAG_COLD},
 
 {L"Language",CSetting::TYPE_GROUP,IDS_LANGUAGE_SETTINGS_SM,0,0,0,NULL,GetLanguageSettings()},
 	{L"Language",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_COLD|CSetting::FLAG_SHARED},
