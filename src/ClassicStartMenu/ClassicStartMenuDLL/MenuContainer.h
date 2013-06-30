@@ -691,6 +691,14 @@ private:
 	static void UpdateUsedIcons( void );
 	static LRESULT CALLBACK SubclassSearchBox( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 
+	// To control the placement of the start menu, send ClassicStartMenu.StartMenuMsg message right after the start menu is created but before it is displayed
+	// The lParam must point to StartMenuParams
+	// monitorRect - the entire area available to the start menu (sub-menus will use it). It is usually the monitor area but can be less if the Desktop app is docked in Win8
+	// uEdge - the location of the taskbar - ABE_BOTTOM, ABE_LEFT, etc
+	// taskbarRect - the bounding box of the taskbar. When the taskbar is at the top or bottom, the main menu will try to not overlap that rect. When the taskbar is on the side the behavior depends on the ShowNextToTaskbar setting
+	// startButtonRect - the bounding box of the start button. When the taskbar is on the side the main menu will appear below that box if ShowNextToTaskbar is not set
+	// taskbar - the taskbar window (optional). The main menu will try to stay in front of that window
+	// startButton - the start button window (optional). The main menu will try to stay behind that window
 	struct StartMenuParams
 	{
 		HWND startButton;

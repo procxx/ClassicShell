@@ -13,10 +13,6 @@
 #define IDB_BUTTON120                   112
 #define IDB_BUTTON144                   113
 #define IDB_BUTTON180                   114
-#define IDB_BUTTON96M                   115
-#define IDB_BUTTON120M                  116
-#define IDB_BUTTON144M                  117
-#define IDB_BUTTON180M                  118
 #define IDB_STYLE_CLASSIC               120
 #define IDB_STYLE_XP                    121
 #define IDB_STYLE_VISTA                 122

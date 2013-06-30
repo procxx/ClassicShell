@@ -1,4 +1,15 @@
 ===============================================================================
+== Version 3.6.8 general release (Jun, 2013):
+===============================================================================
+
+- Added support for Windows 8.1 Preview
+
+- Modified the Classic Shell logo and removed the Metro button by request from
+  Microsoft
+
+- Fixed some bugs found in the previous version
+
+===============================================================================
 == Version 3.6.7 general release (Apr, 2013):
 ===============================================================================
 

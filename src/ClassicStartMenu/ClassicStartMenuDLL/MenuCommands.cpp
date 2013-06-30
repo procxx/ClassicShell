@@ -683,7 +683,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 	if (type==ACTIVATE_EXECUTE)
 	{
 		if (item.id==MENU_EMPTY || item.id==MENU_EMPTY_TOP) return;
-		if (item.bFolder && !GetSettingBool(L"EnableExplorer"))
+		if (item.bFolder && !item.bSplit && item.pItem1 && !GetSettingBool(L"EnableExplorer"))
 				return;
 		if (item.id==MENU_SEARCH_BOX)
 		{
@@ -1328,7 +1328,7 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				int id=GetMenuItemID(menu,i);
 				if (id>=CMD_LAST && id<=CMD_MAX && SUCCEEDED(pMenu->GetCommandString(id-CMD_LAST,GCS_VERBA,NULL,command,_countof(command))))
 				{
-					if ((item.bFolder && _stricmp(command,"open")==0) || _stricmp(command,"opencontaining")==0)
+					if ((item.bFolder && !item.bSplit && item.pItem1 && _stricmp(command,"open")==0) || _stricmp(command,"opencontaining")==0)
 					{
 						EnableMenuItem(menu,i,MF_BYPOSITION|MF_GRAYED);
 					}

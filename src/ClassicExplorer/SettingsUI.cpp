@@ -567,15 +567,20 @@ void UpdateSettings( void )
 	else
 	{
 		// Windows 8
+		HideSettingGroup(L"StatusBar",true);
+			UpdateSetting(L"ShowFreeSpace",CComVariant(0),false,true);
+
+		HideSettingGroup(L"UpButton",true);
+			UpdateSetting(L"ShowUpButton",CComVariant(0),false,true);
+
+		HideSettingGroup(L"FileOperation",true);
+			UpdateSetting(L"ReplaceFileUI",CComVariant(0),false,true);
+			UpdateSetting(L"ReplaceFolderUI",CComVariant(0),false,true);
+
 		UpdateSetting(L"ShowCaption",CComVariant(0),false,true);
 		UpdateSetting(L"ShowIcon",CComVariant(0),false,true);
-		HideSettingGroup(L"StatusBar",true);
-		UpdateSetting(L"ShowFreeSpace",CComVariant(0),false,true);
 		UpdateSetting(L"FixFolderScroll",CComVariant(0),false,true);
-		HideSettingGroup(L"UpButton",true);
 		UpdateSetting(L"ToolbarItems",CComVariant(g_DefaultToolbar2),false);
-		HideSettingGroup(L"StatusBar",true);
-		HideSettingGroup(L"FileOperation",true);
 	}
 
 	CRegKey regKey;

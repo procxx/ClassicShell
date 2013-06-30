@@ -235,8 +235,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,6,7,0
- PRODUCTVERSION 3,6,7,0
+ FILEVERSION 3,6,8,0
+ PRODUCTVERSION 3,6,8,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -253,12 +253,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Classic Start Menu"
-            VALUE "FileVersion", "3, 6, 7, 0"
+            VALUE "FileVersion", "3, 6, 8, 0"
             VALUE "InternalName", "ClassicStartMenuDLL"
             VALUE "LegalCopyright", "Copyright (C) 2009-2013, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicStartMenuDLL.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 6, 7, 0"
+            VALUE "ProductVersion", "3, 6, 8, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -295,10 +295,6 @@ IDB_BUTTON96            BITMAP                  "button96.bmp"
 IDB_BUTTON120           BITMAP                  "button120.bmp"
 IDB_BUTTON144           BITMAP                  "button144.bmp"
 IDB_BUTTON180           BITMAP                  "button180.bmp"
-IDB_BUTTON96M           BITMAP                  "button96m.bmp"
-IDB_BUTTON120M          BITMAP                  "button120m.bmp"
-IDB_BUTTON144M          BITMAP                  "button144m.bmp"
-IDB_BUTTON180M          BITMAP                  "button180m.bmp"
 IDB_STYLE_CLASSIC       BITMAP                  "style_classic.bmp"
 IDB_STYLE_XP            BITMAP                  "style_xp.bmp"
 IDB_STYLE_VISTA         BITMAP                  "style_vista.bmp"

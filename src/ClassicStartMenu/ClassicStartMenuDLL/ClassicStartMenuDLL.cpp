@@ -35,7 +35,7 @@ HWND g_TaskBar, g_OwnerWindow;
 HWND g_TopMenu, g_AllPrograms, g_ProgramsButton, g_UserPic; // from the Windows menu
 static HWND g_ProgWin;
 static HWND g_WinStartButton;
-static bool g_bReplaceButton;
+static bool g_bReplaceButton, g_bOpaqueTaskbar, g_bAllTaskbars;
 static UINT g_StartMenuMsg;
 static HWND g_Tooltip;
 static TOOLINFO g_StartButtonTool;
@@ -46,7 +46,6 @@ static bool g_bInMenu;
 static DWORD g_LastClickTime;
 static DWORD g_LastHoverPos;
 static bool g_bCrashDump;
-static bool g_bOpaqueTaskbar;
 static int g_SkipMetroCount;
 static DWORD g_StartButtonOldSizes[12];
 const int FIRST_BUTTON_BITMAP=6801;
@@ -181,7 +180,7 @@ static const TaskbarInfo *GetDefaultTaskbarInfo( void )
 	{
 		MONITORINFO info;
 		HMONITOR monitor2=NULL;
-		if (GetTaskbarPosition(it->second.taskBar,&info,&monitor2,NULL)!=0xFFFFFFFF && monitor2==monitor)
+		if (it->second.startButton && GetTaskbarPosition(it->second.taskBar,&info,&monitor2,NULL)!=0xFFFFFFFF && monitor2==monitor)
 			return &it->second;
 	}
 	std::map<int,TaskbarInfo>::const_iterator it=g_TaskbarInfos.find(g_LastTaskbar);
@@ -682,6 +681,7 @@ static LRESULT CALLBACK HookAppManager( int code, WPARAM wParam, LPARAM lParam )
 			{
 				for (std::map<int,TaskbarInfo>::const_iterator it=g_TaskbarInfos.begin();it!=g_TaskbarInfos.end();++it)
 				{
+					if (!it->second.startButton) continue;
 					UINT uEdge=GetTaskbarPosition(it->second.taskBar,NULL,NULL,NULL);
 					if (uEdge==ABE_BOTTOM)
 					{
@@ -945,12 +945,12 @@ static LRESULT CALLBACK SubclassTaskBarProc( HWND hWnd, UINT uMsg, WPARAM wParam
 			return MA_ACTIVATEANDEAT; // ignore the next middle click, so it doesn't re-open the start menu
 		}
 	}
-	if (g_bReplaceButton)
+	if (g_bReplaceButton && (hWnd==g_TaskBar || g_bAllTaskbars))
 	{
 		const TaskbarInfo *taskBar=GetTaskbarInfo((int)dwRefData);
 		if (taskBar && (uMsg==WM_NCMOUSEMOVE || uMsg==WM_MOUSEMOVE) && PointAroundStartButton((int)dwRefData))
 			TaskBarMouseMove(taskBar->taskbarId);
-		if (taskBar && uMsg==WM_WINDOWPOSCHANGED)
+		if (taskBar && uMsg==WM_WINDOWPOSCHANGED && taskBar->rebar)
 		{
 			if (IsStartButtonSmallIcons(taskBar->taskbarId)!=IsTaskbarSmallIcons())
 				RecreateStartButton((int)dwRefData);
@@ -1141,12 +1141,18 @@ static void HandleSecondaryTaskbar( HWND hwnd )
 	taskBar.taskBar=hwnd;
 	taskBar.taskbarId=taskbarId;
 
-	taskBar.rebar=FindWindowEx(hwnd,NULL,L"WorkerW",NULL);
-	if (taskBar.rebar)
+	if (g_bAllTaskbars)
 	{
-		SetWindowSubclass(taskBar.rebar,SubclassRebarProc,'CLSH',taskbarId);
+		taskBar.rebar=FindWindowEx(hwnd,NULL,L"WorkerW",NULL);
+		if (taskBar.rebar)
+			SetWindowSubclass(taskBar.rebar,SubclassRebarProc,'CLSH',taskbarId);
 	}
 	SetWindowSubclass(taskBar.taskBar,SubclassTaskBarProc,'CLSH',taskbarId);
+	if (g_bAllTaskbars && g_bReplaceButton && GetWinVersion()>WIN_VER_WIN8)
+	{
+		taskBar.oldButton=FindWindowEx(taskBar.taskBar,NULL,L"Start",NULL);
+		ShowWindow(taskBar.oldButton,SW_HIDE);
+	}
 	InvalidateRect(taskBar.taskBar,NULL,TRUE);
 	RecreateStartButton(taskbarId);
 
@@ -1190,6 +1196,7 @@ static void InitStartMenuDLL( void )
 	LoadLibrary(L"ClassicStartMenuDLL.dll"); // keep the DLL from unloading
 	if (hwnd) PostMessage(hwnd,WM_CLEAR,0,0); // tell the exe to unhook this hook
 	g_bReplaceButton=GetSettingBool(L"EnableStartButton");
+	g_bAllTaskbars=GetSettingBool(L"AllTaskbars");
 	int taskbarId=g_NextTaskbar++;
 	TaskbarInfo &taskBar=g_TaskbarInfos[taskbarId];
 	taskBar.taskBar=g_TaskBar;
@@ -1238,6 +1245,11 @@ static void InitStartMenuDLL( void )
 			SetWindowSubclass(taskBar.rebar,SubclassRebarProc,'CLSH',taskbarId);
 		}
 		SetWindowSubclass(taskBar.taskBar,SubclassTaskBarProc,'CLSH',taskbarId);
+		if (GetWinVersion()>WIN_VER_WIN8 && g_bReplaceButton)
+		{
+			taskBar.oldButton=FindWindowEx(taskBar.taskBar,NULL,L"Start",NULL);
+			ShowWindow(taskBar.oldButton,SW_HIDE);
+		}
 		InvalidateRect(taskBar.taskBar,NULL,TRUE);
 		RecreateStartButton(taskbarId);
 	}
@@ -1283,7 +1295,7 @@ static void InitStartMenuDLL( void )
 			PostMessage(g_TaskBar,WM_TIMER,'CLSM',0);
 		}
 	}
-	if ((g_bReplaceButton && GetSettingBool(L"AllTaskbars")) || g_bOpaqueTaskbar)
+	if ((g_bReplaceButton && g_bAllTaskbars) || g_bOpaqueTaskbar)
 	{
 		EnumWindows(HookAllTaskbarsEnum,0);
 		g_NewTaskbarHook=SetWindowsHookEx(WH_CBT,HookNewTaskbar,g_Instance,GetCurrentThreadId());
@@ -1297,6 +1309,8 @@ void RecreateStartButton( int taskbarId )
 	{
 		TaskbarInfo *taskBar=&it->second;
 		if (taskbarId>=0 && taskBar->taskbarId!=taskbarId)
+			continue;
+		if (!taskBar->rebar)
 			continue;
 		RevokeDragDrop(taskBar->startButton);
 		DestroyStartButton(taskBar->taskbarId);
@@ -1418,6 +1432,8 @@ static void CleanStartMenuDLL( void )
 			RemoveWindowSubclass(it->second.rebar,SubclassRebarProc,'CLSH');
 		}
 		RemoveWindowSubclass(it->second.taskBar,SubclassTaskBarProc,'CLSH');
+		if (GetWinVersion()>WIN_VER_WIN8 && it->second.oldButton)
+			ShowWindow(it->second.oldButton,SW_SHOW);
 		if (g_bOpaqueTaskbar)
 		{
 			DWM_BLURBEHIND blur={DWM_BB_ENABLE,GetWinVersion()<WIN_VER_WIN8};
@@ -1929,7 +1945,7 @@ STARTMENUAPI LRESULT CALLBACK HookStartButton( int code, WPARAM wParam, LPARAM l
 		if (msg->message==WM_RBUTTONUP && FindTaskBarInfoButton(msg->hwnd))
 		{
 			WPARAM bShift=(GetSettingInt(L"MouseClick")!=OPEN_CLASSIC)?MK_SHIFT:0;
-			if ((msg->wParam&MK_SHIFT)==bShift)
+			if (GetWinVersion()>=WIN_VER_WIN8 || (msg->wParam&MK_SHIFT)==bShift)
 			{
 				// additional commands for the context menu
 				enum

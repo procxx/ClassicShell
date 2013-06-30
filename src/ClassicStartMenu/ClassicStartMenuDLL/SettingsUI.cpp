@@ -1893,14 +1893,13 @@ CSetting g_Settings[]={
 	{L"AllTaskbars",CSetting::TYPE_BOOL,IDS_ENABLE_TASKBARS,IDS_ENABLE_TASKBARS_TIP,1,CSetting::FLAG_COLD,L"EnableStartButton"},
 	{L"StartButtonTip",CSetting::TYPE_STRING,IDS_BUTTON_TIP,IDS_BUTTON_TIP_TIP,L"$Menu.Start",0,L"EnableStartButton"},
 	{L"StartButtonType",CSetting::TYPE_INT,IDS_BUTTON_TYPE,IDS_BUTTON_TYPE_TIP,0,0,L"EnableStartButton"},
-		{L"ClasicButton",CSetting::TYPE_RADIO,IDS_CLASSIC_BUTTON,IDS_CLASSIC_BUTTON_TIP},
 		{L"AeroButton",CSetting::TYPE_RADIO,IDS_AERO_BUTTON,IDS_AERO_BUTTON_TIP},
-		{L"MetroButton",CSetting::TYPE_RADIO,IDS_METRO_BUTTON,IDS_METRO_BUTTON_TIP},
+		{L"ClasicButton",CSetting::TYPE_RADIO,IDS_CLASSIC_BUTTON,IDS_CLASSIC_BUTTON_TIP},
 		{L"CustomButton",CSetting::TYPE_RADIO,IDS_CUSTOM_BUTTON,IDS_CUSTOM_BUTTON_TIP},
-	{L"StartButtonPath",CSetting::TYPE_BITMAP,IDS_BUTTON_IMAGE,IDS_BUTTON_IMAGE_TIP,L"",0,L"#StartButtonType=3"},
-	{L"StartButtonSize",CSetting::TYPE_INT,IDS_BUTTON_SIZE,IDS_BUTTON_SIZE_TIP,0,0,L"#StartButtonType=3"},
-	{L"StartButtonIcon",CSetting::TYPE_ICON,IDS_BUTTON_ICON,IDS_BUTTON_ICON_TIP,L",1",0,L"#StartButtonType=0"},
-	{L"StartButtonText",CSetting::TYPE_STRING,IDS_BUTTON_TEXT,IDS_BUTTON_TEXT_TIP,L"$Menu.Start",0,L"#StartButtonType=0"},
+	{L"StartButtonPath",CSetting::TYPE_BITMAP,IDS_BUTTON_IMAGE,IDS_BUTTON_IMAGE_TIP,L"",0,L"#StartButtonType=2"},
+	{L"StartButtonSize",CSetting::TYPE_INT,IDS_BUTTON_SIZE,IDS_BUTTON_SIZE_TIP,0,0,L"#StartButtonType=2"},
+	{L"StartButtonIcon",CSetting::TYPE_ICON,IDS_BUTTON_ICON,IDS_BUTTON_ICON_TIP,L",1",0,L"#StartButtonType=1"},
+	{L"StartButtonText",CSetting::TYPE_STRING,IDS_BUTTON_TEXT,IDS_BUTTON_TEXT_TIP,L"$Menu.Start",0,L"#StartButtonType=1"},
 	{L"NoTaskbarTransparency2",CSetting::TYPE_BOOL,IDS_TASKBAR_TRANS,IDS_TASKBAR_TRANS_TIP,0,CSetting::FLAG_COLD},
 
 {L"Language",CSetting::TYPE_GROUP,IDS_LANGUAGE_SETTINGS_SM,0,0,0,NULL,GetLanguageSettings()},
@@ -2059,6 +2058,12 @@ void UpdateSettings( void )
 		pSetting->tipID=IDS_OPEN_WSS_TIP;
 
 		UpdateSettingText(L"WSMHotkey",IDS_WSS_HOTKEY,IDS_WSS_HOTKEY_TIP,false);
+
+		if (GetWinVersion()>WIN_VER_WIN8)
+		{
+			UpdateSettingText(L"EnableStartButton",IDS_ENABLE_BUTTON2,IDS_ENABLE_BUTTON_TIP2,false);
+			UpdateSetting(L"SkipMetro",CComVariant(0),false,true);
+		}
 	}
 	else
 	{

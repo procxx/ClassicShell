@@ -26,10 +26,11 @@ void UnhookDropTarget( void );
 
 struct TaskbarInfo
 {
-	TaskbarInfo( void ) { taskBar=startButton=rebar=NULL; rebarOffset.cx=rebarOffset.cy=0; bTimer=false; }
+	TaskbarInfo( void ) { taskBar=startButton=oldButton=rebar=NULL; rebarOffset.cx=rebarOffset.cy=0; bTimer=false; }
 	int taskbarId;
 	HWND taskBar;
 	HWND startButton;
+	HWND oldButton;
 	HWND rebar;
 	SIZE rebarOffset;
 	bool bTimer;

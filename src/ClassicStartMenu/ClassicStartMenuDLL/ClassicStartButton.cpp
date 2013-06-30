@@ -356,7 +356,6 @@ void CStartButton::LoadBitmap( void )
 		buttonType=bClassic?START_BUTTON_CLASSIC:START_BUTTON_AERO;
 	}
 	m_bClassic=(buttonType==START_BUTTON_CLASSIC);
-	bool bMetro=(buttonType==START_BUTTON_METRO);
 	wchar_t path[_MAX_PATH];
 	SIZE size={0,0};
 	if (buttonType==START_BUTTON_CUSTOM)
@@ -394,13 +393,13 @@ void CStartButton::LoadBitmap( void )
 			int id;
 			int dpi=CIconManager::GetDPI();
 			if (dpi<120)
-				id=bMetro?IDB_BUTTON96M:IDB_BUTTON96;
+				id=IDB_BUTTON96;
 			else if (dpi<144)
-				id=bMetro?IDB_BUTTON120M:IDB_BUTTON120;
+				id=IDB_BUTTON120;
 			else if (dpi<180)
-				id=bMetro?IDB_BUTTON144M:IDB_BUTTON144;
+				id=IDB_BUTTON144;
 			else
-				id=bMetro?IDB_BUTTON180M:IDB_BUTTON180;
+				id=IDB_BUTTON180;
 			m_Bitmap=(HBITMAP)LoadImage(g_Instance,MAKEINTRESOURCE(id),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
 			bResource=true;
 		}

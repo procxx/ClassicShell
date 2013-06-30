@@ -3320,7 +3320,8 @@ LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 			}
 		}
 		s_FirstMenu=m_hWnd;
-		PressStartButton(s_TaskBarId,false);
+		if (!(m_Options&CONTAINER_ALLPROGRAMS))
+			PressStartButton(s_TaskBarId,false);
 		s_TaskBar=s_StartButton=NULL;
 		s_TaskBarId=-1;
 	}
@@ -4085,7 +4086,7 @@ void CMenuContainer::LoadItemRanks( void )
 	{
 		ULONG size=0;
 		reg.QueryBinaryValue(L"ItemRanks",NULL,&size);
-		if (size>0)
+		if (size>0 && (size%sizeof(ItemRank))==0)
 		{
 			s_ItemRanks.resize(size/sizeof(ItemRank));
 			reg.QueryBinaryValue(L"ItemRanks",&s_ItemRanks[0],&size);

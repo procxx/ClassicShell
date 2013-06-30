@@ -3577,7 +3577,7 @@ static DWORD WINAPI ThreadVersionCheck( void *param )
 {
 	ULONGLONG curTimeL;
 	GetSystemTimeAsFileTime((FILETIME*)&curTimeL);
-	DWORD curTime=(DWORD)(curTimeL/36000000000); // in hours
+	const DWORD curTime=(DWORD)(curTimeL/36000000000); // in hours
 
 	CRegKey regKey;
 	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell")!=ERROR_SUCCESS)
@@ -3636,6 +3636,9 @@ static DWORD WINAPI ThreadVersionCheck( void *param )
 	if (!res)
 	{
 		g_bCheckingVersion=false;
+		// if the check failed pretend we checked 6 days ago (so we check again in 24 hours)
+		if (curTime>24*6)
+			regKey.SetDWORDValue(L"LastUpdateTime",curTime-24*6);
 		return 0;
 	}
 
