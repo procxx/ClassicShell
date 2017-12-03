@@ -5,6 +5,9 @@
 	Name="ClassicShellLib"
 	ProjectGUID="{D42FE717-485B-492D-884A-1999F6D51154}"
 	RootNamespace="ClassicShellLib"
+	SccProjectName="Perforce Project"
+	SccLocalPath=".."
+	SccProvider="MSSCCI:Perforce SCM"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -49,7 +52,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				UsePrecompiledHeader="0"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				DebugInformationFormat="4"
 			/>
@@ -113,7 +116,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				UsePrecompiledHeader="0"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 			/>
@@ -178,7 +181,7 @@
 				PreprocessorDefinitions="WIN32;NDEBUG;_LIB"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="0"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				WarnAsError="true"
 				DebugInformationFormat="3"
@@ -245,7 +248,7 @@
 				PreprocessorDefinitions="WIN32;NDEBUG;_LIB"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="0"
+				UsePrecompiledHeader="2"
 				WarningLevel="3"
 				WarnAsError="true"
 				DebugInformationFormat="3"
@@ -297,6 +300,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\flags.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\flags24.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\padlock.ico"
 				>
 			</File>
@@ -316,6 +327,14 @@
 		<Filter
 			Name="Strings"
 			>
+			<File
+				RelativePath=".\Assert.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Assert.h"
+				>
+			</File>
 			<File
 				RelativePath=".\FNVHash.cpp"
 				>
@@ -345,6 +364,30 @@
 			Name="Resources"
 			>
 			<File
+				RelativePath=".\ComHelper.h"
+				>
+			</File>
+			<File
+				RelativePath=".\FileHelper.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\FileHelper.h"
+				>
+			</File>
+			<File
+				RelativePath=".\IatHookHelper.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\IatHookHelper.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Instance.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\ResourceHelper.cpp"
 				>
 			</File>
@@ -352,10 +395,34 @@
 				RelativePath=".\ResourceHelper.h"
 				>
 			</File>
+			<File
+				RelativePath=".\TrackResources.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\TrackResources.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Settings"
 			>
+			<File
+				RelativePath=".\DownloadHelper.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\DownloadHelper.h"
+				>
+			</File>
+			<File
+				RelativePath=".\LanguageSettingsHelper.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\LanguageSettingsHelper.h"
+				>
+			</File>
 			<File
 				RelativePath=".\Settings.cpp"
 				>
@@ -386,6 +453,54 @@
 			</File>
 			<File
 				RelativePath=".\Translations.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="Lib"
+			>
+			<File
+				RelativePath=".\stdafx.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\stdafx.h"
+				>
+			</File>
+			<File
+				RelativePath=".\targetver.h"
 				>
 			</File>
 		</Filter>

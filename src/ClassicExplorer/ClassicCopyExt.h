@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // ClassicCopyExt.h : Declaration of the CClassicCopyExt
 
@@ -8,12 +8,6 @@
 
 #include "ClassicExplorer_i.h"
 #include <vector>
-
-#if defined(_WIN32_WCE) && !defined(_CE_DCOM) && !defined(_CE_ALLOW_SINGLE_THREADED_OBJECTS_IN_MTA)
-#error "Single-threaded COM objects are not properly supported on Windows CE platform, such as the Windows Mobile platforms that do not include full DCOM support. Define _CE_ALLOW_SINGLE_THREADED_OBJECTS_IN_MTA to force ATL to support creating single-thread COM object's and allow use of it's single-threaded COM object implementations. The threading model in your rgs file was set to 'Free' as that is the only threading model supported in non DCOM Windows CE platforms."
-#endif
-
-
 
 // CClassicCopyExt
 
@@ -29,7 +23,7 @@ public:
 	{
 	}
 
-DECLARE_REGISTRY_RESOURCEID(IDR_CLASSICCOPYEXT)
+	static HRESULT WINAPI UpdateRegistry( BOOL bRegister );
 
 DECLARE_NOT_AGGREGATABLE(CClassicCopyExt)
 

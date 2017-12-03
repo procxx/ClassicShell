@@ -56,6 +56,7 @@ END
 2                       BITMAP                  "selection.bmp"
 3                       BITMAP                  "search.bmp"
 4                       BITMAP                  "split_selection.bmp"
+5                       BITMAP                  "new_item.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //

@@ -1,10 +1,12 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // ClassicCopyExt.cpp : Implementation of CClassicCopyExt
 
 #include "stdafx.h"
 #include "ClassicCopyExt.h"
+#include "ResourceHelper.h"
+#include "dllmain.h"
 
 
 // CClassicCopyExt - this is a dummy drag and drop handler. Its purpose is to get Explorer to load the DLL when
@@ -31,4 +33,11 @@ STDMETHODIMP CClassicCopyExt::GetCommandString( UINT_PTR idCmd, UINT uFlags, UIN
 STDMETHODIMP CClassicCopyExt::InvokeCommand( LPCMINVOKECOMMANDINFO pCmdInfo )
 {
 	return E_INVALIDARG;
+}
+
+HRESULT WINAPI CClassicCopyExt::UpdateRegistry( BOOL bRegister )
+{
+	if (GetWinVersion()>=WIN_VER_WIN8)
+		return S_OK;
+	return _AtlModule.UpdateRegistryFromResource(IDR_CLASSICCOPYEXT,bRegister);
 }

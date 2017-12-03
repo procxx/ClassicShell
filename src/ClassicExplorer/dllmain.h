@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // dllmain.h : Declaration of module class.
 #pragma once
@@ -25,6 +25,9 @@ struct TlsData
 	// the bho instance that runs on this thread
 	class CExplorerBHO *bho;
 
+	// the band instance that runs on this thread
+	class CExplorerBand *band;
+
 	// one hook for each copy thread
 	HHOOK copyHook;
 
@@ -35,3 +38,6 @@ struct TlsData
 
 TlsData *GetTlsData( void );
 extern LPCWSTR g_LoadedSettingsAtom;
+extern bool g_bLogLevel;
+
+void WaitDllInitThread( void );

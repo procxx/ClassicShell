@@ -252,8 +252,8 @@ BEGIN
     LTEXT           "Disabled:",IDC_STATICICOND,7,113,35,12,SS_CENTERIMAGE
     EDITTEXT        IDC_EDITICOND,47,113,180,12,ES_AUTOHSCROLL
     PUSHBUTTON      "...",IDC_BUTTONICOND,228,113,14,12
-    ICON            "",IDC_ICOND,9,127,18,17
-    PUSHBUTTON      "Restore Defaults",IDC_BUTTONRESET,7,162,90,14
+    ICON            "",IDC_ICOND,9,127,20,20
+    PUSHBUTTON      "Restore defaults",IDC_BUTTONRESET,7,162,90,14
     DEFPUSHBUTTON   "OK",IDOK,135,162,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,192,162,50,14
 END
@@ -265,8 +265,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,6,8,0
- PRODUCTVERSION 3,6,8,0
+ FILEVERSION 4,3,1,0
+ PRODUCTVERSION 4,3,1,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -283,12 +283,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Adds classic Windows Explorer features"
-            VALUE "FileVersion", "3, 6, 8, 0"
+            VALUE "FileVersion", "4, 3, 1, 0"
             VALUE "InternalName", "ClassicExplorer.dll"
-            VALUE "LegalCopyright", "Copyright (C) 2009-2013, Ivo Beltchev"
+            VALUE "LegalCopyright", "Copyright (C) 2009-2016, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicExplorer.dll"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 6, 8, 0"
+            VALUE "ProductVersion", "4, 3, 1, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -576,6 +576,84 @@ BEGIN
     IDS_MAP_DRIVE_TIP       "Connects to a network drive"
     IDS_DISCONNECT_DRIVE_TIP "Disconnects from a network drive"
     IDS_CUSTOMIZEFOLDER_TIP "Customize this folder"
+    IDS_SEPARATOR_ITEM      "SEPARATOR"
+    IDS_UP_ITEM             "Up"
+    IDS_CUT_ITEM            "Cut"
+    IDS_COPY_ITEM           "Copy"
+    IDS_PASTE_ITEM          "Paste"
+    IDS_PASTE_LNK_ITEM      "Paste shortcut"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_DELETE_ITEM         "Delete"
+    IDS_PROPERTIES_ITEM     "Properties"
+    IDS_EMAIL_ITEM          "Email"
+    IDS_SETTINGS_ITEM       "Settings"
+    IDS_REFRESH_ITEM        "Refresh"
+    IDS_STOP_ITEM           "Stop"
+    IDS_RENAME_ITEM         "Rename"
+    IDS_NEWFOLDER_ITEM      "New folder"
+    IDS_MOVETO_ITEM         "Move to"
+    IDS_COPYTO_ITEM         "Copy to"
+    IDS_UNDO_ITEM           "Undo"
+    IDS_REDO_ITEM           "Redo"
+    IDS_SELECTALL_ITEM      "Select all"
+    IDS_DESELECT_ITEM       "Deselect"
+    IDS_INVERT_ITEM         "Invert selection"
+    IDS_BACK_ITEM           "Back"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_FORWARD_ITEM        "Forward"
+    IDS_MAP_DRIVE_ITEM      "Map network drive"
+    IDS_DISCONNECT_ITEM     "Disconnect network drive"
+    IDS_CUSTOMIZE_ITEM      "Customize folder"
+    IDS_VIEWTILES_ITEM      "View Tiles"
+    IDS_VIEWDETAILS_ITEM    "View Details"
+    IDS_VIEWLIST_ITEM       "View List"
+    IDS_VIEWCONTENT_ITEM    "View Content"
+    IDS_VIEWICONS1_ITEM     "View Small icons"
+    IDS_VIEWICONS2_ITEM     "View Medium icons"
+    IDS_VIEWICONS3_ITEM     "View Large icons"
+    IDS_VIEWICONS4_ITEM     "View Extra large icons"
+    IDS_OPEN_ITEM           "Open"
+    IDS_SORYBY_ITEM         "Sort by"
+    IDS_GROUPBY_ITEM        "Group by"
+    IDS_CUSTOM_ITEM         "Custom"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SHOWSTATUSBAR       "Show status bar"
+    IDS_SHOWSTATUSBAR_TIP   "When this is checked, Explorer will have a status bar that shows information about the total selection size, free disk space, and more"
+    IDS_SHOW_ZONE           "Show zone"
+    IDS_SHOW_ZONE_TIP       "When this is checked, the status bar will display the current security zone"
+    IDS_SHARE_HIDDEN        "Show hidden shares"
+    IDS_SHARE_HIDDEN_TIP    "When this is checked, the overlay will appear also for hidden shares ending with $"
+    IDS_NAVPANE_ITEM        "Navigation pane"
+    IDS_NAVPANE_TIP         "Toggles the navigation pane"
+    IDS_DETAILSPANE_ITEM    "Details pane"
+    IDS_DETAILSPANE_TIP     "Toggles the details pane"
+    IDS_PREVIEWPANE_ITEM    "Preview pane"
+    IDS_PREVIEWPANE_TIP     "Toggles the preview pane"
+    IDS_SHOW_EXTENSIONS     "Show extensions"
+    IDS_SHOW_EXTENSIONS_TIP "Toggles the visibility of the file extensions"
+    IDS_HIDDEN_FILES        "Hidden files"
+    IDS_HIDDEN_FILES_TIP    "Toggles the visibility of the hidden files"
+END
+
+STRINGTABLE 
+BEGIN
+    IDS_SYSTEM_FILES        "System files"
+    IDS_SYSTEM_FILES_TIP    "Toggles the visibility of the system files"
+    IDS_ZIP_ITEM            "Create zip file"
+    IDS_ZIP_TIP             "Creates a zip file from the selected items"
+    IDS_STATUS_FONT         "Status bar font"
+    IDS_STATUS_FONT_TIP     "Select the font to use for the status bar"
+    IDS_FOLDEROPTIONS       "Folder options"
+    IDS_FOLDEROPTIONS_TIP   "Opens the folder options dialog"
 END
 
 #endif    // English (U.S.) resources

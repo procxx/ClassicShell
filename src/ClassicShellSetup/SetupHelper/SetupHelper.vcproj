@@ -5,6 +5,10 @@
 	Name="SetupHelper"
 	ProjectGUID="{E1017135-9916-4B11-9AC5-1EC0BD8F8CD6}"
 	RootNamespace="SetupHelper"
+	SccProjectName="SAK"
+	SccAuxPath="SAK"
+	SccLocalPath="SAK"
+	SccProvider="SAK"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -72,6 +76,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="SetupHelper.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -148,6 +153,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="SetupHelper.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -170,15 +176,11 @@
 	</References>
 	<Files>
 		<File
-			RelativePath=".\resource.h"
-			>
-		</File>
-		<File
 			RelativePath=".\SetupHelper.cpp"
 			>
 		</File>
 		<File
-			RelativePath=".\SetupHelper.rc"
+			RelativePath=".\SetupHelper.manifest"
 			>
 		</File>
 	</Files>

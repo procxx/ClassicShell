@@ -1,19 +1,16 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // ExplorerBHO.h : Declaration of the CExplorerBHO
 
 #pragma once
 #include "resource.h"       // main symbols
 #include <vector>
+#include <map>
 
 #include "ClassicExplorer_i.h"
-
-
-#if defined(_WIN32_WCE) && !defined(_CE_DCOM) && !defined(_CE_ALLOW_SINGLE_THREADED_OBJECTS_IN_MTA)
-#error "Single-threaded COM objects are not properly supported on Windows CE platform, such as the Windows Mobile platforms that do not include full DCOM support. Define _CE_ALLOW_SINGLE_THREADED_OBJECTS_IN_MTA to force ATL to support creating single-thread COM object's and allow use of it's single-threaded COM object implementations. The threading model in your rgs file was set to 'Free' as that is the only threading model supported in non DCOM Windows CE platforms."
-#endif
-
+#include "ComHelper.h"
+#include <shdispid.h>
 
 
 // CExplorerBHO
@@ -23,33 +20,44 @@ class ATL_NO_VTABLE CExplorerBHO :
 	public CComCoClass<CExplorerBHO, &CLSID_ExplorerBHO>,
 	public IObjectWithSiteImpl<CExplorerBHO>,
 	public IDispatchImpl<IExplorerBHO, &IID_IExplorerBHO, &LIBID_ClassicExplorerLib, /*wMajor =*/ 1, /*wMinor =*/ 0>,
-	public IDispEventImpl<1,CExplorerBHO,&DIID_DWebBrowserEvents2,&LIBID_SHDocVw,1,1>
+	public IDispEventImpl<1,CExplorerBHO,&DIID_DWebBrowserEvents2,&LIBID_SHDocVw,1,1>,
+	public IDispEventImpl<2,CExplorerBHO,&DIID_DShellFolderViewEvents,&LIBID_Shell32,1,0>
 {
 public:
+	typedef IDispEventImpl<1,CExplorerBHO,&DIID_DWebBrowserEvents2,&LIBID_SHDocVw,1,1> DispEvent1;
+	typedef IDispEventImpl<2,CExplorerBHO,&DIID_DShellFolderViewEvents,&LIBID_Shell32,1,0> DispEvent2;
 	CExplorerBHO()
 	{
 		m_bResetStatus=true;
 		m_bForceRefresh=false;
 		m_bRemapBands=false;
 		m_bNoBreadcrumbs=false;
+		m_TreeItemHeight=0;
 		m_CurIcon=NULL;
-		m_CurPidl=NULL;
-		m_NavigatePidl=NULL;
 		m_CurPath[0]=0;
 		m_Rebar=NULL;
 		m_TopWindow=NULL;
 		m_Breadcrumbs=NULL;
 		m_Progress=NULL;
-		m_Status=NULL;
+		m_Status=m_Status8=NULL;
+		m_DUIView=NULL;
 		m_Hook=m_HookKbd=NULL;
 		m_Balloon=NULL;
+		m_UpButtonIndex=0;
+		m_UpHotkey=0;
+		m_IconNormal=m_IconHot=m_IconPressed=m_IconDisabled=NULL;
+		m_NavigateMsg=0;
+		m_AltD=0;
+		m_FileSizeWidth=0;
+		m_ZoneWidth=0;
 	}
 
 	DECLARE_REGISTRY_RESOURCEID(IDR_EXPLORERBHO)
 
 	BEGIN_SINK_MAP( CExplorerBHO )
-		SINK_ENTRY_EX(1, DIID_DWebBrowserEvents2, DISPID_NAVIGATECOMPLETE2, OnNavigateComplete)
+		SINK_ENTRY_EX(1, DIID_DWebBrowserEvents2, DISPID_DOCUMENTCOMPLETE, OnDocumentComplete)
 		SINK_ENTRY_EX(1, DIID_DWebBrowserEvents2, DISPID_ONQUIT, OnQuit)
+		SINK_ENTRY_EX(2, DIID_DShellFolderViewEvents, DISPID_SELECTIONCHANGED, OnSelChanged)
 	END_SINK_MAP()
 
 	BEGIN_COM_MAP(CExplorerBHO)
@@ -81,20 +89,27 @@ public:
 
 	enum
 	{
-		// from settings
-		SPACE_INFOTIP=1, // show the infotip in the status bar if a single item is selected
-
-		// from code
-		SPACE_WIN7=2, // running on Win7 (fix the status bar parts and show the disk free space)
+		SHOW_INFOTIP=1,
+		SHOW_FREE_SPACE=2,
+		SHOW_ZONE=4,
 	};
 
+	enum
+	{
+		PART_TEXT,
+		PART_SIZE,
+		PART_ZONE,
+	};
 public:
 	// IObjectWithSite
 	STDMETHOD(SetSite)(IUnknown *pUnkSite);
 
 	// DWebBrowserEvents2
-	STDMETHOD(OnNavigateComplete)( IDispatch *pDisp, VARIANT *URL );
+	STDMETHOD(OnDocumentComplete)( IDispatch *pDisp, VARIANT *URL );
 	STDMETHOD(OnQuit)( void );
+
+	// DShellFolderViewEvents
+	STDMETHOD(OnSelChanged)( void );
 
 private:
 	// Super-class the toolbar, so it has a different class name. A program called Folder Menu 3 looks for specific controls in Explorer,
@@ -110,10 +125,15 @@ private:
 
 	CComPtr<IShellBrowser> m_pBrowser;
 	CComPtr<IWebBrowser2> m_pWebBrowser;
+	CComPtr<IDispatch> m_pWebDoc;
+	CComPtr<IInternetZoneManager> m_pZoneManager;
+	CComPtr<IInternetSecurityManager> m_pSecurityManager;
+	std::map<unsigned int,HICON> m_ZoneIconCache;
 	bool m_bResetStatus;
 	bool m_bForceRefresh;
 	bool m_bNoBreadcrumbs;
 	bool m_bRemapBands;
+	int m_TreeItemHeight;
 	int m_UpButtonIndex;
 	int m_UpHotkey;
 	CToolbar m_Toolbar;
@@ -122,16 +142,19 @@ private:
 	HWND m_Balloon;
 	HICON m_IconNormal, m_IconHot, m_IconPressed, m_IconDisabled;
 	HICON m_CurIcon;
-	PIDLIST_ABSOLUTE m_CurPidl;
+	CAbsolutePidl m_CurPidl;
 	wchar_t m_CurPath[1024]; // the current path
 	CWindow m_ComboBox;
-	PIDLIST_ABSOLUTE m_NavigatePidl;
-	UINT m_NavigateMsg; // private message that is posted to the progress bar to navigate ti m_NavigatePidl
+	CAbsolutePidl m_NavigatePidl;
+	UINT m_NavigateMsg; // private message that is posted to the progress bar to navigate to m_NavigatePidl
 	HHOOK m_Hook;
 	HHOOK m_HookKbd;
 	HWND m_Breadcrumbs;
 	HWND m_Progress;
-	HWND m_Status;
+	HWND m_Status, m_Status8;
+	HWND m_DUIView;
+	int m_FileSizeWidth;
+	int m_ZoneWidth;
 	char m_AltD;
 
 	struct ComboItem
@@ -145,6 +168,8 @@ private:
 	};
 	std::vector<ComboItem> m_ComboItems;
 	void ClearComboItems( void );
+	bool GetStatusText( wchar_t *buf, int size, const wchar_t *oldText, bool bShowTip, bool bShowSpace );
+	void GetFileSize( wchar_t *buf, int size );
 
 	static int s_AutoNavDelay;
 
@@ -153,6 +178,8 @@ private:
 	static LRESULT CALLBACK SubclassTreeParentProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+	static LRESULT CALLBACK SubclassStatusProc8( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+	static LRESULT CALLBACK SubclassDUIViewProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK SubclassRebarProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK SubclassBreadcrumbProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK SubclassProgressProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );

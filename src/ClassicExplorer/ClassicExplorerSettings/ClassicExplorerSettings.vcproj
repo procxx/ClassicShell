@@ -5,6 +5,9 @@
 	Name="ClassicExplorerSettings"
 	ProjectGUID="{E93271C8-0252-4A08-8227-1978C64C2D34}"
 	RootNamespace="ClassicExplorerSettings"
+	SccProjectName="Perforce Project"
+	SccLocalPath="..\.."
+	SccProvider="MSSCCI:Perforce SCM"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -75,6 +78,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="ClassicExplorerSettings.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -154,6 +158,87 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="ClassicExplorerSettings.manifest"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Setup|Win32"
+			OutputDirectory="..\$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="1"
+			UseOfATL="1"
+			CharacterSet="1"
+			WholeProgramOptimization="0"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories="..\..\ClassicShellLib"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;BUILD_SETUP"
+				RuntimeLibrary="0"
+				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				WarnAsError="true"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="shlwapi.lib comctl32.lib psapi.lib"
+				LinkIncremental="1"
+				GenerateDebugInformation="true"
+				SubSystem="2"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+				AdditionalManifestFiles="ClassicExplorerSettings.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -177,6 +262,10 @@
 	<Files>
 		<File
 			RelativePath=".\ClassicExplorerSettings.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\ClassicExplorerSettings.manifest"
 			>
 		</File>
 		<File

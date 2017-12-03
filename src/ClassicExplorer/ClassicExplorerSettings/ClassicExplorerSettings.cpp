@@ -1,20 +1,11 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #include <windows.h>
 #include <commctrl.h>
 #include <shlwapi.h>
 #include <Psapi.h>
 #include "StringUtils.h"
-
-// Manifest to enable the 6.0 common controls
-#pragma comment(linker, \
-	"\"/manifestdependency:type='Win32' "\
-	"name='Microsoft.Windows.Common-Controls' "\
-	"version='6.0.0.0' "\
-	"processorArchitecture='*' "\
-	"publicKeyToken='6595b64144ccf1df' "\
-	"language='*'\"")
 
 // Find and activate the Settings window
 static BOOL CALLBACK FindSettingsEnum( HWND hwnd, LPARAM lParam )
@@ -42,13 +33,78 @@ static BOOL CALLBACK FindSettingsEnum( HWND hwnd, LPARAM lParam )
 	return !bFound;
 }
 
+HMODULE LoadClassicExplorerDll( void )
+{
+	wchar_t path[_MAX_PATH];
+	GetModuleFileName(NULL,path,_countof(path));
+	*PathFindFileName(path)=0;
+	PathAppend(path,L"ClassicExplorer32.dll");
+	return LoadLibrary(path);
+}
+
 // A simple program that loads ClassicExplorer32.dll and calls the ShowExplorerSettings function
 // Why not use rundll32 instead? Because it doesn't include the correct manifest for comctl32.dll
 int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrCmdLine, int nCmdShow )
 {
 	INITCOMMONCONTROLSEX init={sizeof(init),ICC_STANDARD_CLASSES};
 	InitCommonControlsEx(&init);
-	SetProcessDPIAware();
+
+	{
+		const wchar_t *pXml=wcsstr(lpstrCmdLine,L"-xml ");
+		if (pXml)
+		{
+			wchar_t xml[_MAX_PATH];
+			GetToken(pXml+5,xml,_countof(xml),L" ");
+			HMODULE dll=LoadClassicExplorerDll();
+			if (!dll) return 1;
+			typedef bool (*tImportSettingsXml)( const wchar_t *fname );
+			tImportSettingsXml DllImportSettingsXml=(tImportSettingsXml)GetProcAddress(dll,"DllImportSettingsXml");
+			if (!DllImportSettingsXml)
+				return 1;
+			CoInitialize(NULL);
+			bool res=DllImportSettingsXml(xml);
+			CoUninitialize();
+			return res?0:1;
+		}
+	}
+
+	{
+		const wchar_t *pBackup=wcsstr(lpstrCmdLine,L"-backup ");
+		if (pBackup)
+		{
+			wchar_t xml[_MAX_PATH];
+			GetToken(pBackup+8,xml,_countof(xml),L" ");
+
+			HMODULE dll=LoadClassicExplorerDll();
+			if (!dll) return 1;
+			typedef bool (*tExportSettingsXml)( const wchar_t *fname );
+			tExportSettingsXml DllExportSettingsXml=(tExportSettingsXml)GetProcAddress(dll,"DllExportSettingsXml");
+			if (!DllExportSettingsXml)
+				return 1;
+
+			CoInitialize(NULL);
+			bool res=DllExportSettingsXml(xml);
+			CoUninitialize();
+			return res?0:1;
+		}
+	}
+
+#ifndef _WIN64
+	const wchar_t *pSaveAdmx=wcsstr(lpstrCmdLine,L"-saveadmx ");
+	if (pSaveAdmx)
+	{
+		wchar_t language[100];
+		GetToken(pSaveAdmx+10,language,_countof(language),L" ");
+
+		HMODULE dll=LoadClassicExplorerDll();
+		if (!dll) return 1;
+		typedef bool (*tSaveAdmx)( const char *admxFile, const char *admlFile, const char *docFile, const wchar_t *language );
+		tSaveAdmx SaveAdmx=(tSaveAdmx)GetProcAddress(dll,"DllSaveAdmx");
+		if (!SaveAdmx || !SaveAdmx("ClassicExplorer.admx","ClassicExplorer.adml","ClassicExplorerADMX.txt",language))
+			return 1;
+		return 0;
+	}
+#endif
 
 	// prevent multiple instances from running on the same desktop
 	// the assumption is that multiple desktops for the same user will have different name (but may repeat across users)
@@ -72,12 +128,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 		return 0;
 	}
 
-	wchar_t path[_MAX_PATH];
-	GetModuleFileName(NULL,path,_countof(path));
-	*PathFindFileName(path)=0;
-	wcscat_s(path,L"ClassicExplorer32.dll");
-
-	HMODULE dll=LoadLibrary(path);
+	HMODULE dll=LoadClassicExplorerDll();
 	if (!dll) return 1;
 
 	FARPROC proc=GetProcAddress(dll,"ShowExplorerSettings");

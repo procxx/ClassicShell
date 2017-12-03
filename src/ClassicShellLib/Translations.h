@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #pragma once
 
@@ -15,3 +15,6 @@ const wchar_t *FindTranslation( const wchar_t *name, const wchar_t *def );
 
 // Checks for right-to-left languages
 bool IsLanguageRTL( void );
+
+// Language DLLs between this version and the current version are acceptable
+const int MIN_LANGUAGE_VERSION=0x03090005;

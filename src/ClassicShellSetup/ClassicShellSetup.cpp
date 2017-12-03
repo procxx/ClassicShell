@@ -1,12 +1,11 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #define _WIN32_WINNT 0x0600
 #include <windows.h>
 #include <shlwapi.h>
 #include <stdio.h>
 #include <commctrl.h>
-#include <Psapi.h>
 #include <vector>
 #include "resource.h"
 #include "StringUtils.h"
@@ -22,7 +21,7 @@ typedef BOOL (WINAPI *FQueryFullProcessImageName)( HANDLE hProcess, DWORD dwFlag
 
 enum
 {
-	ERR_WRONG_OS=101, // the OS is too old, Vista or up is required
+	ERR_WRONG_OS=101, // the OS is too old, Windows 7 or up is required
 	ERR_OLD_VERSION, // detected version older than 1.0.0
 	ERR_HASH_NOTFOUND, // the HASH resource is missing
 	ERR_MSIRES_NOTFOUND, // missing MSI resource
@@ -31,6 +30,24 @@ enum
 	ERR_MSI_EXTRACTFAIL, // failed to extract the MSI file
 	ERR_MSIEXEC, // msiexec failed to start
 };
+
+struct Chunk
+{
+	int start1, start2, len;
+};
+
+static void WriteFileXOR( HANDLE hFile, const unsigned char *buf, int size )
+{
+	if (size>0)
+	{
+		std::vector<unsigned char> buf2;
+		buf2.reserve(size);
+		for (int i=0;i<size;i++)
+			buf2.push_back(buf[i]^0xFF);
+		DWORD q;
+		WriteFile(hFile,&buf2[0],size,&q,NULL);
+	}
+}
 
 static int ExtractMsi( HINSTANCE hInstance, const wchar_t *msiName, bool b64, bool bQuiet )
 {
@@ -53,17 +70,24 @@ static int ExtractMsi( HINSTANCE hInstance, const wchar_t *msiName, bool b64, bo
 		}
 		return ERR_HASH_NOTFOUND;
 	}
-	unsigned int hash=((unsigned int*)pRes)[b64?1:0];
+	unsigned int hash0=((unsigned int*)pRes)[b64?1:0];
+	const Chunk *pChunks=NULL;
+	int chunkCount=0;
+	if (b64)
+	{
+		chunkCount=((unsigned int*)pRes)[2];
+		pChunks=(Chunk*)((unsigned int*)pRes+3);
+	}
 
 	// extract the installer
-	pRes=NULL;
-	hResInfo=FindResource(hInstance,MAKEINTRESOURCE(b64?IDR_MSI_FILE64:IDR_MSI_FILE32),L"MSI_FILE");
+	const unsigned char *pRes32=NULL;
+	hResInfo=FindResource(hInstance,MAKEINTRESOURCE(IDR_MSI_FILE32),L"MSI_FILE");
 	if (hResInfo)
 	{
 		HGLOBAL hRes=LoadResource(hInstance,hResInfo);
-		pRes=LockResource(hRes);
+		pRes32=(unsigned char*)LockResource(hRes);
 	}
-	if (!pRes)
+	if (!pRes32)
 	{
 		if (!bQuiet)
 		{
@@ -75,8 +99,50 @@ static int ExtractMsi( HINSTANCE hInstance, const wchar_t *msiName, bool b64, bo
 		}
 		return ERR_MSIRES_NOTFOUND;
 	}
-	int size=SizeofResource(hInstance,hResInfo);
-	if (CalcFNVHash(pRes,size)!=hash)
+	const unsigned char *pRes64=NULL;
+	int size32=SizeofResource(hInstance,hResInfo);
+	unsigned int hash;
+	int size64=0;
+	if (b64)
+	{
+		HRSRC hResInfo=FindResource(hInstance,MAKEINTRESOURCE(IDR_MSI_FILE64),L"MSI_FILE");
+		if (hResInfo)
+		{
+			HGLOBAL hRes=LoadResource(hInstance,hResInfo);
+			pRes64=(unsigned char*)LockResource(hRes);
+		}
+		if (!pRes64)
+		{
+			if (!bQuiet)
+			{
+				wchar_t strTitle[256];
+				if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
+				wchar_t strText[256];
+				if (!LoadString(hInstance,IDS_ERR_INTERNAL,strText,_countof(strText))) strText[0]=0;
+				MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONERROR);
+			}
+			return ERR_MSIRES_NOTFOUND;
+		}
+
+		size64=SizeofResource(hInstance,hResInfo);
+		hash=FNV_HASH0;
+		int start=0;
+		int pos=0;
+		for (int i=0;i<chunkCount;i++)
+		{
+			const Chunk &chunk=pChunks[i];
+			if (start<chunk.start2)
+				hash=CalcFNVHash(pRes64+pos,chunk.start2-start,hash);
+			hash=CalcFNVHash(pRes32+chunk.start1,chunk.len,hash);
+			pos+=chunk.start2-start;
+			start=chunk.start2+chunk.len;
+		}
+		if (pos<size64)
+			hash=CalcFNVHash(pRes64+pos,size64-pos,hash);
+	}
+	else
+		hash=CalcFNVHash(pRes32,size32);
+	if (hash!=hash0)
 	{
 		if (!bQuiet)
 		{
@@ -107,8 +173,26 @@ static int ExtractMsi( HINSTANCE hInstance, const wchar_t *msiName, bool b64, bo
 		}
 		return ERR_MSI_EXTRACTFAIL;
 	}
-	DWORD q;
-	WriteFile(hFile,pRes,size,&q,NULL);
+	if (b64)
+	{
+		int start=0;
+		int pos=0;
+		for (int i=0;i<chunkCount;i++)
+		{
+			const Chunk &chunk=pChunks[i];
+			if (start<chunk.start2)
+				WriteFileXOR(hFile,pRes64+pos,chunk.start2-start);
+			WriteFileXOR(hFile,pRes32+chunk.start1,chunk.len);
+			pos+=chunk.start2-start;
+			start=chunk.start2+chunk.len;
+		}
+		if (pos<size64)
+			WriteFileXOR(hFile,pRes64+pos,size64-pos);
+	}
+	else
+	{
+		WriteFileXOR(hFile,pRes32,size32);
+	}
 	CloseHandle(hFile);
 
 	return 0;
@@ -206,14 +290,16 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	}
 
 	// check Windows version
-	if (LOBYTE(GetVersion())<6)
+	WORD winVer=LOWORD(GetVersion());
+	winVer=MAKEWORD(HIBYTE(winVer),LOBYTE(winVer));
+	if (winVer<0x601)
 	{
 		if (!bQuiet)
 		{
 			wchar_t strTitle[256];
 			if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
 			wchar_t strText[256];
-			if (!LoadString(hInstance,IDS_ERR_VISTA,strText,_countof(strText))) strText[0]=0;
+			if (!LoadString(hInstance,IDS_ERR_WIN7,strText,_countof(strText))) strText[0]=0;
 			MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONERROR);
 		}
 		return ERR_WRONG_OS;
@@ -229,7 +315,7 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 			wchar_t strTitle[256];
 			if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
 			wchar_t strText[256];
-			if (!LoadString(hInstance,IDS_ERR_VISTA,strText,_countof(strText))) strText[0]=0;
+			if (!LoadString(hInstance,IDS_ERR_WIN7,strText,_countof(strText))) strText[0]=0;
 			MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONERROR);
 		}
 		return ERR_WRONG_OS;
@@ -285,7 +371,7 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	// warning about being beta
 	if (!bQuiet)
 	{
-		if (MessageBox(NULL,L"Warning!\nThis is a beta version of Classic Shell. It contains features that are not fully tested. Please report any problems in the Classic Shell forums. If you prefer a stable build over the latest features, you can download one of the \"general release\" versions like 1.0.3.\nDo you want to continue with the installation?",L"Classic Shell Setup",MB_YESNO|MB_ICONWARNING)==IDNO)
+		if (MessageBox(NULL,L"Warning!\nThis is a beta version of Classic Shell. It contains features that are not fully tested. Please report any problems in the Classic Shell forums. If you prefer a stable build over the latest features, you can download one of the \"general release\" versions like 3.6.8.\nDo you want to continue with the installation?",L"Classic Shell Setup",MB_YESNO|MB_ICONWARNING)==IDNO)
 			return 99;
 	}
 */
@@ -301,29 +387,6 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 			RegCloseKey(hKey);
 		}
 	}
-	// the 64-bit version of Classic Shell 1.9.7 has a bug in the uninstaller that fails to back up the ini files. if that version is detected,
-	// warn the user to skip the backup step.
-	if (b64 && version==10907)
-	{
-		wchar_t strTitle[256];
-		if (!LoadString(hInstance,IDS_APP_TITLE,strTitle,_countof(strTitle))) strTitle[0]=0;
-		wchar_t strText[256];
-		if (!LoadString(hInstance,IDS_ERR_VER197,strText,_countof(strText))) strText[0]=0;
-		MessageBox(NULL,strText,strTitle,MB_OK|MB_ICONERROR);
-	}
-
-	// when upgrading from 2.8.1 or 2.8.2, back up the Run key
-	const wchar_t *extraParam=L"";
-	if (version>=20800 && version<=20802)
-	{
-		HKEY hKey;
-		if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_READ|(b64?KEY_WOW64_64KEY:0),&hKey)==ERROR_SUCCESS)
-		{
-			if (RegQueryValueEx(hKey,L"Classic Start Menu",NULL,NULL,NULL,NULL)==ERROR_SUCCESS)
-				extraParam=L" BACKUP_RUN=1";
-			RegCloseKey(hKey);
-		}
-	}
 
 	wchar_t msiName[_MAX_PATH];
 	Sprintf(msiName,_countof(msiName),L"%%ALLUSERSPROFILE%%\\ClassicShellSetup%d_%d_%d_%d.msi",b64?64:32,HIWORD(pVer->dwProductVersionMS),LOWORD(pVer->dwProductVersionMS),HIWORD(pVer->dwProductVersionLS));
@@ -335,12 +398,12 @@ int APIENTRY wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	if (wcsstr(lpCmdLine,L"%MSI%") || wcsstr(lpCmdLine,L"%msi%"))
 	{
 		SetEnvironmentVariable(L"MSI",msiName);
-		Sprintf(cmdLine,_countof(cmdLine),L"msiexec.exe %s%s",lpCmdLine,extraParam);
+		Sprintf(cmdLine,_countof(cmdLine),L"msiexec.exe %s",lpCmdLine);
 		DoEnvironmentSubst(cmdLine,_countof(cmdLine));
 	}
 	else
 	{
-		Sprintf(cmdLine,_countof(cmdLine),L"msiexec.exe /i \"%s\" %s%s",msiName,lpCmdLine,extraParam);
+		Sprintf(cmdLine,_countof(cmdLine),L"msiexec.exe /i \"%s\" %s",msiName,lpCmdLine);
 	}
 
 	// start the installer

@@ -5,6 +5,10 @@
 	Name="Win7Basic"
 	ProjectGUID="{404821C5-4EE4-4908-A759-5EF6DAC14AB6}"
 	RootNamespace="Win7Basic"
+	SccProjectName="SAK"
+	SccAuxPath="SAK"
+	SccLocalPath="SAK"
+	SccProvider="SAK"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -65,10 +69,11 @@
 				OutputFile="$(SolutionDir)ClassicStartMenu\Skins\Windows Basic.skin"
 				LinkIncremental="1"
 				GenerateDebugInformation="false"
-				ProgramDatabaseFile="$(OutDir)\$(ProjectName).pdb"
+				ProgramDatabaseFile=""
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
+				ResourceOnlyDLL="true"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -103,7 +108,7 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\main.cpp"
+				RelativePath=".\SkinDescription.txt"
 				>
 			</File>
 		</Filter>
@@ -145,11 +150,19 @@
 				>
 			</File>
 			<File
+				RelativePath=".\new_item.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\pager.bmp"
 				>
 			</File>
 			<File
 				RelativePath=".\pager_arrows.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\pager_arrows150.bmp"
 				>
 			</File>
 			<File
@@ -169,15 +182,19 @@
 				>
 			</File>
 			<File
+				RelativePath=".\separator150.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\separator2.bmp"
 				>
 			</File>
 			<File
-				RelativePath=".\separatorXP.bmp"
+				RelativePath=".\separator2150.bmp"
 				>
 			</File>
 			<File
-				RelativePath=".\SkinDescription.txt"
+				RelativePath=".\separatorXP.bmp"
 				>
 			</File>
 			<File

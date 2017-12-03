@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // dllmain.cpp : Implementation of DllMain.
 
@@ -16,7 +16,16 @@
 #include <uxtheme.h>
 #include <dwmapi.h>
 
+#pragma comment(linker, \
+	"\"/manifestdependency:type='Win32' "\
+	"name='Microsoft.Windows.Common-Controls' "\
+	"version='6.0.0.0' "\
+	"processorArchitecture='*' "\
+	"publicKeyToken='6595b64144ccf1df' "\
+	"language='*'\"")
+
 CClassicExplorerModule _AtlModule;
+bool g_bLogLevel;
 
 void InitClassicCopyProcess( void );
 void InitClassicCopyThread( void );
@@ -28,12 +37,13 @@ LPCWSTR g_LoadedSettingsAtom;
 
 static int g_LoadDialogs[]=
 {
-	IDD_SETTINGS,
-	IDD_SETTINGSTREE,
-	IDD_BROWSEFORICON,
-	IDD_LANGUAGE,
-	IDD_CUSTOMTOOLBAR,
-	IDD_CUSTOMTREE,
+	IDD_SETTINGS,0x04000000,
+	IDD_SETTINGSTREE,0x04000000,
+	IDD_BROWSEFORICON,0x04000000,
+	IDD_LANGUAGE,0x04000000,
+	IDD_CUSTOMTOOLBAR,0x04000000,
+	IDD_CUSTOMTREE,0x04000000,
+	IDD_PROGRESS,0x04000004,
 	0
 };
 
@@ -79,27 +89,109 @@ TlsData *GetTlsData( void )
 	return (TlsData*)pData;
 }
 
+static HANDLE g_DllInitThread;
+
+static DWORD CALLBACK DllInitThread( void* )
+{
+	{
+		g_bLogLevel=false;
+		CRegKey regKey;
+		if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicExplorer\\Settings",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+		{
+			DWORD log;
+			if (regKey.QueryDWORDValue(L"LogLevel",log)==ERROR_SUCCESS)
+				g_bLogLevel=log!=0;
+		}
+	}
+	InitSettings();
+
+	wchar_t path[_MAX_PATH];
+	GetModuleFileName(g_Instance,path,_countof(path));
+	*PathFindFileName(path)=0;
+	wchar_t fname[_MAX_PATH];
+	Sprintf(fname,_countof(fname),L"%s" INI_PATH L"ExplorerL10N.ini",path);
+	CString language=GetSettingString(L"Language");
+	ParseTranslations(fname,language);
+
+	HINSTANCE resInstance=LoadTranslationDll(language);
+
+	LoadTranslationResources(resInstance,g_LoadDialogs);
+
+	if (resInstance)
+		FreeLibrary(resInstance);
+
+	if (GetSettingBool(L"ShareOverlay") && (g_bExplorerExe || !GetSettingBool(L"ShareExplorer")))
+		CShareOverlay::InitOverlay(GetSettingString(L"ShareOverlayIcon"),GetSettingBool(L"ShareOverlayHidden"));
+	return 0;
+}
+
+void WaitDllInitThread( void )
+{
+	ATLASSERT(g_DllInitThread);
+	WaitForSingleObject(g_DllInitThread,INFINITE);
+}
+
 // DLL Entry Point
 extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved )
 {
 	if (dwReason==DLL_PROCESS_ATTACH)
 	{
-		InitSettings();
+		g_Instance=hInstance;
 		g_TlsIndex=TlsAlloc();
 		if (g_TlsIndex==TLS_OUT_OF_INDEXES) 
 			return FALSE; // TLS failure
+
+		CRegKey regSettings, regSettingsUser, regPolicy, regPolicyUser;
+		bool bUpgrade=OpenSettingsKeys(COMPONENT_EXPLORER,regSettings,regSettingsUser,regPolicy,regPolicyUser);
+
+		enum
+		{
+			SETTING_SHARE_OVERLAY,
+			SETTING_SHARE_EXPLORER,
+			SETTING_FILE_EXPLORER,
+			SETTING_REPLACE_FILE,
+			SETTING_REPLACE_FOLDER,
+			SETTING_MORE,
+			SETTING_WHITE_LIST,
+			SETTING_BLACK_LIST,
+		};
+
+		CSetting settings[]={
+			{L"ShareOverlay",CSetting::TYPE_BOOL,0,0,0},
+			{L"ShareExplorer",CSetting::TYPE_BOOL,0,0,1},
+			{L"FileExplorer",CSetting::TYPE_BOOL,0,0,1},
+			{L"ReplaceFileUI",CSetting::TYPE_BOOL,0,0,1},
+			{L"ReplaceFolderUI",CSetting::TYPE_BOOL,0,0,1},
+			{L"EnableMore",CSetting::TYPE_BOOL,0,0,0},
+			{L"ProcessWhiteList",CSetting::TYPE_STRING,0,0,L""},
+			{L"ProcessBlackList",CSetting::TYPE_STRING,0,0,L""},
+			{NULL}
+		};
 
 		wchar_t path[_MAX_PATH];
 		GetModuleFileName(NULL,path,_countof(path));
 		const wchar_t *exe=PathFindFileName(path);
 		g_bExplorerExe=(_wcsicmp(exe,L"explorer.exe")==0 || _wcsicmp(exe,L"verclsid.exe")==0);
-		bool bReplaceUI=GetWinVersion()<WIN_VER_WIN8 && (GetSettingBool(L"ReplaceFileUI") || GetSettingBool(L"ReplaceFolderUI") || GetSettingBool(L"EnableMore"));
+		bool bReplaceUI=false;
+		if (GetWinVersion()<=WIN_VER_WIN7)
+		{
+			settings[SETTING_REPLACE_FILE].LoadValue(regSettings,regSettingsUser,regPolicy,regPolicyUser);
+			settings[SETTING_REPLACE_FOLDER].LoadValue(regSettings,regSettingsUser,regPolicy,regPolicyUser);
+			settings[SETTING_MORE].LoadValue(regSettings,regSettingsUser,regPolicy,regPolicyUser);
+			bReplaceUI=(GetSettingBool(settings[SETTING_REPLACE_FILE]) || GetSettingBool(settings[SETTING_REPLACE_FOLDER]) || GetSettingBool(settings[SETTING_MORE]));
+		}
+
+		settings[SETTING_FILE_EXPLORER].LoadValue(regSettings,regSettingsUser,regPolicy,regPolicyUser);
 		if (_wcsicmp(exe,L"regsvr32.exe")!=0 && _wcsicmp(exe,L"msiexec.exe")!=0 && _wcsicmp(exe,L"ClassicExplorerSettings.exe")!=0 && !g_bExplorerExe)
 		{
 			// some arbitrary app
-			if ((!GetSettingBool(L"ShareOverlay") || GetSettingBool(L"ShareExplorer")) && (!bReplaceUI || GetSettingBool(L"FileExplorer")))
+			settings[SETTING_SHARE_OVERLAY].LoadValue(regSettings,regSettingsUser,regPolicy,regPolicyUser);
+			settings[SETTING_SHARE_EXPLORER].LoadValue(regSettings,regSettingsUser,regPolicy,regPolicyUser);
+			if ((!GetSettingBool(settings[SETTING_SHARE_OVERLAY]) || GetSettingBool(settings[SETTING_SHARE_EXPLORER])) && (!bReplaceUI || GetSettingBool(settings[SETTING_FILE_EXPLORER])))
 				return FALSE;
-			CString whiteList=GetSettingString(L"ProcessWhiteList");
+
+			settings[SETTING_WHITE_LIST].LoadValue(regSettings,regSettingsUser,regPolicy,regPolicyUser);
+			CString whiteList=GetSettingString(settings[SETTING_WHITE_LIST]);
 			if (!whiteList.IsEmpty())
 			{
 				// check for whitelisted process names
@@ -127,8 +219,9 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 			}
 			else
 			{
+				settings[SETTING_BLACK_LIST].LoadValue(regSettings,regSettingsUser,regPolicy,regPolicyUser);
 				// check for blacklisted process names
-				CString blackList=GetSettingString(L"ProcessBlackList");
+				CString blackList=GetSettingString(settings[SETTING_BLACK_LIST]);
 				const wchar_t *str=blackList;
 				while (*str)
 				{
@@ -147,59 +240,16 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInstance, DWORD dwReason, LPVOID lpRe
 			}
 		}
 
-		g_Instance=hInstance;
 		g_LoadedSettingsAtom=(LPCWSTR)GlobalAddAtom(L"ClassicExplorer.LoadedSettings");
 
-		GetModuleFileName(hInstance,path,_countof(path));
-		*PathFindFileName(path)=0;
-		wchar_t fname[_MAX_PATH];
-		Sprintf(fname,_countof(fname),L"%s" INI_PATH L"ExplorerL10N.ini",path);
-		CString language=GetSettingString(L"Language");
-		ParseTranslations(fname,language);
-
-		HINSTANCE resInstance=NULL;
-		if (!language.IsEmpty())
-		{
-			wchar_t fname[_MAX_PATH];
-			Sprintf(fname,_countof(fname),L"%s" INI_PATH L"%s.dll",path,language);
-			resInstance=LoadLibraryEx(fname,NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
-		}
-		else
-		{
-			wchar_t languages[100]={0};
-			ULONG size=4; // up to 4 languages
-			ULONG len=_countof(languages);
-			GetThreadPreferredUILanguages(MUI_LANGUAGE_NAME,&size,languages,&len);
-
-			for (const wchar_t *language=languages;*language;language+=Strlen(language)+1)
-			{
-				wchar_t fname[_MAX_PATH];
-				Sprintf(fname,_countof(fname),L"%s" INI_PATH L"%s.dll",path,language);
-				resInstance=LoadLibraryEx(fname,NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
-				if (resInstance)
-					break;
-			}
-		}
-
-		if (resInstance && GetVersionEx(resInstance)!=GetVersionEx(g_Instance))
-		{
-			FreeLibrary(resInstance);
-			resInstance=NULL;
-		}
-		LoadTranslationResources(g_Instance,resInstance,g_LoadDialogs);
-
-		if (resInstance)
-			FreeLibrary(resInstance);
-
-		g_bHookCopyThreads=(bReplaceUI && (g_bExplorerExe || !GetSettingBool(L"FileExplorer")));
+		g_bHookCopyThreads=(bReplaceUI && (g_bExplorerExe || !GetSettingBool(settings[SETTING_FILE_EXPLORER])));
 		if (g_bHookCopyThreads)
 		{
 			InitClassicCopyProcess();
 			InitClassicCopyThread();
 		}
 
-		if (GetSettingBool(L"ShareOverlay") && (g_bExplorerExe || !GetSettingBool(L"ShareExplorer")))
-			CShareOverlay::InitOverlay(GetSettingString(L"ShareOverlayIcon"));
+		g_DllInitThread=CreateThread(NULL,0,DllInitThread,NULL,0,NULL);
 	}
 
 	if (dwReason==DLL_THREAD_ATTACH)

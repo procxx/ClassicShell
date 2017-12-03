@@ -1,7 +1,9 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
+#include <stdafx.h>
 #include "SettingsParser.h"
+#include "ResourceHelper.h"
 #include "StringUtils.h"
 #include <algorithm>
 
@@ -281,23 +283,47 @@ void CSkinParser::Reset( void )
 	m_VarText.clear();
 }
 
+static const wchar_t *g_OptionNames[SKIN_OPTION_TYPE_COUNT]={
+	L"OPTION ",
+	L"OPTION_NUMBER ",
+	L"OPTION_STRING ",
+	L"OPTION_COLOR ",
+	L"OPTION_IMAGE ",
+};
+
 // Parses the option from m_Lines[index]. Returns false if index is out of bounds
-bool CSkinParser::ParseOption( CString &name, CString &label, bool &value, CString &condition, bool &value2, int index )
+bool CSkinParser::ParseOption( CString &name, TSkinOptionType &type, CString &label, bool &value, CString &condition, CString &disValue, int index )
 {
 	if (index<0 || index>=(int)m_Lines.size())
 		return false;
 	name.Empty();
 	wchar_t buf[256];
 	const wchar_t *line=m_Lines[index];
-	if (_wcsnicmp(line,L"OPTION ",7)!=0)
+	if (_wcsnicmp(line,L"OPTION",6)!=0)
 		return true;
-	line+=7;
+	type=SKIN_OPTION_NONE;
+	for (int i=0;i<SKIN_OPTION_TYPE_COUNT;i++)
+	{
+		int len=Strlen(g_OptionNames[i]);
+		if (_wcsnicmp(line,g_OptionNames[i],len)==0)
+		{
+			type=(TSkinOptionType)i;
+			line+=len;
+			break;
+		}
+	}
+	if (type==SKIN_OPTION_NONE)
+		return true;
+
 	const wchar_t *end=wcschr(line,'=');
 	if (!end) return true;
 	line=GetToken(line,buf,_countof(buf),L" \t=");
 	name=buf;
-	line=GetToken(line,buf,_countof(buf),L" \t,");
-	label=buf;
+	line=GetToken(line,buf,_countof(buf),L",");
+	if (buf[0]=='#')
+		label=LoadStringEx(_wtol(buf+1));
+	else
+		label=buf;
 	if (label.IsEmpty())
 		name.Empty();
 	line=GetToken(line,buf,_countof(buf),L" \t,");
@@ -305,10 +331,9 @@ bool CSkinParser::ParseOption( CString &name, CString &label, bool &value, CStri
 	line=GetToken(line,buf,_countof(buf),L",");
 	condition=buf;
 	line=GetToken(line,buf,_countof(buf),L" \t,");
-	if (buf[0])
-		value2=_wtol(buf)!=0;
-	else
-		value2=value;
+	disValue=buf;
+	if (type==SKIN_OPTION_BOOL && name==L"RADIOGROUP")
+		type=SKIN_OPTION_GROUP;
 	return true;
 }
 
@@ -344,6 +369,46 @@ void CSkinParser::FilterConditions( const wchar_t **values, int count )
 		if (bEnable)
 			m_Lines.push_back(line);
 	}
+}
+
+// Substitutes the provided macro strings
+void CSkinParser::ApplyMacros( const std::vector<std::pair<CString,CString>> &macros )
+{
+	std::vector<CString> names;
+	for (std::vector<std::pair<CString,CString>>::const_iterator it=macros.begin();it!=macros.end();++it)
+	{
+		wchar_t name[256];
+		Sprintf(name,_countof(name),L"@%s@",it->first);
+		names.push_back(name);
+	}
+
+	for (std::vector<const wchar_t*>::iterator it=m_Lines.begin();it!=m_Lines.end();++it)
+	{
+		if (wcschr(*it,'@'))
+		{
+			CString string=*it;
+			for (size_t i=0;i<names.size();i++)
+				string.Replace(names[i],macros[i].second);
+
+			m_ExtraStrings.push_back(string);
+			*it=string;
+		}
+	}
+}
+
+// Returns a setting with the given name
+const wchar_t *CSkinParser::FindSetting( const wchar_t *name )
+{
+	const wchar_t *str=CSettingsParser::FindSetting(name);
+	if (!str && m_Aliases)
+	{
+		for (int i=0;m_Aliases[i];i+=2)
+		{
+			if (wcscmp(name,m_Aliases[i])==0)
+				return CSettingsParser::FindSetting(m_Aliases[i+1]);
+		}
+	}
+	return str;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

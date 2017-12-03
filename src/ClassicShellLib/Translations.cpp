@@ -1,6 +1,7 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
+#include <stdafx.h>
 #include "SettingsParser.h"
 
 static CSettingsParser g_Translations;
@@ -23,17 +24,18 @@ void ParseTranslations( const wchar_t *fname, const wchar_t *forceLang )
 	if (forceLang && *forceLang)
 	{
 		int len=(int)wcslen(forceLang);
-		if (len>5) len=5;
+		if (len>50) len=50;
 		memcpy(languages,forceLang,len*2);
-		wcscpy_s(languages+len+1,10,L"default");
+		memcpy(languages+len+1,L"default\0en-US\0",30);
 	}
 	else
 	{
-		ULONG size=4; // up to 4 languages
+		ULONG size=0;
 		ULONG len=_countof(languages);
-		GetThreadPreferredUILanguages(MUI_LANGUAGE_NAME,&size,languages,&len);
-		wcscpy_s(languages+len-1,10,L"default");
-		languages[len+7]=0;
+		GetUserPreferredUILanguages(MUI_LANGUAGE_NAME,&size,languages,&len);
+		if (len>50) len=50;
+		if (len<1) len=1;
+		memcpy(languages+len-1,L"default\0en-US\0",30);
 	}
 
 	g_Translations.FilterLanguages(languages);

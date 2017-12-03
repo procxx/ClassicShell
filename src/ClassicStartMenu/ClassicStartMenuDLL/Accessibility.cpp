@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // Accessibility.cpp - contains the accessibility class CMenuAccessible, used by CMenuContainer
 
@@ -10,7 +10,7 @@
 
 CMenuAccessible::CMenuAccessible( CMenuContainer *pOwner )
 {
-	m_RefCount=1;
+	m_RefCount=0;
 	m_pOwner=pOwner;
 	CreateStdAccessibleObject(pOwner->m_hWnd,OBJID_CLIENT,IID_IAccessible,(void**)&m_pStdAccessible);
 }
@@ -201,11 +201,7 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::accLocation( long *pxLeft, long *pyTo
 		if (index<0 || index>=(int)m_pOwner->m_Items.size())
 			return S_FALSE;
 		m_pOwner->GetItemRect(index,rc);
-		m_pOwner->ClientToScreen(&rc);
-		if (rc.left>rc.right)
-		{
-			int q=rc.left; rc.left=rc.right; rc.right=q;
-		}
+		m_pOwner->MapWindowPoints(NULL,&rc);
 	}
 	*pxLeft=rc.left;
 	*pyTop=rc.top;
@@ -294,7 +290,7 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::accHitTest( long xLeft, long yTop, VA
 	}
 	POINT pt2=pt;
 	m_pOwner->ScreenToClient(&pt2);
-	int index=m_pOwner->HitTest(pt2);
+	int index=m_pOwner->HitTest(pt2,NULL);
 	if (index>=0)
 	{
 		pvarChild->vt=VT_I4;
@@ -321,6 +317,6 @@ HRESULT STDMETHODCALLTYPE CMenuAccessible::accDoDefaultAction( VARIANT varChild 
 	// open or execute
 	const CMenuContainer::MenuItem &item=m_pOwner->m_Items[index];
 	if (item.id!=MENU_SEPARATOR && item.id!=MENU_EMPTY && item.id!=MENU_EMPTY_TOP)
-		m_pOwner->ActivateItem(index,item.bFolder?CMenuContainer::ACTIVATE_OPEN:CMenuContainer::ACTIVATE_EXECUTE,NULL,false);
+		m_pOwner->ActivateItem(index,item.bFolder?CMenuContainer::ACTIVATE_OPEN:CMenuContainer::ACTIVATE_EXECUTE,NULL,NULL);
 	return S_OK;
 }

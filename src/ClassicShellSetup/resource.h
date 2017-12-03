@@ -13,9 +13,8 @@
 #define IDD_DIALOGPWD                   166
 #define IDS_ERR_EXTRACT                 167
 #define IDR_MSI_CHECKSUM                167
-#define IDS_ERR_VISTA                   169
+#define IDS_ERR_WIN7                    169
 #define IDS_ERR_MSIEXEC                 170
-#define IDS_ERR_VER197                  171
 #define IDS_HELP                        200
 #define IDC_EDIT1                       1001
 #define IDC_EDITPWD                     1001

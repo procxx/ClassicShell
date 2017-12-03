@@ -9,3 +9,6 @@ EXPORTS
 	DllUnregisterServer	PRIVATE
 	DllInstall		PRIVATE
 	ShowExplorerSettings
+	DllImportSettingsXml
+	DllExportSettingsXml
+	DllSaveAdmx

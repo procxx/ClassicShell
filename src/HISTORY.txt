@@ -1,5 +1,270 @@
 ===============================================================================
-== Version 3.6.8 general release (Jun, 2013):
+== Version 4.3.1 general release (Aug, 2017)
+===============================================================================
+
+- Official support for the Creators Update version of Windows 10
+
+- Added a setting to clear icon cache
+
+- Multiple minor improvements and bugfixes
+
+===============================================================================
+== Version 4.3.0 general release (Jul, 2016)
+===============================================================================
+
+- Official support for the Anniversary Update version of Windows 10
+
+- Fixes for issues found during the 4.2.7 beta
+
+===============================================================================
+== Version 4.2.7 beta (May, 2016)
+===============================================================================
+
+- Fix for a crash on 32-bit Windows 10 systems
+
+===============================================================================
+== Version 4.2.6 beta (May, 2016)
+===============================================================================
+
+- Improved support for Windows 10 Redstone
+
+- Taskbar skinning - change background color, texture, and text color
+
+- New Metallic skin with many new skin features
+
+- New menu animations
+
+- Ability to execute some start menu commands from the command line
+
+- New buttons for Explorer to change folder settings and to create zip archive
+
+- Ability to change the font and size of the status bar in Explorer
+
+- Multiple minor improvements and bugfixes
+
+===============================================================================
+== Version 4.2.5 general release (Nov, 2015)
+===============================================================================
+
+- New transparency settings for skins
+
+- New ability to uninstall Metro apps from the start menu
+
+- Improved support for Windows 10
+
+- Improved support for the Edge browser
+
+- Improved search performance
+
+===============================================================================
+== Version 4.2.4 general release (Aug, 2015)
+===============================================================================
+
+- Finalized support for Windows 10 - multiple bugfixes and performance
+  improvements
+
+===============================================================================
+== Version 4.2.3 release candidate (Jul, 2015)
+===============================================================================
+
+- Improved support for Windows 10
+
+- Improved support for touch keyboard
+
+- New command to access the PC settings directly
+
+- New settings to control the color and opacity of the Windows 10 taskbar
+
+- Multiple minor improvements and bugfixes
+
+===============================================================================
+== Version 4.2.2 beta (Jun, 2015)
+===============================================================================
+
+- Improved support for Windows 10
+
+- New ability to save settings to XML files from command line:
+    use "ClassicStartMenu.exe -backup <settings file>"
+
+- New skin features, including glass for Windows 10
+
+- Multiple minor improvements and bugfixes
+
+===============================================================================
+== Version 4.2.1 general release (Apr, 2015)
+===============================================================================
+
+- Improved support for Windows 10
+
+- The start menu searches modern PC settings for Windows 8.1 and Windows 10
+
+- Added support for Scottish, Catalan, Macedonian and Persian languages
+
+- Added new Midnight skin with dark background
+
+- Added new flat Metro skin that uses the start screen colors
+
+- Multiple minor improvements and bugfixes
+
+===============================================================================
+== Version 4.2.0 beta (Dec, 2014)
+===============================================================================
+
+- Improved support for Windows 10
+
+- New ability to apply settings from XML files from command line:
+    use "ClassicStartMenu.exe -xml <settings file>"
+
+- New setting to override the system DPI resolution only for the start menu
+
+- New setting to change the user picture
+
+- Improved support for touch and high resolution displays
+
+- Multiple minor improvements and bugfixes
+
+===============================================================================
+== Version 4.1.0 general release (Apr, 2014)
+===============================================================================
+
+- Improved support for Windows 8.1 Spring Update
+
+- Improved checks for new versions
+
+- Minor stability fixes
+
+===============================================================================
+== Version 4.0.6 general release (Apr, 2014)
+===============================================================================
+
+- Quick fix for a crash in Explorer
+
+
+===============================================================================
+== Version 4.0.5 general release (Mar, 2014)
+===============================================================================
+
+- Improved support for high resolution displays
+
+- Improved support for touch displays
+
+- New button for the Explorer toolbar to toggle the navigation pane
+
+- Added support for animated start buttons
+
+- Multiple minor improvements and bugfixes
+
+
+===============================================================================
+== Version 4.0.4 general release (Jan, 2014)
+===============================================================================
+
+- New ADMX files to allow controlling all settings through group policy
+
+- Secure download of language files and new versions
+
+- Multiple minor improvements and bugfixes
+
+
+===============================================================================
+== Version 4.0.2 general release (Oct, 2013)
+===============================================================================
+
+- Quick fix for the taskbar showing up on top of fullscreen programs under some
+  conditions
+
+
+===============================================================================
+== Version 4.0.1 general release (Oct, 2013)
+===============================================================================
+
+- New setting to hide Metro apps from the Programs folder
+
+- Improved compatibility with the final build of Windows 8.1
+
+- Minor bugfixes
+
+
+===============================================================================
+== Version 4.0.0 general release (Oct, 2013)
+===============================================================================
+
+- The first official release of Classic Shell 4.0
+
+- Improved support for downloading and installing language files
+
+- Improved compatibility with Windows 8.1
+
+
+===============================================================================
+== Version 3.9.5 release candidate (Sep, 2013)
+===============================================================================
+
+- Windows 8.1 RTM is officially supported
+
+- Added animated menu transitions for the Windows 7 style
+
+- Added status bar for Explorer in Windows 8 and Windows 8.1 to show the total
+  size of the selected files and the free disk space
+
+- Improved hovering functionality for the start button
+
+- New feature allows administrators to modify the default settings without
+  locking them
+
+- Fixed many bugs reported during the beta
+
+===============================================================================
+== Version 3.9.3 public beta (Aug, 2013)
+===============================================================================
+
+- New setting to override the glass color used by the menu
+
+- Support for Nvidia surround and AMD eyefinity
+
+- Many fixes, including a crash that happens on some versions of Windows 8.1
+
+===============================================================================
+== Version 3.9.1 public beta (Aug, 2013)
+===============================================================================
+
+- The programs tree can be rearranged with drag and drop
+
+- The start button settings are applied immediately and you can see a preview
+  of the button image in the settings dialog
+
+- The start menu can use the native Windows 8.1 start button
+
+- The Windows 8.1 setting to skip the Metro screen can be accessed through the
+  Classic Shell settings
+
+- New item in the main menu to open the start screen (Windows 8 and 8.1)
+
+- New setting for the Windows 7 style to control the height of the main menu
+
+- The installer uses better compression that reduces the download size by half
+
+- Many bugfixes reported for the previous beta version
+
+===============================================================================
+== Version 3.9.0 public beta (Jul, 2013)
+===============================================================================
+
+- New Windows 7 style, which replicates the look and feel of the Windows 7
+  start menu
+
+- Search for indexed files
+
+- Show frequently used programs in the main menu
+
+- Highlight new programs
+
+- Programs can be pinned from Explorer
+
+- Many performance improvements and bug fixes
+
+===============================================================================
+== Version 3.6.8 general release (Jun, 2013)
 ===============================================================================
 
 - Added support for Windows 8.1 Preview
@@ -10,14 +275,14 @@
 - Fixed some bugs found in the previous version
 
 ===============================================================================
-== Version 3.6.7 general release (Apr, 2013):
+== Version 3.6.7 general release (Apr, 2013)
 ===============================================================================
 
 - Fixed incompatibility with the taskbar of Windows 8 and Windows Server 2012
 
 
 ===============================================================================
-== Version 3.6.6 general release (Apr, 2013):
+== Version 3.6.6 general release (Apr, 2013)
 ===============================================================================
 
 - New setting to disable the taskbar transparency
@@ -28,21 +293,22 @@
 
 
 ===============================================================================
-== Version 3.6.5 general release (Dec, 2012):
+== Version 3.6.5 general release (Dec, 2012)
 ===============================================================================
 
 - Fixed a crash bug in the start menu for some 64-bit systems
 
 
 ===============================================================================
-== Version 3.6.4 general release (Dec, 2012):
+== Version 3.6.4 general release (Dec, 2012)
 ===============================================================================
 
 - Fixed a frezing problem when right-clicking on the start button
 
 
 ===============================================================================
-== Version 3.6.3 general release (Dec, 2012):
+== Version 3.6.3 general release (Dec, 2012)
+===============================================================================
 
 - Improved performance of the start menu
 
@@ -54,7 +320,8 @@
 
 
 ===============================================================================
-== Version 3.6.2 general release (Oct, 2012):
+== Version 3.6.2 general release (Oct, 2012)
+===============================================================================
 
 - Added support for jump lists in the main menu
 
@@ -66,14 +333,16 @@
 
 
 ===============================================================================
-== Version 3.6.1 general release (Aug, 2012):
+== Version 3.6.1 general release (Aug, 2012)
+===============================================================================
 
 - Fixes a critical bug found in the previous version (the "new version"
   notification pops up too often)
 
 
 ===============================================================================
-== Version 3.6.0 general release (Aug, 2012):
+== Version 3.6.0 general release (Aug, 2012)
+===============================================================================
 
 - Windows 8 is now officially supported
 
@@ -91,7 +360,8 @@
 
 
 ===============================================================================
-== Version 3.5.1 general release (Jun, 2012):
+== Version 3.5.1 general release (Jun, 2012)
+===============================================================================
 
 - Enabled the custom start button for Windows 7 and added more settings
 
@@ -103,7 +373,8 @@
 
 
 ===============================================================================
-== Version 3.5.0 general release (Mar, 2012):
+== Version 3.5.0 general release (Mar, 2012)
+===============================================================================
 
 - Added support for Windows 8 Consumer Preview
    * Added customizable start button
@@ -122,13 +393,15 @@
 
 
 ===============================================================================
-== Version 3.4.1 general release (Jan, 2012):
+== Version 3.4.1 general release (Jan, 2012)
+===============================================================================
 
 - Fixed a small problem in the automatic check for a new version
 
 
 ===============================================================================
-== Version 3.4.0 general release (Jan, 2012):
+== Version 3.4.0 general release (Jan, 2012)
+===============================================================================
 
 - Fixed some minor problems found in the previous release. Most notably the
   corrupted text in the toolbar buttons
@@ -144,7 +417,8 @@
 
 
 ===============================================================================
-== Version 3.3.0 general release (Jan, 2012):
+== Version 3.3.0 general release (Jan, 2012)
+===============================================================================
 
 - Fixed some minor problems found in the previous release
 
@@ -164,7 +438,8 @@
 
 
 ===============================================================================
-== Version 3.2.0 general release (Aug, 2011):
+== Version 3.2.0 general release (Aug, 2011)
+===============================================================================
 
 - Fixed some minor problems found in the previous release
 
@@ -176,7 +451,8 @@
 
 
 ===============================================================================
-== Version 3.1.0 general release (Apr, 2011):
+== Version 3.1.0 general release (Apr, 2011)
+===============================================================================
 
 - Added a new component called Classic IE9. It lets you customize the title bar
   and the status bar of Internet Explorer 9
@@ -188,7 +464,8 @@
 
 
 ===============================================================================
-== Version 3.0.0 general release (Mar, 2011):
+== Version 3.0.0 general release (Mar, 2011)
+===============================================================================
 
 - Fixed some minor problems found in the previous version
 
@@ -196,7 +473,8 @@
 
 
 ===============================================================================
-== Version 2.9.3 release candidate (Feb, 2011):
+== Version 2.9.3 release candidate (Feb, 2011)
+===============================================================================
 
 - Added a search box to the start menu
 
@@ -219,7 +497,8 @@
 
 
 ===============================================================================
-== Version 2.9.2 release candidate (Dec, 2010):
+== Version 2.9.2 release candidate (Dec, 2010)
+===============================================================================
 
 - Added a toolbar command for creating a new folder
 
@@ -236,7 +515,8 @@
 
 
 ===============================================================================
-== Version 2.9.0 beta (Oct, 2010):
+== Version 2.9.0 beta (Oct, 2010)
+===============================================================================
 
 - Replaced the ini files with a graphical interface for editing all settings
 
@@ -250,7 +530,8 @@
 
 
 ===============================================================================
-== Version 2.8.3 beta (Jul, 2010):
+== Version 2.8.3 beta (Jul, 2010)
+===============================================================================
 
 - Added a way to put shell folders as buttons in the toolbar
 
@@ -262,7 +543,8 @@
 
 
 ===============================================================================
-== Version 2.8.2 beta (Jul, 2010):
+== Version 2.8.2 beta (Jul, 2010)
+===============================================================================
 
 - Added toolbar commands for different Explorer views (Details, List, etc)
 
@@ -272,7 +554,8 @@
 
 
 ===============================================================================
-== Version 2.8.1 beta (Jul, 2010):
+== Version 2.8.1 beta (Jul, 2010)
+===============================================================================
 
 - Added an option for cascading All Programs in the Windows start menu
 
@@ -295,7 +578,8 @@
 
 
 ===============================================================================
-== Version 2.0.0 general release (Jul, 2010):
+== Version 2.0.0 general release (Jul, 2010)
+===============================================================================
 
 - Fixed a bug in the "EnableContextMenu" setting
 
@@ -303,7 +587,8 @@
 
 
 ===============================================================================
-== Version 1.9.8 release candidate (Jun, 2010):
+== Version 1.9.8 release candidate (Jun, 2010)
+===============================================================================
 
 - Fixed a compatibility bug with older applications (you see the message "The
   ordinal 345 could not be located in the dynamic link library COMCTL32.dll")
@@ -312,7 +597,8 @@
 
 
 ===============================================================================
-== Version 1.9.7 release candidate (Jun, 2010):
+== Version 1.9.7 release candidate (Jun, 2010)
+===============================================================================
 
 - Ctrl+Shift+Click in the start menu runs the program as administrator
 
@@ -331,7 +617,8 @@
 
 
 ===============================================================================
-== Version 1.9.6 release candidate (May, 2010):
+== Version 1.9.6 release candidate (May, 2010)
+===============================================================================
 
 - Added a setting to track and display the recently used programs
 
@@ -343,13 +630,15 @@
 
 
 ===============================================================================
-== Version 1.9.2 release candidate (Apr, 2010):
+== Version 1.9.2 release candidate (Apr, 2010)
+===============================================================================
 
 - This build contains mostly minor bugfixes found in the previous version
 
 
 ===============================================================================
-== Version 1.9.1 release candidate (Apr, 2010):
+== Version 1.9.1 release candidate (Apr, 2010)
+===============================================================================
 
 - Some skins can support two-column main menu similar to Windows XP
 
@@ -365,7 +654,8 @@
 
 
 ===============================================================================
-== Version 1.9.0 beta (Mar, 2010) - new skin engine:
+== Version 1.9.0 beta (Mar, 2010) - new skin engine
+===============================================================================
 
 - The sub-menus can be skinned like the main menu
 
@@ -382,7 +672,8 @@
 
 
 ===============================================================================
-== Version 1.0.3 general release (Mar, 2010):
+== Version 1.0.3 general release (Mar, 2010)
+===============================================================================
 
 - Added an overlay icon for shared folders
 
@@ -397,7 +688,8 @@
 
 
 ===============================================================================
-== Version 1.0.2 general release (Mar, 2010):
+== Version 1.0.2 general release (Mar, 2010)
+===============================================================================
 
 - Added a setting to disable the breadcrumbs
 
@@ -407,13 +699,15 @@
 
 
 ===============================================================================
-== Version 1.0.1 general release (Feb, 2010):
+== Version 1.0.1 general release (Feb, 2010)
+===============================================================================
 
 - This is a bugfix-only release. Fixes a few rare crashes in the start menu
 
 
 ===============================================================================
-== Version 1.0.0 general release (Feb, 2010):
+== Version 1.0.0 general release (Feb, 2010)
+===============================================================================
 
 - Added Up button to the Explorer title bar
 
@@ -425,7 +719,8 @@
 
 
 ===============================================================================
-== Version 0.9.10 release candidate (Jan, 2010) - make your own toolbar:
+== Version 0.9.10 release candidate (Jan, 2010) - make your own toolbar
+===============================================================================
 
 - The Explorer toolbar can be customized with new icons and additional buttons
 
@@ -442,7 +737,8 @@
 
 
 ===============================================================================
-== Version 0.9.9 release candidate (Jan, 2010) - make your own start menu:
+== Version 0.9.9 release candidate (Jan, 2010) - make your own start menu
+===============================================================================
 
 - The start menu can be customized with new icons and additional menu items
 
@@ -461,7 +757,8 @@
 
 
 ===============================================================================
-== Version 0.9.8 beta (Jan, 2010) - skins for the start menu:
+== Version 0.9.8 beta (Jan, 2010) - skins for the start menu
+===============================================================================
 
 - Added support for skins in the classic start menu
 
@@ -483,7 +780,8 @@
 
 
 ===============================================================================
-== Version 0.9.7 beta (Dec, 2009):
+== Version 0.9.7 beta (Dec, 2009)
+===============================================================================
 
 - Added free disk space and file size to the status bar in Windows 7 Explorer
 
@@ -495,7 +793,8 @@
 
 
 ===============================================================================
-== Version 0.9.6 beta (Dec, 2009):
+== Version 0.9.6 beta (Dec, 2009)
+===============================================================================
 
 - Added Properties button to the toolbar
 
@@ -523,7 +822,8 @@
 
 
 ===============================================================================
-== Version 0.9.5 beta (Dec, 2009):
+== Version 0.9.5 beta (Dec, 2009)
+===============================================================================
 
 - Added option to remove the Documents menu and option to use an alternative
   search application
@@ -540,7 +840,8 @@
 
 
 ===============================================================================
-== Version 0.9 beta (Nov, 2009) - first public version:
+== Version 0.9 beta (Nov, 2009) - first public version
+===============================================================================
 
 - Classic start menu
 

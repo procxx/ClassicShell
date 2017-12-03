@@ -21,8 +21,6 @@
 #include <atlstr.h>
 #include <atlwin.h>
 
-extern HINSTANCE g_Instance;
-
 #ifdef BUILD_SETUP
 #define INI_PATH L""
 #define DOC_PATH L""
@@ -32,3 +30,5 @@ extern HINSTANCE g_Instance;
 #endif
 
 #include "StringUtils.h"
+#include "TrackResources.h"
+#include "Assert.h"

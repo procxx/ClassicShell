@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // ClassicExplorer.cpp : Implementation of DLL Exports.
 
@@ -19,6 +19,7 @@ extern bool g_bExplorerExe;
 // Returns a class factory to create an object of the requested type
 STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv)
 {
+	WaitDllInitThread();
 	if (!g_bExplorerExe && rclsid!=CLSID_ShareOverlay)
 		return CLASS_E_CLASSNOTAVAILABLE;
 	return _AtlModule.DllGetClassObject(rclsid, riid, ppv);
@@ -28,6 +29,7 @@ STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv)
 // DllRegisterServer - Adds entries to the system registry
 STDAPI DllRegisterServer(void)
 {
+	WaitDllInitThread();
 	// registers object, typelib and all interfaces in typelib
 	HRESULT res=_AtlModule.DllRegisterServer();
 	if (SUCCEEDED(res))
@@ -51,6 +53,7 @@ STDAPI DllRegisterServer(void)
 // DllUnregisterServer - Removes entries from the system registry
 STDAPI DllUnregisterServer(void)
 {
+	WaitDllInitThread();
 	return _AtlModule.DllUnregisterServer();
 }
 
@@ -58,6 +61,7 @@ STDAPI DllUnregisterServer(void)
 //              per machine.	
 STDAPI DllInstall(BOOL bInstall, LPCWSTR pszCmdLine)
 {
+	WaitDllInitThread();
 	HRESULT hr = E_FAIL;
 	static const wchar_t szUserSwitch[] = L"user";
 

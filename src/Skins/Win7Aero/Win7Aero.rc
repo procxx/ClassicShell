@@ -70,6 +70,10 @@ END
 16                      BITMAP                  "split_selectionXP.bmp"
 17                      BITMAP                  "separator.bmp"
 18                      BITMAP                  "separator2.bmp"
+19                      BITMAP                  "new_item.bmp"
+20                      BITMAP                  "separator150.bmp"
+21                      BITMAP                  "separator2150.bmp"
+22                      BITMAP                  "pager_arrows150.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //

@@ -1,19 +1,13 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // ShareOverlay.h : Declaration of the CShareOverlay
 
 #pragma once
 #include "resource.h"       // main symbols
+#include <lm.h>
 
 #include "ClassicExplorer_i.h"
-
-
-#if defined(_WIN32_WCE) && !defined(_CE_DCOM) && !defined(_CE_ALLOW_SINGLE_THREADED_OBJECTS_IN_MTA)
-#error "Single-threaded COM objects are not properly supported on Windows CE platform, such as the Windows Mobile platforms that do not include full DCOM support. Define _CE_ALLOW_SINGLE_THREADED_OBJECTS_IN_MTA to force ATL to support creating single-thread COM object's and allow use of it's single-threaded COM object implementations. The threading model in your rgs file was set to 'Free' as that is the only threading model supported in non DCOM Windows CE platforms."
-#endif
-
-
 
 // CShareOverlay
 
@@ -34,9 +28,7 @@ public:
 		return S_OK;
 	}
 
-	void FinalRelease( void )
-	{
-	}
+	void FinalRelease( void );
 
 public:
 
@@ -47,12 +39,19 @@ public:
 	STDMETHOD (GetOverlayInfo)( LPWSTR pwszIconFile, int cchMax, int * pIndex, DWORD * pdwFlags );
 	STDMETHOD (GetPriority)( int * pIPriority );
 
-	static void InitOverlay( const wchar_t *icon );
+	static void InitOverlay( const wchar_t *icon, bool showHidden );
 
 private:
 	CComPtr<IShellFolder> m_pDesktop;
+	CRITICAL_SECTION m_Section;
+	SHARE_INFO_502 *m_pShareInfo;
+	DWORD m_ShareCount;
+	int m_UpdateTime;
+
+	void UpdateShareInfo( void );
 
 	static bool s_bEnabled;
+	static bool s_bShowHidden;
 	static int s_Index;
 	static wchar_t s_IconPath[_MAX_PATH];
 };

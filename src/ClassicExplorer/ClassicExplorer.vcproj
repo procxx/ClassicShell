@@ -5,6 +5,9 @@
 	Name="ClassicExplorer"
 	ProjectGUID="{9AF324B7-F786-4D85-B2E1-6E51720F874E}"
 	RootNamespace="ClassicExplorer"
+	SccProjectName="Perforce Project"
+	SccLocalPath=".."
+	SccProvider="MSSCCI:Perforce SCM"
 	Keyword="AtlProj"
 	TargetFrameworkVersion="196613"
 	>
@@ -81,7 +84,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib wintrust.lib crypt32.lib Netapi32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)32.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile=".\ClassicExplorer32.def"
@@ -173,7 +176,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib wintrust.lib crypt32.lib Netapi32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)64.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile=".\ClassicExplorer64.def"
@@ -264,7 +267,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib wintrust.lib crypt32.lib Netapi32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)32.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer32.def"
@@ -357,7 +360,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="true"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib wintrust.lib crypt32.lib Netapi32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)64.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer64.def"
@@ -452,7 +455,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="false"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib wintrust.lib crypt32.lib Netapi32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)32.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer32.def"
@@ -545,7 +548,7 @@
 				Name="VCLinkerTool"
 				RegisterOutput="false"
 				IgnoreImportLibrary="true"
-				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib"
+				AdditionalDependencies="oleacc.lib comctl32.lib uxtheme.lib dwmapi.lib winmm.lib htmlhelp.lib wininet.lib wintrust.lib crypt32.lib Netapi32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)64.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile=".\ClassicExplorer64.def"
@@ -609,6 +612,10 @@
 			</File>
 			<File
 				RelativePath=".\ClassicExplorer64.def"
+				>
+			</File>
+			<File
+				RelativePath="..\Localization\English\ClassicExplorerADMX.txt"
 				>
 			</File>
 			<File

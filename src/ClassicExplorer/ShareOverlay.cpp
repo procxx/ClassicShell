@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // ShareOverlay.cpp : Implementation of CShareOverlay
 
@@ -9,15 +9,28 @@
 // CShareOverlay - adds an overlay icon to the shared folders
 
 bool CShareOverlay::s_bEnabled=false;
+bool CShareOverlay::s_bShowHidden=false;
 int CShareOverlay::s_Index;
 wchar_t CShareOverlay::s_IconPath[_MAX_PATH];
 
 CShareOverlay::CShareOverlay( void )
 {
 	SHGetDesktopFolder(&m_pDesktop);
+	m_pShareInfo=NULL;
+	m_ShareCount=0;
+	m_UpdateTime=0;
+	InitializeCriticalSection(&m_Section);
 }
 
-void CShareOverlay::InitOverlay( const wchar_t *icon )
+void CShareOverlay::FinalRelease( void )
+{
+	DeleteCriticalSection(&m_Section);
+	if (m_pShareInfo)
+		NetApiBufferFree(m_pShareInfo);
+	m_pShareInfo=NULL;
+}
+
+void CShareOverlay::InitOverlay( const wchar_t *icon, bool showHidden )
 {
 	s_bEnabled=true;
 	if (icon)
@@ -38,6 +51,7 @@ void CShareOverlay::InitOverlay( const wchar_t *icon )
 		s_Index=-164;
 	}
 	DoEnvironmentSubst(s_IconPath,_countof(s_IconPath));
+	s_bShowHidden=showHidden;
 }
 
 HRESULT CShareOverlay::_InternalQueryInterface( REFIID iid, void** ppvObject )
@@ -61,26 +75,30 @@ HRESULT CShareOverlay::_InternalQueryInterface( REFIID iid, void** ppvObject )
 
 STDMETHODIMP CShareOverlay::IsMemberOf( LPCWSTR pwszPath, DWORD dwAttrib )
 {
-	// must use IShellFolder::GetAttributesOf to get the correct attributes instead of SHGetFileInfo or IShellFolder::ParseDisplayName
-	// SHGetFileInfo gives the wrong result for some system folders like %userprofile%\Desktop (on Windows7 and Vista)
-	// IShellFolder::ParseDisplayName returns the wrong attributes for the contents of the Recycle Bin (on Windows7 only)
-	PIDLIST_ABSOLUTE pidl=NULL;
+	EnterCriticalSection(&m_Section);
+	UpdateShareInfo();
 	HRESULT res=S_FALSE;
-	if (pwszPath && m_pDesktop)
+	if (m_pShareInfo)
 	{
-		if (SUCCEEDED(m_pDesktop->ParseDisplayName(NULL,NULL,(LPWSTR)pwszPath,NULL,(PIDLIST_RELATIVE*)&pidl,NULL)))
+		for (DWORD i=0;i<m_ShareCount;i++)
 		{
-			CComPtr<IShellFolder> pFolder;
-			PCUITEMID_CHILD child;
-			if (SUCCEEDED(SHBindToParent(pidl,IID_IShellFolder,(void**)&pFolder,&child)))
+			if (!(m_pShareInfo[i].shi502_type&STYPE_SPECIAL) && _wcsicmp(pwszPath,m_pShareInfo[i].shi502_path)==0)
 			{
-				ULONG attrib=SFGAO_SHARE;
-				if (SUCCEEDED(pFolder->GetAttributesOf(1,&child,&attrib)) && (attrib&SFGAO_SHARE))
+				if (s_bShowHidden)
+				{
 					res=S_OK;
+					break;
+				}
+				int len=Strlen(m_pShareInfo[i].shi502_netname);
+				if (len==0 || m_pShareInfo[i].shi502_netname[len-1]!='$')
+				{
+					res=S_OK;
+					break;
+				}
 			}
-			ILFree(pidl);
 		}
 	}
+	LeaveCriticalSection(&m_Section);
 	return res;
 }
 
@@ -98,4 +116,18 @@ STDMETHODIMP CShareOverlay::GetPriority( int * pIPriority )
 {
 	*pIPriority=0;
 	return S_OK;
+}
+
+void CShareOverlay::UpdateShareInfo( void )
+{
+	int time=GetTickCount();
+	if (time-m_UpdateTime<5000)
+		return;
+	m_UpdateTime=time;
+	if (m_pShareInfo)
+		NetApiBufferFree(m_pShareInfo);
+	m_pShareInfo=NULL;
+	DWORD countAll;
+	if (NetShareEnum(NULL,502,(BYTE**)&m_pShareInfo,MAX_PREFERRED_LENGTH,&m_ShareCount,&countAll,NULL)!=NERR_Success)
+		m_ShareCount=0;
 }

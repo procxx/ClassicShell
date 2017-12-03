@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #pragma once
 
@@ -8,19 +8,27 @@
 // Turn it on by setting the LogLevel setting in the registry
 // The logging is consuming very little resources when it is turned off
 
-// TLogLevel - Different logging levels. When an event of certain level is generated, it will be logged if the event level
-// is not greater than g_LogLevel. The idea is to use higher number for more frequent events.
-enum TLogLevel
+enum TLogCategory
 {
-	LOG_NONE=0, // no logging
-	LOG_EXECUTE=1, // logs when items are executed
-	LOG_OPEN=2, // logs opening and closing of menus
-	LOG_MOUSE=3, // logs mouse events (only hovering for now)
+	LOG_OPEN=        0x001, // logs opening and closing of menus
+	LOG_ITEMS=       0x002, // logs the menu items
+	LOG_EXECUTE=     0x004, // logs when items are executed
+	LOG_MFU=         0x008, // logs the MFU items and ranks
+	LOG_NEW=         0x010, // logs the highlighted programs
+	LOG_APPS=        0x120, // logs the found metro apps
+	LOG_SEARCH=      0x040, // logs the search results and ranks
+	LOG_SEARCH_SQL=  0x080, // logs the SQL search queries and results
+	LOG_MOUSE=       0x100, // logs mouse events (only hovering for now)
+	LOG_CACHE=       0x200, // logs the contents of the cache file
+
+	LOG_ALL=         0xFFF
 };
 
-#define LOG_MENU( LEVEL, TEXT, ... ) if (LEVEL<=g_LogLevel) { LogMessage(TEXT,__VA_ARGS__); }
+#define LOG_MENU( CATEGORY, TEXT, ... ) if (g_LogCategories&CATEGORY) { LogMessage(TEXT,__VA_ARGS__); }
 
-extern TLogLevel g_LogLevel;
-void InitLog( TLogLevel level, const wchar_t *fname );
+extern int g_LogCategories;
+void InitLog( int categories, const wchar_t *fname );
 void CloseLog( void );
 void LogMessage( const wchar_t *text, ... );
+
+#define STARTUP_LOG L"Software\\IvoSoft\\ClassicStartMenu\\Settings|LogStartup|%LOCALAPPDATA%\\ClassicShell\\StartupLog.txt"

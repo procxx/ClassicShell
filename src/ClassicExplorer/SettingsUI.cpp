@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #include "stdafx.h"
 #include "ExplorerBand.h"
@@ -7,63 +7,78 @@
 #include "SettingsUI.h"
 #include "Settings.h"
 #include "SettingsUIHelper.h"
+#include "LanguageSettingsHelper.h"
 #include "ResourceHelper.h"
 #include "Translations.h"
 #include "resource.h"
 #include "dllmain.h"
 #include <dwmapi.h>
 
-static wchar_t g_ContentName[]=L"View Content"; // this is set to empty string on Vista to disable the "view content" command
-
-static CStdCommand g_StdCommands[]={
-	{L"SEPARATOR",L"SEPARATOR",IDS_SEPARATOR_TIP},
-	{L"up",L"Up",IDS_UP_TIP,L"UpItem",NULL,L"$Toolbar.GoUp",L",2",NULL,L",3"},
-	{L"cut",L"Cut",IDS_CUT_TIP,L"CutItem",NULL,L"$Toolbar.Cut",L"shell32.dll,16762"},
-	{L"copy",L"Copy",IDS_COPY_TIP,L"CopyItem",NULL,L"$Toolbar.Copy",L"shell32.dll,243"},
-	{L"paste",L"Paste",IDS_PASTE_TIP,L"PasteItem",NULL,L"$Toolbar.Paste",L"shell32.dll,16763"},
-	{L"paste_shortcut",L"Paste Shortcut",IDS_PASTE_SHORTCUT_TIP,L"PasteShortcutItem",NULL,L"$Toolbar.PasteShortcut",L"shell32.dll,16763"},
-	{L"delete",L"Delete",IDS_DELETE_TIP,L"DeleteItem",NULL,L"$Toolbar.Delete",L"shell32.dll,240"},
-	{L"properties",L"Properties",IDS_PROPERTIES_TIP,L"PropertiesItem",NULL,L"$Toolbar.Properties",L"shell32.dll,253"},
-	{L"email",L"Email",IDS_EMAIL_TIP,L"EmailItem",NULL,L"$Toolbar.Email",L"shell32.dll,265"},
-	{L"settings",L"Settings",IDS_SETTINGS_TIP,L"SettingsItem",NULL,L"$Toolbar.Settings",L",1"},
-	{L"refresh",L"Refresh",IDS_REFRESH_TIP,L"RefreshItem",NULL,L"",L"shell32.dll,16739"},
-	{L"stop",L"Stop",IDS_STOP_TIP,L"StopItem",NULL,L"",L"imageres.dll,98"},
-	{L"rename",L"Rename",IDS_RENAME_TIP,L"RenameItem",NULL,L"",L"shell32.dll,242"},
-	{L"newfolder",L"New Folder",IDS_NEWFOLDER_TIP,L"NewFolderItem",NULL,L"$Toolbar.NewFolder",L"shell32.dll,319"},
-	{L"moveto",L"Move To",IDS_MOVETO_TIP,L"MoveToItem",NULL,NULL,L""},
-	{L"copyto",L"Copy To",IDS_COPYTO_TIP,L"CopyToItem",NULL,NULL,L""},
-	{L"undo",L"Undo",IDS_UNDO_TIP,L"UndoItem",NULL,NULL,L""},
-	{L"redo",L"Redo",IDS_REDO_TIP,L"RedoItem",NULL,NULL,L""},
-	{L"selectall",L"Select All",IDS_SELECTALL_TIP,L"SelectAllItem",NULL,NULL,L""},
-	{L"deselect",L"Deselect",IDS_DESELECT_TIP,L"DeselectItem",NULL,NULL,L""},
-	{L"invertselection",L"Invert Selection",IDS_INVERT_TIP,L"InvertItem",NULL,NULL,L""},
-	{L"back",L"Back",IDS_BACK_TIP,L"BackItem",NULL,NULL,L""},
-	{L"forward",L"Forward",IDS_FORWARD_TIP,L"ForwardItem",NULL,NULL,L""},
-	{L"mapdrive",L"Map Network Drive",IDS_MAP_DRIVE_TIP,L"MapDriveItem",NULL,NULL,L""},
-	{L"disconnect",L"Disconnect Network Drive",IDS_DISCONNECT_DRIVE_TIP,L"DisconnectItem",NULL,NULL,L""},
-	{L"customizefolder",L"Customize Folder",IDS_CUSTOMIZEFOLDER_TIP,L"CustomizeFolderItem",NULL,NULL,L""},
-	{L"viewtiles",L"View Tiles",IDS_VIEWTILES_TIP,L"TilesItem",NULL,NULL,L""},
-	{L"viewdetails",L"View Details",IDS_VIEWDEATAILS_TIP,L"DetailsItem",NULL,NULL,L""},
-	{L"viewlist",L"View List",IDS_VIEWLIST_TIP,L"ListItem",NULL,NULL,L""},
-	{L"viewcontent",g_ContentName,IDS_VIEWCONTENT_TIP,L"ContentItem",NULL,NULL,L""},
-	{L"viewicons_small",L"View Small Icons",IDS_VIEWICONS1_TIP,L"Icons1Item",NULL,NULL,L""},
-	{L"viewicons_medium",L"View Medium Icons",IDS_VIEWICONS2_TIP,L"Icons2Item",NULL,NULL,L""},
-	{L"viewicons_large",L"View Large Icons",IDS_VIEWICONS3_TIP,L"Icons3Item",NULL,NULL,L""},
-	{L"viewicons_extralarge",L"View Extra Large Icons",IDS_VIEWICONS4_TIP,L"Icons4Item",NULL,NULL,L""},
-	{L"open <folder name>",L"Open",IDS_OPEN_TIP,L"OpenFolderItem",NULL,NULL,L""},
-	{L"sortby <property>",L"Sort By",IDS_SORT_TIP,L"SortFolderItem",NULL,NULL,L""},
-	{L"groupby <property>",L"Group By",IDS_GROUP_TIP,L"GroupFolderItem",NULL,NULL,L""},
-	{L"",L"Custom Command",IDS_CUSTOM_TIP,L"CustomItem",NULL,NULL,L""},
-	{NULL},
+enum
+{
+	SETTINGS_STYLE_WIN7=1,
+	SETTINGS_STYLE_WIN8=2,
+	SETTINGS_STYLE_MASK=SETTINGS_STYLE_WIN7|SETTINGS_STYLE_WIN8,
 };
 
-// Define some Windows 7 GUIDs manually, so we don't need the Windows 7 SDK to compile Classic Shell
-static const GUID FOLDERID_HomeGroup2={0x52528a6b, 0xb9e3, 0x4add, {0xb6, 0x0d, 0x58, 0x8c, 0x2d, 0xba, 0x84, 0x2d}};
-static const GUID FOLDERID_Libraries2={0x1B3EA5DC, 0xB587, 0x4786, {0xb4, 0xef, 0xbd, 0x1d, 0xc3, 0x32, 0xae, 0xae}};
-static const GUID FOLDERID_DocumentsLibrary2={0x7B0DB17D, 0x9CD2, 0x4A93, {0x97, 0x33, 0x46, 0xcc, 0x89, 0x02, 0x2e, 0x7c}};
-static const GUID FOLDERID_MusicLibrary2={0x2112AB0A, 0xC86A, 0x4FFE, {0xa3, 0x68, 0x0d, 0xe9, 0x6e, 0x47, 0x01, 0x2e}};
-static const GUID FOLDERID_PicturesLibrary2={0xA990AE9F, 0xA03B, 0x4E80, {0x94, 0xbc, 0x99, 0x12, 0xd7, 0x50, 0x41, 0x04}};
-static const GUID FOLDERID_VideosLibrary2={0x491E922F, 0x5643, 0x4AF4, {0xa7, 0xeb, 0x4e, 0x7a, 0x13, 0x8d, 0x81, 0x74}};
+static const CStdCommand g_StdCommands[]={
+	{L"SEPARATOR",IDS_SEPARATOR_ITEM,IDS_SEPARATOR_TIP},
+	{L"up",IDS_UP_ITEM,IDS_UP_TIP,L"UpItem",NULL,L"$Toolbar.GoUp",L",2",NULL,0,L",3"},
+	{L"cut",IDS_CUT_ITEM,IDS_CUT_TIP,L"CutItem",NULL,L"$Toolbar.Cut",L"shell32.dll,16762"},
+	{L"copy",IDS_COPY_ITEM,IDS_COPY_TIP,L"CopyItem",NULL,L"$Toolbar.Copy",L"shell32.dll,243"},
+	{L"paste",IDS_PASTE_ITEM,IDS_PASTE_TIP,L"PasteItem",NULL,L"$Toolbar.Paste",L"shell32.dll,16763"},
+	{L"paste_shortcut",IDS_PASTE_LNK_ITEM,IDS_PASTE_SHORTCUT_TIP,L"PasteShortcutItem",NULL,L"$Toolbar.PasteShortcut",L"shell32.dll,16763",NULL,SETTINGS_STYLE_WIN7},
+	{L"paste_shortcut",IDS_PASTE_LNK_ITEM,IDS_PASTE_SHORTCUT_TIP,L"PasteShortcutItem",NULL,L"$Toolbar.PasteShortcut",L"imageres.dll,5301",NULL,SETTINGS_STYLE_WIN8},
+	{L"delete",IDS_DELETE_ITEM,IDS_DELETE_TIP,L"DeleteItem",NULL,L"$Toolbar.Delete",L"shell32.dll,240"},
+	{L"properties",IDS_PROPERTIES_ITEM,IDS_PROPERTIES_TIP,L"PropertiesItem",NULL,L"$Toolbar.Properties",L"shell32.dll,253"},
+	{L"email",IDS_EMAIL_ITEM,IDS_EMAIL_TIP,L"EmailItem",NULL,L"$Toolbar.Email",L"shell32.dll,265"},
+	{L"settings",IDS_SETTINGS_ITEM,IDS_SETTINGS_TIP,L"SettingsItem",NULL,L"$Toolbar.Settings",L",1"},
+	{L"refresh",IDS_REFRESH_ITEM,IDS_REFRESH_TIP,L"RefreshItem",NULL,L"$Toolbar.Refresh",L"shell32.dll,16739"},
+	{L"stop",IDS_STOP_ITEM,IDS_STOP_TIP,L"StopItem",NULL,L"$Toolbar.Stop",L"imageres.dll,98"},
+	{L"rename",IDS_RENAME_ITEM,IDS_RENAME_TIP,L"RenameItem",NULL,L"$Toolbar.Rename",L"shell32.dll,242"},
+	{L"customizefolder",IDS_CUSTOMIZE_ITEM,IDS_CUSTOMIZEFOLDER_TIP,L"CustomizeFolderItem",NULL,L"$Toolbar.CustomizeFolder",L"shell32.dll,274"},
+	{L"folderoptions",IDS_FOLDEROPTIONS,IDS_FOLDEROPTIONS_TIP,L"FolderOptionsItem",NULL,L"$Toolbar.FolderOptions",L"imageres.dll,166"},
+	{L"newfolder",IDS_NEWFOLDER_ITEM,IDS_NEWFOLDER_TIP,L"NewFolderItem",NULL,L"$Toolbar.NewFolder",L"shell32.dll,319"},
+	{L"zipfolder",IDS_ZIP_ITEM,IDS_ZIP_TIP,L"ZipItem",NULL,L"$Toolbar.ZipFolder",L"imageres.dll,174"},
+	{L"nav_pane",IDS_NAVPANE_ITEM,IDS_NAVPANE_TIP,L"NavPaneItem",NULL,L"$Toolbar.NavigationPane",L"shell32.dll,16755"},
+	{L"details_pane",IDS_DETAILSPANE_ITEM,IDS_DETAILSPANE_TIP,L"DetailsPaneItem",NULL,L"$Toolbar.DetailsPane",L"shell32.dll,16759",NULL,SETTINGS_STYLE_WIN7},
+	{L"details_pane",IDS_DETAILSPANE_ITEM,IDS_DETAILSPANE_TIP,L"DetailsPaneItem",NULL,L"$Toolbar.DetailsPane",L"shell32.dll,16814",NULL,SETTINGS_STYLE_WIN8},
+	{L"preview_pane",IDS_PREVIEWPANE_ITEM,IDS_PREVIEWPANE_TIP,L"PreviewPaneItem",NULL,L"$Toolbar.PreviewPane",L"shell32.dll,16757"},
+	{L"mapdrive",IDS_MAP_DRIVE_ITEM,IDS_MAP_DRIVE_TIP,L"MapDriveItem",NULL,L"$Toolbar.MapDrive",L"shell32.dll,16779"},
+	{L"disconnect",IDS_DISCONNECT_ITEM,IDS_DISCONNECT_DRIVE_TIP,L"DisconnectItem",NULL,L"$Toolbar.DisconnectDrive",L"shell32.dll,11"},
+	{L"viewtiles",IDS_VIEWTILES_ITEM,IDS_VIEWTILES_TIP,L"TilesItem",NULL,L"$Toolbar.Tiles",L"shell32.dll,62999"},
+	{L"viewdetails",IDS_VIEWDETAILS_ITEM,IDS_VIEWDEATAILS_TIP,L"DetailsItem",NULL,L"$Toolbar.Details",L"shell32.dll,62998"},
+	{L"viewlist",IDS_VIEWLIST_ITEM,IDS_VIEWLIST_TIP,L"ListItem",NULL,L"$Toolbar.List",L"shell32.dll,63000"},
+	{L"viewcontent",IDS_VIEWCONTENT_ITEM,IDS_VIEWCONTENT_TIP,L"ContentItem",NULL,L"$Toolbar.Content",L"shell32.dll,63011"},
+	{L"viewicons_small",IDS_VIEWICONS1_ITEM,IDS_VIEWICONS1_TIP,L"Icons1Item",NULL,L"$Toolbar.Small",L"shell32.dll,63010"},
+	{L"viewicons_medium",IDS_VIEWICONS2_ITEM,IDS_VIEWICONS2_TIP,L"Icons2Item",NULL,L"$Toolbar.Medium",L"shell32.dll,63009"},
+	{L"viewicons_large",IDS_VIEWICONS3_ITEM,IDS_VIEWICONS3_TIP,L"Icons3Item",NULL,L"$Toolbar.Large",L"shell32.dll,63008"},
+	{L"viewicons_extralarge",IDS_VIEWICONS4_ITEM,IDS_VIEWICONS4_TIP,L"Icons4Item",NULL,L"$Toolbar.ExtraLarge",L"shell32.dll,63001"},
+	{L"moveto",IDS_MOVETO_ITEM,IDS_MOVETO_TIP,L"MoveToItem",NULL,L"$Toolbar.MoveTo",L"",NULL,SETTINGS_STYLE_WIN7},
+	{L"moveto",IDS_MOVETO_ITEM,IDS_MOVETO_TIP,L"MoveToItem",NULL,L"$Toolbar.MoveTo",L"imageres.dll,5303",NULL,SETTINGS_STYLE_WIN8},
+	{L"copyto",IDS_COPYTO_ITEM,IDS_COPYTO_TIP,L"CopyToItem",NULL,L"$Toolbar.CopyTo",L"",NULL,SETTINGS_STYLE_WIN7},
+	{L"copyto",IDS_COPYTO_ITEM,IDS_COPYTO_TIP,L"CopyToItem",NULL,L"$Toolbar.CopyTo",L"imageres.dll,5304",NULL,SETTINGS_STYLE_WIN8},
+	{L"undo",IDS_UNDO_ITEM,IDS_UNDO_TIP,L"UndoItem",NULL,L"$Toolbar.Undo",L"",NULL,SETTINGS_STYLE_WIN7},
+	{L"undo",IDS_UNDO_ITEM,IDS_UNDO_TIP,L"UndoItem",NULL,L"$Toolbar.Undo",L"imageres.dll,5315",NULL,SETTINGS_STYLE_WIN8},
+	{L"redo",IDS_REDO_ITEM,IDS_REDO_TIP,L"RedoItem",NULL,L"$Toolbar.Redo",L"",NULL,SETTINGS_STYLE_WIN7},
+	{L"redo",IDS_REDO_ITEM,IDS_REDO_TIP,L"RedoItem",NULL,L"$Toolbar.Redo",L"imageres.dll,5311",NULL,SETTINGS_STYLE_WIN8},
+	{L"selectall",IDS_SELECTALL_ITEM,IDS_SELECTALL_TIP,L"SelectAllItem",NULL,L"$Toolbar.SelectAll",L"",NULL,SETTINGS_STYLE_WIN7},
+	{L"selectall",IDS_SELECTALL_ITEM,IDS_SELECTALL_TIP,L"SelectAllItem",NULL,L"$Toolbar.SelectAll",L"imageres.dll,5308",NULL,SETTINGS_STYLE_WIN8},
+	{L"deselect",IDS_DESELECT_ITEM,IDS_DESELECT_TIP,L"DeselectItem",NULL,L"$Toolbar.Deselect",L"",NULL,SETTINGS_STYLE_WIN7},
+	{L"deselect",IDS_DESELECT_ITEM,IDS_DESELECT_TIP,L"DeselectItem",NULL,L"$Toolbar.Deselect",L"imageres.dll,5309",NULL,SETTINGS_STYLE_WIN8},
+	{L"invertselection",IDS_INVERT_ITEM,IDS_INVERT_TIP,L"InvertItem",NULL,L"$Toolbar.InvertSelection",L"",NULL,SETTINGS_STYLE_WIN7},
+	{L"invertselection",IDS_INVERT_ITEM,IDS_INVERT_TIP,L"InvertItem",NULL,L"$Toolbar.InvertSelection",L"imageres.dll,5310",NULL,SETTINGS_STYLE_WIN8},
+	{L"back",IDS_BACK_ITEM,IDS_BACK_TIP,L"BackItem",NULL,L"$Toolbar.Back",L""},
+	{L"forward",IDS_FORWARD_ITEM,IDS_FORWARD_TIP,L"ForwardItem",NULL,L"$Toolbar.Forward",L""},
+	{L"show_extensions",IDS_SHOW_EXTENSIONS,IDS_SHOW_EXTENSIONS_TIP,L"ShowExtensionsItem",NULL,L"$Toolbar.ShowExtensions"},
+	{L"hidden_files",IDS_HIDDEN_FILES,IDS_HIDDEN_FILES_TIP,L"HiddenFilesItem",NULL,L"$Toolbar.ShowHiddenFiles"},
+	{L"system_files",IDS_SYSTEM_FILES,IDS_SYSTEM_FILES_TIP,L"SystemFilesItem",NULL,L"$Toolbar.ShowSystemFiles"},
+	{L"open <folder name>",IDS_OPEN_ITEM,IDS_OPEN_TIP,L"OpenFolderItem",NULL,NULL,L""},
+	{L"sortby <property>",IDS_SORYBY_ITEM,IDS_SORT_TIP,L"SortFolderItem",NULL,NULL,L""},
+	{L"groupby <property>",IDS_GROUPBY_ITEM,IDS_GROUP_TIP,L"GroupFolderItem",NULL,NULL,L""},
+	{L"",IDS_CUSTOM_ITEM,IDS_CUSTOM_TIP,L"CustomItem",NULL,NULL,L""},
+	{NULL},
+};
 
 static const KNOWNFOLDERID *g_CommonLinks[]=
 {
@@ -79,22 +94,38 @@ static const KNOWNFOLDERID *g_CommonLinks[]=
 	&FOLDERID_Pictures,
 	&FOLDERID_Videos,
 	&FOLDERID_Profile,
-	&FOLDERID_HomeGroup2,
-	&FOLDERID_Libraries2,
-	&FOLDERID_DocumentsLibrary2,
-	&FOLDERID_MusicLibrary2,
-	&FOLDERID_PicturesLibrary2,
-	&FOLDERID_VideosLibrary2,
+	&FOLDERID_HomeGroup,
+	&FOLDERID_Libraries,
+	&FOLDERID_DocumentsLibrary,
+	&FOLDERID_MusicLibrary,
+	&FOLDERID_PicturesLibrary,
+	&FOLDERID_VideosLibrary,
 	&FOLDERID_NetworkFolder,
 	NULL,
 };
 
 const wchar_t *g_DefaultToolbar=
-	L"Items=UpItem, CutItem, CopyItem, PasteItem, DeleteItem, PropertiesItem, EmailItem, SEPARATOR, SettingsItem\n"
+	L"Items=UpItem, NavPaneItem, FolderOptionsItem, CutItem, CopyItem, PasteItem, DeleteItem, PropertiesItem, EmailItem, SEPARATOR, SettingsItem\n"
 	L"UpItem.Command=up\n"
 	L"UpItem.Tip=$Toolbar.GoUp\n"
 	L"UpItem.Icon=,2\n"
 	L"UpItem.IconDisabled=,3\n"
+	L"NavPaneItem.Command=nav_pane\n"
+	L"NavPaneItem.Tip=$Toolbar.NavigationPane\n"
+	L"NavPaneItem.Icon=shell32.dll,16755\n"
+	L"FolderOptionsItem.Command=folderoptions\n"
+	L"FolderOptionsItem.Tip=$Toolbar.FolderOptions\n"
+	L"FolderOptionsItem.Icon=imageres.dll,166\n"
+	L"FolderOptionsItem.Items=ShowExtensionsItem, HiddenFilesItem, SystemFilesItem\n"
+	L"ShowExtensionsItem.Command=show_extensions\n"
+	L"ShowExtensionsItem.Label=$Toolbar.ShowExtensions\n"
+	L"ShowExtensionsItem.Icon=none\n"
+	L"HiddenFilesItem.Command=hidden_files\n"
+	L"HiddenFilesItem.Label=$Toolbar.ShowHiddenFiles\n"
+	L"HiddenFilesItem.Icon=none\n"
+	L"SystemFilesItem.Command=system_files\n"
+	L"SystemFilesItem.Label=$Toolbar.ShowSystemFiles\n"
+	L"SystemFilesItem.Icon=none\n"
 	L"CutItem.Command=cut\n"
 	L"CutItem.Tip=$Toolbar.Cut\n"
 	L"CutItem.Icon=shell32.dll,16762\n"
@@ -118,7 +149,23 @@ const wchar_t *g_DefaultToolbar=
 	L"SettingsItem.Icon=,1\n";
 
 const wchar_t *g_DefaultToolbar2=
-	L"Items=CutItem, CopyItem, PasteItem, DeleteItem, PropertiesItem, EmailItem, SEPARATOR, SettingsItem\n"
+	L"Items=NavPaneItem, FolderOptionsItem, CutItem, CopyItem, PasteItem, DeleteItem, PropertiesItem, EmailItem, SEPARATOR, SettingsItem\n"
+	L"NavPaneItem.Command=nav_pane\n"
+	L"NavPaneItem.Tip=$Toolbar.NavigationPane\n"
+	L"NavPaneItem.Icon=shell32.dll,16755\n"
+	L"FolderOptionsItem.Command=folderoptions\n"
+	L"FolderOptionsItem.Tip=$Toolbar.FolderOptions\n"
+	L"FolderOptionsItem.Icon=imageres.dll,166\n"
+	L"FolderOptionsItem.Items=ShowExtensionsItem, HiddenFilesItem, SystemFilesItem\n"
+	L"ShowExtensionsItem.Command=show_extensions\n"
+	L"ShowExtensionsItem.Label=$Toolbar.ShowExtensions\n"
+	L"ShowExtensionsItem.Icon=none\n"
+	L"HiddenFilesItem.Command=hidden_files\n"
+	L"HiddenFilesItem.Label=$Toolbar.ShowHiddenFiles\n"
+	L"HiddenFilesItem.Icon=none\n"
+	L"SystemFilesItem.Command=system_files\n"
+	L"SystemFilesItem.Label=$Toolbar.ShowSystemFiles\n"
+	L"SystemFilesItem.Icon=none\n"
 	L"CutItem.Command=cut\n"
 	L"CutItem.Tip=$Toolbar.Cut\n"
 	L"CutItem.Icon=shell32.dll,16762\n"
@@ -199,13 +246,15 @@ protected:
 
 private:
 	bool m_bNoLinks;
+	int m_Style;
 };
 
 LRESULT CEditToolbarDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
+	m_Style=GetWinVersion()>=WIN_VER_WIN8?SETTINGS_STYLE_WIN8:SETTINGS_STYLE_WIN7;
 	CWindow commands=GetDlgItem(IDC_COMBOCOMMAND);
 	CWindow links=GetDlgItem(IDC_COMBOLINK);
-	InitDialog(commands,g_StdCommands,links,g_CommonLinks);
+	InitDialog(commands,g_StdCommands,m_Style,SETTINGS_STYLE_MASK,links,g_CommonLinks);
 	SetDlgItemText(IDC_EDITLABEL,m_pItem->label);
 	SetDlgItemText(IDC_EDITTIP,m_pItem->tip);
 	SetDlgItemText(IDC_EDITICON,m_pItem->icon);
@@ -275,7 +324,7 @@ LRESULT CEditToolbarDlg::OnCommandChanged( WORD wNotifyCode, WORD wID, HWND hWnd
 {
 	CString text=GetComboText(wNotifyCode,wID);
 	if (text==m_pItem->command) return 0;
-	m_pItem->SetCommand(text,g_StdCommands);
+	m_pItem->SetCommand(text,g_StdCommands,m_Style,SETTINGS_STYLE_MASK);
 	GetDlgItem(IDC_BUTTONRESET).EnableWindow(m_pItem->pStdCommand && *m_pItem->pStdCommand->name);
 	UpdateIcons(IDC_ICONN,IDC_ICOND);
 	return 0;
@@ -318,7 +367,7 @@ LRESULT CEditToolbarDlg::OnBrowseCommand( WORD wNotifyCode, WORD wID, HWND hWndC
 {
 	wchar_t text[_MAX_PATH];
 	GetDlgItemText(IDC_COMBOCOMMAND,text,_countof(text));
-	if (BrowseCommand(m_hWnd,text))
+	if (BrowseCommandHelper(m_hWnd,text))
 	{
 		SetDlgItemText(IDC_COMBOCOMMAND,text);
 		SendMessage(WM_COMMAND,MAKEWPARAM(IDC_COMBOCOMMAND,CBN_KILLFOCUS));
@@ -330,7 +379,7 @@ LRESULT CEditToolbarDlg::OnBrowseLink( WORD wNotifyCode, WORD wID, HWND hWndCtl,
 {
 	wchar_t text[_MAX_PATH];
 	GetDlgItemText(IDC_COMBOLINK,text,_countof(text));
-	if (BrowseLink(m_hWnd,text))
+	if (BrowseLinkHelper(m_hWnd,text))
 	{
 		SetDlgItemText(IDC_COMBOLINK,text);
 		SendMessage(WM_COMMAND,MAKEWPARAM(IDC_COMBOLINK,CBN_KILLFOCUS));
@@ -346,7 +395,7 @@ LRESULT CEditToolbarDlg::OnBrowseIcon( WORD wNotifyCode, WORD wID, HWND hWndCtl,
 	GetDlgItemText(wID,text,_countof(text));
 	if (wID==IDC_EDITICOND && !*text)
 		GetDlgItemText(IDC_EDITICON,text,_countof(text));
-	if (BrowseIcon(text))
+	if (BrowseIconHelper(m_hWnd,text))
 	{
 		SetDlgItemText(wID,text);
 		SendMessage(WM_COMMAND,MAKEWPARAM(wID,EN_KILLFOCUS));
@@ -378,7 +427,7 @@ LRESULT CEditToolbarDlg::OnReset( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL
 class CCustomToolbarDlg: public CCustomTreeDlg
 {
 public:
-	CCustomToolbarDlg( void ): CCustomTreeDlg(false,g_StdCommands) {}
+	CCustomToolbarDlg( void ): CCustomTreeDlg(false,g_StdCommands,GetWinVersion()>=WIN_VER_WIN8?SETTINGS_STYLE_WIN8:SETTINGS_STYLE_WIN7,SETTINGS_STYLE_MASK) {}
 
 protected:
 	virtual void ParseTreeItemExtra( CTreeItem *pItem, CSettingsParser &parser );
@@ -442,10 +491,10 @@ static CCustomToolbarPanel g_CustomToolbarPanel;
 
 static CSetting g_Settings[]={
 {L"Basic",CSetting::TYPE_GROUP,IDS_BASIC_SETTINGS},
-	{L"EnableSettings",CSetting::TYPE_BOOL,0,0,1,CSetting::FLAG_HIDDEN},
-	{L"LogLevel",CSetting::TYPE_INT,0,0,0,CSetting::FLAG_HIDDEN},
-	{L"ProcessWhiteList",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_HIDDEN},
-	{L"ProcessBlackList",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_HIDDEN},
+	{L"EnableSettings",CSetting::TYPE_BOOL,0,0,1,CSetting::FLAG_HIDDEN|CSetting::FLAG_NOSAVE},
+	{L"ProcessWhiteList",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_HIDDEN|CSetting::FLAG_NOSAVE},
+	{L"ProcessBlackList",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_HIDDEN|CSetting::FLAG_NOSAVE},
+	{L"NoInitialToolbar",CSetting::TYPE_BOOL,0,0,0,CSetting::FLAG_HIDDEN|CSetting::FLAG_NOSAVE},
 
 {L"NavigationPane",CSetting::TYPE_GROUP,IDS_NAVIGATION_SETTINGS},
 	{L"TreeStyle",CSetting::TYPE_INT,IDS_TREE_STYLE,IDS_TREE_STYLE_TIP,2,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
@@ -500,37 +549,49 @@ static CSetting g_Settings[]={
 	{L"SameSizeButtons",CSetting::TYPE_BOOL,IDS_SAME_SIZE,IDS_SAME_SIZE_TIP,0,CSetting::FLAG_WARM,L"ToolbarListMode=0"},
 	{L"ResizeableToolbar",CSetting::TYPE_BOOL,IDS_RESIZEABLE,IDS_RESIZEABLE_TIP,0,CSetting::FLAG_WARM},
 
-{L"CustomToolbar",CSetting::TYPE_GROUP,IDS_BUTTONS_SETTINGS,0,0,0,NULL,&g_CustomToolbarPanel},
+{L"CustomToolbar",CSetting::TYPE_GROUP,IDS_BUTTONS_SETTINGS,0,0,0,NULL,NULL,&g_CustomToolbarPanel},
 	{L"ToolbarItems",CSetting::TYPE_MULTISTRING,0,0,g_DefaultToolbar,CSetting::FLAG_WARM},
 
 {L"StatusBar",CSetting::TYPE_GROUP,IDS_STATUS_SETTINGS},
-	{L"ShowFreeSpace",CSetting::TYPE_BOOL,IDS_FREE_SPACE,IDS_FREE_SPACE_TIP,0,CSetting::FLAG_WARM|CSetting::FLAG_BASIC}, // 1 for Windows 7 and 0 for Vista
+	{L"ShowFreeSpace",CSetting::TYPE_BOOL,IDS_FREE_SPACE,IDS_FREE_SPACE_TIP,1,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
 	{L"ShowInfoTip",CSetting::TYPE_BOOL,IDS_INFO_TIP,IDS_INFO_TIP_TIP,1,CSetting::FLAG_WARM,L"ShowFreeSpace"},
 	{L"ForceRefreshWin7",CSetting::TYPE_BOOL,IDS_FORCE_REFRESH,IDS_FORCE_REFRESH_TIP,1,CSetting::FLAG_WARM,L"ShowFreeSpace"},
 
+{L"StatusBar8",CSetting::TYPE_GROUP,IDS_STATUS_SETTINGS},
+	{L"ShowStatusBar",CSetting::TYPE_BOOL,IDS_SHOWSTATUSBAR,IDS_SHOWSTATUSBAR_TIP,1,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
+	{L"ShowFreeSpace2",CSetting::TYPE_BOOL,IDS_FREE_SPACE,IDS_FREE_SPACE_TIP,1,CSetting::FLAG_WARM,L"ShowStatusBar",L"ShowStatusBar"},
+	{L"ShowZone",CSetting::TYPE_BOOL,IDS_SHOW_ZONE,IDS_SHOW_ZONE_TIP,1,CSetting::FLAG_WARM,L"ShowStatusBar",L"ShowStatusBar"},
+	{L"ShowInfoTip2",CSetting::TYPE_BOOL,IDS_INFO_TIP,IDS_INFO_TIP_TIP,1,CSetting::FLAG_WARM,L"ShowStatusBar",L"ShowStatusBar"},
+	{L"StatusBarFont",CSetting::TYPE_FONT,IDS_STATUS_FONT,IDS_STATUS_FONT_TIP,L"Segoe UI, normal, 9",CSetting::FLAG_WARM,L"ShowStatusBar",L"ShowStatusBar"},
+
 {L"FilePane",CSetting::TYPE_GROUP,IDS_FILEPANE_SETTINGS},
 	{L"ShareOverlay",CSetting::TYPE_BOOL,IDS_SHARE,IDS_SHARE_TIP,0,CSetting::FLAG_COLD|CSetting::FLAG_BASIC},
-	{L"ShareOverlayIcon",CSetting::TYPE_ICON,IDS_SHARE_ICON,IDS_SHARE_ICON_TIP,L"%windir%\\system32\\imageres.dll,164",CSetting::FLAG_COLD,L"ShareOverlay"},
-	{L"ShareExplorer",CSetting::TYPE_BOOL,IDS_SHARE_EXPLORER,IDS_SHARE_EXPLORER_TIP,1,CSetting::FLAG_COLD,L"ShareOverlay"},
+	{L"ShareOverlayIcon",CSetting::TYPE_ICON,IDS_SHARE_ICON,IDS_SHARE_ICON_TIP,L"%windir%\\system32\\imageres.dll,164",CSetting::FLAG_COLD,L"ShareOverlay",L"ShareOverlay"},
+	{L"ShareOverlayHidden",CSetting::TYPE_BOOL,IDS_SHARE_HIDDEN,IDS_SHARE_HIDDEN_TIP,0,CSetting::FLAG_COLD,L"ShareOverlay",L"ShareOverlay"},
+	{L"ShareExplorer",CSetting::TYPE_BOOL,IDS_SHARE_EXPLORER,IDS_SHARE_EXPLORER_TIP,1,CSetting::FLAG_COLD,L"ShareOverlay",L"ShareOverlay"},
 	{L"ShowHeaders",CSetting::TYPE_BOOL,IDS_HEADERS,IDS_HEADERS_TIP,0,CSetting::FLAG_WARM},
 	{L"HideScrollTip",CSetting::TYPE_BOOL,IDS_SCROLLTIP,IDS_SCROLLTIP_TIP,0,CSetting::FLAG_WARM},
 
 {L"FileOperation",CSetting::TYPE_GROUP,IDS_FILE_SETTINGS},
 	{L"ReplaceFileUI",CSetting::TYPE_BOOL,IDS_FILE_UI,IDS_FILE_UI_TIP,1,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
 	{L"ReplaceFolderUI",CSetting::TYPE_BOOL,IDS_FOLDER_UI,IDS_FOLDER_UI_TIP,1,CSetting::FLAG_WARM|CSetting::FLAG_BASIC},
-	{L"OverwriteAlertLevel",CSetting::TYPE_INT,IDS_ALERT_LEVEL,IDS_ALERT_LEVEL_TIP,0,CSetting::FLAG_WARM,L"ReplaceFileUI"},
+	{L"OverwriteAlertLevel",CSetting::TYPE_INT,IDS_ALERT_LEVEL,IDS_ALERT_LEVEL_TIP,0,CSetting::FLAG_WARM,L"ReplaceFileUI",L"ReplaceFileUI"},
 		{L"NoAlert",CSetting::TYPE_RADIO,IDS_NO_ALERT,IDS_NO_ALERT_TIP},
 		{L"SystemFiles",CSetting::TYPE_RADIO,IDS_SYS_FILES,IDS_SYS_FILES_TIP},
 		{L"ReadOnlyFiles",CSetting::TYPE_RADIO,IDS_RO_FILES,IDS_RO_FILES_TIP},
 	{L"EnableMore",CSetting::TYPE_BOOL,IDS_MORE,IDS_MORE_TIP,0,CSetting::FLAG_WARM},
-	{L"MoreProgressDelay",CSetting::TYPE_INT,IDS_MORE_DELAY,IDS_MORE_DELAY_TIP,-1,CSetting::FLAG_WARM,L"EnableMore"}, // 500 for Windows 7 Aero, and 0 otherwise
+	{L"MoreProgressDelay",CSetting::TYPE_INT,IDS_MORE_DELAY,IDS_MORE_DELAY_TIP,-1,CSetting::FLAG_WARM,L"EnableMore",L"EnableMore"}, // 500 for Windows 7 Aero, and 0 otherwise
 	{L"FileExplorer",CSetting::TYPE_BOOL,IDS_FILE_EXPLORER,IDS_FILE_EXPLORER_TIP,1,CSetting::FLAG_COLD},
 
-{L"Language",CSetting::TYPE_GROUP,IDS_LANGUAGE_SETTINGS,0,0,0,NULL,GetLanguageSettings()},
+{L"Language",CSetting::TYPE_GROUP,IDS_LANGUAGE_SETTINGS,0,0,0,NULL,NULL,GetLanguageSettings(COMPONENT_EXPLORER)},
 	{L"Language",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_COLD|CSetting::FLAG_SHARED},
 
 {NULL}
 };
+
+void UpgradeSettings( bool bShared )
+{
+}
 
 void UpdateSettings( void )
 {
@@ -540,47 +601,43 @@ void UpdateSettings( void )
 	UpdateSetting(L"SmallIconSize",CComVariant((dpi>=120)?24:16),false);
 	UpdateSetting(L"LargeIconSize",CComVariant((dpi>=120)?32:24),false);
 	UpdateSetting(L"UpIconSize",CComVariant((dpi>=120)?36:30),false);
+	FindSetting(L"UpHotkey2")->pLinkTo=FindSetting(L"UpHotkey");
 
-	if (GetWinVersion()==WIN_VER_VISTA)
+	if (GetWinVersion()>=WIN_VER_WIN8)
 	{
-		// Vista
-		g_ContentName[0]=0;
-		UpdateSetting(L"ShowFreeSpace",CComVariant(0),false);
-		UpdateSetting(L"MoreProgressDelay",CComVariant(0),false);
-		UpdateSetting(L"ForceRefreshWin7",CComVariant(0),false,true);
-		UpdateSetting(L"FixFolderScroll",CComVariant(0),false,true);
-		UpdateSetting(L"ShowHeaders",CComVariant(0),false,true);
-		UpdateSetting(L"HideScrollTip",CComVariant(0),false,true);
-		UpdateSetting(L"UpHotkey2",CComVariant(0),false,true);
+		// Windows 8
+		HideSettingGroup(L"StatusBar",true);
+			HideSetting(L"ShowFreeSpace",true);
+			FindSetting(L"ShowFreeSpace2")->pLinkTo=FindSetting(L"ShowFreeSpace");
+			FindSetting(L"ShowInfoTip2")->pLinkTo=FindSetting(L"ShowInfoTip");
+
+		HideSettingGroup(L"UpButton",true);
+			UpdateSetting(L"ShowUpButton",CComVariant(0),false); HideSetting(L"ShowUpButton",true);
+
+		HideSettingGroup(L"FileOperation",true);
+			UpdateSetting(L"ReplaceFileUI",CComVariant(0),false); HideSetting(L"ReplaceFileUI",true);
+			UpdateSetting(L"ReplaceFolderUI",CComVariant(0),false); HideSetting(L"ReplaceFolderUI",true);
+
+		UpdateSetting(L"ShowCaption",CComVariant(0),false); HideSetting(L"ShowCaption",true);
+		UpdateSetting(L"ShowIcon",CComVariant(0),false); HideSetting(L"ShowIcon",true);
+		UpdateSetting(L"FixFolderScroll",CComVariant(0),false); HideSetting(L"FixFolderScroll",true);
+		UpdateSetting(L"ToolbarItems",CComVariant(g_DefaultToolbar2),false);
+
+		if (GetWinVersion()>=WIN_VER_WIN10)
+		{
+			FindSetting(L"TreeStyle")[1].flags|=CSetting::FLAG_HIDDEN;
+		}
 	}
-	else if (GetWinVersion()==WIN_VER_WIN7)
+	else
 	{
 		// Windows 7
-		UpdateSetting(L"ShowFreeSpace",CComVariant(1),false);
 		int delay=0;
 		BOOL comp;
 		if (SUCCEEDED(DwmIsCompositionEnabled(&comp)) && comp)
 			delay=500;
 		UpdateSetting(L"MoreProgressDelay",CComVariant(delay),false);
-		UpdateSetting(L"UpHotkey2",CComVariant(0),false,true);
-	}
-	else
-	{
-		// Windows 8
-		HideSettingGroup(L"StatusBar",true);
-			UpdateSetting(L"ShowFreeSpace",CComVariant(0),false,true);
-
-		HideSettingGroup(L"UpButton",true);
-			UpdateSetting(L"ShowUpButton",CComVariant(0),false,true);
-
-		HideSettingGroup(L"FileOperation",true);
-			UpdateSetting(L"ReplaceFileUI",CComVariant(0),false,true);
-			UpdateSetting(L"ReplaceFolderUI",CComVariant(0),false,true);
-
-		UpdateSetting(L"ShowCaption",CComVariant(0),false,true);
-		UpdateSetting(L"ShowIcon",CComVariant(0),false,true);
-		UpdateSetting(L"FixFolderScroll",CComVariant(0),false,true);
-		UpdateSetting(L"ToolbarItems",CComVariant(g_DefaultToolbar2),false);
+		HideSetting(L"UpHotkey2",true);
+		HideSettingGroup(L"StatusBar8",true);
 	}
 
 	CRegKey regKey;
@@ -598,21 +655,25 @@ static bool g_bCopyHook0; // initial state of the copy hook before the settings 
 
 void InitSettings( void )
 {
-	InitSettings(g_Settings,COMPONENT_EXPLORER);
-	g_bCopyHook0=GetSettingBool(L"ReplaceFileUI") || GetSettingBool(L"ReplaceFolderUI") || GetSettingBool(L"EnableMore");
+	InitSettings(g_Settings,COMPONENT_EXPLORER,NULL);
+	g_bCopyHook0=GetWinVersion()<WIN_VER_WIN8 && (GetSettingBool(L"ReplaceFileUI") || GetSettingBool(L"ReplaceFolderUI") || GetSettingBool(L"EnableMore"));
 }
 
 void ClosingSettings( HWND hWnd, int flags, int command )
 {
 	if (command==IDOK)
 	{
-		bool bCopyHook=GetSettingBool(L"ReplaceFileUI") || GetSettingBool(L"ReplaceFolderUI") || GetSettingBool(L"EnableMore");
+		bool bCopyHook=GetWinVersion()<WIN_VER_WIN8 && (GetSettingBool(L"ReplaceFileUI") || GetSettingBool(L"ReplaceFolderUI") || GetSettingBool(L"EnableMore"));
 
 		if ((flags&CSetting::FLAG_COLD) || (bCopyHook && !g_bCopyHook0))
 			MessageBox(hWnd,LoadStringEx(IDS_NEW_SETTINGS2),LoadStringEx(IDS_APP_TITLE),MB_OK|MB_ICONWARNING);
 		else if (flags&CSetting::FLAG_WARM)
 			MessageBox(hWnd,LoadStringEx(IDS_NEW_SETTINGS1),LoadStringEx(IDS_APP_TITLE),MB_OK|MB_ICONINFORMATION);
 	}
+}
+
+void SettingChangedCallback( const CSetting *pSetting )
+{
 }
 
 void EditSettings( void )
@@ -653,7 +714,7 @@ void ShowSettingsMenu( HWND parent, int x, int y )
 	DWORD pos=GetMessagePos();
 	if (!GetSettingBool(L"EnableSettings"))
 		EnableMenuItem(menu,0,MF_BYPOSITION|MF_GRAYED);
-	int res=TrackPopupMenu(menu,TPM_RETURNCMD,x,y,0,parent,NULL);
+	int res=TrackPopupMenu(menu,TPM_RIGHTBUTTON|TPM_RETURNCMD,x,y,0,parent,NULL);
 	DestroyMenu(menu);
 	if (shellBmp) DeleteObject(shellBmp);
 	if (res==CBandWindow::ID_SETTINGS)
@@ -662,6 +723,7 @@ void ShowSettingsMenu( HWND parent, int x, int y )
 
 void ShowExplorerSettings( void )
 {
+	WaitDllInitThread();
 	if (!GetSettingBool(L"EnableSettings"))
 		return;
 	wchar_t title[100];
@@ -672,3 +734,31 @@ void ShowExplorerSettings( void )
 		Sprintf(title,_countof(title),LoadStringEx(IDS_SETTINGS_TITLE));
 	EditSettings(title,true,0);
 }
+
+bool DllImportSettingsXml( const wchar_t *fname )
+{
+	return ImportSettingsXml(fname);
+}
+
+bool DllExportSettingsXml( const wchar_t *fname )
+{
+	return ExportSettingsXml(fname);
+}
+
+#ifndef _WIN64
+bool DllSaveAdmx( const char *admxFile, const char *admlFile, const char *docFile, const wchar_t *language )
+{
+	WaitDllInitThread();
+	HMODULE dll=NULL;
+	if (language[0])
+	{
+		wchar_t path[_MAX_PATH];
+		GetCurrentDirectory(_countof(path),path);
+		PathAppend(path,language);
+		PathAddExtension(path,L".dll");
+		dll=LoadLibraryEx(path,NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+	}
+	LoadTranslationResources(dll,NULL);
+	return SaveAdmx(COMPONENT_EXPLORER,admxFile,admlFile,docFile);
+}
+#endif

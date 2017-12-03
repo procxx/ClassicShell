@@ -1,25 +1,27 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // LogManager.cpp - logging functionality (for debugging)
 
 #include "stdafx.h"
 #include "LogManager.h"
+#include "ResourceHelper.h"
 
-TLogLevel g_LogLevel;
+int g_LogCategories;
 static FILE *g_LogFile;
 static int g_LogTime;
 
-void InitLog( TLogLevel level, const wchar_t *fname )
+void InitLog( int categories, const wchar_t *fname )
 {
 	CloseLog();
-	if (level<=LOG_NONE) return;
+	if (categories==0) return;
 	if (_wfopen_s(&g_LogFile,fname,L"wb")==0)
 	{
 		wchar_t bom=0xFEFF;
 		fwrite(&bom,2,1,g_LogFile);
-		g_LogLevel=level;
+		g_LogCategories=categories;
 		g_LogTime=GetTickCount();
+		LogMessage(L"version=%x, PID=%d, TID=%d, Categories=%08x\r\n",GetWinVersion(),GetCurrentProcessId(),GetCurrentThreadId(),categories);
 	}
 }
 
@@ -27,7 +29,7 @@ void CloseLog( void )
 {
 	if (g_LogFile) fclose(g_LogFile);
 	g_LogFile=NULL;
-	g_LogLevel=LOG_NONE;
+	g_LogCategories=0;
 }
 
 void LogMessage( const wchar_t *text, ... )

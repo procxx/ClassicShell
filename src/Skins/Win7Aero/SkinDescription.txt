@@ -1,7 +1,7 @@
 ; Windows Aero skin
 
 ; About - text to use in the About box for this skin. use \n for new line
-About=Windows Aero skin\n\nDefault skin to use for the Windows Aero theme.\n\nPart of <A HREF="http://www.classicshell.net/">Classic Shell</A> (c) 2009-2013, Ivo Beltchev
+About=#7101
 
 ; AboutIcon - the ID of an icon resource to use in the About box
 AboutIcon=1
@@ -44,7 +44,7 @@ Main_bitmap_slices_X=7,1,0,6,1,13
 ; number 3 is the height of the image to use for the bottom edge
 Main_bitmap_slices_Y=13,360,12
 
-Main_arrow_padding=8,9
+Main_arrow_padding=8,9,100%
 
 
 ;CAPTION SECTION - describes the caption portion of the main menu
@@ -64,7 +64,7 @@ Caption_glow_size=10
 ; Caption_padding - number of pixels to add on left/top/right/bottom of the caption
 ; If Main_bitmap is not set, the width of the standard window border is subtracted from the left/top/bottom sides
 ; This is usually 2 pixels for the Classic theme and 1 pixel for Aero or Basic
-Caption_padding=4,8,2,16
+Caption_padding=4,8,2,16,100%
 
 
 ;MAIN MENU SECTION - describes the menu portion of the main menu
@@ -111,6 +111,10 @@ Main_split_selection=15
 Main_split_selection_slices_X=3,1,3,2,1,3
 Main_split_selection_slices_Y=4,66,4
 
+Main_new_selection=19
+Main_new_selection_slices_X=3,1,3
+Main_new_selection_slices_Y=4,66,4
+
 ; Main_pager - a bitmap that contains the background for the pager buttons (the ones that scroll menus up and down)
 Main_pager=4
 
@@ -153,24 +157,35 @@ Submenu_pager_slices_X=3,10,3
 Submenu_pager_slices_Y=3,9,3
 Submenu_pager_arrows=5
 Submenu_arrow=7
-Submenu_separator_text_padding=3,4,4,8
+Submenu_separator_text_padding=3,4,4,8,100%
+Submenu_separator_icon_padding=6,3,3,3,100%
 Submenu_separator_font="Segoe UI",normal,-10
-Submenu_separator_text_color=#0062ad
+Submenu_separator_text_color=#0062ad,#0062ad
+Submenu_separator_split_text_padding=3,4,4,8,100%
+Submenu_separator_split_font="Segoe UI",normal,-10
+Submenu_separator_split_text_color=#0062ad,#0062ad
+Submenu_separator_split_icon_padding=6,3,3,3,100%
+Submenu_new_selection=19
+Submenu_new_selection_slices_X=3,1,3
+Submenu_new_selection_slices_Y=4,66,4
+; More_bitmap - a bitmap for the "more" button in search categories. set to 0 to use the default icon. set to "none" to hide the button
+More_bitmap=none
 
 
 ; OPTIONS
 
-OPTION TWO_COLUMNS="Two Columns",0
-OPTION NO_ICONS="No Icons in Second Column",0, TWO_COLUMNS
-OPTION CAPTION="Caption",1, NOT TWO_COLUMNS, 0
-OPTION USER_IMAGE="Show User Picture",0
-OPTION USER_NAME="Show User Name",0
-OPTION CENTER_NAME="Center User Name",0, USER_NAME, 0
-OPTION SMALL_ICONS="Small Icons",0
-OPTION LARGE_FONT="Large Font",0
-OPTION WHITE_SUBMENUS="White Sub-menus",0
-OPTION DISABLE_MASK="Reduce Glass Color",0
+OPTION NO_ICONS=#7008,0, TWO_COLUMNS
+OPTION CAPTION=#7003,1, NOT TWO_COLUMNS, 0
+OPTION USER_IMAGE=#7014,0
+OPTION USER_NAME=#7015,0
+OPTION CENTER_NAME=#7004,0, USER_NAME, 0
+OPTION SMALL_ICONS=#7011,0
+OPTION LARGE_FONT=#7007,0
+OPTION DISABLE_MASK=#7005,0
+OPTION WHITE_SUBMENUS=#7016,1
 
+Classic1_options=CAPTION, USER_IMAGE, USER_NAME, CENTER_NAME, SMALL_ICONS, LARGE_FONT, DISABLE_MASK, WHITE_SUBMENUS
+Classic2_options=NO_ICONS, USER_IMAGE, USER_NAME, CENTER_NAME, SMALL_ICONS, LARGE_FONT, DISABLE_MASK, WHITE_SUBMENUS
 AllPrograms_options=WHITE_SUBMENUS, LARGE_FONT
 
 [NOT CAPTION]
@@ -188,6 +203,8 @@ Main_arrow=7
 [LARGE_FONT]
 Main_font="Segoe UI",normal,-10
 Submenu_font="Segoe UI",normal,-10
+Main_text_padding=1,0,8,2,100%
+Submenu_text_padding=1,0,8,2,100%
 
 
 [WHITE_SUBMENUS]
@@ -197,26 +214,25 @@ Submenu_separator_slices_X=8,6,8
 
 
 [TWO_COLUMNS]
-Main_2columns=1
 Main_bitmap=8
 Main_bitmap_mask=9
 Main_bitmap_slices_X=13,1,6,0,1,7
-Main_opacity2=fullglass
+Main2_opacity=fullglass
 Main_padding=10,10,3,8
-Main_text_color2=#FFFFFF,#FFFFFF,#7F7F7F,#7F7F7F
-Main_padding2=3,10,4,8
-Main_selection2=10
-Main_selection_slices_X2=4,63,4
-Main_selection_slices_Y2=4,20,4
-Main_split_selection2=16
-Main_split_selection_slices_X2=4,63,4,0,16,4
-Main_split_selection_slices_Y2=4,20,4
-Main_arrow2=0
-Main_arrow_color2=#FFFFFF,#FFFFFF
-Main_separator2=11
-Main_separator_slices_X2=15,100,15
-Main_icon_padding2=4,4,3,4
-Main_arrow_padding2=7,7
+Main2_text_color=#FFFFFF,#FFFFFF,#7F7F7F,#7F7F7F
+Main2_padding=3,10,4,8
+Main2_selection=10
+Main2_selection_slices_X=4,63,4
+Main2_selection_slices_Y=4,20,4
+Main2_split_selection=16
+Main2_split_selection_slices_X=4,63,4,0,16,4
+Main2_split_selection_slices_Y=4,20,4
+Main2_arrow=0
+Main2_arrow_color=#FFFFFF,#FFFFFF
+Main2_separator=11
+Main2_separator_slices_X=15,100,15
+Main2_icon_padding=4,4,3,4,100%
+Main2_arrow_padding=8,9,100%
 
 
 [USER_IMAGE]
@@ -238,7 +254,7 @@ User_image_offset=8,8
 
 
 [USER_IMAGE AND TWO_COLUMNS]
-Main_padding2=3,73,5,8
+Main2_padding=3,73,5,8
 
 [(USER_IMAGE OR USER_NAME) AND NOT TWO_COLUMNS]
 Main_bitmap=13
@@ -265,15 +281,15 @@ User_name_align=right2
 
 [USER_NAME AND TWO_COLUMNS AND NOT USER_IMAGE]
 User_name_position=5,8,-10,68
-Main_padding2=3,55,5,8
+Main2_padding=3,55,5,8
 
 [USER_NAME AND TWO_COLUMNS AND NOT USER_IMAGE AND SMALL_ICONS]
 User_name_position=5,5,-10,50
-Main_padding2=3,46,5,8
+Main2_padding=3,46,5,8
 
 [SMALL_ICONS]
 User_font="Segoe UI",bold,16
-Main_arrow_padding=7,7
+Main_arrow_padding=7,7,100%
 
 
 [(USER_IMAGE OR USER_NAME) AND NOT TWO_COLUMNS AND CAPTION]
@@ -290,17 +306,25 @@ User_name_align=center2
 
 [NO_ICONS]
 Main_no_icons2=1
-Main_text_padding2=1,7,8,7
+Main2_text_padding=1,7,8,7,100%
 
 [NO_ICONS AND SMALL_ICONS]
-Main_text_padding2=1,3,8,4
+Main2_text_padding=1,3,8,4,100%
 
 
 [NOT DISABLE_MASK]
 ; Main_selection_mask - a bitmap or a solid color in #RRGGBB format that is used to blend the selection bitmap with the glass color and the menu background color.
 ; The red channel is the weight of the glass color and the green channel is the weight of the background color
-Main_selection_mask2=#800000
-Main_split_selection_mask2=#800000
+Main2_selection_mask=#800000
+Main2_split_selection_mask=#800000
 
 [DISABLE_MASK]
 Main_bitmap_mask=0
+
+[HIGH_DPI]
+Main_separator=20
+Main_pager_arrows=22
+Submenu_pager_arrows=22
+
+[WHITE_SUBMENUS AND HIGH_DPI]
+Submenu_separator=21

@@ -2,6 +2,7 @@
 // Microsoft Visual C++ generated include file.
 // Used by ClassicShellUpdate.rc
 //
+#define IDI_APPICON                     101
 #define IDC_STATICLATEST                1001
 #define IDC_EDITTEXT                    1002
 #define IDC_BUTTONDOWNLOAD              1003
@@ -12,8 +13,9 @@
 #define IDS_UPDATED                     6001
 #define IDS_OUTOFDATE                   6002
 #define IDS_NEWVERSION                  6003
-#define IDS_UPDATE_TITLE                6004
 #define IDS_UPDATE_FAIL                 6005
+#define IDS_LANG_OUTOFDATE              6006
+#define IDS_LANG_NEWVERSION             6007
 
 // Next default values for new objects
 // 

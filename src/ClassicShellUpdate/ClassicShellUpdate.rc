@@ -85,8 +85,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,6,8,0
- PRODUCTVERSION 3,6,8,0
+ FILEVERSION 4,3,1,0
+ PRODUCTVERSION 4,3,1,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -103,12 +103,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "IvoSoft"
             VALUE "FileDescription", "Checks for a new version of Classic Shell"
-            VALUE "FileVersion", "3, 6, 8, 0"
+            VALUE "FileVersion", "4, 3, 1, 0"
             VALUE "InternalName", "ClassicShellUpdate.exe"
-            VALUE "LegalCopyright", "Copyright (C) 2009-2013, Ivo Beltchev"
+            VALUE "LegalCopyright", "Copyright (C) 2009-2016, Ivo Beltchev"
             VALUE "OriginalFilename", "ClassicShellUpdate.exe"
             VALUE "ProductName", "Classic Shell"
-            VALUE "ProductVersion", "3, 6, 8, 0"
+            VALUE "ProductVersion", "4, 3, 1, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -130,12 +130,13 @@ FONT 9, "Segoe UI", 400, 0, 0x0
 BEGIN
     CONTROL         "Automatically check for new versions",IDC_CHECKAUTOCHECK,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,7,129,10
-    PUSHBUTTON      "Check Now",IDC_BUTTONCHECKNOW,7,17,50,14
-    LTEXT           "",IDC_STATICLATEST,7,33,302,10,SS_CENTERIMAGE
+    PUSHBUTTON      "Check now",IDC_BUTTONCHECKNOW,7,17,50,14
+    LTEXT           "message",IDC_STATICLATEST,7,33,302,10,SS_CENTERIMAGE
     EDITTEXT        IDC_EDITTEXT,7,45,302,97,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | NOT WS_VISIBLE | WS_VSCROLL
     PUSHBUTTON      "Download",IDC_BUTTONDOWNLOAD,7,144,50,14,NOT WS_VISIBLE
     CONTROL         "Don't remind me again about this version",IDC_CHECKDONT,
                     "Button",BS_AUTOCHECKBOX | NOT WS_VISIBLE | WS_TABSTOP,61,144,141,14
+    CONTROL         "<a>www.classicshell.net</a>",IDC_LINKWEB,"SysLink",WS_TABSTOP,7,164,66,10,WS_EX_TRANSPARENT
     DEFPUSHBUTTON   "OK",IDOK,202,160,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,259,160,50,14
 END
@@ -162,6 +163,15 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_APPICON             ICON                    "..\\ClassicShellSetup\\ClassicShell.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
 // String Table
 //
 
@@ -170,8 +180,9 @@ BEGIN
     IDS_UPDATED             "Your version of Classic Shell is up to date"
     IDS_OUTOFDATE           "There is a new version of Classic Shell"
     IDS_NEWVERSION          "There is a new version of Classic Shell.\nClick here to see what's new or to change the reminder settings."
-    IDS_UPDATE_TITLE        "Classic Shell Update"
     IDS_UPDATE_FAIL         "Failed to check for new version"
+    IDS_LANG_OUTOFDATE      "There is a new language file for this version of Classic Shell"
+    IDS_LANG_NEWVERSION     "There is a new language file for this version of Classic Shell.\nClick here to install it or to change the reminder settings."
 END
 
 #endif    // English (U.S.) resources

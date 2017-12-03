@@ -1,14 +1,17 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #pragma once
 
 #include "SettingsParser.h"
 #include "resource.h"
+#include "Assert.h"
 #include <vector>
 
 class CCommandsTree;
 class CSettingsTree;
+class ISettingsPanel;
+struct CSetting;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -16,6 +19,13 @@ class CSettingsTree;
 template<class T> class CResizeableDlg: public CDialogImpl<T>
 {
 public:
+	CResizeableDlg( void )
+	{
+		m_ClientSize.cx=m_ClientSize.cy=0;
+		m_WindowSize.cx=m_WindowSize.cy=0;
+		m_Flags=0;
+	}
+
 	void Create( HWND hWndParent )
 	{
 		CDialogImpl<T>::Create(hWndParent);
@@ -102,7 +112,7 @@ protected:
 		for (std::vector<Control>::iterator it=m_Controls.begin();it!=m_Controls.end();++it)
 		{
 			it->hwnd=pThis->GetDlgItem(it->id);
-			ATLASSERT(it->hwnd);
+			Assert(it->hwnd);
 			if (!it->hwnd) continue;
 			::GetWindowRect(it->hwnd,&it->rect0);
 			::MapWindowPoints(NULL,m_hWnd,(POINT*)&it->rect0,2);
@@ -164,6 +174,15 @@ protected:
 		rc.bottom-=rc.top+m_WindowSize.cy;
 	}
 
+	void GetPlacementRect( RECT &rc )
+	{
+		WINDOWPLACEMENT placement;
+		GetWindowPlacement(&placement);
+		rc=placement.rcNormalPosition;
+		rc.right-=rc.left+m_WindowSize.cx;
+		rc.bottom-=rc.top+m_WindowSize.cy;
+	}
+
 	void SetStoreRect( const RECT &rc )
 	{
 		SetWindowPos(NULL,rc.left,rc.top,m_WindowSize.cx+rc.right,m_WindowSize.cy+rc.bottom,SWP_NOZORDER|SWP_NOCOPYBITS);
@@ -186,16 +205,20 @@ private:
 
 struct CStdCommand
 {
-	const wchar_t *name;
-	const wchar_t *displayName;
+	const wchar_t *name; // NULL for the terminator item, empty for custom item
+	int displayNameId; // always valid
 	int tipID;
-	const wchar_t *itemName; // NULL for separator items
+	const wchar_t *itemName; // NULL for separators
 	const wchar_t *label;
 	const wchar_t *tip;
-	const wchar_t *icon; // NULL - force no icon (use L"" for default icon)
+	const wchar_t *icon; // NULL for separators, "none" - force no icon, "" for default icon
 	const KNOWNFOLDERID *knownFolder;
-	const wchar_t *iconD;
 	unsigned int settings;
+	const wchar_t *iconD;
+
+	bool IsSeparator( void ) const { return !itemName; }
+	bool IsCustom( void ) const { return !*name; }
+	bool IsStyle( int style, int mask ) const { return (settings&mask)==0 || (settings&style); }
 };
 
 struct CTreeItem
@@ -208,15 +231,15 @@ struct CTreeItem
 	CString icon;
 	CString iconD;
 	unsigned int settings;
-	const CStdCommand *pStdCommand;
-	bool bSeparator;
+	const CStdCommand *pStdCommand; // always valid
 
-	CTreeItem( void ) { settings=0; pStdCommand=NULL; bSeparator=false; }
-	void SetCommand( CString command, const CStdCommand *pStdCommands );
+	CTreeItem( void ) { settings=0; pStdCommand=NULL; }
+	void SetCommand( CString command, const CStdCommand *pStdCommands, int style, int mask );
 	unsigned int GetIconKey( void ) const;
 	HICON LoadIcon( bool bSmall, std::vector<HMODULE> &modules ) const;
 	unsigned int GetIconDKey( unsigned int iconKey ) const;
 	HICON LoadIconD( HICON hIcon, std::vector<HMODULE> &modules ) const; // always large
+	CString GetDisplayName( bool bTitle ) const;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -226,7 +249,7 @@ const HICON HICON_NONE=(HICON)-1;
 class CCustomTreeDlg: public CResizeableDlg<CCustomTreeDlg>
 {
 public:
-	CCustomTreeDlg( bool bMenu, const CStdCommand *pStdCommands );
+	CCustomTreeDlg( bool bMenu, const CStdCommand *pStdCommands, int style, int mask );
 	~CCustomTreeDlg( void );
 
 	BEGIN_MSG_MAP( CCustomTreeDlg )
@@ -254,7 +277,6 @@ public:
 	END_RESIZE_MAP
 
 	void SetGroup( CSetting *pGroup, bool bReset );
-	bool IsSeparator( const wchar_t *name );
 	void SerializeData( void );
 
 protected:
@@ -284,6 +306,8 @@ protected:
 	CTreeItem *GetItem( HTREEITEM hItem );
 
 	static void AppendString( std::vector<wchar_t> &stringBuilder, const wchar_t *text );
+
+	int m_Style, m_StyleMask;
 
 private:
 	CSettingsTree &m_Tree;
@@ -330,12 +354,9 @@ protected:
 	LRESULT OnOK( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnCancel( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 
-	void InitDialog( CWindow commandCombo, const CStdCommand *pStdcommands, CWindow linkCombo, const KNOWNFOLDERID *const *pCommonLinks );
+	void InitDialog( CWindow commandCombo, const CStdCommand *pStdcommands, int style, int mask, CWindow linkCombo, const KNOWNFOLDERID *const *pCommonLinks );
 	void UpdateIcons( int iconID, int iconDID );
 	CString GetComboText( WORD wNotifyCode, WORD wID );
-	bool BrowseCommand( HWND parent, wchar_t *text );
-	bool BrowseLink( HWND parent, wchar_t *text );
-	bool BrowseIcon( wchar_t *text );
 
 private:
 	std::vector<HMODULE> &m_Modules;
@@ -352,22 +373,16 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ISettingsPanel *GetDefaultSettings( void );
-ISettingsPanel *GetLanguageSettings( void );
+ISettingsPanel *GetDefaultSettings( const CString *filter, const CSetting *pSelect );
 HIMAGELIST GetSettingsImageList( HWND tree );
 bool BrowseForIcon( HWND hWndParent, wchar_t *path, int &id );
+bool BrowseForBitmap( HWND hWndParent, wchar_t *path, bool bAllowJpeg );
+bool BrowseForSound( HWND hWndParent, wchar_t *path );
 const wchar_t *GetSettingsRegPath( void );
 
 // Special GUID for the real desktop
 extern const GUID FOLDERID_DesktopRoot;
 
-enum TVersionCheck
-{
-	CHECK_AUTO,
-	CHECK_AUTO_WAIT,
-	CHECK_UPDATE,
-};
-
-typedef void (*tNewVersionCallback)( DWORD newVersion, CString downloadUrl, CString news );
-
-bool CheckForNewVersion( TVersionCheck check, tNewVersionCallback callback );
+bool BrowseCommandHelper( HWND parent, wchar_t *text );
+bool BrowseLinkHelper( HWND parent, wchar_t *text );
+bool BrowseIconHelper( HWND parent, wchar_t *text );

@@ -71,6 +71,12 @@ END
 17                      BITMAP                  "separator_submenu.bmp"
 18                      BITMAP                  "separator_submenuV.bmp"
 19                      BITMAP                  "user_bitmap.bmp"
+20                      BITMAP                  "main_bitmap1_blue.bmp"
+21                      BITMAP                  "main_bitmap1_blue2.bmp"
+22                      BITMAP                  "main_bitmap1_olive.bmp"
+23                      BITMAP                  "main_bitmap1_olive2.bmp"
+24                      BITMAP                  "main_bitmap1_silver.bmp"
+25                      BITMAP                  "main_bitmap1_silver2.bmp"
 
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////

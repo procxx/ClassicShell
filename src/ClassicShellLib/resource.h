@@ -3,7 +3,8 @@
 // Used by ClassicShellLib.rc
 //
 #define IDS_VERSION_URL                 100
-#define IDI_CLASSICSHELL                102
+#define IDB_FLAGS                       109
+#define IDB_FLAGS24                     108
 #define IDC_STATICICON                  209
 #define IDC_SETTINGS                    236
 #define IDC_TREEITEMS                   238
@@ -28,8 +29,8 @@
 #define IDC_STATICHINT                  259
 #define IDI_ICONLOCK                    1000
 #define IDI_ICONWARNING                 1001
-#define IDI_ICONPLAY                    1002
 #define IDC_EDITFILE                    1001
+#define IDI_ICONPLAY                    1002
 #define IDC_BUTTONBROWSE                1002
 #define IDC_LISTICONS                   1003
 #define IDC_LISTLANGUAGE                1004
@@ -41,9 +42,16 @@
 #define IDC_STATICMIDDLE                1009
 #define IDC_LINKHELP                    1010
 #define IDC_BUTTONBACKUP                1011
-#define IDC_RADIOBASIC                  1012
-#define IDC_RADIOALL                    1013
 #define IDC_STATICFILE                  1013
+#define IDC_LINKWEB                     1014
+#define IDC_EDITSEARCH                  1025
+#define IDC_SYSLINKLOC                  1026
+#define IDC_ICONSEARCH                  1027
+#define IDC_CHECKALL                    1031
+#define IDC_BUTTONCHECK                 1032
+#define IDC_LINKDOWNLOAD                1035
+#define IDC_PROGRESS                    1036
+#define IDC_MESSAGE                     1037
 #define IDD_SETTINGS                    4000
 #define IDS_TOGGLE_SETTING              4000
 #define IDD_SETTINGSTREE                4001
@@ -54,6 +62,7 @@
 #define IDS_PLAY_SETTING                4003
 #define IDD_CUSTOMTREE                  4004
 #define IDS_ICON_FILTERS                4004
+#define IDD_PROGRESS                    4005
 #define IDS_ICON_TITLE                  4005
 #define IDS_WAV_FILTERS                 4006
 #define IDS_WAV_TITLE                   4007
@@ -103,14 +112,41 @@
 #define IDS_OS_LANGUAGE                 4050
 #define IDS_BMP_FILTERS                 4051
 #define IDS_BMP_TITLE                   4052
+#define IDS_SEARCH_PROMPT               4053
+#define IDS_SETTING_SEARCH              4054
+#define IDS_WEBSITE_TIP                 4055
+#define IDS_LOCATE_SETTING              4056
+#define IDS_LANGUAGE_UPDATED            4057
+#define IDS_LANGUAGE_MISSING            4058
+#define IDS_LANGUAGE_DOWNLOAD           4059
+#define IDS_LANGUAGE_SUCCESS            4060
+#define IDS_LANGUAGE_SUCCESS2           4061
+#define IDS_LANGUAGE_FAIL               4062
+#define IDS_INTERNET_FAIL               4063
+#define IDS_INITIATE_FAIL               4064
+#define IDS_LANG_DOWNLOAD_FAIL          4065
+#define IDS_LANG_SAVE_FAIL              4066
+#define IDS_UPDATE_TITLE                4067
+#define IDS_INST_DOWNLOAD_FAIL          4068
+#define IDS_INST_SAVE_FAIL              4069
+#define IDS_PROGRESS_CONNECT            4070
+#define IDS_PROGRESS_DOWNLOAD           4071
+#define IDS_PROGRESS_VERIFY             4072
+#define IDS_PROGRESS_SAVE               4073
+#define IDS_PROGRESS_TITLE_CHECK        4074
+#define IDS_PROGRESS_TITLE_DOWNLOAD     4075
+#define IDS_DOWNLOAD_TIP                4076
+#define IDS_BMP_FILTERS2                4077
+#define IDS_UNSAVED_CHANGES             4078
+#define IDS_UNSAVED_TITLE               4079
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        109
+#define _APS_NEXT_RESOURCE_VALUE        111
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1024
+#define _APS_NEXT_CONTROL_VALUE         1038
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // ExplorerBHO.cpp : Implementation of CExplorerBHO
 
@@ -11,6 +11,8 @@
 #include "SettingsUI.h"
 #include "Translations.h"
 #include "SettingsUIHelper.h"
+#include "DownloadHelper.h"
+#include "FNVHash.h"
 #include "dllmain.h"
 #include <uxtheme.h>
 #include <dwmapi.h>
@@ -23,10 +25,10 @@ const UINT_PTR TIMER_NAVIGATE='CLSH';
 
 int CExplorerBHO::s_AutoNavDelay;
 
-static PIDLIST_ABSOLUTE GetTreeItemPidl( HTREEITEM hItem, HWND hwndTree )
+static void GetTreeItemPidl( HTREEITEM hItem, HWND hwndTree, PIDLIST_ABSOLUTE *result )
 {
 	// find the PIDL of the tree item (combine all child PIDLs from the current item and its parents)
-	PIDLIST_ABSOLUTE pidl=NULL;
+	CAbsolutePidl pidl;
 	while (hItem)
 	{
 		TVITEMEX info={TVIF_PARAM,hItem};
@@ -34,16 +36,13 @@ static PIDLIST_ABSOLUTE GetTreeItemPidl( HTREEITEM hItem, HWND hwndTree )
 		PIDLIST_RELATIVE **pidl1=(PIDLIST_RELATIVE**)info.lParam;
 		if (!pidl1 || !*pidl1 || !**pidl1)
 		{
-			if (pidl) ILFree(pidl);
-			pidl=NULL;
+			pidl.Clear();
 			break;
 		}
-		PIDLIST_ABSOLUTE pidl2=pidl?ILCombine((PIDLIST_ABSOLUTE)**pidl1,pidl):(PIDLIST_ABSOLUTE)ILClone(**pidl1);
-		if (pidl) ILFree(pidl);
-		pidl=pidl2;
+		pidl.Attach(pidl?ILCombine((PIDLIST_ABSOLUTE)**pidl1,pidl):(PIDLIST_ABSOLUTE)ILClone(**pidl1));
 		hItem=TreeView_GetParent(hwndTree,hItem);
 	}
-	return pidl;
+	*result=pidl.Detach();
 }
 
 LRESULT CALLBACK CExplorerBHO::SubclassTreeParentProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
@@ -79,7 +78,8 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 		KillTimer(hWnd,TIMER_NAVIGATE);
 		if (GetFocus()!=hWnd)
 			return 0;
-		PIDLIST_ABSOLUTE pidl=GetTreeItemPidl(TreeView_GetSelection(hWnd),hWnd);
+		CAbsolutePidl pidl;
+		GetTreeItemPidl(TreeView_GetSelection(hWnd),hWnd,&pidl);
 		if (pidl)
 		{
 			bool bSameFolder=false;
@@ -90,15 +90,13 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 				CComQIPtr<IFolderView> pView2=pView;
 
 				CComPtr<IPersistFolder2> pFolder;
-				PIDLIST_ABSOLUTE pidl2;
+				CAbsolutePidl pidl2;
 				if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) && SUCCEEDED(pFolder->GetCurFolder(&pidl2)) && pidl2)
 				{
 					if (ILIsEqual(pidl,pidl2))
 						bSameFolder=true;
-					ILFree(pidl2);
 				}
 			}
-			ILFree(pidl);
 			if (!bSameFolder)
 				SendMessage(hWnd,WM_KEYDOWN,VK_SPACE,0);
 		}
@@ -125,7 +123,8 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 		HTREEITEM hItem=TreeView_HitTest(hWnd,&test);
 		if (test.flags&TVHT_ONITEM)
 		{
-			PIDLIST_ABSOLUTE pidl=GetTreeItemPidl(hItem,hWnd);
+			CAbsolutePidl pidl;
+			GetTreeItemPidl(hItem,hWnd,&pidl);
 			if (pidl)
 			{
 				CExplorerBHO *pThis=GetTlsData()->bho;
@@ -133,7 +132,6 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 				{
 					pThis->m_pBrowser->BrowseObject(pidl,SBSP_NEWBROWSER|SBSP_ABSOLUTE);
 				}
-				ILFree(pidl);
 			}
 		}
 		return 0;
@@ -154,6 +152,8 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 			indent=0;
 
 		int treeStyle=GetSettingInt(L"TreeStyle");
+		if (treeStyle==STYLE_CLASSIC && GetWinVersion()>=WIN_VER_WIN10)
+			treeStyle=STYLE_VISTA;
 		DWORD style=GetWindowLong(hWnd,GWL_STYLE);
 		if (treeStyle!=STYLE_VISTA)
 		{
@@ -188,7 +188,11 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 
 		int d=GetSettingInt(L"TreeItemSpacing");
 		if (d)
-			TreeView_SetItemHeight(hWnd,TreeView_GetItemHeight(hWnd)+d);
+		{
+			CExplorerBHO *pThis=GetTlsData()->bho;
+			pThis->m_TreeItemHeight=TreeView_GetItemHeight(hWnd)+d;
+			TreeView_SetItemHeight(hWnd,pThis->m_TreeItemHeight);
+		}
 
 		if (wParam==0)
 			return 0;
@@ -201,7 +205,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 		if (GetSettingBool(L"FullIndent"))
 			indent=0;
 
-		if (GetSettingInt(L"TreeStyle")==STYLE_CLASSIC)
+		if (GetSettingInt(L"TreeStyle")==STYLE_CLASSIC && GetWinVersion()<WIN_VER_WIN10)
 		{
 			HIMAGELIST images=TreeView_GetImageList(hWnd,TVSIL_NORMAL);
 			int cx, cy;
@@ -210,13 +214,14 @@ LRESULT CALLBACK CExplorerBHO::SubclassTreeProc( HWND hWnd, UINT uMsg, WPARAM wP
 		}
 		if (indent>=0)
 			TreeView_SetIndent(hWnd,indent);
-
-		int d=GetSettingInt(L"TreeItemSpacing");
-		if (d)
-			TreeView_SetItemHeight(hWnd,TreeView_GetItemHeight(hWnd)+d);
 		return res;
 	}
-
+	if (uMsg==TVM_SETITEMHEIGHT)
+	{
+		CExplorerBHO *pThis=GetTlsData()->bho;
+		if (pThis->m_TreeItemHeight>0)
+			wParam=pThis->m_TreeItemHeight;
+	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
@@ -238,14 +243,15 @@ LRESULT CALLBACK CExplorerBHO::HookExplorer( int nCode, WPARAM wParam, LPARAM lP
 					settings|=1;
 				SetWindowSubclass(hWnd,SubclassTreeProc,'CLSH',settings);
 				PostMessage(hWnd,TVM_SETEXTENDEDSTYLE,TVS_EX_FADEINOUTEXPANDOS|TVS_EX_AUTOHSCROLL|0x80000000,0);
-				if (GetWinVersion()==WIN_VER_VISTA)
-				{
-					// on Vista we can unhook right now. on Win7 we keep the hook because sometimes the tree control can get destroyed and recreated
-					TlsData *pTlsData=GetTlsData();
-					UnhookWindowsHookEx(pTlsData->bho->m_Hook);
-					pTlsData->bho->m_Hook=NULL;
-				}
-				return 0;
+			}
+		}
+		else if (pCreate->lpcs->lpszClass>(LPTSTR)0xFFFF && _wcsicmp(pCreate->lpcs->lpszClass,L"DUIViewWndClassName")==0)
+		{
+			TlsData *pTlsData=GetTlsData();
+			if (!pTlsData->bho->m_DUIView)
+			{
+				pTlsData->bho->m_DUIView=hWnd;
+				SetWindowSubclass(pTlsData->bho->m_DUIView,SubclassDUIViewProc,(UINT_PTR)pTlsData->bho,'CLSH');
 			}
 		}
 	}
@@ -287,15 +293,193 @@ LRESULT CALLBACK CExplorerBHO::HookKeyboard( int nCode, WPARAM wParam, LPARAM lP
 				bool bShift2=GetKeyState(VK_SHIFT)<0;
 				bool bCtrl2=GetKeyState(VK_CONTROL)<0;
 				bool bAlt2=GetKeyState(VK_MENU)<0;
-				if (bShift1==bShift2 && bCtrl1==bCtrl2 && bAlt1==bAlt2)
+				if (bShift1==bShift2 && bAlt1==bAlt2)
 				{
-					pTlsData->bho->m_pBrowser->BrowseObject(NULL,SBSP_SAMEBROWSER|SBSP_PARENT);
-					return 1;
+					if (bCtrl1==bCtrl2)
+					{
+						pTlsData->bho->m_pBrowser->BrowseObject(NULL,SBSP_SAMEBROWSER|SBSP_PARENT);
+						return 1;
+					}
+					else if (bCtrl2)
+					{
+						pTlsData->bho->m_pBrowser->BrowseObject(NULL,SBSP_NEWBROWSER|SBSP_PARENT);
+						return 1;
+					}
 				}
 			}
 		}
 	}
 	return CallNextHookEx(NULL,nCode,wParam,lParam);
+}
+
+bool CExplorerBHO::GetStatusText( wchar_t *buf, int size, const wchar_t *oldText, bool bShowTip, bool bShowSpace )
+{
+	bool res=false;
+	CComPtr<IShellView> pView;
+	if (m_pBrowser && SUCCEEDED(m_pBrowser->QueryActiveShellView(&pView)))
+	{
+		CComQIPtr<IFolderView> pView2=pView;
+
+		CComPtr<IPersistFolder2> pFolder;
+		if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)))
+		{
+			int count;
+			if (bShowTip && SUCCEEDED(pView2->ItemCount(SVGIO_SELECTION,&count)) && count==1)
+			{
+				// if only one item is selected, show its info in the status bar
+				CComPtr<IEnumIDList> pEnum;
+				PITEMID_CHILD child;
+				if (SUCCEEDED(pView2->Items(SVGIO_SELECTION,IID_IEnumIDList,(void**)&pEnum)) && pEnum && pEnum->Next(1,&child,NULL)==S_OK)
+				{
+					CComQIPtr<IShellFolder> pFolder2=pFolder;
+					if (pFolder2)
+					{
+						CComPtr<IQueryInfo> pQueryInfo;
+						if (SUCCEEDED(pFolder2->GetUIObjectOf(NULL,1,(PCUITEMID_CHILD*)&child,IID_IQueryInfo,NULL,(void**)&pQueryInfo)))
+						{
+							CComString pTip;
+							if (SUCCEEDED(pQueryInfo->GetInfoTip(QITIPF_DEFAULT|QITIPF_SINGLELINE,&pTip)) && pTip)
+							{
+								Strcpy(buf,size,pTip);
+								for (wchar_t *p=buf;*p;p++)
+									if (*p=='\t')
+										*p=' ';
+								res=true;
+							}
+						}
+					}
+				}
+			}
+
+			if (!res)
+			{
+				wchar_t buf2[256];
+				if (!oldText)
+				{
+					int count=-1;
+					const wchar_t *fmt=NULL;
+					if (SUCCEEDED(pView2->ItemCount(SVGIO_SELECTION,&count)) && count>0)
+					{
+						fmt=(count==1?FindTranslation(L"Status.ItemSelected",L"%s item selected"):FindTranslation(L"Status.ItemsSelected",L"%s items selected"));
+					}
+					else if (SUCCEEDED(pView2->ItemCount(SVGIO_ALLVIEW,&count)) && count>=0)
+					{
+						fmt=(count==1?FindTranslation(L"Status.Item",L"%s item"):FindTranslation(L"Status.Items",L"%s items"));
+					}
+					else
+						buf2[0]=0;
+					if (fmt)
+					{
+						wchar_t str1[100];
+						wchar_t str2[100];
+						Sprintf(str1,_countof(str1),L"%d",count);
+						NUMBERFMT numFmt;
+						wchar_t sep1[10], sep2[10];
+						numFmt.NumDigits=0;
+						GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_ILZERO,sep1,10);
+						numFmt.LeadingZero=_wtol(buf);
+						GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_INEGNUMBER,sep1,10);
+						numFmt.NegativeOrder=_wtol(buf);
+						GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_SGROUPING,sep1,10);
+						numFmt.Grouping=0;
+						for (const wchar_t *p=sep1;*p;p++)
+							if (*p>='1' && *p<='9')
+								numFmt.Grouping=numFmt.Grouping*10+(*p-'0');
+						GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_SDECIMAL,sep1,10);
+						numFmt.lpDecimalSep=sep1;
+						GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_STHOUSAND,sep2,10);
+						numFmt.lpThousandSep=sep2;
+
+						if (GetNumberFormat(LOCALE_USER_DEFAULT,0,str1,&numFmt,str2,_countof(str2)))
+							Sprintf(buf2,_countof(buf2),fmt,str2);
+						else
+							Sprintf(buf2,_countof(buf2),fmt,str1);
+					}
+					res=true;
+				}
+				if (bShowSpace)
+				{
+					// show the free space of the drive containing the current folder
+					// also works for network locations
+					CAbsolutePidl pidl;
+					wchar_t path[_MAX_PATH];
+					ULARGE_INTEGER diskSize;
+					if (SUCCEEDED(pFolder->GetCurFolder(&pidl)) && SHGetPathFromIDList(pidl,path) && GetDiskFreeSpaceEx(path,NULL,NULL,&diskSize))
+					{
+						wchar_t str[100];
+						StrFormatByteSize64(diskSize.QuadPart,str,_countof(str));
+						Sprintf(buf,size,FindTranslation(L"Status.FreeSpace",L"%s (Disk free space: %s)"),oldText?oldText:buf2,str);
+						res=true;
+					}
+					else if (!oldText)
+						Strcpy(buf,size,buf2);
+				}
+				else if (!oldText)
+					Strcpy(buf,size,buf2);
+			}
+		}
+	}
+	return res;
+}
+
+void CExplorerBHO::GetFileSize( wchar_t *buf, int size )
+{
+	__int64 fileSize=-1;
+	CComPtr<IShellView> pView;
+	bool bMore=false;
+	int time0=GetTickCount();
+	if (m_pBrowser && SUCCEEDED(m_pBrowser->QueryActiveShellView(&pView)))
+	{
+		CComQIPtr<IFolderView> pView2=pView;
+		CComPtr<IPersistFolder2> pFolder;
+		CAbsolutePidl pidl;
+		if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) && SUCCEEDED(pFolder->GetCurFolder(&pidl)))
+		{
+			CComQIPtr<IShellFolder2> pFolder2=pFolder;
+			UINT type=SVGIO_SELECTION;
+			int count, selCount;
+			if (SUCCEEDED(pView2->ItemCount(SVGIO_ALLVIEW,&count)))
+			{
+				if ((FAILED(pView2->ItemCount(SVGIO_SELECTION,&selCount)) || selCount==0))
+					type=SVGIO_ALLVIEW;
+				CComPtr<IEnumIDList> pEnum;
+				if ((count<10000 || selCount<1000) && SUCCEEDED(pView2->Items(type,IID_IEnumIDList,(void**)&pEnum)) && pEnum)
+				{
+					PITEMID_CHILD child;
+					SHCOLUMNID column={PSGUID_STORAGE,PID_STG_SIZE};
+					int index=0;
+					while (pEnum->Next(1,&child,NULL)==S_OK)
+					{
+						index++;
+						if ((index%100)==0 && (GetTickCount()-time0)>500)
+						{
+							ILFree(child);
+							bMore=true;
+							break;
+						}
+						CComVariant var;
+						if (SUCCEEDED(pFolder2->GetDetailsEx(child,&column,&var)) && var.vt==VT_UI8)
+						{
+							if (fileSize<0)
+								fileSize=var.ullVal;
+							else
+								fileSize+=var.ullVal;
+						}
+						ILFree(child);
+					}
+				}
+			}
+		}
+	}
+	if (fileSize>=0)
+	{
+		// format the file size as KB, MB, etc
+		StrFormatByteSize64(fileSize,buf,size);
+		if (bMore)
+			Strcat(buf,size,L"+");
+	}
+	else
+		buf[0]=0;
 }
 
 // Subclass the statusbar to:
@@ -304,6 +488,12 @@ LRESULT CALLBACK CExplorerBHO::HookKeyboard( int nCode, WPARAM wParam, LPARAM lP
 LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
 {
 	wchar_t buf[1024];
+	if (uMsg==WM_CLEAR)
+	{
+		// recalculate the selection size on a timer. this way if the status text is changed frequently
+		// the recalculation will not happen every time
+		SetTimer(hWnd,uIdSubclass,10,NULL);
+	}
 	if (uMsg==WM_PAINT && ((CExplorerBHO*)uIdSubclass)->m_bForceRefresh)
 	{
 		// sometimes Explorer doesn't fully initialize the status bar on Windows 7 and leaves it with 1 part
@@ -315,12 +505,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM 
 	if (uMsg==SB_SETTEXT && LOWORD(wParam)==0)
 	{
 		// when the text of the first part is changing
-
-		// recalculate the selection size on a timer. this way if the status text is changed frequently
-		// the recalculation will not happen every time
-		SetTimer(hWnd,uIdSubclass,10,NULL);
-
-		if (dwRefData&SPACE_WIN7)
+		if (dwRefData&SHOW_FREE_SPACE)
 		{
 			if (((CExplorerBHO*)uIdSubclass)->m_bResetStatus && SendMessage(hWnd,SB_GETPARTS,0,0)<=1)
 			{
@@ -337,70 +522,8 @@ LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM 
 					((CExplorerBHO*)uIdSubclass)->m_bResetStatus=false;
 			}
 		}
-		IShellBrowser *pBrowser=((CExplorerBHO*)uIdSubclass)->m_pBrowser;
-		CComPtr<IShellView> pView;
-		if (pBrowser && SUCCEEDED(pBrowser->QueryActiveShellView(&pView)))
-		{
-			CComQIPtr<IFolderView> pView2=pView;
-
-			CComPtr<IPersistFolder2> pFolder;
-			if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)))
-			{
-				bool bInfoTip=false;
-				int count;
-				if ((dwRefData&SPACE_INFOTIP) && SUCCEEDED(pView2->ItemCount(SVGIO_SELECTION,&count)) && count==1)
-				{
-					// if only one item is selected, show its info in the status bar
-					CComPtr<IEnumIDList> pEnum;
-					PITEMID_CHILD child;
-					if (SUCCEEDED(pView2->Items(SVGIO_SELECTION,IID_IEnumIDList,(void**)&pEnum)) && pEnum && pEnum->Next(1,&child,NULL)==S_OK)
-					{
-						CComQIPtr<IShellFolder> pFolder2=pFolder;
-						if (pFolder2)
-						{
-							CComPtr<IQueryInfo> pQueryInfo;
-							if (SUCCEEDED(pFolder2->GetUIObjectOf(NULL,1,(PCUITEMID_CHILD*)&child,IID_IQueryInfo,NULL,(void**)&pQueryInfo)))
-							{
-								wchar_t *tip;
-								if (SUCCEEDED(pQueryInfo->GetInfoTip(QITIPF_DEFAULT|QITIPF_SINGLELINE,&tip)) && tip)
-								{
-									Strcpy(buf,_countof(buf),tip);
-									for (wchar_t *p=buf;*p;p++)
-										if (*p=='\t')
-											*p=' ';
-									CoTaskMemFree(tip);
-									bInfoTip=true;
-									lParam=(LPARAM)buf;
-								}
-							}
-						}
-					}
-				}
-
-				if (!bInfoTip && (dwRefData&SPACE_WIN7))
-				{
-					// show the free space of the drive containing the current folder
-					// also works for network locations
-					PIDLIST_ABSOLUTE pidl;
-					if (SUCCEEDED(pFolder->GetCurFolder(&pidl)))
-					{
-						if (SHGetPathFromIDList(pidl,buf))
-						{
-							ULARGE_INTEGER size;
-							if (GetDiskFreeSpaceEx(buf,NULL,NULL,&size))
-							{
-								const wchar_t *text=(wchar_t*)lParam;
-								wchar_t str[100];
-								StrFormatByteSize64(size.QuadPart,str,_countof(str));
-								Sprintf(buf,_countof(buf),FindTranslation(L"Status.FreeSpace",L"%s (Disk free space: %s)"),text,str);
-								lParam=(LPARAM)buf;
-							}
-						}
-						ILFree(pidl);
-					}
-				}
-			}
-		}
+		if (((CExplorerBHO*)uIdSubclass)->GetStatusText(buf,_countof(buf),(wchar_t*)lParam,(dwRefData&SHOW_INFOTIP)!=0,(dwRefData&SHOW_FREE_SPACE)!=0))
+			lParam=(LPARAM)buf;
 	}
 	if (uMsg==SB_SETTEXT && LOWORD(wParam)==1)
 	{
@@ -411,50 +534,81 @@ LRESULT CALLBACK CExplorerBHO::SubclassStatusProc( HWND hWnd, UINT uMsg, WPARAM 
 	{
 		// recalculate the total size of the selected files and show it in part 2 of the status bar
 		KillTimer(hWnd,wParam);
-		IShellBrowser *pBrowser=((CExplorerBHO*)uIdSubclass)->m_pBrowser;
-		__int64 size=-1;
-		CComPtr<IShellView> pView;
-		if (pBrowser && SUCCEEDED(pBrowser->QueryActiveShellView(&pView)))
-		{
-			CComQIPtr<IFolderView> pView2=pView;
-			CComPtr<IPersistFolder2> pFolder;
-			PIDLIST_ABSOLUTE pidl;
-			if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) && SUCCEEDED(pFolder->GetCurFolder(&pidl)))
-			{
-				CComQIPtr<IShellFolder2> pFolder2=pFolder;
-				UINT type=SVGIO_SELECTION;
-				int count;
-				if ((FAILED(pView2->ItemCount(SVGIO_SELECTION,&count)) || count==0))
-					type=SVGIO_ALLVIEW;
-				CComPtr<IEnumIDList> pEnum;
-				if (SUCCEEDED(pView2->Items(type,IID_IEnumIDList,(void**)&pEnum)) && pEnum)
-				{
-					PITEMID_CHILD child;
-					SHCOLUMNID column={PSGUID_STORAGE,PID_STG_SIZE};
-					while (pEnum->Next(1,&child,NULL)==S_OK)
-					{
-						CComVariant var;
-						if (SUCCEEDED(pFolder2->GetDetailsEx(child,&column,&var)) && var.vt==VT_UI8)
-						{
-							if (size<0)
-								size=var.ullVal;
-							else
-								size+=var.ullVal;
-						}
-						ILFree(child);
-					}
-				}
-				ILFree(pidl);
-			}
-		}
-		if (size>=0)
-		{
-			// format the file size as KB, MB, etc
-			StrFormatByteSize64(size,buf,_countof(buf));
-		}
-		else
-			buf[0]=0;
+		((CExplorerBHO*)uIdSubclass)->GetFileSize(buf,_countof(buf));
 		DefSubclassProc(hWnd,SB_SETTEXT,1,(LPARAM)buf);
+	}
+	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+}
+
+LRESULT CALLBACK CExplorerBHO::SubclassStatusProc8( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+{
+	wchar_t buf[1024];
+	if (uMsg==WM_CLEAR)
+	{
+		// recalculate the selection size on a timer. this way if the status text is changed frequently
+		// the recalculation will not happen every time
+		SetTimer(hWnd,uIdSubclass,10,NULL);
+
+		if (!((CExplorerBHO*)uIdSubclass)->GetStatusText(buf,_countof(buf),NULL,(dwRefData&SHOW_INFOTIP)!=0,(dwRefData&SHOW_FREE_SPACE)!=0))
+			buf[0]=0;
+		SendMessage(hWnd,SB_SETTEXT,PART_TEXT,(LPARAM)buf);
+		return 0;
+	}
+	if (uMsg==WM_TIMER && wParam==uIdSubclass)
+	{
+		// recalculate the total size of the selected files and show it in part 2 of the status bar
+		KillTimer(hWnd,wParam);
+		((CExplorerBHO*)uIdSubclass)->GetFileSize(buf,_countof(buf));
+		SendMessage(hWnd,SB_SETTEXT,PART_SIZE,(LPARAM)buf);
+		return 0;
+	}
+	if (uMsg==WM_LBUTTONDBLCLK)
+	{
+		POINT pt={(short)LOWORD(lParam),(short)HIWORD(lParam)};
+		RECT rc;
+		DefSubclassProc(hWnd,SB_GETRECT,PART_ZONE,(LPARAM)&rc);
+		if (PtInRect(&rc,pt))
+		{
+			CExplorerBHO *pThis=(CExplorerBHO*)uIdSubclass;
+			CComBSTR url;
+			if (pThis->m_pWebBrowser && SUCCEEDED(pThis->m_pWebBrowser->get_LocationURL(&url)))
+			{
+				// use undocumented function 383 from shlwapi
+				typedef void (WINAPI* FZoneConfigureW)(HWND,LPCWSTR);
+				FZoneConfigureW ZoneConfigureW;
+
+				HMODULE	hShlwapi=LoadLibrary(L"shlwapi.dll");
+				if(hShlwapi)
+				{
+					ZoneConfigureW=(FZoneConfigureW)GetProcAddress(hShlwapi,MAKEINTRESOURCEA(383));
+					if(ZoneConfigureW)
+						ZoneConfigureW(GetAncestor(hWnd,GA_ROOT),url);
+					FreeLibrary(hShlwapi);
+				}
+			}
+			return 0;
+		}
+	}
+	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
+}
+
+// Subclass the DUIView to reduce its size and reposition the taskbar
+LRESULT CALLBACK CExplorerBHO::SubclassDUIViewProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+{
+	CExplorerBHO *pThis=(CExplorerBHO*)uIdSubclass;
+	if (uMsg==WM_WINDOWPOSCHANGING && pThis->m_Status8)
+	{
+		WINDOWPOS *pPos=(WINDOWPOS*)lParam;
+		if (!(pPos->flags&SWP_NOSIZE))
+		{
+			RECT rc;
+			GetWindowRect(pThis->m_Status8,&rc);
+			int height=rc.bottom-rc.top;
+			pPos->cy-=height;
+			SetWindowPos(pThis->m_Status8,NULL,pPos->x,pPos->y+pPos->cy,pPos->cx,rc.bottom-rc.top,SWP_NOZORDER);
+			int parts[]={pPos->cx-height-pThis->m_FileSizeWidth-pThis->m_ZoneWidth,pPos->cx-height-pThis->m_ZoneWidth,-1};
+			SendMessage(pThis->m_Status8,SB_SETPARTS,pThis->m_ZoneWidth?3:2,(LPARAM)parts);
+		}
 	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
@@ -630,7 +784,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassBreadcrumbProc( HWND hWnd, UINT uMsg, WPA
 
 				// draw path
 				HFONT font=(HFONT)SendMessage(hWnd,WM_GETFONT,0,0);
-				HFONT font0=(HFONT)SelectObject(hdcPaint,font);
+				HGDIOBJ font0=SelectObject(hdcPaint,font);
 				SetBkMode(hdcPaint,TRANSPARENT);
 				SetTextColor(hdcPaint,GetSysColor(COLOR_WINDOWTEXT));
 				HTHEME theme=GetWindowTheme(hWnd);
@@ -683,12 +837,11 @@ LRESULT CALLBACK CExplorerBHO::SubclassProgressProc( HWND hWnd, UINT uMsg, WPARA
 			{
 				// add desktop
 				ITEMIDLIST shEmpty={{0}};
-				wchar_t *pName;
+				CComString pName;
 				if (SUCCEEDED(SHGetNameFromIDList((PIDLIST_ABSOLUTE)&shEmpty,SIGDN_DESKTOPABSOLUTEEDITING,&pName)))
 				{
 					ComboItem item={ILCloneFull((PIDLIST_ABSOLUTE)&shEmpty),0,CString(pName)};
 					pThis->m_ComboItems.push_back(item);
-					CoTaskMemFree(pName);
 				}
 			}
 
@@ -704,12 +857,11 @@ LRESULT CALLBACK CExplorerBHO::SubclassProgressProc( HWND hWnd, UINT uMsg, WPARA
 						STRRET str;
 						if (SUCCEEDED(pDesktop->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_NORMAL,&str)))
 						{
-							wchar_t *pName;
+							CComString pName;
 							StrRetToStr(&str,child,&pName);
 							ComboItem item={(PIDLIST_ABSOLUTE)child,1,CString(pName)};
 							item.sortName=item.name;
 							pThis->m_ComboItems.push_back(item);
-							CoTaskMemFree(pName);
 						}
 						else
 							ILFree(child);
@@ -723,7 +875,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassProgressProc( HWND hWnd, UINT uMsg, WPARA
 			if (dwRefData==2)
 			{
 				// enumerate all computer items
-				PIDLIST_ABSOLUTE pidlComp;
+				CAbsolutePidl pidlComp;
 				SHGetKnownFolderIDList(FOLDERID_ComputerFolder,0,NULL,&pidlComp);
 				int index=1;
 				for (int i=1;i<(int)pThis->m_ComboItems.size();i++)
@@ -732,39 +884,37 @@ LRESULT CALLBACK CExplorerBHO::SubclassProgressProc( HWND hWnd, UINT uMsg, WPARA
 						index=i+1;
 						break;
 					}
-					int index0=index;
-					CComPtr<IShellFolder> pComputer;
-					pDesktop->BindToObject(pidlComp,NULL,IID_IShellFolder,(void**)&pComputer);
+				int index0=index;
+				CComPtr<IShellFolder> pComputer;
+				pDesktop->BindToObject(pidlComp,NULL,IID_IShellFolder,(void**)&pComputer);
 
-					CComPtr<IEnumIDList> pEnum;
-					if (pComputer && SUCCEEDED(pComputer->EnumObjects(NULL,SHCONTF_FOLDERS,&pEnum)) && pEnum)
+				CComPtr<IEnumIDList> pEnum;
+				if (pComputer && SUCCEEDED(pComputer->EnumObjects(NULL,SHCONTF_FOLDERS,&pEnum)) && pEnum)
+				{
+					PITEMID_CHILD child;
+					while (pEnum->Next(1,&child,NULL)==S_OK)
 					{
-						PITEMID_CHILD child;
-						while (pEnum->Next(1,&child,NULL)==S_OK)
+						STRRET str;
+						if (SUCCEEDED(pComputer->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_NORMAL,&str)))
 						{
-							STRRET str;
-							if (SUCCEEDED(pComputer->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_NORMAL,&str)))
-							{
-								wchar_t *pName;
-								StrRetToStr(&str,child,&pName);
-								ComboItem item={ILCombine(pidlComp,child),2,CString(pName)};
-								pThis->m_ComboItems.insert(pThis->m_ComboItems.begin()+index,1,item);
-								CoTaskMemFree(pName);
-								index++;
-							}
-							ILFree(child);
+							CComString pName;
+							StrRetToStr(&str,child,&pName);
+							ComboItem item={ILCombine(pidlComp,child),2,CString(pName)};
+							pThis->m_ComboItems.insert(pThis->m_ComboItems.begin()+index,1,item);
+							index++;
 						}
+						ILFree(child);
 					}
-					ILFree(pidlComp);
+				}
 
-					//sort computer items
-					std::sort(pThis->m_ComboItems.begin()+index0,pThis->m_ComboItems.begin()+index);
+				//sort computer items
+				std::sort(pThis->m_ComboItems.begin()+index0,pThis->m_ComboItems.begin()+index);
 			}
 
 			if (pThis->m_CurPidl)
 			{
 				// enumerate all parent items
-				PIDLIST_ABSOLUTE pidl=ILCloneFull(pThis->m_CurPidl);
+				CAbsolutePidl pidl(pThis->m_CurPidl);
 				PIDLIST_ABSOLUTE pidlStart=pidl;
 				int index=0;
 				for (int i=0;i<(int)pThis->m_ComboItems.size();i++)
@@ -794,16 +944,14 @@ LRESULT CALLBACK CExplorerBHO::SubclassProgressProc( HWND hWnd, UINT uMsg, WPARA
 						STRRET str;
 						if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_NORMAL,&str)))
 						{
-							wchar_t *pName;
+							CComString pName;
 							StrRetToStr(&str,child,&pName);
 							ComboItem item={ILCloneFull(pidl),n-(i-start),CString(pName)};
 							pThis->m_ComboItems.insert(pThis->m_ComboItems.begin()+index+1,1,item);
-							CoTaskMemFree(pName);
 						}
 					}
 					ILRemoveLastID(pidl);
 				}
-				ILFree(pidl);
 			}
 
 			// add all sorted items to the combobox
@@ -845,7 +993,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassProgressProc( HWND hWnd, UINT uMsg, WPARA
 			{
 				COMBOBOXEXITEM item={CBEIF_LPARAM,index};
 				pThis->m_ComboBox.SendMessage(CBEM_GETITEM,0,(LPARAM)&item);
-				pThis->m_NavigatePidl=ILCloneFull((PIDLIST_ABSOLUTE)item.lParam);
+				pThis->m_NavigatePidl.Clone((PIDLIST_ABSOLUTE)item.lParam);
 				PostMessage(hWnd,pThis->m_NavigateMsg,0,0);
 			}
 			pThis->ClearComboItems();
@@ -870,7 +1018,7 @@ LRESULT CALLBACK CExplorerBHO::SubclassProgressProc( HWND hWnd, UINT uMsg, WPARA
 			{
 				COMBOBOXEXITEM item={CBEIF_LPARAM,index};
 				pThis->m_ComboBox.SendMessage(CBEM_GETITEM,0,(LPARAM)&item);
-				pThis->m_NavigatePidl=ILCloneFull((PIDLIST_ABSOLUTE)item.lParam);
+				pThis->m_NavigatePidl.Clone((PIDLIST_ABSOLUTE)item.lParam);
 				pThis->ClearComboItems();
 				PostMessage(hWnd,pThis->m_NavigateMsg,0,0);
 				pThis->m_ComboBox.SendMessage(CB_SHOWDROPDOWN,FALSE);
@@ -886,31 +1034,27 @@ LRESULT CALLBACK CExplorerBHO::SubclassProgressProc( HWND hWnd, UINT uMsg, WPARA
 			pThis->m_pBrowser->BrowseObject(pThis->m_NavigatePidl,SBSP_SAMEBROWSER|SBSP_ABSOLUTE);
 		else
 			SetFocus(hWnd);
-		if (pThis->m_NavigatePidl) ILFree(pThis->m_NavigatePidl);
-		pThis->m_NavigatePidl=NULL;
+		pThis->m_NavigatePidl.Clear();
 	}
 
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
-static void NewVersionCallback( DWORD newVersion, CString downloadUrl, CString news )
+static void NewVersionCallback( VersionData &data )
 {
-	if (newVersion>GetVersionEx(g_Instance))
+	wchar_t path[_MAX_PATH];
+	GetModuleFileName(g_Instance,path,_countof(path));
+	PathRemoveFileSpec(path);
+	PathAppend(path,L"ClassicShellUpdate.exe");
+	wchar_t cmdLine[1024];
+	Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" -popup",path);
+	STARTUPINFO startupInfo={sizeof(startupInfo)};
+	PROCESS_INFORMATION processInfo;
+	memset(&processInfo,0,sizeof(processInfo));
+	if (CreateProcess(path,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
 	{
-		wchar_t path[_MAX_PATH];
-		GetModuleFileName(g_Instance,path,_countof(path));
-		PathRemoveFileSpec(path);
-		PathAppend(path,L"ClassicShellUpdate.exe");
-		wchar_t cmdLine[1024];
-		Sprintf(cmdLine,_countof(cmdLine),L"\"%s\" -popup",path);
-		STARTUPINFO startupInfo={sizeof(startupInfo)};
-		PROCESS_INFORMATION processInfo;
-		memset(&processInfo,0,sizeof(processInfo));
-		if (CreateProcess(path,cmdLine,NULL,NULL,TRUE,0,NULL,NULL,&startupInfo,&processInfo))
-		{
-			CloseHandle(processInfo.hThread);
-			CloseHandle(processInfo.hProcess);
-		}
+		CloseHandle(processInfo.hThread);
+		CloseHandle(processInfo.hProcess);
 	}
 }
 
@@ -936,8 +1080,8 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 			pProvider->QueryService(SID_SWebBrowserApp,IID_IWebBrowser2,(void**)&m_pWebBrowser);
 			if (m_pWebBrowser)
 			{
-				if (m_dwEventCookie==0xFEFEFEFE) // ATL's event cookie is 0xFEFEFEFE when the sink is not advised
-					DispEventAdvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
+				if (DispEvent1::m_dwEventCookie==0xFEFEFEFE) // ATL's event cookie is 0xFEFEFEFE when the sink is not advised
+					DispEvent1::DispEventAdvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
 				CRegKey regKey;
 				if (regKey.Open(HKEY_CURRENT_USER,GetSettingsRegPath())!=ERROR_SUCCESS)
 					regKey.Create(HKEY_CURRENT_USER,GetSettingsRegPath());
@@ -947,7 +1091,7 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 				{
 					CComVariant name(L"{553891B7-A0D5-4526-BE18-D3CE461D6310}");
 					CComVariant show(true);
-					if (SUCCEEDED(m_pWebBrowser->ShowBrowserBar(&name,&show,NULL)))
+					if (GetSettingBool(L"NoInitialToolbar") || SUCCEEDED(m_pWebBrowser->ShowBrowserBar(&name,&show,NULL)))
 						regKey.SetDWORDValue(L"ShowedToolbar",1);
 				}
 			}
@@ -961,7 +1105,6 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 					SetProp(m_TopWindow,g_LoadedSettingsAtom,(HANDLE)1);
 					LoadSettings();
 				}
-				bool bWin7=(GetWinVersion()==WIN_VER_WIN7);
 				bool bWin8=(GetWinVersion()>=WIN_VER_WIN8);
 
 				m_UpButtonIndex=bWin8?0:GetSettingInt(L"ShowUpButton");
@@ -1096,25 +1239,78 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 				if (bRedrawRebar)
 					RedrawWindow(rebar,NULL,NULL,RDW_UPDATENOW|RDW_ALLCHILDREN);
 
-				m_UpHotkey=GetSettingInt(bWin8?L"UpHotkey2":L"UpHotkey");
+				m_UpHotkey=GetSettingInt(L"UpHotkey");
 				if ((m_AltD || m_UpHotkey) && !m_HookKbd)
 				{
 					m_HookKbd=SetWindowsHookEx(WH_KEYBOARD,HookKeyboard,NULL,GetCurrentThreadId());
 				}
 
-				if (!bWin8 && GetSettingBool(L"ShowFreeSpace"))
+				if ((bWin8 && GetSettingBool(L"ShowStatusBar")) || (!bWin8 && GetSettingBool(L"ShowFreeSpace")))
 				{
-					DWORD FreeSpace=GetSettingBool(L"ShowInfoTip")?SPACE_INFOTIP:0;
-					if (bWin7)
-						FreeSpace|=SPACE_WIN7;
-					SetWindowSubclass(status,SubclassStatusProc,(UINT_PTR)this,FreeSpace);
-					m_bForceRefresh=(bWin7 && GetSettingBool(L"ForceRefreshWin7"));
-					m_Status=status;
+					DWORD flags=(GetSettingBool(L"ShowInfoTip")?SHOW_INFOTIP:0)|(GetSettingBool(L"ShowFreeSpace")?SHOW_FREE_SPACE:0);
+					if (bWin8)
+					{
+						RECT rc;
+						GetWindowRect(status,&rc);
+						m_Status8=CreateWindow(STATUSCLASSNAME,NULL,WS_CHILD|WS_VISIBLE|SBARS_SIZEGRIP|SBARS_TOOLTIPS,0,0,rc.right-rc.left,rc.bottom-rc.top,GetParent(status),NULL,g_Instance,NULL);
+						HDC hdc=CreateCompatibleDC(NULL);
+						HGDIOBJ font0=SelectObject(hdc,(HFONT)SendMessage(m_Status8,WM_GETFONT,0,0));
+
+						HFONT font=CreateFontSetting(GetSettingString(L"StatusBarFont"),GetDeviceCaps(hdc,LOGPIXELSY));
+						if (font)
+						{
+							SendMessage(m_Status8,WM_SETFONT,(WPARAM)font,0);
+							SelectObject(hdc,font);
+							TEXTMETRIC met;
+							GetTextMetrics(hdc,&met);
+							int height=GetSystemMetrics(SM_CXSMICON);
+							if (height<met.tmHeight)
+								height=met.tmHeight;
+							SendMessage(m_Status8,SB_SETMINHEIGHT,height,0);
+						}
+
+						SIZE size;
+						if (!GetTextExtentPoint32(hdc,L"1.000 GB",8,&size))
+							size.cx=0;
+						m_FileSizeWidth=size.cx+20+(rc.bottom-rc.top);
+						if (m_FileSizeWidth<80)
+							m_FileSizeWidth=80;
+						m_ZoneWidth=0;
+						if (GetSettingBool(L"ShowZone"))
+						{
+							m_pZoneManager.CoCreateInstance(CLSID_InternetZoneManager,NULL,CLSCTX_INPROC_SERVER);
+							m_pSecurityManager.CoCreateInstance(CLSID_InternetSecurityManager,NULL,CLSCTX_INPROC_SERVER);
+							if (m_pZoneManager && m_pSecurityManager)
+							{
+								for (DWORD zone=URLZONE_LOCAL_MACHINE;zone<=URLZONE_UNTRUSTED;zone++)
+								{
+									ZONEATTRIBUTES attributes={sizeof(attributes)};
+									if (SUCCEEDED(m_pZoneManager->GetZoneAttributes(zone,&attributes)))
+									{
+										if (GetTextExtentPoint32(hdc,attributes.szDisplayName,Strlen(attributes.szDisplayName),&size) && m_ZoneWidth<size.cx)
+											m_ZoneWidth=size.cx;
+									}
+								}
+								m_ZoneWidth+=50;
+							}
+						}
+						SelectObject(hdc,font0);
+						DeleteDC(hdc);
+
+						SendMessage(m_Status8,SB_SIMPLE,FALSE,0);
+						SetWindowSubclass(m_Status8,SubclassStatusProc8,(UINT_PTR)this,flags);
+					}
+					else
+					{
+						SetWindowSubclass(status,SubclassStatusProc,(UINT_PTR)this,flags);
+						m_bForceRefresh=(GetSettingBool(L"ForceRefreshWin7"));
+						m_Status=status;
+					}
 				}
 			}
 			s_AutoNavDelay=GetSettingInt(L"AutoNavDelay");
 			if (m_TopWindow)
-				CheckForNewVersion(CHECK_AUTO,NewVersionCallback);
+				CheckForNewVersion(NULL,COMPONENT_EXPLORER,CHECK_AUTO,NewVersionCallback);
 		}
 	}
 	else
@@ -1130,6 +1326,12 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 		if (m_Status)
 			RemoveWindowSubclass(m_Status,SubclassStatusProc,(UINT_PTR)this);
 		m_Status=NULL;
+		if (m_Status8)
+			RemoveWindowSubclass(m_Status8,SubclassStatusProc8,(UINT_PTR)this);
+		m_Status8=NULL;
+		if (m_DUIView)
+			RemoveWindowSubclass(m_DUIView,SubclassDUIViewProc,(UINT_PTR)this);
+		m_DUIView=NULL;
 		if (m_Progress)
 			RemoveWindowSubclass(m_Progress,SubclassProgressProc,(UINT_PTR)this);
 		m_Progress=NULL;
@@ -1140,9 +1342,12 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 		if (m_Rebar)
 			RemoveWindowSubclass(m_Rebar,SubclassRebarProc,(UINT_PTR)this);
 		m_pBrowser=NULL;
-		if (m_pWebBrowser && m_dwEventCookie!=0xFEFEFEFE)
-			DispEventUnadvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
+		if (m_pWebBrowser && DispEvent1::m_dwEventCookie!=0xFEFEFEFE)
+			DispEvent1::DispEventUnadvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
 		m_pWebBrowser=NULL;
+		if (m_pWebDoc && DispEvent2::m_dwEventCookie!=0xFEFEFEFE)
+			DispEvent2::DispEventUnadvise(m_pWebDoc,&DIID_DShellFolderViewEvents);
+		m_pWebDoc=NULL;
 		if (m_Toolbar.m_hWnd)
 			m_Toolbar.DestroyWindow();
 		if (m_IconNormal) DestroyIcon(m_IconNormal); m_IconNormal=NULL;
@@ -1150,8 +1355,8 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 		if (m_IconPressed) DestroyIcon(m_IconPressed); m_IconPressed=NULL;
 		if (m_IconDisabled) DestroyIcon(m_IconDisabled); m_IconDisabled=NULL;
 		if (m_CurIcon) DestroyIcon(m_CurIcon); m_CurIcon=NULL;
-		if (m_CurPidl) ILFree(m_CurPidl); m_CurPidl=NULL;
-		if (m_NavigatePidl) ILFree(m_NavigatePidl); m_NavigatePidl=NULL;
+		m_CurPidl.Clear();
+		m_NavigatePidl.Clear();
 		if (m_TopWindow) RemoveProp(m_TopWindow,g_LoadedSettingsAtom);
 		m_TopWindow=NULL;
 		if (m_Balloon)
@@ -1159,6 +1364,8 @@ HRESULT STDMETHODCALLTYPE CExplorerBHO::SetSite( IUnknown *pUnkSite )
 			DestroyWindow(m_Balloon);
 			m_Balloon=NULL;
 		}
+		for (std::map<unsigned int,HICON>::iterator it=m_ZoneIconCache.begin();it!=m_ZoneIconCache.end();++it)
+			DestroyIcon(it->second);
 	}
 	ClearComboItems();
 	return S_OK;
@@ -1176,15 +1383,30 @@ void CExplorerBHO::ClearComboItems( void )
 	}
 }
 
-STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
+STDMETHODIMP CExplorerBHO::OnDocumentComplete( IDispatch *pDisp, VARIANT *URL )
 {
 	// this is called when the current folder changes. disable the Up button if this is the desktop folder
 	bool bDesktop=false;
 	m_CurPath[0]=0;
 	if (m_CurIcon) DestroyIcon(m_CurIcon);
 	m_CurIcon=NULL;
-	if (m_CurPidl) ILFree(m_CurPidl);
-	m_CurPidl=NULL;
+	m_CurPidl.Clear();
+	if (m_pWebBrowser && (m_Status || m_Status8))
+	{
+		if (m_pWebDoc && DispEvent2::m_dwEventCookie!=0xFEFEFEFE)
+			DispEvent2::DispEventUnadvise(m_pWebDoc,&DIID_DShellFolderViewEvents);
+		m_pWebDoc=NULL;
+		m_pWebBrowser->get_Document(&m_pWebDoc);
+		if (m_pWebDoc && DispEvent2::m_dwEventCookie==0xFEFEFEFE) // ATL's event cookie is 0xFEFEFEFE when the sink is not advised
+			DispEvent2::DispEventAdvise(m_pWebDoc,&DIID_DShellFolderViewEvents);
+		if (DispEvent2::m_dwEventCookie!=0xFEFEFEFE)
+		{
+			if (m_Status)
+				SendMessage(m_Status,WM_CLEAR,0,0);
+			if (m_Status8)
+				SendMessage(m_Status8,WM_CLEAR,0,0);
+		}
+	}
 	if (m_pBrowser)
 	{
 		CComPtr<IShellView> pView;
@@ -1237,20 +1459,15 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 					// so do it the hard way and grab it from SHGetNameFromIDList and SHGetFileInfo
 					if (m_bNoBreadcrumbs)
 					{
-						wchar_t *pPath=NULL;
+						CComString pPath;
 						if (SUCCEEDED(SHGetNameFromIDList(m_CurPidl,SIGDN_DESKTOPABSOLUTEEDITING,&pPath)))
 							Strcpy(m_CurPath,_countof(m_CurPath),pPath);
 						else if (SUCCEEDED(SHGetNameFromIDList(m_CurPidl,SIGDN_FILESYSPATH,&pPath)))
 							Strcpy(m_CurPath,_countof(m_CurPath),pPath); // just in case DESKTOPABSOLUTE fails let's try the FILESYSPATH. probably not needed
-						if (pPath) CoTaskMemFree(pPath);
 						SHFILEINFO info;
-						if (SUCCEEDED(SHGetFileInfo((LPCTSTR)m_CurPidl,0,&info,sizeof(info),SHGFI_ICON|SHGFI_SMALLICON|SHGFI_PIDL)))
+						if (SUCCEEDED(SHGetFileInfo((LPCTSTR)(PIDLIST_ABSOLUTE)m_CurPidl,0,&info,sizeof(info),SHGFI_ICON|SHGFI_SMALLICON|SHGFI_PIDL)))
 							m_CurIcon=info.hIcon;
 					}
-				}
-				else
-				{
-					m_CurPidl=NULL;
 				}
 			}
 		}
@@ -1263,19 +1480,85 @@ STDMETHODIMP CExplorerBHO::OnNavigateComplete( IDispatch *pDisp, VARIANT *URL )
 	}
 	if (m_Toolbar.m_hWnd)
 		m_Toolbar.SendMessage(TB_ENABLEBUTTON,1,bDesktop?0:1);
+
+	if (m_pZoneManager && m_pSecurityManager)
+	{
+		wchar_t text[256];
+		text[0]=0;
+		HICON hIcon=NULL;
+		if (URL && URL->vt==VT_BSTR)
+		{
+			DWORD zone;
+			if (FAILED(m_pSecurityManager->MapUrlToZone(URL->bstrVal,&zone,0)))
+				zone=URLZONE_LOCAL_MACHINE;
+			ZONEATTRIBUTES attributes={sizeof(attributes)};
+			if (SUCCEEDED(m_pZoneManager->GetZoneAttributes(zone,&attributes)))
+			{
+				Strcpy(text,_countof(text),attributes.szDisplayName);
+				unsigned int key=CalcFNVHash(attributes.szIconPath);
+				std::map<unsigned int,HICON>::const_iterator it=m_ZoneIconCache.find(key);
+				if (it!=m_ZoneIconCache.end())
+					hIcon=it->second;
+				else
+				{
+					wchar_t path[_MAX_PATH];
+					wchar_t *str=wcschr(attributes.szIconPath,'#');
+					if (!str) str=wcschr(attributes.szIconPath,',');
+					int index=0;
+					if (str)
+					{
+						index=_wtol(str+1);
+						*str=0;
+					}
+					int iconSize=GetSystemMetrics(SM_CXSMICON);
+					Strcpy(path,_countof(path),attributes.szIconPath);
+					if (PathIsRelative(path))
+						PathFindOnPath(path,NULL);
+					if (index==0)
+						hIcon=(HICON)LoadImage(NULL,path,IMAGE_ICON,iconSize,iconSize,LR_LOADFROMFILE);
+					else
+					{
+						HMODULE hModule=LoadLibraryEx(path,NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+						if (hModule)
+						{
+							hIcon=(HICON)LoadImage(hModule,MAKEINTRESOURCE(index),IMAGE_ICON,iconSize,iconSize,0);
+							FreeLibrary(hModule);
+						}
+					}
+					m_ZoneIconCache[key]=hIcon;
+				}
+			}
+		}
+
+		SendMessage(m_Status8,SB_SETTEXT,PART_ZONE,(LPARAM)text);
+		SendMessage(m_Status8,SB_SETICON,PART_ZONE,(LPARAM)hIcon);
+
+	}
 	return S_OK;
 }
 
 STDMETHODIMP CExplorerBHO::OnQuit( void )
 {
-	if (m_pWebBrowser && m_dwEventCookie!=0xFEFEFEFE) // ATL's event cookie is 0xFEFEFEFE, when the sink is not advised
-		return DispEventUnadvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
+	if (m_pWebBrowser && DispEvent1::m_dwEventCookie!=0xFEFEFEFE) // ATL's event cookie is 0xFEFEFEFE, when the sink is not advised
+		DispEvent1::DispEventUnadvise(m_pWebBrowser,&DIID_DWebBrowserEvents2);
+	if (m_pWebDoc && DispEvent2::m_dwEventCookie!=0xFEFEFEFE)
+		DispEvent2::DispEventUnadvise(m_pWebDoc,&DIID_DShellFolderViewEvents);
+	return S_OK;
+}
+
+STDMETHODIMP CExplorerBHO::OnSelChanged( void )
+{
+	if (m_Status)
+		SendMessage(m_Status,WM_CLEAR,0,0);
+	if (m_Status8)
+		SendMessage(m_Status8,WM_CLEAR,0,0);
 	return S_OK;
 }
 
 bool ShowTreeProperties( HWND hwndTree )
 {
-	PIDLIST_ABSOLUTE pidl=GetTreeItemPidl(TreeView_GetSelection(hwndTree),hwndTree);
+	CAbsolutePidl pidl;
+	GetTreeItemPidl(TreeView_GetSelection(hwndTree),hwndTree,&pidl);
 	if (pidl)
 	{
 		// show properties
@@ -1283,7 +1566,6 @@ bool ShowTreeProperties( HWND hwndTree )
 		execute.lpIDList=pidl;
 		execute.nShow=SW_SHOWNORMAL;
 		ShellExecuteEx(&execute);
-		ILFree(pidl);
 		return true;
 	}
 	return false;

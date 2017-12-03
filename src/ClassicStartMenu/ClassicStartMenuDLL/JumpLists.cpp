@@ -1,8 +1,9 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #include "stdafx.h"
 #include "JumpLists.h"
+#include "ItemManager.h"
 #include "ResourceHelper.h"
 #include "Translations.h"
 #include "FNVHash.h"
@@ -10,199 +11,221 @@
 #include <propkey.h>
 #include <StrSafe.h>
 
-static KNOWNFOLDERID g_KnownPrefixes[]=
-{
-	FOLDERID_SystemX86,
-	FOLDERID_System,
-	FOLDERID_Windows,
-	FOLDERID_ProgramFilesX86,
-	FOLDERID_ProgramFilesX64,
-};
+static const CLSID CLSID_AutomaticDestinationList={0xf0ae1542, 0xf497, 0x484b, {0xa1, 0x75, 0xa2, 0x0d, 0xb0, 0x91, 0x44, 0xba}};
 
-struct DestListHeader
+struct APPDESTCATEGORY
 {
-	int type; // 1
+	int type;
+	union
+	{
+		wchar_t *name;
+		int subType;
+	};
 	int count;
-	int pinCount;
-	int reserved1;
-	int lastStream;
-	int reserved2;
-	int writeCount;
-	int reserved3;
+	int pad[10]; // just in case
 };
 
-struct DestListItemHeader
+static const GUID IID_IDestinationList={0x03f1eed2, 0x8676, 0x430b, {0xab, 0xe1, 0x76, 0x5c, 0x1d, 0x8f, 0xe1, 0x47}};
+static const GUID IID_IDestinationList10a={0xfebd543d, 0x1f7b, 0x4b38, {0x94, 0x0b, 0x59, 0x33, 0xbd, 0x2c, 0xb2, 0x1b}}; // 10240
+static const GUID IID_IDestinationList10b={0x507101cd, 0xf6ad, 0x46c8, {0x8e, 0x20, 0xee, 0xb9, 0xe6, 0xba, 0xc4, 0x7f}}; // 10547
+
+interface IDestinationList: public IUnknown
 {
-	unsigned __int64 crc;
-	char pad1[80];
-	int stream;
-	int pad2;
-	float useCount;
-	FILETIME timestamp;
-	int pinIdx;
+public:
+	STDMETHOD(SetMinItems)();
+	virtual HRESULT STDMETHODCALLTYPE SetApplicationID( LPCWSTR appUserModelId ) = 0;
+	STDMETHOD(GetSlotCount)();
+	virtual HRESULT STDMETHODCALLTYPE GetCategoryCount( UINT *pCount ) = 0;
+	virtual HRESULT STDMETHODCALLTYPE GetCategory( UINT index, int getCatFlags, APPDESTCATEGORY *pCategory ) = 0;
+	STDMETHOD(DeleteCategory)();
+	virtual HRESULT STDMETHODCALLTYPE EnumerateCategoryDestinations( UINT index, REFIID riid, void **ppvObject ) = 0;
+	STDMETHOD(RemoveDestination)( IUnknown *pItem );
+	STDMETHOD(ResolveDestination)();
 };
 
-struct DestListItem
+static const GUID IID_IAutomaticDestinationList={0xbc10dce3, 0x62f2, 0x4bc6, {0xaf, 0x37, 0xdb, 0x46, 0xed, 0x78, 0x73, 0xc4}};
+static const GUID IID_IAutomaticDestinationList10b={0xe9c5ef8d, 0xfd41, 0x4f72, {0xba, 0x87, 0xeb, 0x03 ,0xba, 0xd5, 0x81, 0x7c}}; // 10547
+
+interface IAutomaticDestinationList: public IUnknown
 {
-	DestListItemHeader header;
-	CString name;
+public:
+	virtual HRESULT STDMETHODCALLTYPE Initialize( LPCWSTR appUserModelId, LPCWSTR lnkPath, LPCWSTR ) = 0;
+	virtual HRESULT STDMETHODCALLTYPE HasList( BOOL *pHasList ) = 0;
+	virtual HRESULT STDMETHODCALLTYPE GetList( int listType, unsigned int maxCount, REFIID riid, void **ppvObject ) = 0;
+	STDMETHOD(AddUsagePoint)();
+	virtual HRESULT STDMETHODCALLTYPE PinItem( IUnknown *pItem, int pinIndex ) = 0; // -1 - pin, -2 - unpin
+	STDMETHOD(IsPinned)();
+	virtual HRESULT STDMETHODCALLTYPE RemoveDestination( IUnknown *pItem ) = 0;
+	STDMETHOD(SetUsageData)();
+	STDMETHOD(GetUsageData)();
+	STDMETHOD(ResolveDestination)();
+	virtual HRESULT STDMETHODCALLTYPE ClearList( int listType ) = 0;
 };
 
-struct CustomListHeader
+interface IAutomaticDestinationList10b: public IUnknown
 {
-	int type; // 2
-	int groupCount;
-	int reserved;
+public:
+	virtual HRESULT STDMETHODCALLTYPE Initialize( LPCWSTR appUserModelId, LPCWSTR lnkPath, LPCWSTR ) = 0;
+	virtual HRESULT STDMETHODCALLTYPE HasList( BOOL *pHasList ) = 0;
+	virtual HRESULT STDMETHODCALLTYPE GetList( int listType, unsigned int maxCount, unsigned int flags, REFIID riid, void **ppvObject ) = 0;
+	STDMETHOD(AddUsagePoint)();
+	virtual HRESULT STDMETHODCALLTYPE PinItem( IUnknown *pItem, int pinIndex ) = 0; // -1 - pin, -2 - unpin
+	STDMETHOD(IsPinned)();
+	virtual HRESULT STDMETHODCALLTYPE RemoveDestination( IUnknown *pItem ) = 0;
+	STDMETHOD(SetUsageData)();
+	STDMETHOD(GetUsageData)();
+	STDMETHOD(ResolveDestination)();
+	virtual HRESULT STDMETHODCALLTYPE ClearList( int listType ) = 0;
 };
 
-// app ID resolver interface as described here: http://www.binrand.com/post/1510934-out-using-system-using-system-collections-generic-using-system.html
-interface IApplicationResolver: public IUnknown
+class CAutomaticList
 {
-	STDMETHOD(GetAppIDForShortcut)( IShellItem *psi, LPWSTR *ppszAppID );
-	// .... we don't care about the rest of the methods ....
+public:
+	CAutomaticList( const wchar_t *appid );
+	bool HasList( void );
+	CComPtr<IObjectCollection> GetList( int listType, unsigned int maxCount );
+	void PinItem( IUnknown *pItem, int pinIndex );
+	bool RemoveDestination( IUnknown *pItem );
+
+private:
+	CComPtr<IAutomaticDestinationList> m_pAutoList;
+	CComPtr<IAutomaticDestinationList10b> m_pAutoList10b;
 };
 
-GUID CLSID_ApplicationResolver={0x660b90c8,0x73a9,0x4b58,{0x8c,0xae,0x35,0x5b,0x7f,0x55,0x34,0x1b}};
-// different IIDs for Win8 and Win8: http://a-whiter.livejournal.com/1266.html
-GUID IID_IApplicationResolver7={0x46a6eeff,0x908e,0x4dc6,{0x92,0xa6,0x64,0xbe,0x91,0x77,0xb4,0x1c}};
-GUID IID_IApplicationResolver8={0xde25675a,0x72de,0x44b4,{0x93,0x73,0x05,0x17,0x04,0x50,0xc1,0x40}};
-
-static CComPtr<IApplicationResolver> g_pAppResolver;
-static int g_AppResolverTime;
-
-static CString GetPropertyStoreString( IPropertyStore *pStore, REFPROPERTYKEY key )
+CAutomaticList::CAutomaticList( const wchar_t *appid )
 {
-	PROPVARIANT val;
-	PropVariantInit(&val);
-	CString res;
-	if (SUCCEEDED(pStore->GetValue(key,&val)))
+	CComPtr<IUnknown> pAutoListUnk;
+	if (SUCCEEDED(pAutoListUnk.CoCreateInstance(CLSID_AutomaticDestinationList)))
 	{
-		if (val.vt==VT_LPWSTR || val.vt==VT_BSTR)
-			res=val.pwszVal;
-		else if (val.vt==VT_LPSTR)
-			res=val.pszVal;
-	}
-	PropVariantClear(&val);
-	return res;
-}
-
-// Creates the app id resolver object
-void CreateAppResolver( void )
-{
-	if (GetWinVersion()>=WIN_VER_WIN7)
-	{
-		int time=GetTickCount();
-		if (!g_pAppResolver || (time-g_AppResolverTime)>60000)
+		pAutoListUnk->QueryInterface(IID_IAutomaticDestinationList,(void**)&m_pAutoList);
+		if (m_pAutoList)
 		{
-			// recreate the app resolver at most once per minute, as it may need to read lots of data from disk
-			g_AppResolverTime=time;
-			CComPtr<IUnknown> pUnknown;
-			pUnknown.CoCreateInstance(CLSID_ApplicationResolver);
-			if (GetWinVersion()==WIN_VER_WIN7)
-				g_pAppResolver=CComQIPtr<IApplicationResolver,&IID_IApplicationResolver7>(pUnknown);
-			else
-				g_pAppResolver=CComQIPtr<IApplicationResolver,&IID_IApplicationResolver8>(pUnknown);
+			if (FAILED(m_pAutoList->Initialize(appid,NULL,NULL)))
+				m_pAutoList=NULL;
+		}
+		else if (GetWinVersion()>=WIN_VER_WIN10)
+		{
+			pAutoListUnk->QueryInterface(IID_IAutomaticDestinationList10b,(void**)&m_pAutoList10b);
+			if (m_pAutoList10b)
+			{
+				if (FAILED(m_pAutoList10b->Initialize(appid,NULL,NULL)))
+					m_pAutoList10b=NULL;
+			}
 		}
 	}
 }
 
-// Returns the App ID and the target exe for the given shortcut
-// appid must be _MAX_PATH characters
-bool GetAppInfoForLink( PIDLIST_ABSOLUTE pidl, wchar_t *appid )
+bool CAutomaticList::HasList( void )
 {
-	if (GetWinVersion()<WIN_VER_WIN7)
-		return false;
-
-	CComPtr<IShellFolder> pFolder;
-	PCUITEMID_CHILD child;
-	if (FAILED(SHBindToParent(pidl,IID_IShellFolder,(void**)&pFolder,&child)))
-		return false;
-
-	CComPtr<IShellLink> pLink;
-	if (FAILED(pFolder->GetUIObjectOf(NULL,1,&child,IID_IShellLink,NULL,(void**)&pLink)))
-		return false;
-
-	CComQIPtr<IPropertyStore> pStore=pLink;
-	if (pStore)
+	BOOL hasList;
+	if (m_pAutoList)
 	{
-		// handle explicit appid
-		PROPVARIANT val;
-		PropVariantInit(&val);
-		if (SUCCEEDED(pStore->GetValue(PKEY_AppUserModel_PreventPinning,&val)) && val.vt==VT_BOOL && val.boolVal)
-		{
-			PropVariantClear(&val);
+		if (FAILED(m_pAutoList->HasList(&hasList)) || !hasList)
 			return false;
-		}
-		PropVariantClear(&val);
-
-		CString str=GetPropertyStoreString(pStore,PKEY_AppUserModel_ID);
-		if (!str.IsEmpty())
-		{
-			Strcpy(appid,_MAX_PATH,str);
-			return true;
-		}
 	}
-
-	CComPtr<IShellItem> pItem;
-	if (FAILED(SHCreateItemFromIDList(pidl,IID_IShellItem,(void**)&pItem)))
-		return false;
-	wchar_t *pAppId;
-	if (FAILED(g_pAppResolver->GetAppIDForShortcut(pItem,&pAppId)))
-		return false;
-	Strcpy(appid,_MAX_PATH,pAppId);
-	CoTaskMemFree(pAppId);
-	return true;
-}
-
-// 8-byte CRC as described here: http://msdn.microsoft.com/en-us/library/hh554834(v=prot.10).aspx
-static unsigned __int64 CalcCRC64( unsigned char *buf, int len, unsigned __int64 crc=0xFFFFFFFFFFFFFFFF )
-{
-	static unsigned __int64 CRCTable[256];
-
-	if (!CRCTable[1])
+	else if (m_pAutoList10b)
 	{
-		for (int i=0;i<256;i++)
-		{
-			unsigned __int64 val=i;
-			for (int j=0;j<8;j++)
-				val=(val>>1)^((val&1)*0x92C64265D32139A4);
-			CRCTable[i]=val;
-		}
+		if (FAILED(m_pAutoList10b->HasList(&hasList)) || !hasList)
+			return false;
 	}
-
-	for (int i=0;i<len;i++)
-		crc = CRCTable[(crc^buf[i])&255]^(crc>>8);
-
-	return crc;
+	else
+		return false;
+	CComPtr<IObjectCollection> pCollection;
+	UINT count;
+	pCollection=GetList(1,1);
+	if (pCollection && SUCCEEDED(pCollection->GetCount(&count)) && count>0)
+		return true;
+	pCollection=GetList(0,1);
+	if (pCollection && SUCCEEDED(pCollection->GetCount(&count)) && count>0)
+		return true;
+	return false;
 }
 
-// Returns true if the given shortcut has a jumplist (it may be empty)
+CComPtr<IObjectCollection> CAutomaticList::GetList( int listType, unsigned int maxCount )
+{
+	CComPtr<IObjectCollection> pCollection;
+	if (m_pAutoList)
+		m_pAutoList->GetList(listType,maxCount,IID_IObjectCollection,(void**)&pCollection);
+	else if (m_pAutoList10b)
+		m_pAutoList10b->GetList(listType,maxCount,1,IID_IObjectCollection,(void**)&pCollection);
+	return pCollection;
+}
+
+void CAutomaticList::PinItem( IUnknown *pItem, int pinIndex )
+{
+	if (m_pAutoList)
+		m_pAutoList->PinItem(pItem,pinIndex);
+	else if (m_pAutoList10b)
+		m_pAutoList10b->PinItem(pItem,pinIndex);
+}
+
+bool CAutomaticList::RemoveDestination( IUnknown *pItem )
+{
+	if (m_pAutoList)
+		return SUCCEEDED(m_pAutoList->RemoveDestination(pItem));
+	else if (m_pAutoList10b)
+		return SUCCEEDED(m_pAutoList10b->RemoveDestination(pItem));
+	return false;
+}
+
+static CComPtr<IDestinationList> GetCustomList( const wchar_t *appid )
+{
+	CComPtr<IUnknown> pCustomListUnk;
+	if (SUCCEEDED(pCustomListUnk.CoCreateInstance(CLSID_DestinationList)))
+	{
+		CComPtr<IDestinationList> pCustomList;
+		if (GetWinVersion()<WIN_VER_WIN10)
+			pCustomListUnk->QueryInterface(IID_IDestinationList,(void**)&pCustomList);
+		else
+		{
+			if (FAILED(pCustomListUnk->QueryInterface(IID_IDestinationList10a,(void**)&pCustomList)))
+				pCustomListUnk->QueryInterface(IID_IDestinationList10b,(void**)&pCustomList);
+		}
+		if (pCustomList && SUCCEEDED(pCustomList->SetApplicationID(appid)))
+			return pCustomList;
+	}
+	return CComPtr<IDestinationList>();
+}
+
+// Returns true if the given app has a non-empty jumplist
 bool HasJumplist( const wchar_t *appid )
 {
-	ATLASSERT(GetWinVersion()>=WIN_VER_WIN7);
-	// the jumplist is stored in a file in the CustomDestinations folder as described here:
-	// http://www.4n6k.com/2011/09/jump-list-forensics-appids-part-1.html
-	wchar_t APPID[_MAX_PATH];
-	Strcpy(APPID,_countof(APPID),appid);
-	CharUpper(APPID);
-	unsigned __int64 crc=CalcCRC64((unsigned char*)APPID,Strlen(APPID)*2);
+	Assert(GetWinVersion()>=WIN_VER_WIN7);
 
-	wchar_t *pRecent;
-	if (FAILED(SHGetKnownFolderPath(FOLDERID_Recent,0,NULL,&pRecent)))
-		return false;
+	CComPtr<IDestinationList> pCustomList=GetCustomList(appid);
+	if (pCustomList)
+	{
+		UINT count;
+		if (SUCCEEDED(pCustomList->GetCategoryCount(&count)) && count>0)
+			return true;
+	}
 
-	wchar_t appkey[100];
-	Sprintf(appkey,_countof(appkey),L"%I64x",crc);
-	wchar_t path1[_MAX_PATH];
-	wchar_t path2[_MAX_PATH];
-	LOG_MENU(LOG_OPEN,L"Jumplist Check: appid=%s, appkey=%s",appid,appkey);
-	Sprintf(path1,_countof(path1),L"%s\\CustomDestinations\\%s.customDestinations-ms",pRecent,appkey);
-	Sprintf(path2,_countof(path2),L"%s\\AutomaticDestinations\\%s.automaticDestinations-ms",pRecent,appkey);
-	CoTaskMemFree(pRecent);
-	return (GetFileAttributes(path1)!=INVALID_FILE_ATTRIBUTES || GetFileAttributes(path2)!=INVALID_FILE_ATTRIBUTES);
+	if (CAutomaticList(appid).HasList())
+		return true;
+
+	return false;
 }
 
-static void AddJumpItem( CJumpGroup &group, IUnknown *pUnknown )
+static unsigned int CalcLinkHash( IShellLink *pLink )
+{
+	CAbsolutePidl pidl;
+	if (FAILED(pLink->GetIDList(&pidl)))
+		return 0;
+
+	unsigned int hash=FNV_HASH0;
+	CComString pName;
+	if (SUCCEEDED(SHGetNameFromIDList(pidl,SIGDN_DESKTOPABSOLUTEPARSING,&pName)))
+	{
+		pName.MakeUpper();
+		hash=CalcFNVHash(pName);
+	}
+	CComQIPtr<IPropertyStore> pStore=pLink;
+	if (pStore)
+		hash=CalcFNVHash(GetPropertyStoreString(pStore,PKEY_Link_Arguments),hash);
+	return hash;
+}
+
+static void AddJumpItem( CJumpGroup &group, IUnknown *pUnknown, std::vector<CComPtr<IShellItem>> &ignoreItems, std::vector<unsigned int> &ignoreLinks )
 {
 	CJumpItem item;
 	item.type=CJumpItem::TYPE_UNKNOWN;
@@ -213,18 +236,23 @@ static void AddJumpItem( CJumpGroup &group, IUnknown *pUnknown )
 	CComQIPtr<IShellItem> pItem=pUnknown;
 	if (pItem)
 	{
+		for (std::vector<CComPtr<IShellItem>>::const_iterator it=ignoreItems.begin();it!=ignoreItems.end();++it)
+		{
+			int order;
+			if (SUCCEEDED(pItem->Compare(*it,SICHINT_CANONICAL|SICHINT_TEST_FILESYSPATH_IF_NOT_EQUAL,&order)) && order==0)
+				return;
+		}
 		item.type=CJumpItem::TYPE_ITEM;
-		wchar_t *pName;
-		if (FAILED(pItem->GetDisplayName(SIGDN_PARENTRELATIVEEDITING,&pName)))
+		CComString pName;
+		if (FAILED(pItem->GetDisplayName(SIGDN_NORMALDISPLAY,&pName)))
 			return;
 		item.name=pName;
-		CoTaskMemFree(pName);
+		pName.Clear();
 		if (SUCCEEDED(pItem->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING,&pName)))
 		{
 			LOG_MENU(LOG_OPEN,L"Jumplist Item Path: %s",pName);
-			CharUpper(pName);
+			pName.MakeUpper();
 			item.hash=CalcFNVHash(pName);
-			CoTaskMemFree(pName);
 		}
 		LOG_MENU(LOG_OPEN,L"Jumplist Item Name: %s",item.name);
 		group.items.push_back(item);
@@ -234,6 +262,12 @@ static void AddJumpItem( CJumpGroup &group, IUnknown *pUnknown )
 	CComQIPtr<IShellLink> pLink=pUnknown;
 	if (pLink)
 	{
+		unsigned int hash=CalcLinkHash(pLink);
+		for (std::vector<unsigned int>::const_iterator it=ignoreLinks.begin();it!=ignoreLinks.end();++it)
+		{
+			if (hash==*it)
+				return;
+		}
 		item.type=CJumpItem::TYPE_LINK;
 		CComQIPtr<IPropertyStore> pStore=pLink;
 		if (pStore)
@@ -256,26 +290,24 @@ static void AddJumpItem( CJumpGroup &group, IUnknown *pUnknown )
 				}
 			}
 		}
-		PIDLIST_ABSOLUTE pidl;
+		CAbsolutePidl pidl;
 		if (SUCCEEDED(pLink->GetIDList(&pidl)))
 		{
-			wchar_t *pName;
+			CComString pName;
 			if (item.name.IsEmpty())
 			{
 				if (SUCCEEDED(SHGetNameFromIDList(pidl,SIGDN_NORMALDISPLAY,&pName)))
 				{
 					item.name=pName;
-					CoTaskMemFree(pName);
 				}
 			}
+			pName.Clear();
 			if (SUCCEEDED(SHGetNameFromIDList(pidl,SIGDN_DESKTOPABSOLUTEPARSING,&pName)))
 			{
 				LOG_MENU(LOG_OPEN,L"Jumplist Link Path: %s",pName);
-				CharUpper(pName);
+				pName.MakeUpper();
 				item.hash=CalcFNVHash(pName);
-				CoTaskMemFree(pName);
 			}
-			ILFree(pidl);
 			CComQIPtr<IPropertyStore> pStore=pLink;
 			if (pStore)
 			{
@@ -295,265 +327,149 @@ static void AddJumpItem( CJumpGroup &group, IUnknown *pUnknown )
 	}
 }
 
-static unsigned int CalcLinkStreamHash( IStorage *pStorage, int stream )
+static void AddJumpCollection( CJumpGroup &group, IObjectCollection *pCollection, std::vector<CComPtr<IShellItem>> &ignoreItems, std::vector<unsigned int> &ignoreLinks )
 {
-	CComPtr<IShellLink> pLink;
-	if (FAILED(pLink.CoCreateInstance(CLSID_ShellLink)))
-		return 0;
-
+	UINT count;
+	if (SUCCEEDED(pCollection->GetCount(&count)))
 	{
-		wchar_t streamName[100];
-		Sprintf(streamName,_countof(streamName),L"%X",stream);
-		CComPtr<IStream> pStream;
-		if (FAILED(pStorage->OpenStream(streamName,NULL,STGM_READ|STGM_SHARE_EXCLUSIVE,0,&pStream)))
-			return 0;
+		for (UINT i=0;i<count;i++)
 		{
-			CComQIPtr<IPersistStream> pPersist=pLink;
-			if (!pPersist || FAILED(pPersist->Load(pStream)))
-				return 0;
-		}
-	}
-
-	PIDLIST_ABSOLUTE pidl;
-	if (FAILED(pLink->GetIDList(&pidl)))
-		return 0;
-
-	unsigned int hash;
-	wchar_t *pName;
-	if (SUCCEEDED(SHGetNameFromIDList(pidl,SIGDN_DESKTOPABSOLUTEPARSING,&pName)))
-	{
-		CharUpper(pName);
-		hash=CalcFNVHash(pName);
-		CoTaskMemFree(pName);
-	}
-	ILFree(pidl);
-	CComQIPtr<IPropertyStore> pStore=pLink;
-	if (pStore)
-		hash=CalcFNVHash(GetPropertyStoreString(pStore,PKEY_Link_Arguments),hash);
-	return hash;
-}
-
-static void GetKnownCategory( const wchar_t *appid, CJumpGroup &group, APPDOCLISTTYPE type )
-{
-	CComPtr<IApplicationDocumentLists> pDocList;
-	if (SUCCEEDED(pDocList.CoCreateInstance(CLSID_ApplicationDocumentLists)))
-	{
-		pDocList->SetAppID(appid);
-		CComPtr<IObjectArray> pArray;
-
-		if (SUCCEEDED(pDocList->GetList(type,0,IID_IObjectArray,(void**)&pArray)))
-		{
-			UINT count;
-			pArray->GetCount(&count);
-			for (UINT i=0;i<count;i++)
-			{
-				CComPtr<IUnknown> pUnknown;
-				if (SUCCEEDED(pArray->GetAt(i,IID_IUnknown,(void**)&pUnknown)))
-				{
-					AddJumpItem(group,pUnknown);
-				}
-			}
+			CComPtr<IUnknown> pUnknown;
+			if (SUCCEEDED(pCollection->GetAt(i,IID_IUnknown,(void**)&pUnknown)) && pUnknown)
+				AddJumpItem(group,pUnknown,ignoreItems,ignoreLinks);
 		}
 	}
 }
 
 // Returns the jumplist for the given shortcut
-bool GetJumplist( const wchar_t *appid, CJumpList &list, int maxCount )
+bool GetJumplist( const wchar_t *appid, CJumpList &list, int maxCount, int maxHeight, int sepHeight, int itemHeight )
 {
-	ATLASSERT(GetWinVersion()>=WIN_VER_WIN7);
+	Assert(GetWinVersion()>=WIN_VER_WIN7);
 	list.Clear();
 
-	wchar_t APPID[_MAX_PATH];
-	Strcpy(APPID,_countof(APPID),appid);
-	CharUpper(APPID);
-	unsigned __int64 crc=CalcCRC64((unsigned char*)APPID,Strlen(APPID)*2);
-
-	wchar_t *pRecent;
-	if (FAILED(SHGetKnownFolderPath(FOLDERID_Recent,0,NULL,&pRecent)))
-		return false;
-
-	wchar_t appkey[100];
-	Sprintf(appkey,_countof(appkey),L"%I64x",crc);
-	LOG_MENU(LOG_OPEN,L"Get Jumplist: appid=%s, appkey=%s, max=%d",appid,appkey,maxCount);
-	wchar_t path1[_MAX_PATH];
-	wchar_t path2[_MAX_PATH];
-	Sprintf(path1,_countof(path1),L"%s\\CustomDestinations\\%s.customDestinations-ms",pRecent,appkey);
-	Sprintf(path2,_countof(path2),L"%s\\AutomaticDestinations\\%s.automaticDestinations-ms",pRecent,appkey);
-	CoTaskMemFree(pRecent);
-
-	CComPtr<IStream> pStream;
-	if (SUCCEEDED(SHCreateStreamOnFile(path1,STGM_READ,&pStream)))
+	UINT categoryCount=0;
+	CComPtr<IDestinationList> pCustomList=GetCustomList(appid);
+	if (pCustomList)
 	{
-		CustomListHeader header;
-		if (FAILED(pStream->Read(&header,sizeof(header),NULL)))
-			return false;
+		if (FAILED(pCustomList->GetCategoryCount(&categoryCount)))
+			categoryCount=0;
+	}
 
-		list.reserved=header.reserved;
-		list.groups.resize(header.groupCount+1);
-		bool bHasTasks=false;
-		for (int groupIdx=1;groupIdx<=header.groupCount;groupIdx++)
+	list.groups.reserve(categoryCount+2);
+
+	std::vector<CComPtr<IShellItem>> ignoreItems;
+	std::vector<unsigned int> ignoreLinks;
+	CAutomaticList autoList(appid);
+	{
+		// add pinned
+		CComPtr<IObjectCollection> pPinnedList=autoList.GetList(0,maxCount);
+		if (pPinnedList)
 		{
-			int type;
-			if (FAILED(pStream->Read(&type,4,NULL)))
-				return false;
-			CJumpGroup *pGroup=&list.groups[groupIdx];
-			if (type==1)
+			Assert(list.groups.empty());
+			list.groups.resize(list.groups.size()+1);
+			CJumpGroup &group=*list.groups.rbegin();
+			group.type=CJumpGroup::TYPE_PINNED;
+			group.name=FindTranslation(L"JumpList.Pinned",L"Pinned");
+			AddJumpCollection(group,pPinnedList,ignoreItems,ignoreLinks);
+			for (std::vector<CJumpItem>::const_iterator it=group.items.begin();it!=group.items.end();++it)
 			{
-				// known category
-				if (FAILED(pStream->Read(&type,4,NULL)))
-					return false;
-				if (type==1)
-				{
-					pGroup->type=CJumpGroup::TYPE_FREQUENT;
-					pGroup->name=FindTranslation(L"JumpList.Frequent",L"Frequent");
-					GetKnownCategory(appid,*pGroup,ADLT_FREQUENT);
-				}
-				else if (type==2)
-				{
-					pGroup->type=CJumpGroup::TYPE_RECENT;
-					pGroup->name=FindTranslation(L"JumpList.Recent",L"Recent");
-					GetKnownCategory(appid,*pGroup,ADLT_RECENT);
-				}
-			}
-			else
-			{
-				if (type==0)
-				{
-					short len;
-					wchar_t str[256];
-					if (FAILED(pStream->Read(&len,2,NULL)) || FAILED(pStream->Read(str,len*2,NULL)))
-						return false;
-					str[len]=0;
-					pGroup->name0=str;
-					wchar_t name[256];
-					SHLoadIndirectString(str,name,_countof(name),NULL);
-					pGroup->name=name;
-					pGroup->type=CJumpGroup::TYPE_CUSTOM;
-				}
+				CComQIPtr<IShellItem> pShellItem=it->pItem;
+				if (pShellItem)
+					ignoreItems.push_back(pShellItem);
 				else
 				{
-					if (!bHasTasks)
+					CComQIPtr<IShellLink> pLink=it->pItem;
+					if (pLink)
 					{
-						// make sure the Tasks group is last
-						bHasTasks=true;
-						header.groupCount--;
-						groupIdx--;
-						pGroup=&list.groups[header.groupCount+1];
-					}
-					pGroup->name=FindTranslation(L"JumpList.Tasks",L"Tasks");
-					pGroup->type=CJumpGroup::TYPE_TASKS;
-				}
-				int count;
-				if (FAILED(pStream->Read(&count,4,NULL)))
-					return false;
-				for (int i=0;i<count;i++)
-				{
-					GUID clsid;
-					if (FAILED(pStream->Read(&clsid,sizeof(clsid),NULL)))
-						return false;
-					CComPtr<IPersistStream> pPersist;
-					HRESULT hr=pPersist.CoCreateInstance(clsid);
-					if (FAILED(hr) || FAILED(pPersist->Load(pStream)))
-						return false;
-					AddJumpItem(*pGroup,pPersist);
-				}
-			}
-			pGroup->bHidden=false;
-			DWORD cookie;
-			if (FAILED(pStream->Read(&cookie,4,NULL)) || cookie!=0xBABFFBAB)
-				return false;
-		}
-	}
-	else
-	{
-		list.groups.resize(2);
-		CJumpGroup &group=list.groups[1];
-		group.type=CJumpGroup::TYPE_RECENT;
-		group.name=FindTranslation(L"JumpList.Recent",L"Recent");
-		GetKnownCategory(appid,group,ADLT_RECENT);
-	}
-
-	{
-		// update pinned items
-		CJumpGroup &group=list.groups[0];
-		group.type=CJumpGroup::TYPE_PINNED;
-		group.name=FindTranslation(L"JumpList.Pinned",L"Pinned");
-
-		// read the DestList stream as described here: http://www.forensicswiki.org/wiki/Jump_Lists
-		std::vector<int> pinStreams;
-		CComPtr<IStorage> pStorage;
-		if (SUCCEEDED(StgOpenStorageEx(path2,STGM_READ|STGM_TRANSACTED,STGFMT_STORAGE,0,NULL,0,IID_IStorage,(void**)&pStorage)))
-		{
-			CComPtr<IStream> pStream;
-			if (SUCCEEDED(pStorage->OpenStream(L"DestList",NULL,STGM_READ|STGM_SHARE_EXCLUSIVE,0,&pStream)))
-			{
-				DestListHeader header;
-				if (SUCCEEDED(pStream->Read(&header,sizeof(header),NULL)))
-				{
-					CJumpGroup &group=list.groups[0];
-					pinStreams.resize(header.pinCount,-1);
-					for (int i=0;i<header.count;i++)
-					{
-						DestListItemHeader itemHeader;
-						if (FAILED(pStream->Read(&itemHeader,sizeof(itemHeader),NULL)))
-							break;
-						unsigned __int64 crc=itemHeader.crc;
-						itemHeader.crc=0;
-						if (CalcCRC64((unsigned char*)&itemHeader,sizeof(itemHeader))!=crc)
-							break;
-						short len;
-						if (FAILED(pStream->Read(&len,2,NULL)))
-							break;
-						LARGE_INTEGER seek={len*2,0};
-						if (FAILED(pStream->Seek(seek,STREAM_SEEK_CUR,NULL)))
-							break;
-						if (itemHeader.pinIdx>=0 && itemHeader.pinIdx<header.pinCount)
-							pinStreams[itemHeader.pinIdx]=itemHeader.stream;
+						unsigned int hash=CalcLinkHash(pLink);
+						if (hash)
+							ignoreLinks.push_back(hash);
 					}
 				}
 			}
 		}
+	}
 
-		// read pinned streams
-		for (std::vector<int>::const_iterator it=pinStreams.begin();it!=pinStreams.end();++it)
-			if (*it>=0)
+	int taskIndex=-1;
+	for (UINT catIndex=0;catIndex<categoryCount;catIndex++)
+	{
+		APPDESTCATEGORY category={0};
+		if (SUCCEEDED(pCustomList->GetCategory(catIndex,1,&category)))
+		{
+			if (category.type==0)
 			{
-				wchar_t streamName[100];
-				Sprintf(streamName,_countof(streamName),L"%X",*it);
-				CComPtr<IStream> pStream;
-				if (SUCCEEDED(pStorage->OpenStream(streamName,NULL,STGM_READ|STGM_SHARE_EXCLUSIVE,0,&pStream)))
+				// custom group
+				if (category.name)
 				{
-					CComQIPtr<IPersistStream> pPersist;
-					if (SUCCEEDED(pPersist.CoCreateInstance(CLSID_ShellLink)) && SUCCEEDED(pPersist->Load(pStream)))
-						AddJumpItem(group,pPersist);
+					wchar_t name[256];
+					SHLoadIndirectString(category.name,name,_countof(name),NULL);
+					CoTaskMemFree(category.name);
+					CComPtr<IObjectCollection> pCollection;
+					if (SUCCEEDED(pCustomList->EnumerateCategoryDestinations(catIndex,IID_IObjectCollection,(void**)&pCollection)))
+					{
+						list.groups.resize(list.groups.size()+1);
+						CJumpGroup &group=*list.groups.rbegin();
+						group.name=name;
+						group.type=CJumpGroup::TYPE_CUSTOM;
+						AddJumpCollection(group,pCollection,ignoreItems,ignoreLinks);
+					}
 				}
 			}
-
-		// remove pinned items from the other groups
-		for (std::vector<CJumpItem>::iterator it=group.items.begin();it!=group.items.end();++it)
-		{
-			unsigned int hash=it->hash;
-			bool bReplaced=false;
-			for (int g=1;g<(int)list.groups.size();g++)
+			else if (category.type==1)
 			{
-				if (hash==0) break;
-				CJumpGroup &group=list.groups[g];
-				for (int i=0;i<(int)group.items.size();i++)
+				// standard group
+				if (category.subType==1 || category.subType==2)
 				{
-					CJumpItem &item=group.items[i];
-					if (item.hash==hash)
+					CComPtr<IObjectCollection> pCollection=autoList.GetList(3-category.subType,maxCount);
+					if (pCollection)
 					{
-						if (!bReplaced)
+						list.groups.resize(list.groups.size()+1);
+						CJumpGroup &group=*list.groups.rbegin();
+						if (category.subType==1)
 						{
-							// replace the pinned item with the found item. there is a better chance for it to be valid
-							// for example Chrome's pinned links may have expired icons, but the custom category links have valid icons
-							*it=item;
-							bReplaced=true;
+							group.type=CJumpGroup::TYPE_FREQUENT;
+							group.name=FindTranslation(L"JumpList.Frequent",L"Frequent");
 						}
-						item.bHidden=true;
+						else
+						{
+							group.type=CJumpGroup::TYPE_RECENT;
+							group.name=FindTranslation(L"JumpList.Recent",L"Recent");
+						}
+						AddJumpCollection(group,pCollection,ignoreItems,ignoreLinks);
 					}
 				}
 			}
+			else if (category.type==2 && taskIndex==-1)
+			{
+				taskIndex=catIndex;
+			}
+		}
+	}
+	if (taskIndex!=-1)
+	{
+		// add tasks
+		CComPtr<IObjectCollection> pCollection;
+		if (SUCCEEDED(pCustomList->EnumerateCategoryDestinations(taskIndex,IID_IObjectCollection,(void**)&pCollection)))
+		{
+			list.groups.resize(list.groups.size()+1);
+			CJumpGroup &group=*list.groups.rbegin();
+			group.name=FindTranslation(L"JumpList.Tasks",L"Tasks");
+			group.type=CJumpGroup::TYPE_TASKS;
+			AddJumpCollection(group,pCollection,ignoreItems,ignoreLinks);
+		}
+	}
+
+	if (categoryCount==0)
+	{
+		// add recent
+		CComPtr<IObjectCollection> pRecentList=autoList.GetList(1,maxCount);
+		if (pRecentList)
+		{
+			list.groups.resize(list.groups.size()+1);
+			CJumpGroup &group=*list.groups.rbegin();
+			group.type=CJumpGroup::TYPE_RECENT;
+			group.name=FindTranslation(L"JumpList.Recent",L"Recent");
+			AddJumpCollection(group,pRecentList,ignoreItems,ignoreLinks);
 		}
 	}
 
@@ -561,13 +477,23 @@ bool GetJumplist( const wchar_t *appid, CJumpList &list, int maxCount )
 	for (std::vector<CJumpGroup>::iterator it=list.groups.begin();it!=list.groups.end();++it)
 	{
 		CJumpGroup &group=*it;
+		if (group.type==CJumpGroup::TYPE_TASKS || group.type==CJumpGroup::TYPE_PINNED)
+			maxHeight-=sepHeight+(int)group.items.size()*itemHeight;
+	}
+
+
+	for (std::vector<CJumpGroup>::iterator it=list.groups.begin();it!=list.groups.end();++it)
+	{
+		CJumpGroup &group=*it;
 		if (group.type!=CJumpGroup::TYPE_TASKS && group.type!=CJumpGroup::TYPE_PINNED)
 		{
+			maxHeight-=sepHeight;
 			for (std::vector<CJumpItem>::iterator it2=group.items.begin();it2!=group.items.end();++it2)
 				if (!it2->bHidden)
 				{
-					it2->bHidden=(maxCount<=0);
+					it2->bHidden=(maxCount<=0 || maxHeight<itemHeight);
 					maxCount--;
+					maxHeight-=itemHeight;
 				}
 		}
 	}
@@ -589,22 +515,26 @@ bool GetJumplist( const wchar_t *appid, CJumpList &list, int maxCount )
 }
 
 // Executes the given item using the correct application
-bool ExecuteJumpItem( const wchar_t *appid, PIDLIST_ABSOLUTE appexe, const CJumpItem &item, HWND hwnd )
+bool ExecuteJumpItem( const CItemManager::ItemInfo *pAppInfo, const CJumpItem &item, HWND hwnd )
 {
-	ATLASSERT(GetWinVersion()>=WIN_VER_WIN7);
+	Assert(GetWinVersion()>=WIN_VER_WIN7);
 	if (!item.pItem) return false;
 	if (item.type==CJumpItem::TYPE_ITEM)
 	{
-		LOG_MENU(LOG_OPEN,L"Execute Item: name=%s, appid=%s",item.name,appid);
+/*		CString appid;
+		{
+			CItemManager::RWLock lock(&g_ItemManager,false,CItemManager::RWLOCK_ITEMS);
+			appid=pAppInfo->GetAppid();
+		}
+		LOG_MENU(LOG_OPEN,L"Execute Item: name=%s, appid=%s",item.name,appid);*/
 		CComQIPtr<IShellItem> pItem=item.pItem;
 		if (!pItem)
 			return false;
-		wchar_t *pName;
+/*		CComString pName;
 		if (FAILED(pItem->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING,&pName)))
 			return false;
 		wchar_t ext[_MAX_EXT];
 		Strcpy(ext,_countof(ext),PathFindExtension(pName));
-		CoTaskMemFree(pName);
 
 		// find the correct association handler by appid and invoke it on the item
 		CComPtr<IEnumAssocHandlers> pEnumHandlers;
@@ -617,20 +547,18 @@ bool ExecuteJumpItem( const wchar_t *appid, PIDLIST_ABSOLUTE appexe, const CJump
 				CComQIPtr<IObjectWithAppUserModelID> pObject=pHandler;
 				if (pObject)
 				{
-					wchar_t *pID;
+					CComString pID;
 					if (SUCCEEDED(pObject->GetAppID(&pID)))
 					{
 						// found explicit appid
 						if (_wcsicmp(appid,pID)==0)
 						{
-							CoTaskMemFree(pID);
 							LOG_MENU(LOG_OPEN,L"Found handler appid");
 							CComPtr<IDataObject> pDataObject;
 							if (SUCCEEDED(pItem->BindToHandler(NULL,BHID_DataObject,IID_IDataObject,(void**)&pDataObject)) && SUCCEEDED(pHandler->Invoke(pDataObject)))
 								return true;
 							break;
 						}
-						CoTaskMemFree(pID);
 					}
 				}
 				pHandler=NULL;
@@ -638,51 +566,50 @@ bool ExecuteJumpItem( const wchar_t *appid, PIDLIST_ABSOLUTE appexe, const CJump
 			pEnumHandlers=NULL;
 
 			// find the correct association handler by exe name and invoke it on the item
-			CComPtr<IShellFolder> pFolder;
-			PCUITEMID_CHILD child;
-			CComPtr<IShellLink> pLink;
-			if (SUCCEEDED(SHAssocEnumHandlers(ext,ASSOC_FILTER_RECOMMENDED,&pEnumHandlers)) && SUCCEEDED(SHBindToParent(appexe,IID_IShellFolder,(void**)&pFolder,&child)) && SUCCEEDED(pFolder->GetUIObjectOf(NULL,1,&child,IID_IShellLink,NULL,(void**)&pLink)))
+			wchar_t targetPath[_MAX_PATH];
+			targetPath[0]=0;
 			{
-				PIDLIST_ABSOLUTE target;
-				if (SUCCEEDED(pLink->Resolve(NULL,SLR_INVOKE_MSI|SLR_NO_UI|SLR_NOUPDATE)) && SUCCEEDED(pLink->GetIDList(&target)))
+				CComPtr<IShellItem> pItem;
+				SHCreateItemFromIDList(pAppInfo->GetPidl(),IID_IShellItem,(void**)&pItem);
+				CComPtr<IShellLink> pLink;
+				if (pItem)
+					pItem->BindToHandler(NULL,BHID_SFUIObject,IID_IShellLink,(void**)&pLink);
+				CAbsolutePidl target;
+				if (pLink && SUCCEEDED(pLink->Resolve(NULL,SLR_INVOKE_MSI|SLR_NO_UI|SLR_NOUPDATE)) && SUCCEEDED(pLink->GetIDList(&target)))
 				{
-					wchar_t exe[_MAX_PATH];
-					HRESULT hr=SHGetPathFromIDList(target,exe);
-					ILFree(target);
-					if (SUCCEEDED(hr))
+					if (FAILED(SHGetPathFromIDList(target,targetPath)))
+						targetPath[0]=0;
+				}
+			}
+			if (targetPath[0] && SUCCEEDED(SHAssocEnumHandlers(ext,ASSOC_FILTER_RECOMMENDED,&pEnumHandlers)))
+			{
+				while (SUCCEEDED(pEnumHandlers->Next(1,&pHandler,&count)) && count==1)
+				{
+					CComString pExe;
+					if (SUCCEEDED(pHandler->GetName(&pExe)))
 					{
-						while (SUCCEEDED(pEnumHandlers->Next(1,&pHandler,&count)) && count==1)
+						if (_wcsicmp(targetPath,pExe)==0)
 						{
-							wchar_t *pExe;
-							if (SUCCEEDED(pHandler->GetName(&pExe)))
-							{
-								if (_wcsicmp(exe,pExe)==0)
-								{
-									CoTaskMemFree(pExe);
-									LOG_MENU(LOG_OPEN,L"Found handler appexe %s",exe);
-									CComPtr<IDataObject> pDataObject;
-									if (SUCCEEDED(pItem->BindToHandler(NULL,BHID_DataObject,IID_IDataObject,(void**)&pDataObject)) && SUCCEEDED(pHandler->Invoke(pDataObject)))
-										return true;
-									break;
-								}
-								CoTaskMemFree(pExe);
-							}
-							pHandler=NULL;
+							LOG_MENU(LOG_OPEN,L"Found handler appexe %s",targetPath);
+							CComPtr<IDataObject> pDataObject;
+							if (SUCCEEDED(pItem->BindToHandler(NULL,BHID_DataObject,IID_IDataObject,(void**)&pDataObject)) && SUCCEEDED(pHandler->Invoke(pDataObject)))
+								return true;
+							break;
 						}
 					}
+					pHandler=NULL;
 				}
 			}
 		}
-
+*/
 		// couldn't find a handler, execute the old way
 		SHELLEXECUTEINFO execute={sizeof(execute),SEE_MASK_IDLIST|SEE_MASK_FLAG_LOG_USAGE};
 		execute.nShow=SW_SHOWNORMAL;
-		PIDLIST_ABSOLUTE pidl;
+		CAbsolutePidl pidl;
 		if (SUCCEEDED(SHGetIDListFromObject(pItem,&pidl)))
 		{
 			execute.lpIDList=pidl;
 			ShellExecuteEx(&execute);
-			ILFree(pidl);
 		}
 		return true;
 	}
@@ -720,382 +647,38 @@ bool ExecuteJumpItem( const wchar_t *appid, PIDLIST_ABSOLUTE appexe, const CJump
 }
 
 // Removes the given item from the jumplist
-void RemoveJumpItem( const wchar_t *appid, CJumpList &list, int groupIdx, int itemIdx )
+void RemoveJumpItem( const CItemManager::ItemInfo *pAppInfo, CJumpList &list, int groupIdx, int itemIdx )
 {
-	ATLASSERT(GetWinVersion()>=WIN_VER_WIN7);
-
+	CString appid;
+	{
+		CItemManager::RWLock lock(&g_ItemManager,false,CItemManager::RWLOCK_ITEMS);
+		appid=pAppInfo->GetAppid();
+	}
 	CJumpGroup &group=list.groups[groupIdx];
 	if (group.type==CJumpGroup::TYPE_FREQUENT || group.type==CJumpGroup::TYPE_RECENT)
 	{
-		// removing from the standard lists is easy
-		CComPtr<IApplicationDestinations> pDestinations;
-		if (SUCCEEDED(pDestinations.CoCreateInstance(CLSID_ApplicationDestinations)))
-		{
-			pDestinations->SetAppID(appid);
-			pDestinations->RemoveDestination(group.items[itemIdx].pItem);
-		}
-		group.items.erase(group.items.begin()+itemIdx);
+		if (CAutomaticList(appid).RemoveDestination(group.items[itemIdx].pItem))
+			group.items.erase(group.items.begin()+itemIdx);
 	}
-	else if (group.type==CJumpGroup::TYPE_CUSTOM)
+	else
 	{
-		group.items.erase(group.items.begin()+itemIdx);
-		// write out the list
-		wchar_t APPID[_MAX_PATH];
-		Strcpy(APPID,_countof(APPID),appid);
-		CharUpper(APPID);
-		unsigned __int64 crc=CalcCRC64((unsigned char*)APPID,Strlen(APPID)*2);
-
-		wchar_t *pRecent;
-		if (FAILED(SHGetKnownFolderPath(FOLDERID_Recent,0,NULL,&pRecent)))
-			return;
-
-		wchar_t appkey[100];
-		Sprintf(appkey,_countof(appkey),L"%I64x",crc);
-		wchar_t path1[_MAX_PATH];
-		Sprintf(path1,_countof(path1),L"%s\\CustomDestinations\\%s.tmp",pRecent,appkey);
-		wchar_t path2[_MAX_PATH];
-		Sprintf(path2,_countof(path2),L"%s\\CustomDestinations\\%s.customDestinations-ms",pRecent,appkey);
-		CoTaskMemFree(pRecent);
-
-		CComPtr<IStream> pStream;
-		if (FAILED(SHCreateStreamOnFile(path1,STGM_WRITE|STGM_CREATE,&pStream)))
-			return;
-		DWORD groupCount=(int)list.groups.size()-1;
-		int type=2;
-		CustomListHeader header={2,groupCount,list.reserved};
-		if (FAILED(pStream->Write(&header,sizeof(header),NULL)))
-			goto err;
-		DWORD cookie=0xBABFFBAB;
-		// first write tasks
-		for (std::vector<CJumpGroup>::const_iterator it=list.groups.begin();it!=list.groups.end();++it)
+		CComPtr<IDestinationList> pCustomList=GetCustomList(appid);
+		if (pCustomList)
 		{
-			const CJumpGroup &group=*it;
-			if (group.type!=CJumpGroup::TYPE_TASKS)
-				continue;
-			DWORD val=2;
-			if (FAILED(pStream->Write(&val,4,NULL)))
-				goto err;
-			val=(int)group.items.size();
-			if (FAILED(pStream->Write(&val,4,NULL)))
-				goto err;
-			for (std::vector<CJumpItem>::const_iterator it2=group.items.begin();it2!=group.items.end();++it2)
-			{
-				CComQIPtr<IPersistStream> pPersist=it2->pItem;
-				CLSID clsid;
-				if (!pPersist || FAILED(pPersist->GetClassID(&clsid)))
-					goto err;
-				if (FAILED(pStream->Write(&clsid,sizeof(clsid),NULL)) || FAILED(pPersist->Save(pStream,TRUE)))
-					goto err;
-			}
-			if (FAILED(pStream->Write(&cookie,4,NULL)))
-				goto err;
+			if (SUCCEEDED(pCustomList->RemoveDestination(group.items[itemIdx].pItem)))
+				group.items.erase(group.items.begin()+itemIdx);
 		}
-		// write custom and known groups
-		for (std::vector<CJumpGroup>::const_iterator it=list.groups.begin();it!=list.groups.end();++it)
-		{
-			const CJumpGroup &group=*it;
-			DWORD val;
-			switch (group.type)
-			{
-				case CJumpGroup::TYPE_RECENT:
-				case CJumpGroup::TYPE_FREQUENT:
-					val=1;
-					if (FAILED(pStream->Write(&val,4,NULL)))
-						goto err;
-					val=(group.type==CJumpGroup::TYPE_RECENT)?2:1;
-					if (FAILED(pStream->Write(&val,4,NULL)))
-						goto err;
-					break;
-				case CJumpGroup::TYPE_CUSTOM:
-					val=0;
-					if (FAILED(pStream->Write(&val,4,NULL)))
-						goto err;
-					val=Strlen(group.name0);
-					if (FAILED(pStream->Write(&val,2,NULL)) || FAILED(pStream->Write((const wchar_t*)group.name0,val*2,NULL)))
-						goto err;
-					val=(int)group.items.size();
-					if (FAILED(pStream->Write(&val,4,NULL)))
-						goto err;
-					for (std::vector<CJumpItem>::const_iterator it2=group.items.begin();it2!=group.items.end();++it2)
-					{
-						CComQIPtr<IPersistStream> pPersist=it2->pItem;
-						CLSID clsid;
-						if (!pPersist || FAILED(pPersist->GetClassID(&clsid)))
-							goto err;
-						if (FAILED(pStream->Write(&clsid,sizeof(clsid),NULL)) || FAILED(pPersist->Save(pStream,TRUE)))
-							goto err;
-					}
-					break;
-				case CJumpGroup::TYPE_TASKS:
-				case CJumpGroup::TYPE_PINNED:
-					continue;
-			}
-			DWORD cookie=0xBABFFBAB;
-			if (FAILED(pStream->Write(&cookie,4,NULL)))
-				goto err;
-		}
-		pStream=NULL;
-		if (MoveFileEx(path1,path2,MOVEFILE_REPLACE_EXISTING))
-			return;
-err:
-		DeleteFile(path1);
 	}
 }
 
 // Pins or unpins the given item from the jumplist
-void PinJumpItem( const wchar_t *appid, const CJumpList &list, int groupIdx, int itemIdx, bool bPin )
+void PinJumpItem( const CItemManager::ItemInfo *pAppInfo, const CJumpList &list, int groupIdx, int itemIdx, bool bPin, int pinIndex )
 {
-	wchar_t APPID[_MAX_PATH];
-	Strcpy(APPID,_countof(APPID),appid);
-	CharUpper(APPID);
-	unsigned __int64 crc=CalcCRC64((unsigned char*)APPID,Strlen(APPID)*2);
-
-	wchar_t *pRecent;
-	if (FAILED(SHGetKnownFolderPath(FOLDERID_Recent,0,NULL,&pRecent)))
-		return;
-
-	wchar_t path[_MAX_PATH];
-	Sprintf(path,_countof(path),L"%s\\AutomaticDestinations\\%I64x.automaticDestinations-ms",pRecent,crc);
-	CoTaskMemFree(pRecent);
-
-	CJumpGroup::Type groupType=list.groups[groupIdx].type;
-	const CJumpItem &jumpItem=list.groups[groupIdx].items[itemIdx];
-
-	// open the jumplist file
-	CComPtr<IStorage> pStorage;
-	if (FAILED(StgOpenStorageEx(path,STGM_READWRITE|STGM_TRANSACTED,STGFMT_STORAGE,0,NULL,0,IID_IStorage,(void**)&pStorage)))
-		pStorage=NULL;
-
-	std::vector<DestListItem> items;
-	int foundIndex=-1;
-	DestListHeader header;
-
-	if (pStorage)
+	CString appid;
 	{
-		// read DestList
-		CComPtr<IStream> pStream;
-		int pinCount=0;
-		if (SUCCEEDED(pStorage->OpenStream(L"DestList",NULL,STGM_READ|STGM_SHARE_EXCLUSIVE,0,&pStream)))
-		{
-			if (FAILED(pStream->Read(&header,sizeof(header),NULL)))
-				return;
-			for (int i=0;i<header.count;i++)
-			{
-				DestListItem item;
-				if (FAILED(pStream->Read(&item.header,sizeof(item.header),NULL)))
-					return;
-				short len;
-				if (FAILED(pStream->Read(&len,2,NULL)))
-					return;
-				wchar_t name[1024];
-				if (len>=_countof(name)) return;
-				if (FAILED(pStream->Read(name,len*2,NULL)))
-					return;
-				name[len]=0;
-				item.name=name;
-				items.push_back(item);
-				if (item.header.pinIdx>=0)
-					pinCount++;
-				if (foundIndex==-1)
-				{
-					if (CalcLinkStreamHash(pStorage,item.header.stream)==jumpItem.hash)
-						foundIndex=i;
-				}
-			}
-			if (header.pinCount!=pinCount)
-				return;
-		}
+		CItemManager::RWLock lock(&g_ItemManager,false,CItemManager::RWLOCK_ITEMS);
+		appid=pAppInfo->GetAppid();
 	}
-
-	bool bNewStorage=false;
-	if (groupType==CJumpGroup::TYPE_CUSTOM)
-	{
-		ATLASSERT(bPin);
-		// pin a custom item
-		if (foundIndex!=-1)
-			return; // already pinned
-
-		// add new named stream
-		if (!pStorage)
-		{
-			// create the file if it doesn't exist
-			if (FAILED(StgCreateStorageEx(path,STGM_READWRITE|STGM_CREATE|STGM_TRANSACTED,STGFMT_STORAGE,0,NULL,NULL,IID_IStorage,(void**)&pStorage)))
-				return;
-			bNewStorage=true;
-			memset(&header,0,sizeof(header));
-			header.type=1;
-		}
-		int maxStream=0;
-		for (std::vector<DestListItem>::const_iterator it=items.begin();it!=items.end();++it)
-		{
-			if (maxStream<it->header.stream)
-				maxStream=it->header.stream;
-		}
-		DestListItem item={0};
-		item.header.stream=maxStream+1;
-		item.header.pinIdx=header.pinCount;
-		item.header.crc=CalcCRC64((unsigned char*)&item.header,sizeof(DestListItemHeader));
-		wchar_t streamName[100];
-		Sprintf(streamName,_countof(streamName),L"%X",item.header.stream);
-		CComPtr<IStream> pStream;
-		if (FAILED(pStorage->CreateStream(streamName,STGM_WRITE|STGM_CREATE|STGM_SHARE_EXCLUSIVE,0,0,&pStream)))
-			goto end;
-		CComQIPtr<IShellLink> pLink=jumpItem.pItem;
-		if (pLink)
-		{
-			wchar_t text[INFOTIPSIZE];
-			if (pLink->GetPath(text,_countof(text),NULL,SLGP_RAWPATH)==S_OK)
-			{
-				// for links with a valid path the name is a crc of the path, arguments, and title
-				CharUpper(text);
-				unsigned __int64 crc=CalcCRC64((unsigned char*)text,Strlen(text)*2);
-				CComQIPtr<IPropertyStore> pStore=pLink;
-				if (pStore)
-				{
-					Strcpy(text,_countof(text),GetPropertyStoreString(pStore,PKEY_Link_Arguments));
-					crc=CalcCRC64((unsigned char*)text,Strlen(text)*2,crc);
-
-					CString str=GetPropertyStoreString(pStore,PKEY_Title);
-					SHLoadIndirectString(str,text,_countof(text),NULL);
-					CharUpper(text);
-					crc=CalcCRC64((unsigned char*)text,Strlen(text)*2,crc);
-				}
-				Sprintf(text,_countof(text),L"%I64x",crc);
-				item.name=text;
-			}
-			else
-			{
-				// for links with no path (like IE) the name is generated from the pidl
-				PIDLIST_ABSOLUTE pidl;
-				if (FAILED(pLink->GetIDList(&pidl)))
-					goto end;
-
-				wchar_t *pName;
-				if (SUCCEEDED(SHGetNameFromIDList(pidl,SIGDN_DESKTOPABSOLUTEPARSING,&pName)))
-				{
-					item.name=pName;
-					CoTaskMemFree(pName);
-				}
-				else
-				{
-					ILFree(pidl);
-					goto end;
-				}
-			}
-		}
-		else
-		{
-			CComQIPtr<IShellItem> pItem=jumpItem.pItem;
-			wchar_t *pName;
-			if (!pItem || FAILED(pItem->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING,&pName)))
-				goto end;
-
-			item.name=pName;
-			CoTaskMemFree(pName);
-
-			if (FAILED(pLink.CoCreateInstance(CLSID_ShellLink)) || FAILED(pLink->SetPath(pName)))
-				goto end;
-		}
-
-		CComQIPtr<IPersistStream> pPersist=pLink;
-		if (!pPersist || FAILED(pPersist->Save(pStream,FALSE)))
-			goto end;
-		items.push_back(item);
-		header.lastStream=item.header.stream;
-		header.count++;
-		header.pinCount++;
-	}
-	else if (groupType==CJumpGroup::TYPE_FREQUENT || groupType==CJumpGroup::TYPE_RECENT)
-	{
-		ATLASSERT(bPin);
-		// pin a standard item (set pinIndex in DestList)
-		if (foundIndex==-1)
-			return; // not in DestList, bad
-		if (items[foundIndex].header.pinIdx>=0)
-			return; // already pinned
-		items[foundIndex].header.pinIdx=header.pinCount;
-		header.pinCount++;
-	}
-	else if (groupType==CJumpGroup::TYPE_PINNED)
-	{
-		// unpin
-		if (foundIndex==-1)
-			return; // not in DestList, bad
-		for (std::vector<DestListItem>::iterator it=items.begin();it!=items.end();++it)
-			if (it->header.pinIdx>items[foundIndex].header.pinIdx)
-				it->header.pinIdx--;
-		bool bUsed=(items[foundIndex].header.useCount>0);
-		if (bUsed)
-		{
-			// if recent history is disabled, also consider the item unused
-			CRegKey regKey;
-			if (regKey.Open(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced")==ERROR_SUCCESS)
-			{
-				DWORD val;
-				bUsed=(regKey.QueryDWORDValue(L"Start_TrackDocs",val)!=ERROR_SUCCESS || val);
-			}
-		}
-		if (bUsed)
-		{
-			// unpin used item - just clear pinIdx
-			if (items[foundIndex].header.pinIdx<0)
-				return; // already unpinned
-			items[foundIndex].header.pinIdx=-1;
-		}
-		else
-		{
-			// unpin unused item - delete stream and remove from DestList
-			wchar_t streamName[100];
-			Sprintf(streamName,_countof(streamName),L"%X",items[foundIndex].header.stream);
-			if (FAILED(pStorage->DestroyElement(streamName)))
-				return;
-
-			items.erase(items.begin()+foundIndex);
-			header.count--;
-		}
-		header.pinCount--;
-	}
-	else
-		return; // not supported
-
-	// update CRC
-	for (std::vector<DestListItem>::iterator it=items.begin();it!=items.end();++it)
-	{
-		it->header.crc=0;
-		it->header.crc=CalcCRC64((unsigned char*)&it->header,sizeof(DestListItemHeader));
-	}
-
-	if (pStorage)
-	{
-		// write DestList
-		CComPtr<IStream> pStream;
-		if (FAILED(pStorage->CreateStream(L"DestList",STGM_WRITE|STGM_CREATE|STGM_SHARE_EXCLUSIVE,0,0,&pStream)))
-			goto end;
-
-		header.writeCount++;
-		if (FAILED(pStream->Write(&header,sizeof(header),NULL)))
-			goto end;
-		for (std::vector<DestListItem>::const_iterator it=items.begin();it!=items.end();++it)
-		{
-			const DestListItem &item=*it;
-			if (FAILED(pStream->Write(&item.header,sizeof(item.header),NULL)))
-				goto end;
-			short len=(short)Strlen(item.name);
-			if (FAILED(pStream->Write(&len,2,NULL)))
-				goto end;
-			if (FAILED(pStream->Write((const wchar_t *)item.name,len*2,NULL)))
-				goto end;
-		}
-
-		pStorage->Commit(STGC_DEFAULT);
-	}
-	return;
-
-end:
-	if (bNewStorage)
-	{
-		pStorage->Revert();
-		pStorage=NULL;
-		DeleteFile(path);
-	}
+	const CJumpGroup &group=list.groups[groupIdx];
+	CAutomaticList(appid).PinItem(group.items[itemIdx].pItem,bPin?pinIndex:-2);
 }

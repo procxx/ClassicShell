@@ -26,8 +26,6 @@ using namespace ATL;
 #include <shlguid.h>
 #include <shlobj.h>
 
-extern HINSTANCE g_Instance;
-
 #ifdef BUILD_SETUP
 #define INI_PATH L""
 #define DOC_PATH L""

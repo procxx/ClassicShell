@@ -5,6 +5,9 @@
 	Name="ClassicSkin"
 	ProjectGUID="{9EC23CA9-384A-4EEB-979E-69879DC1A78C}"
 	RootNamespace="ClassicSkin"
+	SccProjectName="Perforce Project"
+	SccLocalPath="..\.."
+	SccProvider="MSSCCI:Perforce SCM"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -65,10 +68,11 @@
 				OutputFile="$(SolutionDir)ClassicStartMenu\Skins\Classic Skin.skin"
 				LinkIncremental="1"
 				GenerateDebugInformation="false"
-				ProgramDatabaseFile="$(OutDir)\$(ProjectName).pdb"
+				ProgramDatabaseFile=""
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
+				ResourceOnlyDLL="true"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -103,7 +107,7 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\main.cpp"
+				RelativePath=".\SkinDescription.txt"
 				>
 			</File>
 		</Filter>
@@ -125,6 +129,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\new_item.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\resource.h"
 				>
 			</File>
@@ -134,10 +142,6 @@
 			</File>
 			<File
 				RelativePath=".\selection.bmp"
-				>
-			</File>
-			<File
-				RelativePath=".\SkinDescription.txt"
 				>
 			</File>
 			<File

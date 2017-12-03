@@ -79,6 +79,8 @@ END
 9                       BITMAP                  "user_bitmap32.bmp"
 10                      BITMAP                  "search.bmp"
 11                      BITMAP                  "split_selection.bmp"
+12                      BITMAP                  "new_item.bmp"
+13                      BITMAP                  "pager_arrows150.bmp"
 
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////

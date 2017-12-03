@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // ExplorerBand.cpp : Implementation of CExplorerBand
 
@@ -50,9 +50,14 @@ static struct
 	{L"stop",CBandWindow::ID_STOP},
 	{L"rename",CBandWindow::ID_RENAME},
 	{L"newfolder",CBandWindow::ID_NEWFOLDER},
+	{L"zipfolder",CBandWindow::ID_ZIPFOLDER},
+	{L"nav_pane",CBandWindow::ID_NAVPANE},
+	{L"details_pane",CBandWindow::ID_DETAILSPANE},
+	{L"preview_pane",CBandWindow::ID_PREVIEWPANE},
 	{L"mapdrive",CBandWindow::ID_MAP_DRIVE},
 	{L"disconnect",CBandWindow::ID_DISCONNECT},
 	{L"customizefolder",CBandWindow::ID_CUSTOMIZEFOLDER},
+	{L"folderoptions",CBandWindow::ID_FOLDEROPTIONS},
 	{L"viewtiles",CBandWindow::ID_VIEW_TILES},
 	{L"viewdetails",CBandWindow::ID_VIEW_DETAILS},
 	{L"viewlist",CBandWindow::ID_VIEW_LIST},
@@ -61,7 +66,22 @@ static struct
 	{L"viewicons_medium",CBandWindow::ID_VIEW_ICONS2},
 	{L"viewicons_large",CBandWindow::ID_VIEW_ICONS3},
 	{L"viewicons_extralarge",CBandWindow::ID_VIEW_ICONS4},
+	{L"show_extensions",CBandWindow::ID_SHOW_EXTENSIONS},
+	{L"hidden_files",CBandWindow::ID_HIDDEN_FILES},
+	{L"system_files",CBandWindow::ID_SYSTEM_FILES},
 };
+
+static GUID SID_FrameManager={0x31e4fa78,0x02b4,0x419f,{0x94,0x30,0x7b,0x75,0x85,0x23,0x7c,0x77}};
+static GUID SID_PerBrowserPropertyBag={0xa3b24a0a,0x7b68,0x448d,{0x99,0x79,0xc7,0x00,0x05,0x9c,0x3a,0xd1}};
+const wchar_t *g_NavPaneVisible=L"PageSpaceControlSizer_Visible";
+const wchar_t *g_DetailsPaneVisible=L"PreviewPaneSizer_Visible";
+const wchar_t *g_DetailsPaneEnabled=L"PreviewPaneSizer_Loaded";
+const wchar_t *g_PreviewPaneVisible=L"ReadingPaneSizer_Visible";
+const wchar_t *g_PreviewPaneEnabled=L"ReadingPaneSizer_Loaded";
+const wchar_t *g_ComboPaneEnabled=L"DetailsContainerSizer_Loaded";
+
+typedef HRESULT (__stdcall *tBagWrite)( IPropertyBag *pThis, LPCOLESTR pszPropName, VARIANT *pVar );
+static volatile tBagWrite g_OldBagWrite;
 
 void CBandWindow::ParseToolbarItem( const wchar_t *name, StdToolbarItem &item )
 {
@@ -192,9 +212,9 @@ LRESULT CALLBACK CBandWindow::ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPARAM 
 		// HACK: Looks like WM_SETTINGCHANGE breaks the toolbar if it contains a split dropdown button (most likely something to do with metrics or themes)
 		// So we delete all buttons and post a message recreate them
 		int count=(int)SendMessage(hWnd,TB_BUTTONCOUNT,0,0);
+		CBandWindow *pThis=(CBandWindow*)uIdSubclass;
 		if (count>0)
 		{
-			CBandWindow *pThis=(CBandWindow*)uIdSubclass;
 			for (int i=count-1;i>=0;i--)
 			{
 				TBBUTTON button;
@@ -204,6 +224,16 @@ LRESULT CALLBACK CBandWindow::ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPARAM 
 			}
 			::PostMessage((HWND)dwRefData,CBandWindow::BWM_UPDATEBUTTONS,0,0);
 		}
+
+		// Also refresh the buttons when the folder settings change
+		if (pThis->HasFolderSettings())
+			::PostMessage((HWND)dwRefData,CBandWindow::BWM_UPDATETOOLBAR,0,0);
+	}
+	if (uMsg==WM_PAINT)
+	{
+		CBandWindow *pThis=(CBandWindow*)uIdSubclass;
+		if (!pThis->m_pBrowserBag && pThis->HasPanes())
+			pThis->UpdateBag();
 	}
 	return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
@@ -274,7 +304,7 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 			}
 			else if (item.link)
 			{
-				PIDLIST_ABSOLUTE pidl=NULL;
+				CAbsolutePidl pidl;
 				wchar_t path[_MAX_PATH];
 				Strcpy(path,_countof(path),item.link);
 				DoEnvironmentSubst(path,_countof(path));
@@ -288,7 +318,6 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 							hBitmap=NULL;
 					}
 
-					ILFree(pidl);
 				}
 			}
 
@@ -301,7 +330,7 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 				if (!hIcon2)
 					hIcon2=CreateDisabledIcon(hIcon,iconSize);
 				int idx=ImageList_AddIcon(m_ImgDisabled,hIcon2);
-				ATLASSERT(button.iBitmap==idx);
+				Assert(button.iBitmap==idx);
 				DestroyIcon(hIcon);
 				DestroyIcon(hIcon2);
 			}
@@ -309,7 +338,7 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 			{
 				button.iBitmap=ImageList_AddMasked(m_ImgEnabled,hBitmap,CLR_NONE);
 				int idx=ImageList_AddMasked(m_ImgDisabled,hBitmap,CLR_NONE);
-				ATLASSERT(button.iBitmap==idx);
+				Assert(button.iBitmap==idx);
 				DeleteObject(hBitmap);
 			}
 
@@ -329,11 +358,10 @@ LRESULT CBandWindow::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 				wchar_t path[_MAX_PATH];
 				Strcpy(path,_countof(path),item.link);
 				DoEnvironmentSubst(path,_countof(path));
-				PIDLIST_ABSOLUTE pidl;
+				CAbsolutePidl pidl;
 				SFGAOF flags=0;
 				if (SUCCEEDED(ShParseDisplayName(path,&pidl,SFGAO_FOLDER,&flags)))
 				{
-					ILFree(pidl);
 					if (flags&SFGAO_FOLDER)
 						bFolder=true;
 				}
@@ -429,7 +457,77 @@ void CBandWindow::SendEmail( void )
 	if (SUCCEEDED(CoCreateInstance(CLSID_SendMail,NULL,CLSCTX_ALL,IID_IDropTarget,(void **)&pDropTarget)))
 	{
 		POINTL pt={0,0};
-		DWORD dwEffect=0;
+		DWORD dwEffect=DROPEFFECT_COPY;
+		pDropTarget->DragEnter(pDataObj,MK_LBUTTON,pt,&dwEffect);
+		pDropTarget->Drop(pDataObj,0,pt,&dwEffect);
+	}
+}
+
+class CSendToZipHelper: public CComObjectRootEx<CComSingleThreadModel>, public IServiceProvider
+{
+public:
+	BEGIN_COM_MAP(CSendToZipHelper)
+		COM_INTERFACE_ENTRY_IID( IID_IServiceProvider, IServiceProvider )
+	END_COM_MAP()
+
+	// from IServiceProvider
+	virtual HRESULT STDMETHODCALLTYPE QueryService( REFGUID guidService, REFIID riid, void **ppvObject );
+
+	CComPtr<IFolderView> m_pFolderView;
+};
+
+HRESULT CSendToZipHelper::QueryService( REFGUID guidService, REFIID riid, void **ppvObject )
+{
+	if (guidService==SID_SNewMenuClient)
+	{
+		return m_pFolderView->QueryInterface(riid,ppvObject);
+	}
+	return E_NOINTERFACE;
+}
+
+void CBandWindow::SendToZip( void )
+{
+	const IID CLSID_SendToZip={0x888DCA60, 0xFC0A, 0x11CF, {0x8F, 0x0F, 0x00, 0xC0, 0x4F, 0xD7, 0xD0, 0x62}};
+
+	CComPtr<IShellView> pView;
+	if (FAILED(m_pBrowser->QueryActiveShellView(&pView))) return;
+
+	// check if there is anything selected
+	CComQIPtr<IFolderView> pView2=pView;
+
+	CComPtr<IShellFolder> pFolder;
+	if (FAILED(pView2->GetFolder(IID_IShellFolder,(void**)&pFolder)) || !pFolder) return;
+
+	int count;
+	if (pView2 && SUCCEEDED(pView2->ItemCount(SVGIO_SELECTION,&count)) && count==0)
+		return;
+
+	// get the data object
+	CComPtr<IDataObject> pDataObj;
+	if (FAILED(pView->GetItemObject(SVGIO_SELECTION,IID_IDataObject,(void**)&pDataObj)))
+		return;
+	CComQIPtr<IAsyncOperation> pAsync=pDataObj;
+	if (pAsync)
+		pAsync->SetAsyncMode(FALSE);
+
+	// drop into the SendMail handler
+	CComPtr<IDropTarget> pDropTarget;
+	if (SUCCEEDED(CoCreateInstance(CLSID_SendToZip,NULL,CLSCTX_ALL,IID_IDropTarget,(void **)&pDropTarget)))
+	{
+		CComQIPtr<IObjectWithSite> pDropWithSite=pDropTarget;
+		if (pDropWithSite)
+		{
+			CComObject<CSendToZipHelper> *pHelper;
+			if (SUCCEEDED(CComObject<CSendToZipHelper>::CreateInstance(&pHelper)))
+			{
+				pHelper->m_pFolderView=pView2;
+				pDropWithSite->SetSite(pHelper);
+			}
+			else
+				delete pHelper;
+		}
+		POINTL pt={0,0};
+		DWORD dwEffect=DROPEFFECT_COPY;
 		pDropTarget->DragEnter(pDataObj,MK_LBUTTON,pt,&dwEffect);
 		pDropTarget->Drop(pDataObj,0,pt,&dwEffect);
 	}
@@ -447,16 +545,15 @@ static bool GetPidlPath( PIDLIST_ABSOLUTE pidl, wchar_t *path )
 		if (SUCCEEDED(SHCreateItemFromIDList(pidl,IID_IShellItem,(void**)&pShellItem)))
 		{
 			CComPtr<IShellLibrary> pLibrary;
-			if (SUCCEEDED(pLibrary.CoCreateInstance(CLSID_ShellLibrary,NULL,CLSCTX_INPROC_SERVER)) && SUCCEEDED(pLibrary->LoadLibraryFromItem(pShellItem,STGM_READ)))
+			if (SUCCEEDED(pLibrary.CoCreateInstance(CLSID_ShellLibrary)) && SUCCEEDED(pLibrary->LoadLibraryFromItem(pShellItem,STGM_READ)))
 			{
 				pShellItem=NULL;
 				if (SUCCEEDED(pLibrary->GetDefaultSaveFolder(DSFT_DETECT,IID_IShellItem,(void**)&pShellItem)) && pShellItem)
 				{
-					wchar_t *pPath;
+					CComString pPath;
 					if (SUCCEEDED(pShellItem->GetDisplayName(SIGDN_FILESYSPATH,&pPath)))
 					{
 						Strcpy(path,_MAX_PATH,pPath);
-						CoTaskMemFree(pPath);
 						return true;
 					}
 				}
@@ -476,19 +573,17 @@ void CBandWindow::NewFolder( void )
 	{
 		// check if this is a filesystem folder (InvokeCommand may crash for non-folders)
 		CComPtr<IPersistFolder2> pFolder;
-		PIDLIST_ABSOLUTE pidl;
+		CAbsolutePidl pidl;
 		if (FAILED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) || FAILED(pFolder->GetCurFolder(&pidl)))
 			return;
 		wchar_t path[_MAX_PATH];
 		bool bFolder=GetPidlPath(pidl,path); // it is a folder if it has a path
-		ILFree(pidl);
 		if (!bFolder)
 			return;
 	}
 
 	CComPtr<IShellFolder> pFolder;
 	if (FAILED(pView2->GetFolder(IID_IShellFolder,(void**)&pFolder)) || !pFolder) return;
-
 
 	std::vector<unsigned int> items;
 	{
@@ -502,10 +597,9 @@ void CBandWindow::NewFolder( void )
 			STRRET str;
 			if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_FORPARSING,&str)))
 			{
-				wchar_t *pName;
+				CComString pName;
 				StrRetToStr(&str,child,&pName);
 				items.push_back(CalcFNVHash(pName));
-				CoTaskMemFree(pName);
 			}
 			ILFree(child);
 		}
@@ -546,17 +640,15 @@ void CBandWindow::NewFolder( void )
 			STRRET str;
 			if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_INFOLDER|SHGDN_FORPARSING,&str)))
 			{
-				wchar_t *pName;
+				CComString pName;
 				StrRetToStr(&str,child,&pName);
 				unsigned int hash=CalcFNVHash(pName);
 				if (std::find(items.begin(),items.end(),hash)==items.end())
 				{
 					// found the new folder
 					pView->SelectItem(child,SVSI_SELECT|SVSI_EDIT|SVSI_DESELECTOTHERS|SVSI_ENSUREVISIBLE|SVSI_FOCUSED);
-					CoTaskMemFree(pName);
 					break;
 				}
-				CoTaskMemFree(pName);
 			}
 			ILFree(child);
 		}
@@ -572,12 +664,11 @@ void CBandWindow::ExecuteCommandFile( const wchar_t *pText )
 		// navigate to the given folder
 		wchar_t path[_MAX_PATH];
 		GetToken(pText,path,_countof(path),L" \t\r\n");
-		PIDLIST_ABSOLUTE pidl;
+		CAbsolutePidl pidl;
 		if (m_pBrowser && SUCCEEDED(ShParseDisplayName(path,&pidl,0,NULL)))
 		{
 			UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
 			m_pBrowser->BrowseObject(pidl,flags|SBSP_ABSOLUTE);
-			ILFree(pidl);
 		}
 	}
 	else if (_wcsicmp(command,L"refresh")==0)
@@ -627,12 +718,11 @@ void CBandWindow::ExecuteCommandFile( const wchar_t *pText )
 					STRRET str;
 					if (SUCCEEDED(pFolder->GetDisplayNameOf(child,SHGDN_FORPARSING|SHGDN_INFOLDER,&str)))
 					{
-						wchar_t *pName;
+						CComString pName;
 						StrRetToStr(&str,child,&pName);
 
-						CharUpper(pName);
+						pName.MakeUpper();
 						unsigned int hash=CalcFNVHash(pName);
-						CoTaskMemFree(pName);
 
 						UINT flags=SVSI_DESELECT;
 						if (std::find(selected.begin(),selected.end(),hash)!=selected.end())
@@ -693,7 +783,7 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 	if (SUCCEEDED(m_pBrowser->QueryActiveShellView(&pView)))
 	{
 		CComPtr<IPersistFolder2> pFolder;
-		PIDLIST_ABSOLUTE pidl;
+		CAbsolutePidl pidl;
 		CComQIPtr<IFolderView> pView2=pView;
 		if (pView2 && SUCCEEDED(pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder)) && SUCCEEDED(pFolder->GetCurFolder(&pidl)))
 		{
@@ -709,10 +799,10 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 					PITEMID_CHILD child;
 					if (pEnum->Next(1,&child,NULL)==S_OK)
 					{
-						PIDLIST_ABSOLUTE full=ILCombine(pidl,child);
+						CAbsolutePidl full;
+						full.Attach(ILCombine(pidl,child));
 						SHGetPathFromIDList(full,file);
 						ILFree(child);
-						ILFree(full);
 					}
 				}
 			}
@@ -733,10 +823,10 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 							while (pEnum->Next(1,&child,NULL)==S_OK)
 							{
 								wchar_t fname[_MAX_PATH];
-								PIDLIST_ABSOLUTE full=ILCombine(pidl,child);
+								CAbsolutePidl full;
+								full.Attach(ILCombine(pidl,child));
 								SHGetPathFromIDList(full,fname);
 								ILFree(child);
-								ILFree(full);
 								if (bArg3)
 								{
 									char fnameA[_MAX_PATH];
@@ -765,8 +855,6 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 					bArg4=false;
 				}
 			}
-
-			ILFree(pidl);
 		}
 
 		if (bArg5)
@@ -802,12 +890,11 @@ void CBandWindow::ExecuteCustomCommand( const wchar_t *pCommand )
 		const wchar_t *params=SeparateArguments(pBuf,exe);
 		if (_wcsicmp(exe,L"open")==0)
 		{
-			PIDLIST_ABSOLUTE pidl;
+			CAbsolutePidl pidl;
 			if (m_pBrowser && SUCCEEDED(ShParseDisplayName((LPWSTR)params,&pidl,0,NULL)))
 			{
 				UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
 				m_pBrowser->BrowseObject(pidl,flags|SBSP_ABSOLUTE);
-				ILFree(pidl);
 			}
 		}
 		else if (_wcsicmp(exe,L"sortby")==0)
@@ -946,6 +1033,39 @@ LRESULT CBandWindow::OnUpdateButtons( UINT uMsg, WPARAM wParam, LPARAM lParam, B
 	return 0;
 }
 
+LRESULT CBandWindow::OnUpdateToolbar( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	UpdateToolbar();
+	return 0;
+}
+
+static BOOL CALLBACK RefreshExplorerWindows( HWND hwnd, LPARAM lParam )
+{
+	wchar_t className[256];
+	if (GetClassName(hwnd,className,_countof(className)))
+	{
+		if (_wcsicmp(className,L"CabinetWClass")==0 || _wcsicmp(className,L"Progman")==0)
+			PostMessage(hwnd,WM_COMMAND,41504,0); // post refresh command
+	}
+	return TRUE;
+}
+
+static bool ToggleExplorerSetting( const wchar_t *setting, DWORD off, DWORD on )
+{
+	CRegKey regKey;
+	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",KEY_READ|KEY_WRITE|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+	{
+		DWORD val=off;
+		if (regKey.QueryDWORDValue(setting,val)!=ERROR_SUCCESS)
+			val=off;
+		regKey.SetDWORDValue(setting,val==on?off:on);
+
+		EnumWindows(RefreshExplorerWindows,0);
+		return val==off;
+	}
+	return false;
+}
+
 // Executes a cut/copy/paste/delete command
 LRESULT CBandWindow::OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
@@ -962,12 +1082,11 @@ LRESULT CBandWindow::OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 			wchar_t path[_MAX_PATH];
 			Strcpy(path,_countof(path),m_Items[idx].link);
 			DoEnvironmentSubst(path,_countof(path));
-			PIDLIST_ABSOLUTE pidl;
+			CAbsolutePidl pidl;
 			if (m_pBrowser && SUCCEEDED(ShParseDisplayName(path,&pidl,0,NULL)))
 			{
 				UINT flags=(GetKeyState(VK_CONTROL)<0?SBSP_NEWBROWSER:SBSP_SAMEBROWSER);
 				m_pBrowser->BrowseObject(pidl,flags|SBSP_ABSOLUTE);
-				ILFree(pidl);
 			}
 		}
 
@@ -1016,6 +1135,65 @@ LRESULT CBandWindow::OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 	if (id==ID_NEWFOLDER)
 	{
 		NewFolder();
+		return TRUE;
+	}
+	if (id==ID_ZIPFOLDER)
+	{
+		SendToZip();
+		return TRUE;
+	}
+	if (id==ID_NAVPANE)
+	{
+		if (m_pBrowserBag)
+		{
+			VARIANT val={VT_EMPTY};
+			bool bNavPane=SUCCEEDED(m_pBrowserBag->Read(g_NavPaneVisible,&val,NULL)) && val.vt==VT_BOOL && val.boolVal;
+			VariantClear(&val);
+			val.vt=VT_BOOL;
+			val.boolVal=bNavPane?VARIANT_FALSE:VARIANT_TRUE;
+			m_pBrowserBag->Write(g_NavPaneVisible,&val);
+		}
+		return TRUE;
+	}
+	if (id==ID_DETAILSPANE)
+	{
+		if (m_pBrowserBag)
+		{
+			VARIANT val={VT_EMPTY};
+			bool bNavPane=SUCCEEDED(m_pBrowserBag->Read(g_DetailsPaneVisible,&val,NULL)) && val.vt==VT_BOOL && val.boolVal;
+			VariantClear(&val);
+			val.vt=VT_BOOL;
+			val.boolVal=bNavPane?VARIANT_FALSE:VARIANT_TRUE;
+			m_pBrowserBag->Write(g_DetailsPaneVisible,&val);
+		}
+		return TRUE;
+	}
+	if (id==ID_PREVIEWPANE)
+	{
+		if (m_pBrowserBag)
+		{
+			VARIANT val={VT_EMPTY};
+			bool bNavPane=SUCCEEDED(m_pBrowserBag->Read(g_PreviewPaneVisible,&val,NULL)) && val.vt==VT_BOOL && val.boolVal;
+			VariantClear(&val);
+			val.vt=VT_BOOL;
+			val.boolVal=bNavPane?VARIANT_FALSE:VARIANT_TRUE;
+			m_pBrowserBag->Write(g_PreviewPaneVisible,&val);
+		}
+		return TRUE;
+	}
+	if (id==ID_SHOW_EXTENSIONS)
+	{
+		CheckButton(ID_SHOW_EXTENSIONS,ToggleExplorerSetting(L"HideFileExt",1,0));
+		return TRUE;
+	}
+	if (id==ID_HIDDEN_FILES)
+	{
+		CheckButton(ID_HIDDEN_FILES,ToggleExplorerSetting(L"Hidden",2,1));
+		return TRUE;
+	}
+	if (id==ID_SYSTEM_FILES)
+	{
+		CheckButton(ID_SYSTEM_FILES,ToggleExplorerSetting(L"ShowSuperHidden",0,1));
 		return TRUE;
 	}
 
@@ -1076,6 +1254,8 @@ LRESULT CBandWindow::OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 		SendShellTabCommand(41090);
 	if (id==ID_CUSTOMIZEFOLDER)
 		SendShellTabCommand(28722);
+	if (id==ID_FOLDEROPTIONS)
+		SendShellTabCommand(41251);
 
 	if (id==ID_VIEW_TILES)
 		SendShellTabCommand(28748);
@@ -1169,7 +1349,7 @@ LRESULT CBandWindow::OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 {
 	NMTBGETINFOTIP *pTip=(NMTBGETINFOTIP*)pnmh;
 	const StdToolbarItem &item=m_Items[pTip->lParam];
-	if (item.tip)
+	if (item.tip && _wcsicmp(item.tip,L"none")!=0)
 	{
 		// show the tip for the standard item
 		Strcpy(pTip->pszText,pTip->cchTextMax,item.tip);
@@ -1232,7 +1412,7 @@ HRESULT STDMETHODCALLTYPE CMenuCallback::CallbackSM( LPSMDATA psmd, UINT uMsg, W
 
 				if (SUCCEEDED(psmd->psf->GetAttributesOf(1,&psmd->pidlItem,&flags)))
 				{
-					PIDLIST_ABSOLUTE pidl=NULL;
+					CAbsolutePidl pidl;
 					if (flags&SFGAO_LINK)
 					{
 						flags=0;
@@ -1249,15 +1429,12 @@ HRESULT STDMETHODCALLTYPE CMenuCallback::CallbackSM( LPSMDATA psmd, UINT uMsg, W
 							if (pFolder && SUCCEEDED(pFolder->GetAttributesOf(1,&child,&flags2)) && (flags2&SFGAO_FOLDER))
 								flags=SFGAO_FOLDER;
 							else
-							{
-								ILFree(pidl);
-								pidl=NULL;
-							}
+								pidl.Clear();
 						}
 					}
 
 					if (!pidl)
-						pidl=ILCombine(psmd->pidlFolder,psmd->pidlItem);
+						pidl.Attach(ILCombine(psmd->pidlFolder,psmd->pidlItem));
 
 					if (flags&SFGAO_FOLDER)
 					{
@@ -1276,7 +1453,6 @@ HRESULT STDMETHODCALLTYPE CMenuCallback::CallbackSM( LPSMDATA psmd, UINT uMsg, W
 						execute.nShow=SW_SHOWNORMAL;
 						ShellExecuteEx(&execute);
 					}
-					ILFree(pidl);
 				}
 				return S_OK;
 			}
@@ -1333,7 +1509,7 @@ LRESULT CBandWindow::OnDropDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 			TPMPARAMS params={sizeof(params),pButton->rcButton};
 			m_Toolbar.MapWindowPoints(NULL,&params.rcExclude); // must use MapWindowPoints to handle RTL correctly
 
-			PIDLIST_ABSOLUTE pidl;
+			CAbsolutePidl pidl;
 			CComPtr<IShellFolder> pFolder;
 			wchar_t buf[1024];
 			Strcpy(buf,_countof(buf),pItem->link);
@@ -1355,18 +1531,16 @@ LRESULT CBandWindow::OnDropDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 					{
 						CRegKey cRegOrder;
 
-						wchar_t *pFavs;
-						if (FAILED(SHGetKnownFolderPath(FOLDERID_Favorites,0,NULL,&pFavs)))
-							pFavs=NULL;
+						CComString pFavs;
+						SHGetKnownFolderPath(FOLDERID_Favorites,0,NULL,&pFavs);
 						if (pFavs && SUCCEEDED(SHGetPathFromIDList(pidl,buf)))
 						{
 							// must compare strings and not pidls. sometimes pidls can be different but point to the same folder
-							CharUpper(pFavs);
+							pFavs.MakeUpper();
 							CharUpper(buf);
 							if (wcscmp(pFavs,buf)==0)
 								cRegOrder.Open(HKEY_CURRENT_USER,_T("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MenuOrder\\Favorites"));
 						}
-						if (pFavs) CoTaskMemFree(pFavs);
 
 						hr=pMenu->SetShellFolder(pFolder,pidl,cRegOrder.m_hKey,SMSET_BOTTOM|0x00000008); // SMSET_USEBKICONEXTRACTION=0x00000008
 						if (SUCCEEDED(hr))
@@ -1378,8 +1552,6 @@ LRESULT CBandWindow::OnDropDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 						}
 					}
 				}
-
-				ILFree(pidl);
 			}
 		}
 
@@ -1456,7 +1628,8 @@ HMENU CBandWindow::CreateDropMenuRec( const StdToolbarItem *pItem, std::vector<H
 			continue;
 		}
 		const wchar_t *name=pItem->label;
-		if (!name) name=pItem->tip;
+		if (!name && pItem->tip && _wcsicmp(pItem->tip,L"none")!=0)
+			name=pItem->tip;
 
 		if (!pItem->bIconLoaded)
 		{
@@ -1483,7 +1656,7 @@ HMENU CBandWindow::CreateDropMenuRec( const StdToolbarItem *pItem, std::vector<H
 				else if (pItem->link)
 				{
 					HICON hIcon=NULL;
-					PIDLIST_ABSOLUTE pidl=NULL;
+					CAbsolutePidl pidl;
 					wchar_t path[_MAX_PATH];
 					Strcpy(path,_countof(path),pItem->link);
 					DoEnvironmentSubst(path,_countof(path));
@@ -1491,15 +1664,13 @@ HMENU CBandWindow::CreateDropMenuRec( const StdToolbarItem *pItem, std::vector<H
 					{
 						if (!name)
 						{
-							wchar_t *pName=NULL;
+							CComString pName;
 							if (SUCCEEDED(SHGetNameFromIDList(pidl,SIGDN_PARENTRELATIVEEDITING,&pName)) && pName)
 							{
 								pItem->menuText=pName;
-								CoTaskMemFree(pName);
 							}
 						}
 						hIcon=LoadIcon(m_MenuIconSize,pidl);
-						ILFree(pidl);
 					}
 					if (hIcon)
 					{
@@ -1546,6 +1717,12 @@ void CBandWindow::UpdateToolbar( void )
 {
 	// disable the Up button if we are at the top level
 	bool bDesktop=false;
+	bool bNavPane=true;
+	bool bDisableNavPane=false;
+	bool bDetailsPane=true;
+	bool bDisableDetailsPane=false;
+	bool bPreviewPane=true;
+	bool bDisablePreviewPane=false;
 	if (m_pBrowser)
 	{
 		CComPtr<IShellView> pView;
@@ -1559,18 +1736,133 @@ void CBandWindow::UpdateToolbar( void )
 				pView2->GetFolder(IID_IPersistFolder2,(void**)&pFolder);
 				if (pFolder)
 				{
-					PIDLIST_ABSOLUTE pidl;
+					CAbsolutePidl pidl;
 					if (SUCCEEDED(pFolder->GetCurFolder(&pidl)) && pidl)
 					{
 						if (ILIsEmpty(pidl))
 							bDesktop=true; // only the top level has empty PIDL
-						ILFree(pidl);
+					}
+				}
+
+				if (m_pBrowserBag)
+				{
+					if (GetWinVersion()>=WIN_VER_WIN8)
+					{
+						VARIANT val={VT_EMPTY};
+						if (SUCCEEDED(m_pBrowserBag->Read(g_ComboPaneEnabled,&val,NULL)) && val.vt==VT_BOOL && !val.boolVal)
+						{
+							bDisableDetailsPane=true;
+							bDetailsPane=false;
+							bDisablePreviewPane=true;
+							bPreviewPane=false;
+						}
+						VariantClear(&val);
+					}
+					else
+					{
+						VARIANT val={VT_EMPTY};
+						if (SUCCEEDED(m_pBrowserBag->Read(g_DetailsPaneEnabled,&val,NULL)) && val.vt==VT_BOOL && !val.boolVal)
+						{
+							bDisableDetailsPane=true;
+							bDetailsPane=false;
+						}
+						VariantClear(&val);
+						if (SUCCEEDED(m_pBrowserBag->Read(g_PreviewPaneEnabled,&val,NULL)) && val.vt==VT_BOOL && !val.boolVal)
+						{
+							bDisablePreviewPane=true;
+							bPreviewPane=false;
+						}
+						VariantClear(&val);
+					}
+					CComPtr<IExplorerPaneVisibility> pVisibility;
+					if (SUCCEEDED(pView2->GetFolder(IID_IExplorerPaneVisibility,(void**)&pVisibility)) && pVisibility)
+					{
+						EXPLORERPANESTATE state=0;
+						if (SUCCEEDED(pVisibility->GetPaneState(EP_NavPane,&state)))
+						{
+							bDisableNavPane=(state&EPS_FORCE)!=0;
+							if (bDisableNavPane)
+								bNavPane=!(state&EPS_DEFAULT_OFF);
+						}
+						if (!bDisableDetailsPane)
+						{
+							state=0;
+							if (SUCCEEDED(pVisibility->GetPaneState(EP_DetailsPane,&state)))
+							{
+								bDisableDetailsPane=(state&EPS_FORCE)!=0;
+								if (bDisableDetailsPane)
+									bDetailsPane=!(state&EPS_DEFAULT_OFF);
+							}
+						}
+						if (!bDisablePreviewPane)
+						{
+							state=0;
+							if (SUCCEEDED(pVisibility->GetPaneState(EP_PreviewPane,&state)))
+							{
+								bDisablePreviewPane=(state&EPS_FORCE)!=0;
+								if (bDisablePreviewPane)
+									bPreviewPane=!(state&EPS_DEFAULT_OFF);
+							}
+						}
 					}
 				}
 			}
 		}
+
+		if (m_pBrowserBag)
+		{
+			if (!bDisableNavPane)
+			{
+				VARIANT val={VT_EMPTY};
+				bNavPane=SUCCEEDED(m_pBrowserBag->Read(g_NavPaneVisible,&val,NULL)) && val.vt==VT_BOOL && val.boolVal;
+				VariantClear(&val);
+			}
+			if (!bDisableDetailsPane)
+			{
+				VARIANT val={VT_EMPTY};
+				bDetailsPane=SUCCEEDED(m_pBrowserBag->Read(g_DetailsPaneVisible,&val,NULL)) && val.vt==VT_BOOL && val.boolVal;
+				VariantClear(&val);
+			}
+			if (!bDisablePreviewPane)
+			{
+				VARIANT val={VT_EMPTY};
+				bPreviewPane=SUCCEEDED(m_pBrowserBag->Read(g_PreviewPaneVisible,&val,NULL)) && val.vt==VT_BOOL && val.boolVal;
+				VariantClear(&val);
+			}
+		}
 	}
 	EnableButton(ID_GOUP,!bDesktop);
+	if (m_pBrowserBag)
+	{
+		EnableButton(ID_NAVPANE,!bDisableNavPane);
+		CheckButton(ID_NAVPANE,bNavPane);
+		EnableButton(ID_DETAILSPANE,!bDisableDetailsPane);
+		CheckButton(ID_DETAILSPANE,bDetailsPane);
+		EnableButton(ID_PREVIEWPANE,!bDisablePreviewPane);
+		CheckButton(ID_PREVIEWPANE,bPreviewPane);
+	}
+
+	if (HasFolderSettings())
+		UpdateFolderSettings();
+}
+
+void CBandWindow::UpdateFolderSettings( void )
+{
+	bool bExtensions=false, bHidden=false, bSystem=false;
+	CRegKey regKey;
+	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+	{
+		DWORD val;
+		if (regKey.QueryDWORDValue(L"HideFileExt",val)==ERROR_SUCCESS)
+			bExtensions=(val!=1);
+		if (regKey.QueryDWORDValue(L"Hidden",val)==ERROR_SUCCESS)
+			bHidden=(val==1);
+		if (regKey.QueryDWORDValue(L"ShowSuperHidden",val)==ERROR_SUCCESS)
+			bSystem=(val==1);
+	}
+	CheckButton(ID_SHOW_EXTENSIONS,bExtensions);
+	CheckButton(ID_HIDDEN_FILES,bHidden);
+	CheckButton(ID_SYSTEM_FILES,bSystem);
 }
 
 void CBandWindow::EnableButton( int cmd, bool bEnable )
@@ -1588,6 +1880,100 @@ void CBandWindow::EnableButton( int cmd, bool bEnable )
 				m_Toolbar.SendMessage(TB_ENABLEBUTTON,idx+1,bDisabled?0:1);
 		}
 	}
+}
+
+void CBandWindow::CheckButton( int cmd, bool bCheck )
+{
+	bool bMain=true;
+	for (int idx=0;idx<(int)m_Items.size();idx++)
+	{
+		if (m_Items[idx].id==ID_LAST)
+			bMain=false;
+		if (m_Items[idx].id==cmd && m_Items[idx].bChecked!=bCheck)
+		{
+			m_Items[idx].bChecked=bCheck;
+			if (bMain)
+				m_Toolbar.SendMessage(TB_CHECKBUTTON,idx+1,bCheck?1:0);
+		}
+	}
+}
+
+bool CBandWindow::HasPanes( void ) const
+{
+	for (int idx=0;idx<(int)m_Items.size();idx++)
+	{
+		if (m_Items[idx].id==ID_NAVPANE || m_Items[idx].id==ID_DETAILSPANE || m_Items[idx].id==ID_PREVIEWPANE)
+			return true;
+	}
+	return false;
+}
+
+bool CBandWindow::HasFolderSettings( void ) const
+{
+	for (int idx=0;idx<(int)m_Items.size();idx++)
+	{
+		if (m_Items[idx].id==ID_SHOW_EXTENSIONS || m_Items[idx].id==ID_HIDDEN_FILES || m_Items[idx].id==ID_SYSTEM_FILES)
+			return true;
+	}
+	return false;
+}
+
+void CBandWindow::UpdateBag( void )
+{
+	if (!m_pBrowserBag)
+	{
+		CComPtr<IUnknown> pFrame;
+		IUnknown_QueryService(m_pBrowser,SID_FrameManager,IID_IUnknown,(void**)&pFrame);
+		IUnknown_QueryService(pFrame,SID_PerBrowserPropertyBag,IID_IPropertyBag,(void**)&m_pBrowserBag);
+		if (m_pBrowserBag)
+		{
+			void **vtbl=*(void***)m_pBrowserBag.p+4;
+			if (InterlockedCompareExchangePointer((void**)&g_OldBagWrite,*vtbl,0)==0)
+			{
+				DWORD oldProtect;
+				VirtualProtect(vtbl,sizeof(void*),PAGE_READWRITE,&oldProtect);
+				*vtbl=BagWriteHook;
+				VirtualProtect(vtbl,sizeof(void*),oldProtect,&oldProtect);
+
+				// prevent the DLL from being unloaded after we mess with the vtable, otherwise bad things happen
+				HMODULE q;
+				GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,(const wchar_t*)g_Instance,&q);
+			}
+		}
+	}
+	PostMessage(BWM_UPDATETOOLBAR);
+}
+
+HRESULT __stdcall CBandWindow::BagWriteHook( IPropertyBag *pThis, LPCOLESTR pszPropName, VARIANT *pVar )
+{
+	if (_wcsicmp(pszPropName,g_NavPaneVisible)==0 ||
+			_wcsicmp(pszPropName,g_DetailsPaneVisible)==0 ||
+			_wcsicmp(pszPropName,g_PreviewPaneVisible)==0 ||
+			_wcsicmp(pszPropName,g_DetailsPaneEnabled)==0 ||
+			_wcsicmp(pszPropName,g_PreviewPaneEnabled)==0 ||
+			_wcsicmp(pszPropName,g_ComboPaneEnabled)==0
+		)
+	{
+		TlsData *pData=GetTlsData();
+		if (pData && pData->band)
+			pData->band->m_BandWindow.PostMessage(BWM_UPDATETOOLBAR);
+	}
+	return g_OldBagWrite(pThis,pszPropName,pVar);
+}
+
+void CBandWindow::Clear( void )
+{
+	m_TreeParent=NULL;
+	m_pBrowser=NULL;
+	m_pWebBrowser=NULL;
+	m_pBrowserBag=NULL;
+}
+
+void CBandWindow::SetBrowsers( IShellBrowser *pBrowser, IWebBrowser2 *pWebBrowser )
+{
+	m_pBrowser=pBrowser;
+	m_pWebBrowser=pWebBrowser;
+	m_pBrowserBag=NULL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1801,7 +2187,7 @@ STDMETHODIMP CExplorerBand::SetSite( IUnknown* pUnkSite )
 
 	if (m_BandWindow.IsWindow())
 		m_BandWindow.DestroyWindow();
-	m_BandWindow.SetBrowsers(NULL,NULL);
+	m_BandWindow.Clear();
 	if (m_bSubclassedRebar)
 	{
 		HWND hwnd=GetParent(m_BandWindow.GetToolbar());
@@ -1819,6 +2205,9 @@ STDMETHODIMP CExplorerBand::SetSite( IUnknown* pUnkSite )
 	//If punkSite is not NULL, a new site is being set.
 	if (pUnkSite)
 	{
+		// hook
+		GetTlsData()->band=this;
+
 		//Get the parent window.
 		HWND hWndParent=NULL;
 
@@ -1859,6 +2248,8 @@ STDMETHODIMP CExplorerBand::SetSite( IUnknown* pUnkSite )
 	}
 	else
 	{
+		// unhook
+		GetTlsData()->band=NULL;
 		if (m_TopWindow) RemoveProp(m_TopWindow,g_LoadedSettingsAtom);
 		m_TopWindow=NULL;
 	}

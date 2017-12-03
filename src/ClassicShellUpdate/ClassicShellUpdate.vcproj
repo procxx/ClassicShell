@@ -5,6 +5,9 @@
 	Name="ClassicShellUpdate"
 	ProjectGUID="{171B46B0-6083-4D9E-BD33-946EA3BD76FA}"
 	RootNamespace="ClassicShellUpdate"
+	SccProjectName="Perforce Project"
+	SccLocalPath=".."
+	SccProvider="MSSCCI:Perforce SCM"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -64,7 +67,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="shlwapi.lib comctl32.lib uxtheme.lib winmm.lib wininet.lib htmlhelp.lib"
+				AdditionalDependencies="shlwapi.lib comctl32.lib uxtheme.lib winmm.lib wininet.lib htmlhelp.lib wintrust.lib crypt32.lib"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -75,6 +78,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="ClassicShellUpdate.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -141,7 +145,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="shlwapi.lib comctl32.lib uxtheme.lib winmm.lib wininet.lib htmlhelp.lib"
+				AdditionalDependencies="shlwapi.lib comctl32.lib uxtheme.lib winmm.lib wininet.lib htmlhelp.lib wintrust.lib crypt32.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -154,6 +158,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
+				AdditionalManifestFiles="ClassicShellUpdate.manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -176,7 +181,15 @@
 	</References>
 	<Files>
 		<File
+			RelativePath="..\ClassicShellSetup\ClassicShell.ico"
+			>
+		</File>
+		<File
 			RelativePath=".\ClassicShellUpdate.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\ClassicShellUpdate.manifest"
 			>
 		</File>
 		<File

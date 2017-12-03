@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // StringUtils is also available under the CPOL license as part of the FormatString article
 // on CodeProject: http://www.codeproject.com/KB/string/FormatString.aspx
@@ -88,6 +88,10 @@ int _cdecl Sprintf( wchar_t *dst, int size, const wchar_t *format, ... );
 int _cdecl Vsprintf( char *dst, int size, const char *format, va_list args );
 int _cdecl Vsprintf( wchar_t *dst, int size, const wchar_t *format, va_list args );
 
+// Outputs a formatted debug string
+void Trace( const char *format, ... );
+void Trace( const wchar_t *format, ... );
+
 // Converts between multi-byte and wide characters. size is the size of dst in characters, including the
 // terminating 0.
 // Returns the number of characters copied, excluding the terminating 0.
@@ -102,6 +106,7 @@ int MbsToWcs( wchar_t *dst, int size, const char *src );
 int WcsToMbs( char *dst, int size, const wchar_t *src );
 #endif
 
+const char *GetToken( const char *text, char *token, int size, const char *separators );
 const wchar_t *GetToken( const wchar_t *text, wchar_t *token, int size, const wchar_t *separators );
 
 #endif

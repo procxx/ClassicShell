@@ -1,7 +1,8 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #define STRICT_TYPED_ITEMIDS
+#define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS	// some CString constructors will be explicit
 #include <windows.h>
 #include <atlbase.h>
 #include <atlwin.h>
@@ -10,26 +11,35 @@
 #include "StringUtils.h"
 #include "Settings.h"
 #include "SettingsUIHelper.h"
+#include "DownloadHelper.h"
 #include "ResourceHelper.h"
 #include "Translations.h"
-#include <wininet.h>
-
-// Manifest to enable the 6.0 common controls
-#pragma comment(linker, \
-	"\"/manifestdependency:type='Win32' "\
-	"name='Microsoft.Windows.Common-Controls' "\
-	"version='6.0.0.0' "\
-	"processorArchitecture='*' "\
-	"publicKeyToken='6595b64144ccf1df' "\
-	"language='*'\"")
+#include <shlobj.h>
 
 
 void ClosingSettings( HWND hWnd, int flags, int command )
 {
 }
 
+void SettingChangedCallback( const CSetting *pSetting )
+{
+}
+
+void UpgradeSettings( bool bShared )
+{
+}
+
 void UpdateSettings( void )
 {
+	CRegKey regKey;
+	wchar_t language[100]=L"";
+	if (regKey.Open(HKEY_LOCAL_MACHINE,L"Software\\IvoSoft\\ClassicShell",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
+	{
+		ULONG size=_countof(language);
+		if (regKey.QueryStringValue(L"DefaultLanguage",language,&size)!=ERROR_SUCCESS)
+			language[0]=0;
+	}
+	UpdateSetting(L"Language",language,false);
 }
 
 const wchar_t *GetDocRelativePath( void )
@@ -37,11 +47,10 @@ const wchar_t *GetDocRelativePath( void )
 	return NULL;
 }
 
-static HINSTANCE g_Instance;
-
 static int g_LoadDialogs[]=
 {
-	IDD_UPDATE,
+	IDD_UPDATE,0x04000000,
+	IDD_PROGRESS,0x04000004,
 	0
 };
 
@@ -49,19 +58,18 @@ static CSetting g_Settings[]={
 {L"Update",CSetting::TYPE_GROUP},
 	{L"Language",CSetting::TYPE_STRING,0,0,L"",CSetting::FLAG_SHARED},
 	{L"Update",CSetting::TYPE_BOOL,0,0,1,CSetting::FLAG_SHARED},
-	{L"RemindedVersion",CSetting::TYPE_INT,0,0,0,CSetting::FLAG_SHARED},
 
 	{NULL}
 };
 
 const int SETTING_UPDATE=2;
-const int SETTING_REMINDED=3;
 
 ///////////////////////////////////////////////////////////////////////////////
 
 class CUpdateDlg: public CResizeableDlg<CUpdateDlg>
 {
 public:
+	CUpdateDlg( void ) { m_Version=GetVersionEx(g_Instance); m_Data.Clear(); m_Data.newVersion=0xFFFFFFFF; m_Font=NULL; }
 	BEGIN_MSG_MAP( CUpdateDlg )
 		MESSAGE_HANDLER( WM_INITDIALOG, OnInitDialog )
 		MESSAGE_HANDLER( WM_DESTROY, OnDestroy )
@@ -74,6 +82,8 @@ public:
 		COMMAND_HANDLER( IDC_CHECKDONT, BN_CLICKED, OnDontRemind )
 		COMMAND_HANDLER( IDOK, BN_CLICKED, OnOK )
 		COMMAND_HANDLER( IDCANCEL, BN_CLICKED, OnCancel )
+		NOTIFY_HANDLER( IDC_LINKWEB, NM_CLICK, OnWeb )
+		NOTIFY_HANDLER( IDC_LINKWEB, NM_RETURN, OnWeb )
 	END_MSG_MAP()
 
 	BEGIN_RESIZE_MAP
@@ -81,13 +91,14 @@ public:
 		RESIZE_CONTROL(IDC_EDITTEXT,MOVE_SIZE_X|MOVE_SIZE_Y)
 		RESIZE_CONTROL(IDC_BUTTONDOWNLOAD,MOVE_MOVE_Y)
 		RESIZE_CONTROL(IDC_CHECKDONT,MOVE_MOVE_Y)
+		RESIZE_CONTROL(IDC_LINKWEB,MOVE_MOVE_Y)
 		RESIZE_CONTROL(IDOK,MOVE_MOVE_X|MOVE_MOVE_Y)
 		RESIZE_CONTROL(IDCANCEL,MOVE_MOVE_X|MOVE_MOVE_Y)
 	END_RESIZE_MAP
 
-	CUpdateDlg( void ) { m_NewVersion=0xFFFFFFFF; }
 	void Run( void );
 	void UpdateData( void );
+	bool HasNewLanguage( void ) { return (m_Data.bNewLanguage && !m_Data.bIgnoreLanguage) && !(m_Data.bNewVersion && !m_Data.bIgnoreVersion); }
 
 protected:
 	// Handler prototypes:
@@ -104,32 +115,30 @@ protected:
 	LRESULT OnCheckNow( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnDownload( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
 	LRESULT OnDontRemind( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
+	LRESULT OnWeb( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 
 private:
-	CString m_DownloadUrl;
-	CString m_News;
 	CWindow m_Tooltip;
+	VersionData m_Data;
 	DWORD m_Version;
-	DWORD m_NewVersion;
-	DWORD m_RemindedVersion;
 	HFONT m_Font;
 
 	void UpdateUI( void );
 
-	static void NewVersionCallback( DWORD newVersion, CString downloadUrl, CString news );
+	static void NewVersionCallback( VersionData &data );
 };
 
 static CUpdateDlg g_UpdateDlg;
 
 LRESULT CUpdateDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	CResizeableDlg<CUpdateDlg>::InitResize(MOVE_MODAL);
-	m_Version=GetVersionEx(_AtlBaseModule.GetModuleInstance());
+	InitResize(MOVE_MODAL);
 
-	HICON icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_CLASSICSHELL),IMAGE_ICON,GetSystemMetrics(SM_CXICON),GetSystemMetrics(SM_CYICON),LR_DEFAULTCOLOR);
+	HICON icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,GetSystemMetrics(SM_CXICON),GetSystemMetrics(SM_CYICON),LR_DEFAULTCOLOR);
 	SendMessage(WM_SETICON,ICON_BIG,(LPARAM)icon);
-	icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_CLASSICSHELL),IMAGE_ICON,GetSystemMetrics(SM_CXSMICON),GetSystemMetrics(SM_CYSMICON),LR_DEFAULTCOLOR);
+	icon=(HICON)LoadImage(g_Instance,MAKEINTRESOURCE(IDI_APPICON),IMAGE_ICON,GetSystemMetrics(SM_CXSMICON),GetSystemMetrics(SM_CYSMICON),LR_DEFAULTCOLOR);
 	SendMessage(WM_SETICON,ICON_SMALL,(LPARAM)icon);
+	SetDlgItemText(IDC_STATICLATEST,L"");
 
 	HDC hdc=::GetDC(NULL);
 	int dpi=GetDeviceCaps(hdc,LOGPIXELSY);
@@ -139,15 +148,17 @@ LRESULT CUpdateDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 		GetDlgItem(IDC_EDITTEXT).SetFont(m_Font);
 	m_Tooltip.Create(TOOLTIPS_CLASS,m_hWnd,NULL,NULL,WS_POPUP|TTS_NOPREFIX);
 
+	TOOLINFO tool={sizeof(tool),TTF_SUBCLASS|TTF_IDISHWND,m_hWnd,(UINT_PTR)GetDlgItem(IDC_LINKWEB).m_hWnd};
+	CString str=LoadStringEx(IDS_WEBSITE_TIP);
+	tool.lpszText=(LPWSTR)(LPCWSTR)str;
+	m_Tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
+
 	bool check=true;
 	if (g_Settings[SETTING_UPDATE].value.vt==VT_I4)
 		check=g_Settings[SETTING_UPDATE].value.intVal!=0;
 	CheckDlgButton(IDC_CHECKAUTOCHECK,check?BST_CHECKED:BST_UNCHECKED);
 	GetDlgItem(IDC_CHECKAUTOCHECK).EnableWindow(!(g_Settings[SETTING_UPDATE].flags&CSetting::FLAG_LOCKED_MASK));
 	GetDlgItem(IDC_BUTTONCHECKNOW).EnableWindow(!(g_Settings[SETTING_UPDATE].flags&CSetting::FLAG_LOCKED_MASK) || check);
-	m_RemindedVersion=m_Version;
-	if (g_Settings[SETTING_REMINDED].value.vt==VT_I4)
-		m_RemindedVersion=g_Settings[SETTING_REMINDED].value.intVal;
 	UpdateUI();
 
 	return TRUE;
@@ -180,7 +191,7 @@ LRESULT CUpdateDlg::OnCancel( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bH
 
 LRESULT CUpdateDlg::OnColorStatic( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	if ((m_NewVersion==0 || m_Version<m_NewVersion) && lParam==(LPARAM)GetDlgItem(IDC_STATICLATEST).m_hWnd)
+	if ((m_Data.bNewVersion || m_Data.bNewLanguage) && lParam==(LPARAM)GetDlgItem(IDC_STATICLATEST).m_hWnd)
 	{
 		HDC hdc=(HDC)wParam;
 		SetTextColor(hdc,0xFF);
@@ -208,54 +219,164 @@ LRESULT CUpdateDlg::OnCheckNow( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& 
 	return 0;
 }
 
+static HRESULT CALLBACK TaskDialogCallbackProc( HWND hwnd, UINT uNotification, WPARAM wParam, LPARAM lParam, LONG_PTR dwRefData )
+{
+	if (uNotification==TDN_HYPERLINK_CLICKED)
+	{
+		ShellExecute(hwnd,L"open",(const wchar_t*)lParam,NULL,NULL,SW_SHOWNORMAL);
+	}
+	return S_OK;
+}
+
 LRESULT CUpdateDlg::OnDownload( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
 {
-	if (!m_DownloadUrl.IsEmpty())
+	if (m_Data.bNewVersion)
 	{
-		ShellExecute(GetWindow(GA_ROOT),NULL,m_DownloadUrl,NULL,NULL,SW_SHOWNORMAL);
+		if (!m_Data.downloadUrl.IsEmpty())
+		{
+			CString fname, error;
+			DWORD res=DownloadNewVersion(m_hWnd,COMPONENT_UPDATE,m_Data.downloadUrl,m_Data.downloadSigner,fname,error);
+			if (res==2)
+				return 0;
+			if (res)
+			{
+				SetDlgItemText(IDC_STATICLATEST,L"");
+				PIDLIST_ABSOLUTE pidl;
+				if (SUCCEEDED(SHParseDisplayName(fname,NULL,&pidl,0,NULL)))
+				{
+					HRESULT hr=SHOpenFolderAndSelectItems(pidl,0,NULL,0);
+					ILFree(pidl);
+					if (SUCCEEDED(hr))
+						return 0;
+				}
+				ShellExecute(NULL,NULL,fname,NULL,NULL,SW_SHOWNORMAL);
+			}
+			else
+			{
+				error+=LoadStringEx(IDS_DOWNLOAD_TIP)+L"\r\n\r\n"+m_Data.updateLink;
+				TASKDIALOGCONFIG task={sizeof(task),m_hWnd,NULL,TDF_ENABLE_HYPERLINKS|TDF_ALLOW_DIALOG_CANCELLATION|TDF_USE_HICON_MAIN,TDCBF_OK_BUTTON};
+				CString title=LoadStringEx(IDS_UPDATE_TITLE);
+				task.pszWindowTitle=title;
+				task.pszContent=error;
+				task.hMainIcon=LoadIcon(NULL,IDI_ERROR);
+				task.pfCallback=TaskDialogCallbackProc;
+				TaskDialogIndirect(&task,NULL,NULL,NULL);
+			}
+		}
+	}
+	else if (m_Data.bNewLanguage)
+	{
+		for (std::vector<LanguageVersionData>::const_iterator it=m_Data.languages.begin();it!=m_Data.languages.end();++it)
+		{
+			if (_wcsicmp(m_Data.newLanguage,it->language)==0)
+			{
+				CString error;
+				DWORD res=DownloadLanguageDll(m_hWnd,COMPONENT_UPDATE,*it,error);
+				if (res==2)
+					return 0;
+				if (res)
+				{
+					MessageBox(LoadStringEx(it->bBasic?IDS_LANGUAGE_SUCCESS2:IDS_LANGUAGE_SUCCESS),LoadStringEx(IDS_UPDATE_TITLE),MB_OK|(it->bBasic?MB_ICONWARNING:MB_ICONINFORMATION));
+					SetDlgItemText(IDC_STATICLATEST,L"");
+				}
+				else
+				{
+					error+=LoadStringEx(IDS_DOWNLOAD_TIP)+L"\r\n\r\n"+m_Data.languageLink;
+					TASKDIALOGCONFIG task={sizeof(task),m_hWnd,NULL,TDF_ENABLE_HYPERLINKS|TDF_ALLOW_DIALOG_CANCELLATION|TDF_USE_HICON_MAIN,TDCBF_OK_BUTTON};
+					CString title=LoadStringEx(IDS_UPDATE_TITLE);
+					task.pszWindowTitle=title;
+					task.pszContent=error;
+					task.hMainIcon=LoadIcon(NULL,IDI_ERROR);
+					task.pfCallback=TaskDialogCallbackProc;
+					TaskDialogIndirect(&task,NULL,NULL,NULL);
+				}
+				return 0;
+			}
+		}
+		Assert(0); // NEWLanguage is not in the list
 	}
 	return 0;
 }
 
 LRESULT CUpdateDlg::OnDontRemind( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
 {
-	if (IsDlgButtonChecked(IDC_CHECKDONT)==BST_CHECKED)
+	CRegKey regKey;
+	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell",KEY_READ|KEY_WRITE)!=ERROR_SUCCESS)
+		regKey.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell");
+	if (m_Data.bNewVersion)
 	{
-		m_RemindedVersion=m_NewVersion;
+		m_Data.bIgnoreVersion=(IsDlgButtonChecked(IDC_CHECKDONT)==BST_CHECKED);
+		regKey.SetDWORDValue(L"RemindedVersion",m_Data.bIgnoreVersion?m_Data.newVersion:0);
 	}
-	else
+	else if (m_Data.bNewLanguage)
 	{
-		m_RemindedVersion=m_NewVersion-1;
+		m_Data.bIgnoreLanguage=(IsDlgButtonChecked(IDC_CHECKDONT)==BST_CHECKED);
+		regKey.SetDWORDValue(L"RemindedLangVersion",m_Data.bIgnoreLanguage?m_Data.encodedLangVersion:0);
 	}
-
-	CSettingsLockWrite lock;
-	g_Settings[SETTING_REMINDED].value=CComVariant((int)m_RemindedVersion);
-	g_Settings[SETTING_REMINDED].flags&=~CSetting::FLAG_DEFAULT;
 	return 0;
 }
 
-void CUpdateDlg::NewVersionCallback( DWORD newVersion, CString downloadUrl, CString news )
+LRESULT CUpdateDlg::OnWeb( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 {
-	g_UpdateDlg.m_NewVersion=newVersion;
-	g_UpdateDlg.m_DownloadUrl=downloadUrl;
-	g_UpdateDlg.m_News=news;
+	ShellExecute(m_hWnd,NULL,L"http://www.classicshell.net",NULL,NULL,SW_SHOWNORMAL);
+	return 0;
+}
+
+void CUpdateDlg::NewVersionCallback( VersionData &data )
+{
+	g_UpdateDlg.m_Data.Swap(data);
 }
 
 void CUpdateDlg::UpdateData( void )
 {
-	if (!CheckForNewVersion(CHECK_UPDATE,NewVersionCallback))
+	if (!CheckForNewVersion(m_hWnd,COMPONENT_UPDATE,CHECK_UPDATE,NewVersionCallback))
 	{
-		m_NewVersion=0;
-		m_DownloadUrl.Empty();
-		m_News.Empty();
+		m_Data.Clear();
 	}
 }
 
 void CUpdateDlg::UpdateUI( void )
 {
-	if (m_NewVersion!=0 && m_NewVersion!=0xFFFFFFFF)
+	if (m_Data.bValid)
 	{
-		if (m_Version>=m_NewVersion)
+		if (m_Data.bNewVersion)
+		{
+			SetDlgItemText(IDC_STATICLATEST,LoadStringEx(IDS_OUTOFDATE));
+			SetDlgItemText(IDC_EDITTEXT,m_Data.news);
+			GetDlgItem(IDC_EDITTEXT).ShowWindow(SW_SHOW);
+			GetDlgItem(IDC_BUTTONDOWNLOAD).ShowWindow(SW_SHOW);
+			bool check=true;
+			if (g_Settings[SETTING_UPDATE].value.vt==VT_I4)
+				check=g_Settings[SETTING_UPDATE].value.intVal!=0;
+			GetDlgItem(IDC_CHECKDONT).ShowWindow(check?SW_SHOW:SW_HIDE);
+			CheckDlgButton(IDC_CHECKDONT,m_Data.bIgnoreVersion?BST_CHECKED:BST_UNCHECKED);
+			TOOLINFO tool={sizeof(tool),TTF_SUBCLASS|TTF_IDISHWND,m_hWnd,(UINT_PTR)GetDlgItem(IDC_BUTTONDOWNLOAD).m_hWnd};
+			tool.lpszText=(LPWSTR)(LPCWSTR)m_Data.downloadUrl;
+			m_Tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
+		}
+		else if (m_Data.bNewLanguage)
+		{
+			SetDlgItemText(IDC_STATICLATEST,LoadStringEx(IDS_LANG_OUTOFDATE));
+			SetDlgItemText(IDC_EDITTEXT,L"");
+			GetDlgItem(IDC_EDITTEXT).ShowWindow(SW_HIDE);
+			GetDlgItem(IDC_BUTTONDOWNLOAD).ShowWindow(SW_SHOW);
+			bool check=true;
+			if (g_Settings[SETTING_UPDATE].value.vt==VT_I4)
+				check=g_Settings[SETTING_UPDATE].value.intVal!=0;
+			GetDlgItem(IDC_CHECKDONT).ShowWindow(check?SW_SHOW:SW_HIDE);
+			CheckDlgButton(IDC_CHECKDONT,m_Data.bIgnoreLanguage?BST_CHECKED:BST_UNCHECKED);
+			TOOLINFO tool={sizeof(tool),TTF_SUBCLASS|TTF_IDISHWND,m_hWnd,(UINT_PTR)GetDlgItem(IDC_BUTTONDOWNLOAD).m_hWnd};
+			for (std::vector<LanguageVersionData>::const_iterator it=m_Data.languages.begin();it!=m_Data.languages.end();++it)
+			{
+				if (_wcsicmp(m_Data.newLanguage,it->language)==0)
+				{
+					tool.lpszText=(LPWSTR)(LPCWSTR)it->url;
+					break;
+				}
+			}
+			m_Tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
+		}
+		else
 		{
 			SetDlgItemText(IDC_STATICLATEST,LoadStringEx(IDS_UPDATED));
 			SetDlgItemText(IDC_EDITTEXT,L"");
@@ -263,25 +384,10 @@ void CUpdateDlg::UpdateUI( void )
 			GetDlgItem(IDC_BUTTONDOWNLOAD).ShowWindow(SW_HIDE);
 			GetDlgItem(IDC_CHECKDONT).ShowWindow(SW_HIDE);
 		}
-		else
-		{
-			SetDlgItemText(IDC_STATICLATEST,LoadStringEx(IDS_OUTOFDATE));
-			SetDlgItemText(IDC_EDITTEXT,m_News);
-			GetDlgItem(IDC_EDITTEXT).ShowWindow(SW_SHOW);
-			GetDlgItem(IDC_BUTTONDOWNLOAD).ShowWindow(SW_SHOW);
-			bool check=true;
-			if (g_Settings[SETTING_UPDATE].value.vt==VT_I4)
-				check=g_Settings[SETTING_UPDATE].value.intVal!=0;
-			GetDlgItem(IDC_CHECKDONT).ShowWindow(check?SW_SHOW:SW_HIDE);
-			CheckDlgButton(IDC_CHECKDONT,m_RemindedVersion>=m_NewVersion?BST_CHECKED:BST_UNCHECKED);
-			TOOLINFO tool={sizeof(tool),TTF_SUBCLASS|TTF_IDISHWND,m_hWnd,(UINT_PTR)GetDlgItem(IDC_BUTTONDOWNLOAD).m_hWnd};
-			tool.lpszText=(LPWSTR)(LPCWSTR)m_DownloadUrl;
-			m_Tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
-		}
 	}
 	else
 	{
-		SetDlgItemText(IDC_STATICLATEST,(m_NewVersion==0)?LoadStringEx(IDS_UPDATE_FAIL):L"");
+		SetDlgItemText(IDC_STATICLATEST,(m_Data.newVersion==0)?LoadStringEx(IDS_UPDATE_FAIL):L"");
 		SetDlgItemText(IDC_EDITTEXT,L"");
 		GetDlgItem(IDC_EDITTEXT).ShowWindow(SW_HIDE);
 		GetDlgItem(IDC_BUTTONDOWNLOAD).ShowWindow(SW_HIDE);
@@ -327,12 +433,38 @@ LRESULT CALLBACK SubclassBalloonProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 
 ///////////////////////////////////////////////////////////////////////////////
 
+class COwnerWindow: public CWindowImpl<COwnerWindow>
+{
+public:
+	DECLARE_WND_CLASS_EX(L"ClassicShellUpdate.COwnerWindow",0,COLOR_MENU)
+
+	// message handlers
+	BEGIN_MSG_MAP( COwnerWindow )
+		MESSAGE_HANDLER( WM_CLEAR, OnClear )
+	END_MSG_MAP()
+
+protected:
+	LRESULT OnClear( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+	{
+		if (g_UpdateDlg)
+		{
+			g_UpdateDlg.PostMessage(WM_CLOSE);
+		}
+		return 0;
+	}
+};
+
+///////////////////////////////////////////////////////////////////////////////
+
 int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrCmdLine, int nCmdShow )
 {
 	INITCOMMONCONTROLSEX init={sizeof(init),ICC_STANDARD_CLASSES};
 	InitCommonControlsEx(&init);
-	SetProcessDPIAware();
-
+/*
+	VersionData data;
+	data.Load(L"D:\\Work\\ClassicShell\\ClassicShellSetup\\Final\\update_4.0.4.ver",false);
+	return 0;
+*/
 	// prevent multiple instances from running on the same desktop
 	// the assumption is that multiple desktops for the same user will have different name (but may repeat across users)
 	wchar_t userName[256];
@@ -352,51 +484,25 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	if (GetLastError()==ERROR_ALREADY_EXISTS || GetLastError()==ERROR_ACCESS_DENIED)
 		return 0;
 
+	CoInitialize(NULL);
 	g_Instance=hInstance;
-	InitSettings(g_Settings,COMPONENT_UPDATE);
+	InitSettings(g_Settings,COMPONENT_UPDATE,NULL);
 	CString language=GetSettingString(L"Language");
 	ParseTranslations(NULL,language);
 
 	g_Instance=hInstance;
-	wchar_t path[_MAX_PATH];
-	GetModuleFileName(hInstance,path,_countof(path));
-	*PathFindFileName(path)=0;
-	HINSTANCE resInstance=NULL;
-	if (!language.IsEmpty())
-	{
-		wchar_t fname[_MAX_PATH];
-		Sprintf(fname,_countof(fname),L"%s%s.dll",path,language);
-		resInstance=LoadLibraryEx(fname,NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
-	}
-	else
-	{
-		wchar_t languages[100]={0};
-		ULONG size=4; // up to 4 languages
-		ULONG len=_countof(languages);
-		GetThreadPreferredUILanguages(MUI_LANGUAGE_NAME,&size,languages,&len);
 
-		for (const wchar_t *language=languages;*language;language+=Strlen(language)+1)
-		{
-			wchar_t fname[_MAX_PATH];
-			Sprintf(fname,_countof(fname),L"%s%s.dll",path,language);
-			resInstance=LoadLibraryEx(fname,NULL,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
-			if (resInstance)
-				break;
-		}
-	}
+	HINSTANCE resInstance=LoadTranslationDll(language);
 
-	if (resInstance && GetVersionEx(resInstance)!=GetVersionEx(g_Instance))
-	{
-		FreeLibrary(resInstance);
-		resInstance=NULL;
-	}
-	LoadTranslationResources(g_Instance,resInstance,g_LoadDialogs);
+	LoadTranslationResources(resInstance,g_LoadDialogs);
 
 	if (resInstance)
 		FreeLibrary(resInstance);
 
 	int time0=timeGetTime();
 
+	COwnerWindow ownerWindow;
+	ownerWindow.Create(NULL,0,0,WS_POPUP);
 	if (wcsstr(lpstrCmdLine,L"-popup")!=NULL)
 	{
 		g_UpdateDlg.UpdateData();
@@ -408,10 +514,10 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 		SendMessage(balloon,TTM_SETMAXTIPWIDTH,0,500);
 		TOOLINFO tool={sizeof(tool),TTF_ABSOLUTE|TTF_TRANSPARENT|TTF_TRACK|(IsLanguageRTL()?TTF_RTLREADING:0)};
 		tool.uId=1;
-		CString message=LoadStringEx(IDS_NEWVERSION);
+		CString message=LoadStringEx(g_UpdateDlg.HasNewLanguage()?IDS_LANG_NEWVERSION:IDS_NEWVERSION);
 		tool.lpszText=(wchar_t*)(const wchar_t*)message;
 		SendMessage(balloon,TTM_ADDTOOL,0,(LPARAM)&tool);
-		SendMessage(balloon,TTM_SETTITLE,(WPARAM)LoadIcon(g_Instance,MAKEINTRESOURCE(IDI_CLASSICSHELL)),(LPARAM)(const wchar_t*)LoadStringEx(IDS_UPDATE_TITLE));
+		SendMessage(balloon,TTM_SETTITLE,(WPARAM)LoadIcon(g_Instance,MAKEINTRESOURCE(IDI_APPICON)),(LPARAM)(const wchar_t*)LoadStringEx(IDS_UPDATE_TITLE));
 		APPBARDATA appbar={sizeof(appbar)};
 		SHAppBarMessage(ABM_GETTASKBARPOS,&appbar);
 		MONITORINFO info={sizeof(info)};
@@ -455,5 +561,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrC
 	{
 		g_UpdateDlg.Run();
 	}
+	ownerWindow.DestroyWindow();
+	CoUninitialize();
 	return 0;
 }

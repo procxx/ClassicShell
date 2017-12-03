@@ -1,9 +1,10 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // StringUtils is also available under the CPOL license as part of the FormatString article
 // on CodeProject: http://www.codeproject.com/KB/string/FormatString.aspx
 
+#include <stdafx.h>
 #include "StringUtils.h"
 #include <stdio.h>
 #include <assert.h>
@@ -22,7 +23,8 @@ static int g_MaxCharSize=0;
 int GetMaxCharSize( void )
 {
 #ifdef STR_USE_WIN32_DBCS
-	if (!g_MaxCharSize) {
+	if (!g_MaxCharSize)
+	{
 		CPINFO info;
 		if (GetCPInfo(CP_ACP,&info))
 			g_MaxCharSize=info.MaxCharSize;
@@ -44,22 +46,28 @@ int Strcpy( char *dst, int size, const char *src )
 	assert(size>0);
 	if (size<=0) return 0;
 	char *dst0=dst;
-	if (GetMaxCharSize()==1) {
+	if (GetMaxCharSize()==1)
+	{
 		// SBCS version
-		while (size>1) {
+		while (size>1)
+		{
 			if (*src==0) break;
 			*dst++=*src++;
 			size--;
 		}
 	}
-	else {
+	else
+	{
 		// DBCS version
-		while (size>1) {
+		while (size>1)
+		{
 			if (*src==0) break;
 #ifdef STR_USE_WIN32_DBCS
-			if (IsDBCSLeadByte((BYTE)*src)) {
+			if (IsDBCSLeadByte((BYTE)*src))
+			{
 #else
-			if (isleadbyte((unsigned char)*src)) {
+			if (isleadbyte((unsigned char)*src))
+			{
 #endif
 				if (size==2) break;
 				if (src[1]==0) break;
@@ -67,7 +75,8 @@ int Strcpy( char *dst, int size, const char *src )
 				*dst++=*src++;
 				size-=2;
 			}
-			else {
+			else
+			{
 				*dst++=*src++;
 				size--;
 			}
@@ -103,22 +112,28 @@ int Strncpy( char *dst, int size, const char *src, int len )
 	if (size<=0) return 0;
 	char *dst0=dst;
 	const char *end=src+len;
-	if (GetMaxCharSize()==1) {
+	if (GetMaxCharSize()==1)
+	{
 		// SBCS version
-		while (size>1) {
+		while (size>1)
+		{
 			if (src==end) break;
 			*dst++=*src++;
 			size--;
 		}
 	}
-	else {
+	else
+	{
 		// DBCS version
-		while (size>1) {
+		while (size>1)
+		{
 			if (src==end) break;
 #ifdef STR_USE_WIN32_DBCS
-			if (IsDBCSLeadByte((BYTE)*src)) {
+			if (IsDBCSLeadByte((BYTE)*src))
+			{
 #else
-			if (isleadbyte((unsigned char)*src)) {
+			if (isleadbyte((unsigned char)*src))
+			{
 #endif
 				if (size==2) break;
 				if (src+1==end) break;
@@ -126,7 +141,8 @@ int Strncpy( char *dst, int size, const char *src, int len )
 				*dst++=*src++;
 				size-=2;
 			}
-			else {
+			else
+			{
 				*dst++=*src++;
 				size--;
 			}
@@ -227,6 +243,29 @@ int Vsprintf( wchar_t *dst, int size, const wchar_t *format, va_list args )
 	return len;
 }
 
+// Outputs a formatted debug string
+void Trace( const char *format, ... )
+{
+	va_list args;
+	va_start(args,format);
+	char buf[1024];
+	Vsprintf(buf,_countof(buf)-2,format,args);
+	Strcat(buf,_countof(buf),"\r\n");
+	OutputDebugStringA(buf);
+	va_end(args);
+}
+
+void Trace( const wchar_t *format, ... )
+{
+	va_list args;
+	va_start(args,format);
+	wchar_t buf[1024];
+	Vsprintf(buf,_countof(buf)-2,format,args);
+	Strcat(buf,_countof(buf),L"\r\n");
+	OutputDebugStringW(buf);
+	va_end(args);
+}
+
 // Convert between multi-byte and wide characters. size is the size of dst in characters, including the
 // terminating 0.
 // Return the number of characters copied, excluding the terminating 0.
@@ -241,19 +280,22 @@ int MbsToWcs( wchar_t *dst, int size, const char *src, int codePage )
 
 	assert(size);
 	if (size==0) return 0;
-	if (size==1) {
+	if (size==1)
+	{
 		dst[0]=0;
 		return 0;
 	}
 	int len=Strlen(src);
 	dst[size-2]=0;
 	int res=MultiByteToWideChar(codePage,0,src,len,dst,size-1);
-	if (res) {
+	if (res)
+	{
 		// the result fits
 		dst[res]=0;
 		return res;
 	}
-	if (GetLastError()!=ERROR_INSUFFICIENT_BUFFER) { // some unknown error
+	if (GetLastError()!=ERROR_INSUFFICIENT_BUFFER)
+	{ // some unknown error
 		dst[0]=0;
 		return 0;
 	}
@@ -271,7 +313,8 @@ int WcsToMbs( char *dst, int size, const wchar_t *src, int codePage )
 
 	assert(size);
 	if (size==0) return 0;
-	if (size==1) {
+	if (size==1)
+	{
 		dst[0]=0;
 		return 0;
 	}
@@ -280,12 +323,14 @@ int WcsToMbs( char *dst, int size, const wchar_t *src, int codePage )
 	if (l>10) l=10;
 	memset(dst+size-l,0,l); // fill the end with zeros (up to 10 bytes)
 	int res=WideCharToMultiByte(codePage,0,src,len,dst,size-1,NULL,NULL);
-	if (res) {
+	if (res)
+	{
 		// the result fits
 		dst[res]=0;
 		return res;
 	}
-	if (GetLastError()!=ERROR_INSUFFICIENT_BUFFER) { // some unknown error
+	if (GetLastError()!=ERROR_INSUFFICIENT_BUFFER) // some unknown error
+	{
 		dst[0]=0;
 		return 0;
 	}
@@ -299,7 +344,8 @@ int WcsToMbs( char *dst, int size, const wchar_t *src, int codePage )
 #else
 int MbsToWcs( wchar_t *dst, int size, const char *src )
 {
-	if (!dst) {
+	if (!dst)
+	{
 #if _MSC_VER>=1400 // VC8.0
 		size_t res;
 		if (mbstowcs_s(&res,NULL,0,src,0)!=0)
@@ -314,7 +360,8 @@ int MbsToWcs( wchar_t *dst, int size, const char *src )
 
 	assert(size);
 	if (size==0) return 0;
-	if (size==1) {
+	if (size==1)
+	{
 		dst[0]=0;
 		return 0;
 	}
@@ -324,7 +371,8 @@ int MbsToWcs( wchar_t *dst, int size, const char *src )
 	return (int)res-1;
 #else
 	int res=(int)mbstowcs(dst,src,size-1);
-	if (res<0) {
+	if (res<0)
+	{
 		dst[0]=0;
 		return 0;
 	}
@@ -336,7 +384,8 @@ int MbsToWcs( wchar_t *dst, int size, const char *src )
 
 int WcsToMbs( char *dst, int size, const wchar_t *src )
 {
-	if (!dst) {
+	if (!dst)
+	{
 #if _MSC_VER>=1400 // VC8.0
 		size_t res;
 		if (wcstombs_s(&res,NULL,0,src,0)!=0)
@@ -351,21 +400,24 @@ int WcsToMbs( char *dst, int size, const wchar_t *src )
 
 	assert(size);
 	if (size==0) return 0;
-	if (size==1) {
+	if (size==1)
+	{
 		dst[0]=0;
 		return 0;
 	}
 
 #if _MSC_VER>=1400 // VC8.0
 	size_t res;
-	if (wcstombs_s(&res,dst,size,src,_TRUNCATE)!=0) {
+	if (wcstombs_s(&res,dst,size,src,_TRUNCATE)!=0)
+	{
 		dst[0]=0;
 		return 0;
 	}
 	return (int)res-1;
 #else
 	int res=(int)wcstombs(dst,src,size-1);
-	if (res<0) {
+	if (res<0)
+	{
 		dst[0]=0;
 		return 0;
 	}
@@ -377,6 +429,32 @@ int WcsToMbs( char *dst, int size, const wchar_t *src )
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
+
+const char *GetToken( const char *text, char *token, int size, const char *separators )
+{
+	while (*text && strchr(separators,*text))
+		text++;
+	const char *c1=text,*c2;
+	if (text[0]=='\"')
+	{
+		c1++;
+		c2=strchr(c1,'\"');
+	}
+	else
+	{
+		c2=c1;
+		while (*c2!=0 && !strchr(separators,*c2))
+			c2++;
+	}
+	if (!c2) c2=text+strlen(text);
+	int l=(int)(c2-c1);
+	if (l>size-1) l=size-1;
+	memcpy(token,c1,l);
+	token[l]=0;
+
+	if (*c2) return c2+1;
+	else return c2;
+}
 
 const wchar_t *GetToken( const wchar_t *text, wchar_t *token, int size, const wchar_t *separators )
 {

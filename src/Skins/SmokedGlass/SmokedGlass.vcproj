@@ -5,6 +5,10 @@
 	Name="SmokedGlass"
 	ProjectGUID="{66D1EAA4-65D1-45CC-9989-E616FC0575EB}"
 	RootNamespace="SmokedGlass"
+	SccProjectName="SAK"
+	SccAuxPath="SAK"
+	SccLocalPath="SAK"
+	SccProvider="SAK"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -68,6 +72,7 @@
 				SubSystem="2"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
+				ResourceOnlyDLL="true"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -102,7 +107,7 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\main.cpp"
+				RelativePath=".\SkinDescription.txt"
 				>
 			</File>
 		</Filter>
@@ -120,11 +125,19 @@
 				>
 			</File>
 			<File
+				RelativePath=".\new_item.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\pager.bmp"
 				>
 			</File>
 			<File
 				RelativePath=".\pager_arrows.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\pager_arrows150.bmp"
 				>
 			</File>
 			<File
@@ -145,10 +158,6 @@
 			</File>
 			<File
 				RelativePath=".\separatorV.bmp"
-				>
-			</File>
-			<File
-				RelativePath=".\SkinDescription.txt"
 				>
 			</File>
 			<File

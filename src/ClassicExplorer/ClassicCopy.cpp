@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #include "stdafx.h"
 #include <commctrl.h>
@@ -10,6 +10,7 @@
 #include "Translations.h"
 #include "Settings.h"
 #include "ResourceHelper.h"
+#include "ComHelper.h"
 #include "dllmain.h"
 
 static wchar_t g_TitleMove[256];
@@ -38,7 +39,7 @@ static void LogPrint( CString *pLog, const wchar_t *format, ... )
 class CClassicCopyFile
 {
 public:
-	CClassicCopyFile( void ) { m_Icon=m_SrcIcon=m_DstIcon=NULL; m_bCopyMultiLast=false; }
+	CClassicCopyFile( void );
 	~CClassicCopyFile( void );
 
 	bool Run( HWND hWnd, IAccessible *pAcc, CString *pLog );
@@ -72,6 +73,13 @@ private:
 
 	static void PumpMessages( void );
 };
+
+CClassicCopyFile::CClassicCopyFile( void )
+{
+	m_Icon=m_SrcIcon=m_DstIcon=NULL;
+	m_bCopyMultiLast=false;
+	m_bSystem=m_bReadOnly=false;
+}
 
 CClassicCopyFile::~CClassicCopyFile( void )
 {
@@ -276,8 +284,11 @@ void CClassicCopyFile::GetFileInfo( IAccessible *pAcc, bool bSrc )
 	int len1=Strlen(fname2);
 	// the directory text is something like "filename (directory)". we need to parse out the real directory name
 	int len2=Strlen(dir);
-	if (dir[0]==0x202A) len1++; // for RTL languages the first character is some RTL marker. needs to be skipped
+	if (dir[0]==0x202A) len1++; // for Arabic the first character is some RTL marker. needs to be skipped
+	if (dir[len1]==0x1E) len1++; // for Hebrew there is an extra control character after the file name
 	if (len1+1>=len2 || dir[len1]!=L' ' || dir[len1+1]!=L'(' || dir[len2-1]!=L')') return;
+	if (dir[len1+2]==0x202A) len1++; // for Hebrew the first character is some RTL marker. needs to be skipped
+	if (dir[len2-2]==0x202C) len2--; // for Hebrew the last character is some RTL marker. needs to be skipped
 	dir[len2-1]=0;
 
 	// construct the full file name
@@ -296,7 +307,7 @@ void CClassicCopyFile::GetFileInfo( IAccessible *pAcc, bool bSrc )
 
 	// get file icon
 	HICON hIcon=NULL;
-	PIDLIST_ABSOLUTE pidl=NULL;
+	CAbsolutePidl pidl;
 	if (SUCCEEDED(SHParseDisplayName(path,NULL,&pidl,0,NULL)) && pidl)
 	{
 		int iconSize=GetSystemMetrics(SM_CXICON);
@@ -309,7 +320,6 @@ void CClassicCopyFile::GetFileInfo( IAccessible *pAcc, bool bSrc )
 				hBitmap=NULL;
 		}
 
-		ILFree(pidl);
 		if (hBitmap)
 		{
 			HBITMAP hMonoBitmap=CreateBitmap(iconSize,iconSize,1,1,NULL);
@@ -408,7 +418,7 @@ INT_PTR CALLBACK CClassicCopyFile::DialogProc( HWND hwndDlg, UINT uMsg, WPARAM w
 class CClassicCopyFolder
 {
 public:
-	CClassicCopyFolder( void ) { m_Icon=NULL; }
+	CClassicCopyFolder( void ) { m_Icon=NULL; m_Original=NULL; }
 	~CClassicCopyFolder( void );
 
 	bool Run( HWND hWnd );
@@ -594,25 +604,26 @@ static LRESULT CALLBACK WindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 				if (GetSettingBool(L"ReplaceFileUI"))
 				{
 					CString log;
-					bool bLog=GetSettingInt(L"LogLevel")>0;
 					CComPtr<IAccessible> pAcc;
 					HRESULT h=AccessibleObjectFromWindow(hWnd,OBJID_WINDOW,IID_IAccessible,(void**)&pAcc);
 					if (SUCCEEDED(h) && pAcc)
 					{
 						CClassicCopyFile copy;
-						if (copy.Run(hWnd,pAcc,bLog?&log:NULL))
+						if (copy.Run(hWnd,pAcc,g_bLogLevel?&log:NULL))
 						{
 							pos->x=pos->y=-20000;
 							pos->flags&=~(SWP_SHOWWINDOW|SWP_NOMOVE);
 						}
 					}
-					else if (bLog)
+					else if (g_bLogLevel)
 						LogPrint(&log,L"AccessibleObjectFromWindow: error=0x%X, hWnd=0x%X",h,(DWORD)hWnd);
 
-					if (bLog)
+					if (g_bLogLevel)
 					{
-						wchar_t fname[_MAX_PATH]=L"%LOCALAPPDATA%\\ExplorerLog.txt";
-						DoEnvironmentSubst(fname,_countof(fname));
+						wchar_t fname[_MAX_PATH]=L"%LOCALAPPDATA%\\ClassicShell";
+						DoEnvironmentSubst(fname,_MAX_PATH);
+						SHCreateDirectory(NULL,fname);
+						Strcat(fname,_countof(fname),L"\\ExplorerLog.txt");
 						if (!log.IsEmpty())
 						{
 							FILE *f;
@@ -627,7 +638,7 @@ static LRESULT CALLBACK WindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 								wchar_t languages[100]={0};
 								ULONG size=4; // up to 4 languages
 								ULONG len=_countof(languages);
-								GetThreadPreferredUILanguages(MUI_LANGUAGE_NAME,&size,languages,&len);
+								GetUserPreferredUILanguages(MUI_LANGUAGE_NAME,&size,languages,&len);
 								for (const wchar_t *lang=languages;*lang;lang+=wcslen(lang)+1)
 									fwprintf(f,L"language = %s\r\n",lang);
 
@@ -719,6 +730,7 @@ LRESULT CALLBACK ClassicCopyHook( int nCode, WPARAM wParam, LPARAM lParam )
 		HINSTANCE hInst=(HINSTANCE)GetWindowLongPtr(hWnd,GWLP_HINSTANCE);
 		if (create->lpcs->lpszName && (int)create->lpcs->lpszClass==32770 && hInst==g_hShell32)
 		{
+			WaitDllInitThread();
 			static LONG id;
 			int i=InterlockedIncrement(&id);
 			SetWindowSubclass(hWnd,WindowProc,i,0);

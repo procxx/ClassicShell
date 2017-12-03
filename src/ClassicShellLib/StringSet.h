@@ -1,15 +1,14 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #pragma once
 
-#define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS      // some CString constructors will be explicit
-#include <atlstr.h>
 #include <map>
 
 class CStringSet: public std::map<int,CString>
 {
 public:
+	CStringSet( void ) { m_hInstance=NULL; }
 	// Initializes the string database
 	void Init( HINSTANCE hInstance );
 

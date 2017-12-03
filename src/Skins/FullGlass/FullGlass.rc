@@ -62,8 +62,6 @@ END
 //
 
 1                       SKIN                    "SkinDescription.txt"
-2                       SKIN                    "SkinDescriptionMore.txt"
-3                       SKIN                    "SkinDescriptionLess.txt"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -87,6 +85,8 @@ END
 15                      BITMAP                  "user_bitmap.bmp"
 16                      BITMAP                  "user_bitmap32.bmp"
 17                      BITMAP                  "split_selection.bmp"
+18                      BITMAP                  "new_item.bmp"
+19                      BITMAP                  "pager_arrows150.bmp"
 
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////

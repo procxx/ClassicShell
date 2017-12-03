@@ -1,25 +1,21 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
-#define STRICT_TYPED_ITEMIDS
-#include <windows.h>
-#include <atlbase.h>
-#include <atlwin.h>
-#include <atlstr.h>
+#include <stdafx.h>
 #include "resource.h"
 #include "Settings.h"
 #include "SettingsUIHelper.h"
 #include "ResourceHelper.h"
+#include "ComHelper.h"
 #include "FNVHash.h"
 #include "StringUtils.h"
 #include "Translations.h"
-#include <shlobj.h>
+#include "DownloadHelper.h"
 #include <uxtheme.h>
-#include <wininet.h>
 #include <map>
 #include <algorithm>
 
-const GUID FOLDERID_DesktopRoot={'DESK', 'TO', 'P', {'D', 'E', 'S', 'K', 'T', 'O', 'P', 0x00}};
+const KNOWNFOLDERID FOLDERID_DesktopRoot={'DESK', 'TO', 'P', {'D', 'E', 'S', 'K', 'T', 'O', 'P', 0x00}};
 
 static bool IsVariantTrue( const CComVariant &var )
 {
@@ -28,13 +24,23 @@ static bool IsVariantTrue( const CComVariant &var )
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void CTreeItem::SetCommand( CString command, const CStdCommand *pStdCommands )
+void CTreeItem::SetCommand( CString command, const CStdCommand *pStdCommands, int style, int mask )
 {
 	this->command=command;
 	pStdCommand=NULL;
 	for (int i=0;pStdCommands[i].name;i++)
+	{
+		if (!pStdCommands[i].IsStyle(style,mask)) continue;
 		if (_wcsicmp(pStdCommands[i].name,command)==0)
+		{
 			pStdCommand=&pStdCommands[i];
+			return;
+		}
+		else if (pStdCommands[i].IsCustom())
+		{
+			pStdCommand=&pStdCommands[i];
+		}
+	}
 }
 
 unsigned int CTreeItem::GetIconKey( void ) const
@@ -58,11 +64,10 @@ HICON CTreeItem::LoadIcon( bool bSmall, std::vector<HMODULE> &modules ) const
 	}
 	else
 	{
-		PIDLIST_ABSOLUTE pidl=NULL;
+		CAbsolutePidl pidl;
 		if (pStdCommand && pStdCommand->knownFolder)
 		{
-			if (FAILED(SHGetKnownFolderIDList(*pStdCommand->knownFolder,0,NULL,&pidl)))
-				pidl=NULL;
+			SHGetKnownFolderIDList(*pStdCommand->knownFolder,0,NULL,&pidl);
 		}
 		else if (!link.IsEmpty())
 		{
@@ -78,12 +83,24 @@ HICON CTreeItem::LoadIcon( bool bSmall, std::vector<HMODULE> &modules ) const
 			Strcpy(buf,_countof(buf),c);
 			DoEnvironmentSubst(buf,_countof(buf));
 
+			wchar_t *second=wcschr(buf,';');
+			if (second)
+			{
+				wchar_t *end= second;
+				while (end>buf)
+				{
+					*end=0;
+					end--;
+					if (*end!=' ')
+						break;
+				}
+			}
+
 			ShParseDisplayName(buf,&pidl,0,NULL);
 		}
 		if (pidl)
 		{
 			HICON hIcon=::LoadIcon(GetSystemMetrics(bSmall?SM_CXSMICON:SM_CXICON),pidl);
-			ILFree(pidl);
 			return hIcon;
 		}
 	}
@@ -109,6 +126,75 @@ HICON CTreeItem::LoadIconD( HICON hIcon, std::vector<HMODULE> &modules ) const
 		return CreateDisabledIcon(hIcon,GetSystemMetrics(SM_CXICON));
 	else
 		return NULL;
+}
+
+CString CTreeItem::GetDisplayName( bool bTitle ) const
+{
+	if (pStdCommand->IsCustom())
+	{
+		if (!label.IsEmpty())
+		{
+			if (label[0]!='$')
+				return label;
+			const wchar_t *pLabel=label;
+			return FindTranslation(pLabel+1,pLabel);
+		}
+		if (!bTitle && !link.IsEmpty())
+		{
+			const wchar_t *c=wcschr(link,'|');
+			if (c)
+			{
+				for (c++;*c==' ';)
+					c++;
+			}
+			else
+				c=link;
+			wchar_t buf[_MAX_PATH];
+			Strcpy(buf,_countof(buf),c);
+			DoEnvironmentSubst(buf,_countof(buf));
+
+			wchar_t *second=wcschr(buf,';');
+			if (second)
+			{
+				wchar_t *end= second;
+				while (end>buf)
+				{
+					*end=0;
+					end--;
+					if (*end!=' ')
+						break;
+				}
+			}
+
+			CAbsolutePidl pidl;
+			ShParseDisplayName(buf,&pidl,0,NULL);
+			if (pidl)
+			{
+				CComPtr<IShellItem> pItem;
+				if (SUCCEEDED(SHCreateItemFromIDList(pidl,IID_IShellItem,(void**)&pItem)))
+				{
+					CComString pName;
+					if (SUCCEEDED(pItem->GetDisplayName(SIGDN_NORMALDISPLAY,&pName)))
+					{
+						CString name;
+						name.Format(L"%s (%s)",LoadStringEx(pStdCommand->displayNameId),pName);
+						return name;
+					}
+				}
+			}
+		}
+		if (!bTitle && !tip.IsEmpty())
+		{
+			const wchar_t *pTip=tip;
+			CString name;
+			if (pTip[0]=='$')
+				name.Format(L"%s (%s)",LoadStringEx(pStdCommand->displayNameId),FindTranslation(pTip+1,pTip));
+			else
+				name.Format(L"%s (%s)",LoadStringEx(pStdCommand->displayNameId),pTip);
+			return name;
+		}
+	}
+	return LoadStringEx(pStdCommand->displayNameId);
 }
 
 // Subclass the renaming editbox to handle Esc and Enter
@@ -139,10 +225,10 @@ public:
 		REFLECTED_NOTIFY_CODE_HANDLER( TVN_KEYDOWN, OnKeyDown )
 	END_MSG_MAP()
 
-	CSettingsTree( void ) { m_ImageList=NULL; }
+	CSettingsTree( int mask ) { m_ImageList=NULL; m_StyleMask=mask; }
 	void SubclassWindow( HWND hWnd, CCustomTreeDlg *pOwner );
 	int LoadIcon( const CTreeItem *pItem );
-	int UpdateIcons( CTreeItem *pItem, HTREEITEM hItem );
+	int UpdateItem( CTreeItem *pItem, HTREEITEM hItem );
 	void SetDisabled( bool bDisabled ) { m_bDisabled=bDisabled; }
 	bool IsDragging( void ) const { return m_DragMode!=DRAG_NONE; }
 
@@ -198,6 +284,7 @@ private:
 		TIMER_HOVER=2,
 	};
 
+	int m_StyleMask;
 	TDragMode m_DragMode;
 	HCURSOR m_CursorError, m_CursorMove, m_CursorCopy, m_CursorDel;
 	HTREEITEM m_DragItem;
@@ -214,7 +301,7 @@ private:
 	HTREEITEM CreateDeepCopy( HTREEITEM hSource, HTREEITEM hParent, HTREEITEM hAfter, bool bRename );
 };
 
-void CSettingsTree::SubclassWindow( HWND hWnd, 	CCustomTreeDlg *pOwner )
+void CSettingsTree::SubclassWindow( HWND hWnd, CCustomTreeDlg *pOwner )
 {
 	m_pOwner=pOwner;
 	int size=GetSystemMetrics(SM_CXSMICON);
@@ -281,13 +368,17 @@ int CSettingsTree::LoadIcon( const CTreeItem *pItem )
 	return index;
 }
 
-int CSettingsTree::UpdateIcons( CTreeItem *pItem, HTREEITEM hItem )
+int CSettingsTree::UpdateItem( CTreeItem *pItem, HTREEITEM hItem )
 {
-	TVITEM item={TVIF_IMAGE|TVIF_SELECTEDIMAGE,hItem};
+	TVITEM item={TVIF_IMAGE|TVIF_SELECTEDIMAGE|TVIF_TEXT,hItem};
 
 	item.iImage=item.iSelectedImage=LoadIcon(pItem);
 	if (hItem)
+	{
+		CString dispName=pItem->GetDisplayName(false);
+		item.pszText=(LPWSTR)(LPCWSTR)dispName;
 		TreeView_SetItem(m_hWnd,&item);
+	}
 	return item.iImage;
 }
 
@@ -422,7 +513,7 @@ LRESULT CSettingsTree::OnMouseMove( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 			int dy=test.pt.y-rc.top;
 			int h1=(rc.bottom-rc.top)/4;
 			int h2=(rc.bottom-rc.top)-h1;
-			if (!item.lParam || ((CTreeItem*)item.lParam)->bSeparator)
+			if (!item.lParam || ((CTreeItem*)item.lParam)->pStdCommand->IsSeparator())
 			{
 				h1=(rc.bottom-rc.top)/2;
 				h2=(rc.bottom-rc.top)-h1;
@@ -434,7 +525,7 @@ LRESULT CSettingsTree::OnMouseMove( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 			else
 			{
 				// can't drop in a separator or itself
-				if (!item.lParam || ((CTreeItem*)item.lParam)->bSeparator || (m_DropTarget==m_DragItem && !m_pStdDragItem))
+				if (!item.lParam || ((CTreeItem*)item.lParam)->pStdCommand->IsSeparator() || (m_DropTarget==m_DragItem && !m_pStdDragItem))
 					m_DropTarget=NULL;
 				else
 					m_DropLocation=DROP_INSIDE;
@@ -529,18 +620,19 @@ CString CSettingsTree::CreateUniqueName( CString oldName )
 
 HTREEITEM CSettingsTree::CreateDeepCopy( HTREEITEM hSource, HTREEITEM hParent, HTREEITEM hAfter, bool bRename )
 {
-	TVINSERTSTRUCT insert={hParent,hAfter,{TVIF_PARAM|TVIF_IMAGE|TVIF_SELECTEDIMAGE|TVIF_STATE,hSource,0,TVIS_EXPANDED}};
+	TVINSERTSTRUCT insert={hParent,hAfter?hAfter:TVI_FIRST,{TVIF_PARAM|TVIF_IMAGE|TVIF_SELECTEDIMAGE|TVIF_STATE,hSource,0,TVIS_EXPANDED}};
 	TreeView_GetItem(m_hWnd,&insert.item);
 	CTreeItem *pSource=(CTreeItem*)insert.item.lParam;
 	if (!pSource) return NULL;
 	CTreeItem *pNewItem=new CTreeItem(*pSource);
-	if (bRename && !pNewItem->bSeparator)
+	if (bRename && !pNewItem->pStdCommand->IsSeparator())
 	{
 		pNewItem->name=CreateUniqueName(pNewItem->name);
 	}
 	insert.item.lParam=(LPARAM)pNewItem;
 	insert.item.mask|=TVIF_TEXT;
-	insert.item.pszText=(LPWSTR)(LPCWSTR)pNewItem->name;
+	CString dispName=pNewItem->GetDisplayName(false);
+	insert.item.pszText=(LPWSTR)(LPCWSTR)dispName;
 	HTREEITEM hResult=TreeView_InsertItem(m_hWnd,&insert);
 	for (HTREEITEM hChild=TreeView_GetChild(m_hWnd,hSource);hChild;hChild=TreeView_GetNextSibling(m_hWnd,hChild))
 		CreateDeepCopy(hChild,hResult,TVI_LAST,bRename);
@@ -549,32 +641,29 @@ HTREEITEM CSettingsTree::CreateDeepCopy( HTREEITEM hSource, HTREEITEM hParent, H
 
 HTREEITEM CSettingsTree::CreateStdItem( const CStdCommand *pCommand, HTREEITEM hParent, HTREEITEM hAfter )
 {
-	TVINSERTSTRUCT insert={hParent,hAfter,{TVIF_PARAM|TVIF_IMAGE|TVIF_SELECTEDIMAGE|TVIF_STATE|TVIF_TEXT,NULL,TVIS_EXPANDED,TVIS_EXPANDED}};
+	TVINSERTSTRUCT insert={hParent,hAfter?hAfter:TVI_FIRST,{TVIF_PARAM|TVIF_IMAGE|TVIF_SELECTEDIMAGE|TVIF_STATE|TVIF_TEXT,NULL,TVIS_EXPANDED,TVIS_EXPANDED}};
 	CTreeItem *pNewItem=new CTreeItem;
-	pNewItem->command=pCommand->name;
 	pNewItem->label=pCommand->label;
 	pNewItem->tip=pCommand->tip;
 	pNewItem->icon=pCommand->icon;
 	pNewItem->iconD=pCommand->iconD;
 	pNewItem->pStdCommand=pCommand;
-	pNewItem->settings=pCommand->settings;
+	pNewItem->settings=pCommand->settings&~m_StyleMask;
 
-	if (pCommand->itemName)
+	if (pCommand->IsSeparator())
 	{
-		pNewItem->bSeparator=false;
-		pNewItem->name=pCommand->itemName;
-		insert.item.iImage=insert.item.iSelectedImage=UpdateIcons(pNewItem,NULL);
+		pNewItem->name=pCommand->name;
 	}
 	else
 	{
-		pNewItem->bSeparator=true;
-		pNewItem->name=pCommand->displayName;
+		pNewItem->command=pCommand->name;
+		pNewItem->name=CreateUniqueName(pCommand->itemName);
+		insert.item.iImage=insert.item.iSelectedImage=UpdateItem(pNewItem,NULL);
 	}
 
-	if (!pNewItem->bSeparator)
-		pNewItem->name=CreateUniqueName(pNewItem->name);
 	insert.item.lParam=(LPARAM)pNewItem;
-	insert.item.pszText=(LPWSTR)(LPCWSTR)pNewItem->name;
+	CString dispName=pNewItem->GetDisplayName(false);
+	insert.item.pszText=(LPWSTR)(LPCWSTR)dispName;
 	return TreeView_InsertItem(m_hWnd,&insert);
 }
 
@@ -740,10 +829,15 @@ LRESULT CSettingsTree::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& b
 LRESULT CSettingsTree::OnBeginLabelEdit( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 {
 	if (m_bDisabled) return TRUE;
-	SetWindowSubclass(TreeView_GetEditControl(m_hWnd),SubclassEditboxProc,'CLSH',0);
+	CWindow edit=TreeView_GetEditControl(m_hWnd);
+	SetWindowSubclass(edit,SubclassEditboxProc,'CLSH',0);
 	NMTVDISPINFO *pInfo=(NMTVDISPINFO*)pnmh;
-	if (!pInfo->item.lParam || ((CTreeItem*)pInfo->item.lParam)->bSeparator)
+	if (!pInfo->item.lParam)
 		return TRUE;
+	CTreeItem *pItem=(CTreeItem*)pInfo->item.lParam;
+	if (!pItem->pStdCommand->IsCustom())
+		return TRUE;
+	edit.SetWindowText(pItem->label);
 	return FALSE;
 }
 
@@ -752,35 +846,10 @@ LRESULT CSettingsTree::OnEndLabelEdit( int idCtrl, LPNMHDR pnmh, BOOL& bHandled 
 	NMTVDISPINFO *pInfo=(NMTVDISPINFO*)pnmh;
 	if (pInfo->item.pszText)
 	{
-		if (!*pInfo->item.pszText)
-		{
-			::MessageBox(m_hWnd,LoadStringEx(IDS_ERROR_EMPTY),LoadStringEx(IDS_ERROR_TITLE),MB_OK|MB_ICONERROR);
-			return FALSE;
-		}
-		bool bValid=true;
-		for (const wchar_t *c=pInfo->item.pszText;*c;c++)
-		{
-			if ((*c>='a' && *c<='z') || (*c>='A' && *c<='Z') || (*c>='0' && *c<='9') || *c=='_')
-				continue;
-			::MessageBox(m_hWnd,LoadStringEx(IDS_ERROR_ASCII),LoadStringEx(IDS_ERROR_TITLE),MB_OK|MB_ICONERROR);
-			return FALSE;
-		}
-		wchar_t text[1024];
-		if (m_pOwner->IsSeparator(pInfo->item.pszText))
-		{
-			Sprintf(text,_countof(text),LoadStringEx(IDS_ERROR_SEPARATOR),pInfo->item.pszText);
-			::MessageBox(m_hWnd,text,LoadStringEx(IDS_ERROR_TITLE),MB_OK|MB_ICONERROR);
-			return FALSE;
-		}
-		if (FindItemByName(NULL,pInfo->item.pszText,pInfo->item.hItem))
-		{
-			Sprintf(text,_countof(text),LoadStringEx(IDS_DUPLICATE_ITEM),pInfo->item.pszText);
-			::MessageBox(m_hWnd,text,LoadStringEx(IDS_ERROR_TITLE),MB_OK|MB_ICONERROR);
-			return FALSE;
-		}
-		((CTreeItem*)pInfo->item.lParam)->name=pInfo->item.pszText;
+		CTreeItem *pItem=(CTreeItem*)pInfo->item.lParam;
+		pItem->label=pInfo->item.pszText;
 		m_pOwner->SerializeData();
-		return TRUE;
+		UpdateItem(pItem,pInfo->item.hItem);
 	}
 	return FALSE;
 }
@@ -866,17 +935,17 @@ CEditCustomItemDlg::~CEditCustomItemDlg( void )
 	if (m_hIconD) DestroyIcon(m_hIconD);
 }
 
-void CEditCustomItemDlg::InitDialog( CWindow commandCombo, const CStdCommand *pStdcommands, CWindow linkCombo, const KNOWNFOLDERID *const *pCommonLinks )
+void CEditCustomItemDlg::InitDialog( CWindow commandCombo, const CStdCommand *pStdcommands, int style, int mask, CWindow linkCombo, const KNOWNFOLDERID *const *pCommonLinks )
 {
-	CResizeableDlg<CEditCustomItemDlg>::InitResize(MOVE_HORIZONTAL|MOVE_GRIPPER);
+	InitResize(MOVE_HORIZONTAL|MOVE_GRIPPER);
 	CString str;
 	GetWindowText(str);
 	CString title;
-	title.Format(str,m_pItem->name);
+	title.Format(str,m_pItem->GetDisplayName(true));
 	SetWindowText(title);
 
 	for (int i=0;pStdcommands[i].name;i++)
-		if (pStdcommands[i].itemName && *pStdcommands[i].name && *pStdcommands[i].displayName)
+		if (pStdcommands[i].IsStyle(style,mask) && !pStdcommands[i].IsSeparator() && !pStdcommands[i].IsCustom())
 			commandCombo.SendMessage(CB_ADDSTRING,0,(LPARAM)pStdcommands[i].name);
 
 	commandCombo.SetWindowText(m_pItem->command);
@@ -892,12 +961,12 @@ void CEditCustomItemDlg::InitDialog( CWindow commandCombo, const CStdCommand *pS
 		}
 		else
 		{
-			PIDLIST_ABSOLUTE path;
+			CAbsolutePidl path;
 			if (FAILED(SHGetKnownFolderIDList(*pCommonLinks[i],0,NULL,&path)) || !path) continue;
-			wchar_t *pName;
-			if (SUCCEEDED(SHGetNameFromIDList(path,SIGDN_PARENTRELATIVEEDITING,&pName)))
+			CComString pName;
+			if (SUCCEEDED(SHGetNameFromIDList(path,SIGDN_NORMALDISPLAY,&pName)))
 			{
-				wchar_t *pPath;
+				CComString pPath;
 				if (SUCCEEDED(SHGetNameFromIDList(path,SIGDN_DESKTOPABSOLUTEPARSING,&pPath)))
 				{
 					wchar_t text[_MAX_PATH*2];
@@ -905,11 +974,8 @@ void CEditCustomItemDlg::InitDialog( CWindow commandCombo, const CStdCommand *pS
 					if (!PathUnExpandEnvStrings(pPath,text+len,_countof(text)-len))
 						Strcpy(text+len,_countof(text)-len,pPath);
 					linkCombo.SendMessage(CB_ADDSTRING,0,(LPARAM)text);
-					CoTaskMemFree(pPath);
 				}
-				CoTaskMemFree(pName);
 			}
-			ILFree(path);
 		}
 	}
 
@@ -1096,7 +1162,7 @@ HRESULT STDMETHODCALLTYPE CBrowseLinkEvents::OnButtonClicked( IFileDialogCustomi
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool CEditCustomItemDlg::BrowseCommand( HWND parent, wchar_t *text )
+bool BrowseCommandHelper( HWND parent, wchar_t *text )
 {
 	if (text[0]=='"')
 	{
@@ -1110,7 +1176,7 @@ bool CEditCustomItemDlg::BrowseCommand( HWND parent, wchar_t *text )
 		}
 	}
 	OPENFILENAME ofn={sizeof(ofn)};
-	ofn.hwndOwner=m_hWnd;
+	ofn.hwndOwner=parent;
 	wchar_t filters[256];
 	Strcpy(filters,_countof(filters),LoadStringEx(IDS_COMMAND_FILTERS));
 	for (wchar_t *c=filters;*c;c++)
@@ -1118,22 +1184,15 @@ bool CEditCustomItemDlg::BrowseCommand( HWND parent, wchar_t *text )
 	ofn.lpstrFilter=filters;
 	ofn.nFilterIndex=1;
 	DoEnvironmentSubst(text,_MAX_PATH);
+	wchar_t dir[_MAX_PATH];
+	Strcpy(dir,_countof(dir),text);
+	PathRemoveFileSpec(dir);
+	ofn.lpstrInitialDir=dir;
+	text[0]=0;
 	ofn.lpstrFile=text;
 	ofn.nMaxFile=_MAX_PATH;
-	ofn.Flags=OFN_DONTADDTORECENT|OFN_ENABLESIZING|OFN_EXPLORER|OFN_FILEMUSTEXIST|OFN_HIDEREADONLY|OFN_NOCHANGEDIR;
-	bool bRes=false;
+	ofn.Flags=OFN_DONTADDTORECENT|OFN_ENABLESIZING|OFN_EXPLORER|OFN_FILEMUSTEXIST|OFN_HIDEREADONLY|OFN_NOCHANGEDIR|OFN_NODEREFERENCELINKS;
 	if (GetOpenFileName(&ofn))
-	{
-		bRes=true;
-	}
-	else if (CommDlgExtendedError()==FNERR_INVALIDFILENAME)
-	{
-		// bad path. clear path and try again
-		text[0]=0;
-		if (GetOpenFileName(&ofn))
-			bRes=true;
-	}
-	if (bRes)
 	{
 		wchar_t buf[_MAX_PATH];
 		UnExpandEnvStrings(text,buf,_countof(buf));
@@ -1151,11 +1210,12 @@ bool CEditCustomItemDlg::BrowseCommand( HWND parent, wchar_t *text )
 		}
 		else
 			Strcpy(text,_MAX_PATH,buf);
+		return true;
 	}
-	return bRes;
+	return false;
 }
 
-bool CEditCustomItemDlg::BrowseLink( HWND parent, wchar_t *text )
+bool BrowseLinkHelper( HWND parent, wchar_t *text )
 {
 	DoEnvironmentSubst(text,_MAX_PATH);
 
@@ -1175,7 +1235,7 @@ bool CEditCustomItemDlg::BrowseLink( HWND parent, wchar_t *text )
 	CBrowseLinkEvents events;
 	DWORD cookie;
 	pDialog->Advise(&events,&cookie);
-	pDialog->SetOptions(FOS_ALLNONSTORAGEITEMS|FOS_FILEMUSTEXIST|FOS_DONTADDTORECENT|FOS_DEFAULTNOMINIMODE);
+	pDialog->SetOptions(FOS_ALLNONSTORAGEITEMS|FOS_FILEMUSTEXIST|FOS_DONTADDTORECENT|FOS_DEFAULTNOMINIMODE|FOS_NODEREFERENCELINKS);
 	{
 		const wchar_t *c=wcschr(text,'|');
 		if (c)
@@ -1201,16 +1261,15 @@ bool CEditCustomItemDlg::BrowseLink( HWND parent, wchar_t *text )
 
 	if (pResult)
 	{
-		wchar_t *pName;
+		CComString pName;
 		pResult->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING,&pName);
 		UnExpandEnvStrings(pName,text,_MAX_PATH);
-		CoTaskMemFree(pName);
 	}
 
 	return pResult!=NULL;
 }
 
-bool CEditCustomItemDlg::BrowseIcon( wchar_t *text )
+bool BrowseIconHelper( HWND parent, wchar_t *text )
 {
 	int id=0;
 	if (*text)
@@ -1224,7 +1283,7 @@ bool CEditCustomItemDlg::BrowseIcon( wchar_t *text )
 	}
 	else
 		Strcpy(text,_MAX_PATH,L"shell32.dll");
-	if (BrowseForIcon(m_hWnd,text,id))
+	if (BrowseForIcon(parent,text,id))
 	{
 		if (_wcsicmp(PathFindExtension(text),L".ico")==0)
 			return true;
@@ -1281,7 +1340,7 @@ LRESULT CCustomTreeDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, B
 {
 	m_pSetting=NULL;
 
-	CResizeableDlg<CCustomTreeDlg>::InitResize();
+	InitResize();
 	EnableThemeDialogTexture(m_hWnd,ETDT_ENABLETAB);
 	m_Tree.SubclassWindow(GetDlgItem(IDC_TREEITEMS),this);
 	m_CommandsTree.SubclassWindow(GetDlgItem(IDC_TREECOMMANDS));
@@ -1317,8 +1376,9 @@ LRESULT CCustomTreeDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, B
 	for (int i=0;m_pStdCommands[i].name;i++)
 	{
 		const CStdCommand &command=m_pStdCommands[i];
-		if (!*command.displayName) continue;
-		TVINSERTSTRUCT insert={NULL,TVI_LAST,{TVIF_TEXT|TVIF_PARAM|TVIF_IMAGE|TVIF_SELECTEDIMAGE,NULL,0,0,(LPWSTR)(LPCWSTR)command.displayName}};
+		if (!command.IsStyle(m_Style,m_StyleMask)) continue;
+		CString displayName=LoadStringEx(command.displayNameId);
+		TVINSERTSTRUCT insert={NULL,TVI_LAST,{TVIF_TEXT|TVIF_PARAM|TVIF_IMAGE|TVIF_SELECTEDIMAGE,NULL,0,0,(LPWSTR)(LPCWSTR)displayName}};
 		insert.item.iImage=insert.item.iSelectedImage=1;
 		if (!command.icon)
 			insert.item.iImage=insert.item.iSelectedImage=0;
@@ -1417,29 +1477,31 @@ LRESULT CCustomTreeDlg::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 	{
 		if (pItem)
 		{
-			if (!pItem->bSeparator)
+			if (!pItem->pStdCommand->IsSeparator())
 			{
 				Sprintf(text,_countof(text),L"%s\tEnter",LoadStringEx(IDS_MENU_EDIT));
 				AppendMenu(menu,MF_STRING,CMD_EDIT,text);
 				SetMenuDefaultItem(menu,CMD_EDIT,FALSE);
 				Sprintf(text,_countof(text),L"%s\tF2",LoadStringEx(IDS_MENU_RENAME));
 				AppendMenu(menu,MF_STRING,CMD_RENAME,text);
-				if (m_pSetting->flags&CSetting::FLAG_LOCKED_MASK)
+				if (m_pSetting->IsLocked())
 				{
 					EnableMenuItem(menu,CMD_EDIT,MF_BYCOMMAND|MF_GRAYED);
 					EnableMenuItem(menu,CMD_RENAME,MF_BYCOMMAND|MF_GRAYED);
 				}
+				else if (!pItem->pStdCommand->IsCustom())
+					EnableMenuItem(menu,CMD_RENAME,MF_BYCOMMAND|MF_GRAYED);
 				if (!TreeView_GetChild(m_Tree,hItem))
 					AppendMenu(menu,MF_STRING,CMD_ADD_MENU,LoadStringEx(IDS_INSERT_MENU));
-				if (m_pSetting->flags&CSetting::FLAG_LOCKED_MASK)
+				if (m_pSetting->IsLocked())
 					EnableMenuItem(menu,CMD_ADD_MENU,MF_BYCOMMAND|MF_GRAYED);
 			}
+			Sprintf(text,_countof(text),L"%s\tDel",LoadStringEx(IDS_MENU_DELETE));
+			AppendMenu(menu,MF_STRING,CMD_DELETE,text);
+			if (m_pSetting->IsLocked())
+				EnableMenuItem(menu,CMD_DELETE,MF_BYCOMMAND|MF_GRAYED);
 		}
-		Sprintf(text,_countof(text),L"%s\tDel",LoadStringEx(IDS_MENU_DELETE));
-		AppendMenu(menu,MF_STRING,CMD_DELETE,text);
-		if (m_pSetting->flags&CSetting::FLAG_LOCKED_MASK)
-			EnableMenuItem(menu,CMD_DELETE,MF_BYCOMMAND|MF_GRAYED);
-		if (!(m_pSetting->flags&CSetting::FLAG_LOCKED_MASK))
+		if (!m_pSetting->IsLocked())
 			AppendMenu(menu,MF_STRING,CMD_RESETALL,LoadStringEx(m_bMenu?IDS_RESET_MENU:IDS_RESET_TOOLBAR));
 	}
 	else
@@ -1447,11 +1509,11 @@ LRESULT CCustomTreeDlg::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 		Sprintf(text,_countof(text),L"%s\tEnter",LoadStringEx(m_bMenu?IDS_ADD_MENU:IDS_ADD_TOOLBAR));
 		AppendMenu(menu,MF_STRING,CMD_ADD,text);
 		SetMenuDefaultItem(menu,CMD_ADD,FALSE);
-		if (m_pSetting->flags&CSetting::FLAG_LOCKED_MASK)
+		if (m_pSetting->IsLocked())
 			EnableMenuItem(menu,CMD_ADD,MF_BYCOMMAND|MF_GRAYED);
 	}
 
-	int res=TrackPopupMenu(menu,TPM_RETURNCMD,pt.x,pt.y,0,m_hWnd,NULL);
+	int res=TrackPopupMenu(menu,TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,0,m_hWnd,NULL);
 	DestroyMenu(menu);
 	if (res==CMD_EDIT)
 		EditItemInternal(pItem,hItem);
@@ -1467,6 +1529,8 @@ LRESULT CCustomTreeDlg::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 				CSettingsLockWrite lock;
 				m_pSetting->value=m_pSetting->defValue;
 				m_pSetting->flags|=CSetting::FLAG_DEFAULT;
+				ItemsChanged();
+				SetSettingsDirty();
 			}
 			SetGroup(m_pSetting-1,true);
 		}
@@ -1487,12 +1551,12 @@ LRESULT CCustomTreeDlg::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam, 
 	return 0;
 }
 
-bool CCustomTreeDlg::IsSeparator( const wchar_t *name )
+const CStdCommand *CCustomTreeDlg::FindStdCommand( const wchar_t *name )
 {
 	for (int i=0;m_pStdCommands[i].name;i++)
-		if (_wcsicmp(m_pStdCommands[i].name,name)==0)
-			return !m_pStdCommands[i].itemName;
-	return false;
+		if (m_pStdCommands[i].IsStyle(m_Style,m_StyleMask) && _wcsicmp(m_pStdCommands[i].name,name)==0)
+			return &m_pStdCommands[i];
+	return NULL;
 }
 
 LRESULT CCustomTreeDlg::OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
@@ -1501,7 +1565,7 @@ LRESULT CCustomTreeDlg::OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 	const CStdCommand *pCommand=NULL;
 	if (idCtrl==IDC_TREECOMMANDS)
 		pCommand=(CStdCommand*)pTip->lParam;
-	else if (!(m_pSetting->flags&CSetting::FLAG_LOCKED_REG))
+	else if (!m_pSetting->IsLockedReg())
 	{
 		CTreeItem *pItem=(CTreeItem*)pTip->lParam;
 		if (pItem)
@@ -1565,6 +1629,7 @@ LRESULT CCustomTreeDlg::OnEditItem( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 
 void CCustomTreeDlg::AddItem( HTREEITEM hCommand )
 {
+	if (m_pSetting->IsLocked()) return;
 	TVITEM item={TVIF_PARAM,hCommand};
 	TreeView_GetItem(m_CommandsTree,&item);
 	const CStdCommand *pCommand=(CStdCommand*)item.lParam;
@@ -1613,10 +1678,10 @@ CTreeItem *CCustomTreeDlg::GetItem( HTREEITEM hItem )
 
 void CCustomTreeDlg::EditItemInternal( CTreeItem *pItem, HTREEITEM hItem )
 {
-	if (!pItem->bSeparator && EditItem(pItem,m_Tree,hItem,m_Tree.m_Modules))
+	if (!m_pSetting->IsLocked() && !pItem->pStdCommand->IsSeparator() && EditItem(pItem,m_Tree,hItem,m_Tree.m_Modules))
 	{
 		SerializeData();
-		m_Tree.UpdateIcons(pItem,hItem);
+		m_Tree.UpdateItem(pItem,hItem);
 	}
 }
 
@@ -1649,11 +1714,15 @@ LRESULT CCustomTreeDlg::OnCustomDraw( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 
 int CCustomTreeDlg::ParseTreeItem( CTreeItem *pItem, CSettingsParser &parser )
 {
-	pItem->bSeparator=IsSeparator(pItem->name);
-	if (pItem->bSeparator) return 0;
+	const CStdCommand *pStdCommand=FindStdCommand(pItem->name);
+	if (pStdCommand && pStdCommand->IsSeparator())
+	{
+		pItem->pStdCommand=pStdCommand;
+		return 0;
+	}
 	wchar_t text[256];
 	Sprintf(text,_countof(text),L"%s.Command",pItem->name);
-	pItem->SetCommand(parser.FindSetting(text,L""),m_pStdCommands);
+	pItem->SetCommand(parser.FindSetting(text,L""),m_pStdCommands,m_Style,m_StyleMask);
 	Sprintf(text,_countof(text),L"%s.Link",pItem->name);
 	pItem->link=parser.FindSetting(text,L"");
 	Sprintf(text,_countof(text),L"%s.Label",pItem->name);
@@ -1663,15 +1732,12 @@ int CCustomTreeDlg::ParseTreeItem( CTreeItem *pItem, CSettingsParser &parser )
 	Sprintf(text,_countof(text),L"%s.Icon",pItem->name);
 	pItem->icon=parser.FindSetting(text,L"");
 	ParseTreeItemExtra(pItem,parser);
-	return m_Tree.UpdateIcons(pItem,NULL);
+	return m_Tree.UpdateItem(pItem,NULL);
 }
 
 void CCustomTreeDlg::AppendString( std::vector<wchar_t> &stringBuilder, const wchar_t *text )
 {
-	int len=Strlen(text);
-	int pos=(int)stringBuilder.size();
-	stringBuilder.resize(pos+len);
-	memcpy(&stringBuilder[pos],text,len*2);
+	stringBuilder.insert(stringBuilder.end(),text,text+Strlen(text));
 }
 
 void CCustomTreeDlg::SerializeItem( HTREEITEM hItem, std::vector<wchar_t> &stringBuilder )
@@ -1709,7 +1775,7 @@ void CCustomTreeDlg::SerializeItem( HTREEITEM hItem, std::vector<wchar_t> &strin
 		AppendString(stringBuilder,L"\n");
 	}
 
-	if (pItem && !pItem->bSeparator)
+	if (pItem && !pItem->pStdCommand->IsSeparator())
 	{
 		// save other properties
 		if (!pItem->command.IsEmpty())
@@ -1750,7 +1816,11 @@ void CCustomTreeDlg::SerializeData( void )
 	SerializeItem(NULL,stringBuilder);
 	stringBuilder.push_back(0);
 	CSettingsLockWrite lock;
-	m_pSetting->value=CComVariant(&stringBuilder[0]);
+	const wchar_t *strNew=&stringBuilder[0];
+	const wchar_t *strOld=m_pSetting->value.vt==VT_BSTR?m_pSetting->value.bstrVal:L"???";
+	if ((m_pSetting->flags&CSetting::FLAG_DEFAULT) || wcscmp(strNew,strOld)!=0)
+		SetSettingsDirty();
+	m_pSetting->value=CComVariant(strNew);
 	m_pSetting->flags&=~CSetting::FLAG_DEFAULT;
 	ItemsChanged();
 }
@@ -1759,11 +1829,13 @@ void CCustomTreeDlg::CreateTreeItems( CSettingsParser &parser, HTREEITEM hParent
 {
 	for (;!pItems[index].name.IsEmpty();index++)
 	{
-		TVINSERTSTRUCT insert={hParent,TVI_LAST,{TVIF_STATE|TVIF_TEXT|TVIF_PARAM|TVIF_IMAGE|TVIF_SELECTEDIMAGE,NULL,TVIS_EXPANDED,TVIS_EXPANDED,(LPWSTR)(LPCWSTR)pItems[index].name}};
 		CTreeItem *pNewItem=new CTreeItem;
 		pNewItem->name=pItems[index].name;
+		TVINSERTSTRUCT insert={hParent,TVI_LAST,{TVIF_STATE|TVIF_TEXT|TVIF_PARAM|TVIF_IMAGE|TVIF_SELECTEDIMAGE,NULL,TVIS_EXPANDED,TVIS_EXPANDED}};
 		insert.item.iImage=insert.item.iSelectedImage=ParseTreeItem(pNewItem,parser);
 		insert.item.lParam=(LPARAM)pNewItem;
+		CString dispName=pNewItem->GetDisplayName(false);
+		insert.item.pszText=(LPWSTR)(LPCWSTR)dispName;
 		HTREEITEM hItem=TreeView_InsertItem(m_Tree,&insert);
 
 		if (pItems[index].children>=0)
@@ -1777,7 +1849,8 @@ void CCustomTreeDlg::SetGroup( CSetting *pGroup, bool bReset )
 	{
 		TreeView_DeleteAllItems(m_Tree);
 		m_pSetting=pGroup+1;
-		m_Tree.SetDisabled((m_pSetting->flags&CSetting::FLAG_LOCKED_MASK)!=0);
+		Assert(!m_pSetting->pLinkTo);
+		m_Tree.SetDisabled(m_pSetting->IsLocked());
 		const wchar_t *pText=L"";
 		if (m_pSetting->value.vt==VT_BSTR)
 			pText=m_pSetting->value.bstrVal;
@@ -1796,17 +1869,22 @@ void CCustomTreeDlg::SetGroup( CSetting *pGroup, bool bReset )
 	TOOLINFO tool={sizeof(tool),TTF_SUBCLASS|TTF_IDISHWND,m_hWnd,(UINT_PTR)(HWND)m_Tree};
 	CString str=LoadStringEx(m_bMenu?IDS_MENU_LOCKED:IDS_TOOLBAR_LOCKED);
 	tool.lpszText=(LPWSTR)(LPCWSTR)str;
-	if (m_pSetting->flags&CSetting::FLAG_LOCKED_REG)
+	if (m_pSetting->IsLockedReg())
 		tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
 	else
 		tooltip.SendMessage(TTM_DELTOOL,0,(LPARAM)&tool);
+
+	TreeView_SetBkColor(m_Tree,m_pSetting->IsLocked()?GetSysColor(COLOR_BTNFACE):-1);
+	TreeView_SetBkColor(m_CommandsTree,m_pSetting->IsLocked()?GetSysColor(COLOR_BTNFACE):-1);
 }
 
-CCustomTreeDlg::CCustomTreeDlg( bool bMenu, const CStdCommand *pStdCommands ):
-m_Tree(*new CSettingsTree), m_CommandsTree(*new CCommandsTree)
+CCustomTreeDlg::CCustomTreeDlg( bool bMenu, const CStdCommand *pStdCommands, int style, int mask ):
+m_Tree(*new CSettingsTree(mask)), m_CommandsTree(*new CCommandsTree)
 {
 	m_bMenu=bMenu;
 	m_pStdCommands=pStdCommands;
+	m_Style=style;
+	m_StyleMask=mask;
 }
 
 CCustomTreeDlg::~CCustomTreeDlg( void )
@@ -1883,7 +1961,7 @@ LRESULT CBrowseForIconDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam
 	if (IsAppThemed())
 		SetWindowTheme(list,L"Explorer",NULL);
 	UpdateIcons(m_ID);
-	CResizeableDlg<CBrowseForIconDlg>::InitResize(MOVE_MODAL);
+	InitResize(MOVE_MODAL);
 	SHAutoComplete(GetDlgItem(IDC_EDITFILE),SHACF_FILESYSTEM);
 
 	RECT rc;
@@ -1916,24 +1994,17 @@ LRESULT CBrowseForIconDlg::OnBrowse( WORD wNotifyCode, WORD wID, HWND hWndCtl, B
 	wchar_t path[_MAX_PATH];
 	GetDlgItemText(IDC_EDITFILE,path,_countof(path));
 	DoEnvironmentSubst(path,_countof(path));
+	wchar_t dir[_MAX_PATH];
+	Strcpy(dir,_countof(dir),path);
+	PathRemoveFileSpec(dir);
+	ofn.lpstrInitialDir=dir;
+	path[0]=0;
 	ofn.lpstrFile=path;
 	ofn.nMaxFile=_countof(path);
 	CString title=LoadStringEx(IDS_ICON_TITLE);
 	ofn.lpstrTitle=title;
 	ofn.Flags=OFN_DONTADDTORECENT|OFN_ENABLESIZING|OFN_EXPLORER|OFN_FILEMUSTEXIST|OFN_HIDEREADONLY|OFN_NOCHANGEDIR;
-	bool bRes=false;
 	if (GetOpenFileName(&ofn))
-	{
-		bRes=true;
-	}
-	else if (CommDlgExtendedError()==FNERR_INVALIDFILENAME)
-	{
-		// bad path. clear path and try again
-		path[0]=0;
-		if (GetOpenFileName(&ofn))
-			bRes=true;
-	}
-	if (bRes)
 	{
 		wchar_t buf[_MAX_PATH];
 		UnExpandEnvStrings(path,buf,_countof(buf));
@@ -2112,45 +2183,39 @@ bool BrowseForIcon( HWND hWndParent, wchar_t *path, int &id )
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool BrowseForBitmap( HWND hWndParent, wchar_t *path )
+bool BrowseForBitmap( HWND hWndParent, wchar_t *path, bool bAllowJpeg )
 {
 	OPENFILENAME ofn={sizeof(ofn)};
 	ofn.hwndOwner=hWndParent;
 	wchar_t filters[256];
-	Strcpy(filters,_countof(filters),LoadStringEx(IDS_BMP_FILTERS));
+	Strcpy(filters,_countof(filters),LoadStringEx(bAllowJpeg?IDS_BMP_FILTERS2:IDS_BMP_FILTERS));
 	for (wchar_t *c=filters;*c;c++)
 		if (*c=='|') *c=0;
 	ofn.lpstrFilter=filters;
 	ofn.nFilterIndex=1;
+	wchar_t dir[_MAX_PATH];
+	Strcpy(dir,_countof(dir),path);
+	PathRemoveFileSpec(dir);
+	ofn.lpstrInitialDir=dir;
+	path[0]=0;
 	ofn.lpstrFile=path;
 	ofn.nMaxFile=_MAX_PATH;
 	CString title=LoadStringEx(IDS_BMP_TITLE);
 	ofn.lpstrTitle=title;
 	ofn.Flags=OFN_DONTADDTORECENT|OFN_ENABLESIZING|OFN_EXPLORER|OFN_FILEMUSTEXIST|OFN_HIDEREADONLY|OFN_NOCHANGEDIR;
-	bool bRes=false;
 	if (GetOpenFileName(&ofn))
-	{
-		bRes=true;
-	}
-	else if (CommDlgExtendedError()==FNERR_INVALIDFILENAME)
-	{
-		// bad path. clear path and try again
-		path[0]=0;
-		if (GetOpenFileName(&ofn))
-			bRes=true;
-	}
-	if (bRes)
 	{
 		wchar_t buf[_MAX_PATH];
 		UnExpandEnvStrings(path,buf,_countof(buf));
 		Strcpy(path,_MAX_PATH,buf);
+		return true;
 	}
-	return bRes;
+	return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool BrowseForSound( HWND hWndParent, wchar_t *path )
+bool BrowseForSound( HWND hWndParent, wchar_t *path )
 {
 	OPENFILENAME ofn={sizeof(ofn)};
 	ofn.hwndOwner=hWndParent;
@@ -2160,30 +2225,24 @@ static bool BrowseForSound( HWND hWndParent, wchar_t *path )
 		if (*c=='|') *c=0;
 	ofn.lpstrFilter=filters;
 	ofn.nFilterIndex=1;
+	wchar_t dir[_MAX_PATH];
+	Strcpy(dir,_countof(dir),path);
+	PathRemoveFileSpec(dir);
+	ofn.lpstrInitialDir=dir;
+	path[0]=0;
 	ofn.lpstrFile=path;
 	ofn.nMaxFile=_MAX_PATH;
 	CString title=LoadStringEx(IDS_WAV_TITLE);
 	ofn.lpstrTitle=title;
 	ofn.Flags=OFN_DONTADDTORECENT|OFN_ENABLESIZING|OFN_EXPLORER|OFN_FILEMUSTEXIST|OFN_HIDEREADONLY|OFN_NOCHANGEDIR;
-	bool bRes=false;
 	if (GetOpenFileName(&ofn))
-	{
-		bRes=true;
-	}
-	else if (CommDlgExtendedError()==FNERR_INVALIDFILENAME)
-	{
-		// bad path. clear path and try again
-		path[0]=0;
-		if (GetOpenFileName(&ofn))
-			bRes=true;
-	}
-	if (bRes)
 	{
 		wchar_t buf[_MAX_PATH];
 		UnExpandEnvStrings(path,buf,_countof(buf));
 		Strcpy(path,_MAX_PATH,buf);
+		return true;
 	}
-	return bRes;
+	return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2205,6 +2264,7 @@ public:
 		EDIT_STRING,
 		EDIT_ICON,
 		EDIT_BITMAP,
+		EDIT_BITMAP_JPG,
 		EDIT_SOUND,
 		EDIT_HOTKEY,
 		EDIT_HOTKEY_ANY,
@@ -2229,6 +2289,7 @@ public:
 		NOTIFY_HANDLER( IDC_SETTINGS, TVN_KEYDOWN, OnKeyDown )
 		NOTIFY_HANDLER( IDC_SETTINGS, TVN_GETINFOTIP, OnGetInfoTip )
 		NOTIFY_HANDLER( IDC_SETTINGS, TVN_SELCHANGED, OnSelChanged )
+		NOTIFY_HANDLER( IDC_SETTINGS, TVN_ITEMEXPANDING, OnExpanding )
 	END_MSG_MAP()
 
 	BEGIN_RESIZE_MAP
@@ -2236,7 +2297,7 @@ public:
 		RESIZE_CONTROL(IDC_STATICTIP,MOVE_SIZE_X|MOVE_MOVE_Y)
 	END_RESIZE_MAP
 
-	void SetGroup( CSetting *pGroup );
+	void SetGroup( CSetting *pGroup, const CString &filter, const CSetting *pSelect );
 	void Validate( void ) { ApplyEditBox(); }
 
 protected:
@@ -2258,6 +2319,7 @@ protected:
 	LRESULT OnClick( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 	LRESULT OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 	LRESULT OnSelChanged( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
+	LRESULT OnExpanding( int idCtrl, LPNMHDR pnmh, BOOL& bHandled ) { return TRUE; } // prevent collapsing
 
 private:
 	CWindow m_Tree;
@@ -2271,14 +2333,19 @@ private:
 	CSetting *m_pEditSetting;
 	bool m_bBasic;
 	bool m_bIgnoreFocus;
+	bool m_bSearch;
 
 	void UpdateGroup( const CSetting *pModified );
 	void ToggleItem( HTREEITEM hItem, bool bDefault );
 	void PlayItem( HTREEITEM hItem );
+	void LocateSetting( const CSetting *pSetting );
 	void ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool bEnabled );
 	void ApplyEditBox( void );
 	void UpdateEditPosition( void );
-	const CSetting *GetNextSetting( const CSetting *pSetting );
+	const CSetting *GetNextSetting( const CSetting *pSetting, const wchar_t *filter );
+	bool IsVisible( const CSetting *pSetting, const wchar_t *filter ) const;
+	HTREEITEM GetNextItem( HTREEITEM hItem, bool bChildren=true );
+	HTREEITEM FindSettingsItem( const wchar_t *name );
 };
 
 // Subclass the tree control to forward the command messages to the parent
@@ -2411,7 +2478,7 @@ static LRESULT CALLBACK SubclassEditProc( HWND hWnd, UINT uMsg, WPARAM wParam, L
 
 LRESULT CTreeSettingsDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	CResizeableDlg<CTreeSettingsDlg>::InitResize();
+	InitResize();
 	EnableThemeDialogTexture(m_hWnd,ETDT_ENABLETAB);
 
 	m_Tree=GetDlgItem(IDC_SETTINGS);
@@ -2526,21 +2593,21 @@ LRESULT CTreeSettingsDlg::OnBrowse( WORD wNotifyCode, WORD wID, HWND hWndCtl, BO
 		SendMessage(WM_NEXTDLGCTL,(LPARAM)m_EditBox.m_hWnd,TRUE);
 		m_bIgnoreFocus=false;
 	}
-	else if (m_EditMode==EDIT_BITMAP)
+	else if (m_EditMode==EDIT_BITMAP || m_EditMode==EDIT_BITMAP_JPG)
 	{
 		m_bIgnoreFocus=true;
 		CString str;
 		m_EditBox.GetWindowText(str);
 		str.TrimLeft(); str.TrimRight();
 		wchar_t text[1024];
-		if (_wcsicmp(PathFindExtension(str),L".bmp")==0)
+		if (_wcsicmp(PathFindExtension(str),L".bmp")==0 || _wcsicmp(PathFindExtension(str),L".png")==0 || (m_EditMode==EDIT_BITMAP_JPG && _wcsicmp(PathFindExtension(str),L".jpg")==0))
 		{
 			Strcpy(text,_countof(text),str);
 			DoEnvironmentSubst(text,_countof(text));
 		}
 		else
 			text[0]=0;
-		if (BrowseForBitmap(m_hWnd,text))
+		if (BrowseForBitmap(m_hWnd,text,m_EditMode==EDIT_BITMAP_JPG))
 		{
 			m_EditBox.SetWindowText(text);
 		}
@@ -2681,6 +2748,7 @@ void CTreeSettingsDlg::ToggleItem( HTREEITEM hItem, bool bDefault )
 	if (item.state&TVIS_CUT)
 		return;
 	CSetting *pSetting=(CSetting*)item.lParam;
+	if (pSetting->pLinkTo) pSetting=pSetting->pLinkTo;
 	if (bDefault)
 	{
 		if (pSetting->flags&CSetting::FLAG_DEFAULT)
@@ -2689,11 +2757,16 @@ void CTreeSettingsDlg::ToggleItem( HTREEITEM hItem, bool bDefault )
 			CSettingsLockWrite lock;
 			pSetting->flags|=CSetting::FLAG_DEFAULT;
 			pSetting->value=pSetting->defValue;
+			SetSettingsDirty();
 		}
-		if (m_pEditSetting==pSetting)
+		if (m_pEditSetting && (m_pEditSetting==pSetting || m_pEditSetting->pLinkTo==pSetting))
 		{
 			m_pEditSetting=NULL;
 			ItemSelected(item.hItem,pSetting,true);
+		}
+		if (pSetting->flags&CSetting::FLAG_CALLBACK)
+		{
+			SettingChangedCallback(pSetting);
 		}
 		UpdateGroup(pSetting);
 	}
@@ -2705,6 +2778,11 @@ void CTreeSettingsDlg::ToggleItem( HTREEITEM hItem, bool bDefault )
 			CSettingsLockWrite lock;
 			pSetting->value=CComVariant(state?0:1);
 			pSetting->flags&=~CSetting::FLAG_DEFAULT;
+			SetSettingsDirty();
+		}
+		if (pSetting->flags&CSetting::FLAG_CALLBACK)
+		{
+			SettingChangedCallback(pSetting);
 		}
 		UpdateGroup(pSetting);
 	}
@@ -2715,14 +2793,20 @@ void CTreeSettingsDlg::ToggleItem( HTREEITEM hItem, bool bDefault )
 		{
 			if (pParent->type!=CSetting::TYPE_RADIO)
 			{
-				ATLASSERT(pParent->type==CSetting::TYPE_INT);
+				CSetting *pTarget=pParent->pLinkTo?pParent->pLinkTo:pParent;
+				Assert(pTarget->type==CSetting::TYPE_INT);
 				int val=(int)(pSetting-pParent-1);
-				if (pParent->value.vt==VT_I4 && pParent->value.intVal==val)
+				if (pTarget->value.vt==VT_I4 && pTarget->value.intVal==val)
 					break;
 				{
 					CSettingsLockWrite lock;
-					pParent->value=CComVariant(val);
-					pParent->flags&=~CSetting::FLAG_DEFAULT;
+					pTarget->value=CComVariant(val);
+					pTarget->flags&=~CSetting::FLAG_DEFAULT;
+					SetSettingsDirty();
+				}
+				if (pParent->flags&CSetting::FLAG_CALLBACK)
+				{
+					SettingChangedCallback(pParent);
 				}
 				UpdateGroup(pParent);
 				break;
@@ -2737,17 +2821,29 @@ void CTreeSettingsDlg::PlayItem( HTREEITEM hItem )
 	TVITEM item={TVIF_PARAM,hItem};
 	TreeView_GetItem(m_Tree,&item);
 	CSetting *pSetting=(CSetting*)item.lParam;
-	if (pSetting->type==CSetting::TYPE_SOUND && pSetting->value.vt==VT_BSTR)
+	if (pSetting->type==CSetting::TYPE_SOUND && pSetting->GetValue().vt==VT_BSTR)
 	{
-		if (!*pSetting->value.bstrVal)
+		if (!*pSetting->GetValue().bstrVal)
 			return;
 		wchar_t path[_MAX_PATH];
-		Strcpy(path,_countof(path),pSetting->value.bstrVal);
+		Strcpy(path,_countof(path),pSetting->GetValue().bstrVal);
 		DoEnvironmentSubst(path,_countof(path));
 		if (_wcsicmp(PathFindExtension(path),L"wav")==0)
 			PlaySound(path,NULL,SND_FILENAME|SND_ASYNC|SND_NODEFAULT|SND_SYSTEM);
 		else
 			PlaySound(path,NULL,SND_APPLICATION|SND_ALIAS|SND_ASYNC|SND_NODEFAULT|SND_SYSTEM);
+	}
+}
+
+void CTreeSettingsDlg::LocateSetting( const CSetting *pSetting )
+{
+	for (const CSetting *pGroup=pSetting;;pGroup--)
+	{
+		if (pGroup->type==CSetting::TYPE_GROUP)
+		{
+			SelectSettingsTab(pGroup->nameID,true,pSetting);
+			return;
+		}
 	}
 }
 
@@ -2803,18 +2899,29 @@ LRESULT CTreeSettingsDlg::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam
 	TreeView_GetItem(m_Tree,&item);
 	CSetting *pSetting=(CSetting*)item.lParam;
 
+	enum
+	{
+		CMD_TOGGLE=1,
+		CMD_DEFAULT,
+		CMD_PLAY,
+		CMD_LOCATE,
+	};
+
 	HMENU menu=CreatePopupMenu();
 	if (pSetting->type!=CSetting::TYPE_RADIO)
 	{
 		if (pSetting->type==CSetting::TYPE_BOOL)
 		{
-			AppendMenu(menu,MF_STRING,1,LoadStringEx(IDS_TOGGLE_SETTING));
+			AppendMenu(menu,MF_STRING,CMD_TOGGLE,LoadStringEx(IDS_TOGGLE_SETTING));
 			if (item.state&TVIS_CUT)
-				EnableMenuItem(menu,1,MF_BYCOMMAND|MF_GRAYED);
+				EnableMenuItem(menu,CMD_TOGGLE,MF_BYCOMMAND|MF_GRAYED);
 		}
-		AppendMenu(menu,MF_STRING,2,LoadStringEx(IDS_DEFAULT_SETTING));
-		if ((item.state&TVIS_CUT) || (pSetting->flags&CSetting::FLAG_DEFAULT))
-			EnableMenuItem(menu,2,MF_BYCOMMAND|MF_GRAYED);
+		if (!(pSetting->flags&CSetting::FLAG_NODEFAULT))
+		{
+			AppendMenu(menu,MF_STRING,CMD_DEFAULT,LoadStringEx(IDS_DEFAULT_SETTING));
+			if ((item.state&TVIS_CUT) || pSetting->IsDefault())
+				EnableMenuItem(menu,CMD_DEFAULT,MF_BYCOMMAND|MF_GRAYED);
+		}
 	}
 	else
 	{
@@ -2824,19 +2931,23 @@ LRESULT CTreeSettingsDlg::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam
 	}
 	if (pSetting->type==CSetting::TYPE_SOUND)
 	{
-		AppendMenu(menu,MF_STRING,3,LoadStringEx(IDS_PLAY_SETTING));
-		if (pSetting->value.vt!=VT_BSTR || *pSetting->value.bstrVal==0)
-			EnableMenuItem(menu,3,MF_BYCOMMAND|MF_GRAYED);
+		AppendMenu(menu,MF_STRING,CMD_PLAY,LoadStringEx(IDS_PLAY_SETTING));
+		if (pSetting->GetValue().vt!=VT_BSTR || *pSetting->GetValue().bstrVal==0)
+			EnableMenuItem(menu,CMD_PLAY,MF_BYCOMMAND|MF_GRAYED);
 	}
+	if (m_bSearch)
+		AppendMenu(menu,MF_STRING,CMD_LOCATE,LoadStringEx(IDS_LOCATE_SETTING));
 
-	int res=TrackPopupMenu(menu,TPM_RETURNCMD,pt.x,pt.y,0,m_hWnd,NULL);
+	int res=TrackPopupMenu(menu,TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,0,m_hWnd,NULL);
 	DestroyMenu(menu);
-	if (res==1)
+	if (res==CMD_TOGGLE)
 		ToggleItem(hItem,false);
-	if (res==2)
+	if (res==CMD_DEFAULT)
 		ToggleItem(hItem,true);
-	if (res==3)
+	if (res==CMD_PLAY)
 		PlayItem(hItem);
+	if (res==CMD_LOCATE)
+		LocateSetting(pSetting);
 
 	return 0;
 }
@@ -2844,7 +2955,7 @@ LRESULT CTreeSettingsDlg::OnContextMenu( UINT uMsg, WPARAM wParam, LPARAM lParam
 LRESULT CTreeSettingsDlg::OnKeyDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled )
 {
 	NMTVKEYDOWN *pKey=(NMTVKEYDOWN*)pnmh;
-	if (pKey->wVKey==VK_SPACE)
+	if (pKey->wVKey==VK_SPACE && GetKeyState(VK_MENU)>=0)
 	{
 		ToggleItem(TreeView_GetSelection(m_Tree),(GetKeyState(VK_CONTROL)<0));
 		return 1;
@@ -2862,8 +2973,8 @@ LRESULT CTreeSettingsDlg::OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled
 {
 	NMTVGETINFOTIP *pTip=(NMTVGETINFOTIP*)pnmh;
 	const CSetting *pSetting=(CSetting*)pTip->lParam;
-	if (pSetting->flags&CSetting::FLAG_LOCKED_MASK)
-		Sprintf(pTip->pszText,pTip->cchTextMax,L"%s\n%s",LoadStringEx(pSetting->tipID),LoadStringEx((pSetting->flags&CSetting::FLAG_LOCKED_REG)?IDS_SETTING_LOCKED:IDS_SETTING_LOCKED_GP));
+	if (pSetting->IsLocked())
+		Sprintf(pTip->pszText,pTip->cchTextMax,L"%s\n%s",LoadStringEx(pSetting->tipID),LoadStringEx(pSetting->IsLockedReg()?IDS_SETTING_LOCKED:IDS_SETTING_LOCKED_GP));
 	else
 		Strcpy(pTip->pszText,pTip->cchTextMax,LoadStringEx(pSetting->tipID));
 	return 0;
@@ -2888,45 +2999,53 @@ void CTreeSettingsDlg::ApplyEditBox( void )
 {
 	if (m_pEditSetting)
 	{
-		CSettingsLockWrite lock;
+		{
+			CSettingsLockWrite lock;
 
-		CString str;
-		m_EditBox.GetWindowText(str);
-		str.TrimLeft(); str.TrimRight();
-		if (m_pEditSetting->type==CSetting::TYPE_INT)
-		{
-			int val=_wtol(str);
-			if (m_pEditSetting->value.vt!=VT_I4 || m_pEditSetting->value.intVal!=val)
+			CString str;
+			m_EditBox.GetWindowText(str);
+			str.TrimLeft(); str.TrimRight();
+			CSetting *pSetting=m_pEditSetting->pLinkTo?m_pEditSetting->pLinkTo:m_pEditSetting;
+			if (pSetting->type==CSetting::TYPE_INT)
 			{
-				m_pEditSetting->value=CComVariant(val);
-				m_pEditSetting->flags&=~CSetting::FLAG_DEFAULT;
+				int val=_wtol(str);
+				if (pSetting->value.vt!=VT_I4 || pSetting->value.intVal!=val)
+				{
+					pSetting->value=CComVariant(val);
+					pSetting->flags&=~CSetting::FLAG_DEFAULT;
+				}
 			}
+			else if (pSetting->type==CSetting::TYPE_COLOR)
+			{
+				wchar_t *end;
+				int val=wcstol(str,&end,16)&0xFFFFFF;
+				if (pSetting->value.vt!=VT_I4 || pSetting->value.intVal!=val)
+				{
+					pSetting->value=CComVariant(val);
+					pSetting->flags&=~CSetting::FLAG_DEFAULT;
+				}
+			}
+			else if (pSetting->type==CSetting::TYPE_HOTKEY || pSetting->type==CSetting::TYPE_HOTKEY_ANY)
+			{
+				if (pSetting->value.vt!=VT_I4 || pSetting->value.intVal!=g_HotKey)
+				{
+					pSetting->value=CComVariant(g_HotKey);
+					pSetting->flags&=~CSetting::FLAG_DEFAULT;
+				}
+			}
+			else
+			{
+				if (pSetting->value.vt!=VT_BSTR || str!=pSetting->value.bstrVal)
+				{
+					pSetting->value=CComVariant(str);
+					pSetting->flags&=~CSetting::FLAG_DEFAULT;
+				}
+			}
+			SetSettingsDirty();
 		}
-		else if (m_pEditSetting->type==CSetting::TYPE_COLOR)
+		if (m_pEditSetting->flags&CSetting::FLAG_CALLBACK)
 		{
-			wchar_t *end;
-			int val=wcstol(str,&end,16)&0xFFFFFF;
-			if (m_pEditSetting->value.vt!=VT_I4 || m_pEditSetting->value.intVal!=val)
-			{
-				m_pEditSetting->value=CComVariant(val);
-				m_pEditSetting->flags&=~CSetting::FLAG_DEFAULT;
-			}
-		}
-		else if (m_pEditSetting->type==CSetting::TYPE_HOTKEY || m_pEditSetting->type==CSetting::TYPE_HOTKEY_ANY)
-		{
-			if (m_pEditSetting->value.vt!=VT_I4 || m_pEditSetting->value.intVal!=g_HotKey)
-			{
-				m_pEditSetting->value=CComVariant(g_HotKey);
-				m_pEditSetting->flags&=~CSetting::FLAG_DEFAULT;
-			}
-		}
-		else
-		{
-			if (m_pEditSetting->value.vt!=VT_BSTR || str!=m_pEditSetting->value.bstrVal)
-			{
-				m_pEditSetting->value=CComVariant(str);
-				m_pEditSetting->flags&=~CSetting::FLAG_DEFAULT;
-			}
+			SettingChangedCallback(m_pEditSetting);
 		}
 	}
 }
@@ -2945,18 +3064,19 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 	wchar_t text[2048];
 	if (pSetting)
 	{
+		const CComVariant &valVar=pSetting->GetValue();
 		if (pSetting->type==CSetting::TYPE_INT && pSetting[1].type!=CSetting::TYPE_RADIO)
 		{
 			mode=EDIT_INT;
 			int val=0;
-			if (pSetting->value.vt==VT_I4)
-				val=pSetting->value.intVal;
+			if (valVar.vt==VT_I4)
+				val=valVar.intVal;
 			Sprintf(text,_countof(text),L"%d",val);
 		}
-		else if (pSetting->type==CSetting::TYPE_STRING || pSetting->type==CSetting::TYPE_ICON || pSetting->type==CSetting::TYPE_BITMAP || pSetting->type==CSetting::TYPE_SOUND || pSetting->type==CSetting::TYPE_FONT)
+		else if (pSetting->type==CSetting::TYPE_STRING || pSetting->type==CSetting::TYPE_ICON || pSetting->type==CSetting::TYPE_BITMAP || pSetting->type==CSetting::TYPE_BITMAP_JPG || pSetting->type==CSetting::TYPE_SOUND || pSetting->type==CSetting::TYPE_FONT)
 		{
-			if (pSetting->value.vt==VT_BSTR)
-				Strcpy(text,_countof(text),pSetting->value.bstrVal);
+			if (valVar.vt==VT_BSTR)
+				Strcpy(text,_countof(text),valVar.bstrVal);
 			else
 				text[0]=0;
 			if (pSetting->type==CSetting::TYPE_STRING)
@@ -2965,6 +3085,8 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 				mode=EDIT_ICON;
 			else if (pSetting->type==CSetting::TYPE_BITMAP)
 				mode=EDIT_BITMAP;
+			else if (pSetting->type==CSetting::TYPE_BITMAP_JPG)
+				mode=EDIT_BITMAP_JPG;
 			else if (pSetting->type==CSetting::TYPE_SOUND)
 				mode=EDIT_SOUND;
 			else
@@ -2974,10 +3096,10 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 		{
 			text[0]=0;
 			g_HotKey=0;
-			if (pSetting->value.vt==VT_I4)
+			if (valVar.vt==VT_I4)
 			{
-				g_HotKey=pSetting->value.intVal;
-				GetKeyName(pSetting->value.intVal,text,_countof(text),false,false,false);
+				g_HotKey=valVar.intVal;
+				GetKeyName(valVar.intVal,text,_countof(text),false,false,false);
 			}
 			if (bEnabled)
 				mode=pSetting->type==CSetting::TYPE_HOTKEY_ANY?EDIT_HOTKEY_ANY:EDIT_HOTKEY;
@@ -2986,8 +3108,8 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 		{
 			mode=EDIT_COLOR;
 			int val=0;
-			if (pSetting->value.vt==VT_I4)
-				val=pSetting->value.intVal;
+			if (valVar.vt==VT_I4)
+				val=valVar.intVal;
 			Sprintf(text,_countof(text),L"%06X",val);
 		}
 	}
@@ -3008,21 +3130,21 @@ void CTreeSettingsDlg::ItemSelected( HTREEITEM hItem, CSetting *pSetting, bool b
 		m_pEditSetting=pSetting;
 	}
 
-	if (mode==EDIT_ICON || mode==EDIT_BITMAP || mode==EDIT_SOUND || mode==EDIT_FONT || mode==EDIT_COLOR)
+	if (mode==EDIT_ICON || mode==EDIT_BITMAP || mode==EDIT_BITMAP_JPG || mode==EDIT_SOUND || mode==EDIT_FONT || mode==EDIT_COLOR)
 	{
 		RECT rc2=rc;
-		int h=rc2.bottom-rc2.top;
-		rc2.left=rc2.right-h;
+		int width=(rc2.bottom-rc2.top)*3/2;
+		rc2.left=rc2.right-width;
 		if (mode==EDIT_SOUND)
 		{
 			m_PlayButton.SetWindowPos(NULL,&rc2,SWP_NOZORDER|SWP_SHOWWINDOW);
-			rc2.left-=h;
-			rc2.right-=h;
+			rc2.left-=width;
+			rc2.right-=width;
 		}
 		else
 			m_PlayButton.ShowWindow(SW_HIDE);
-		m_BrowseButton.EnableWindow(bEnabled);
 		m_BrowseButton.SetWindowPos(NULL,&rc2,SWP_NOZORDER|SWP_SHOWWINDOW);
+		m_BrowseButton.EnableWindow(bEnabled);
 		rc.right=rc2.left;
 	}
 	else
@@ -3054,7 +3176,7 @@ void CTreeSettingsDlg::UpdateEditPosition( void )
 	rc.left=rc.right;
 	rc.right=w;
 	w-=rc.left;
-	int h=rc.bottom-rc.top;
+	int width=(rc.bottom-rc.top)*3/2;
 
 	HDC hdc=CreateCompatibleDC(NULL);
 	HFONT font0=(HFONT)SelectObject(hdc,m_EditBox.GetFont());
@@ -3066,22 +3188,22 @@ void CTreeSettingsDlg::UpdateEditPosition( void )
 	DeleteDC(hdc);
 	DWORD margins=(DWORD)m_EditBox.SendMessage(EM_GETMARGINS);
 	size.cx+=HIWORD(margins)+LOWORD(margins)+12;
-	if (m_EditMode==EDIT_ICON || m_EditMode==EDIT_BITMAP|| m_EditMode==EDIT_FONT || m_EditMode==EDIT_COLOR)
-		size.cx+=h;
+	if (m_EditMode==EDIT_ICON || m_EditMode==EDIT_BITMAP || m_EditMode==EDIT_BITMAP_JPG || m_EditMode==EDIT_FONT || m_EditMode==EDIT_COLOR)
+		size.cx+=width;
 	if (m_EditMode==EDIT_SOUND)
-		size.cx+=h*2;
+		size.cx+=width*2;
 	if (size.cx<w)
 		rc.right=rc.left+size.cx;
 
-	if (m_EditMode==EDIT_ICON || m_EditMode==EDIT_BITMAP || m_EditMode==EDIT_SOUND || m_EditMode==EDIT_FONT || m_EditMode==EDIT_COLOR)
+	if (m_EditMode==EDIT_ICON || m_EditMode==EDIT_BITMAP || m_EditMode==EDIT_BITMAP_JPG || m_EditMode==EDIT_SOUND || m_EditMode==EDIT_FONT || m_EditMode==EDIT_COLOR)
 	{
 		RECT rc2=rc;
-		rc2.left=rc2.right-h;
+		rc2.left=rc2.right-width;
 		if (m_EditMode==EDIT_SOUND)
 		{
 			m_PlayButton.SetWindowPos(NULL,&rc2,SWP_NOZORDER|SWP_NOCOPYBITS);
-			rc2.left-=h;
-			rc2.right-=h;
+			rc2.left-=width;
+			rc2.right-=width;
 		}
 		m_BrowseButton.SetWindowPos(NULL,&rc2,SWP_NOZORDER|SWP_NOCOPYBITS);
 		rc.right=rc2.left;
@@ -3090,20 +3212,57 @@ void CTreeSettingsDlg::UpdateEditPosition( void )
 	m_EditBox.SetWindowPos(NULL,&rc,SWP_NOZORDER|SWP_NOCOPYBITS);
 }
 
-const CSetting *CTreeSettingsDlg::GetNextSetting( const CSetting *pSetting )
+bool CTreeSettingsDlg::IsVisible( const CSetting *pSetting, const wchar_t *filter ) const
+{
+	if (pSetting->flags&CSetting::FLAG_HIDDEN)
+		return false;
+	if (!pSetting->MatchFilter(filter))
+		return false;
+	int style, mask;
+	GetSettingsStyle(style,mask);
+	if ((pSetting->flags&mask) && !(pSetting->flags&style))
+		return false;
+	if (pSetting->type==CSetting::TYPE_RADIO)
+	{
+		while (pSetting->type==CSetting::TYPE_RADIO)
+			pSetting--;
+		return IsVisible(pSetting,filter);
+	}
+	return true;
+}
+
+const CSetting *CTreeSettingsDlg::GetNextSetting( const CSetting *pSetting, const wchar_t *filter )
 {
 	pSetting++;
-	if (pSetting->type==CSetting::TYPE_RADIO && !(pSetting->flags&CSetting::FLAG_HIDDEN))
-		return pSetting;
-
-	if (m_bBasic)
+	while (pSetting->type==CSetting::TYPE_RADIO)
 	{
-		while (pSetting->name && (pSetting->type==CSetting::TYPE_GROUP || (pSetting->flags&CSetting::FLAG_HIDDEN) || !(pSetting->flags&CSetting::FLAG_BASIC)))
+		if (!(pSetting->flags&CSetting::FLAG_HIDDEN))
+			return pSetting;
+		pSetting++;
+	}
+
+	if (*filter)
+	{
+		while (pSetting->name && (pSetting->type==CSetting::TYPE_GROUP || !IsVisible(pSetting,filter) || !pSetting->MatchFilter(filter)))
+		{
+			if (pSetting->type==CSetting::TYPE_GROUP && (pSetting->flags&CSetting::FLAG_HIDDEN))
+			{
+				// if this is a hidden group skip to the next
+				pSetting++;
+				while (pSetting->type!=CSetting::TYPE_GROUP)
+					pSetting++;
+			}
+			pSetting++;
+		}
+	}
+	else if (m_bBasic)
+	{
+		while (pSetting->name && (pSetting->type==CSetting::TYPE_GROUP || !IsVisible(pSetting,filter) || !(pSetting->flags&CSetting::FLAG_BASIC)))
 			pSetting++;
 	}
 	else
 	{
-		while (pSetting->name && pSetting->type!=CSetting::TYPE_GROUP && (pSetting->flags&CSetting::FLAG_HIDDEN))
+		while (pSetting->name && pSetting->type!=CSetting::TYPE_GROUP && !IsVisible(pSetting,filter))
 			pSetting++;
 	}
 
@@ -3112,7 +3271,36 @@ const CSetting *CTreeSettingsDlg::GetNextSetting( const CSetting *pSetting )
 	return NULL;
 }
 
-void CTreeSettingsDlg::SetGroup( CSetting *pGroup )
+HTREEITEM CTreeSettingsDlg::GetNextItem( HTREEITEM hItem, bool bChildren )
+{
+	if (!hItem) return NULL;
+	if (bChildren)
+	{
+		HTREEITEM hNext=TreeView_GetChild(m_Tree,hItem);
+		if (hNext) return hNext;
+	}
+	{
+		HTREEITEM hNext=TreeView_GetNextSibling(m_Tree,hItem);
+		if (hNext) return hNext;
+	}
+	return GetNextItem(TreeView_GetParent(m_Tree,hItem),false);
+}
+
+HTREEITEM CTreeSettingsDlg::FindSettingsItem( const wchar_t *name )
+{
+	HTREEITEM res=NULL;
+	for (HTREEITEM hItem=TreeView_GetRoot(m_Tree);hItem;hItem=GetNextItem(hItem))
+	{
+		TVITEM item={TVIF_PARAM,hItem};
+		TreeView_GetItem(m_Tree,&item);
+		const CSetting *pSetting=(CSetting*)item.lParam;
+		if (pSetting && wcscmp(name,pSetting->name)==0)
+			res=hItem;
+	}
+	return res;
+}
+
+void CTreeSettingsDlg::SetGroup( CSetting *pGroup, const CString &filter, const CSetting *pSelect )
 {
 	ItemSelected(NULL,NULL,false);
 	m_pGroup=pGroup;
@@ -3121,9 +3309,11 @@ void CTreeSettingsDlg::SetGroup( CSetting *pGroup )
 	TreeView_SelectItem(m_Tree,NULL);
 	TreeView_DeleteAllItems(m_Tree);
 	int level=0;
-	HTREEITEM hParent=NULL;
+	HTREEITEM hRadioParent=NULL;
+	m_bSearch=!filter.IsEmpty();
 	m_bBasic=(pGroup->nameID==IDS_BASIC_SETTINGS);
-	for (const CSetting *pSetting=GetNextSetting(pGroup);pSetting;pSetting=GetNextSetting(pSetting))
+	HTREEITEM hSelect=NULL;
+	for (const CSetting *pSetting=GetNextSetting(pGroup,filter);pSetting;pSetting=GetNextSetting(pSetting,filter))
 	{
 		wchar_t text[256];
 		text[0]=0;
@@ -3133,10 +3323,16 @@ void CTreeSettingsDlg::SetGroup( CSetting *pGroup )
 			Strcpy(text,_countof(text),LoadStringEx(pSetting->nameID));
 		}
 		if (pSetting->type!=CSetting::TYPE_RADIO)
-			hParent=NULL;
+			hRadioParent=NULL;
+		HTREEITEM hParent=hRadioParent;
+		if (pSetting->nest)
+		{
+			Assert(pSetting->type!=CSetting::TYPE_RADIO);
+			hParent=FindSettingsItem(pSetting->nest);
+		}
 		TVINSERTSTRUCT insert={hParent,TVI_LAST,{TVIF_STATE|TVIF_TEXT|TVIF_IMAGE|TVIF_SELECTEDIMAGE|TVIF_PARAM,NULL,TVIS_EXPANDED,TVIS_EXPANDED,text,0,SETTING_STATE_SETTING,SETTING_STATE_SETTING}};
 		insert.item.lParam=(LPARAM)pSetting;
-		if (pSetting->flags&CSetting::FLAG_LOCKED_MASK)
+		if (pSetting->IsLocked())
 		{
 			insert.item.state|=INDEXTOOVERLAYMASK(1);
 			insert.item.stateMask|=TVIS_OVERLAYMASK;
@@ -3148,30 +3344,36 @@ void CTreeSettingsDlg::SetGroup( CSetting *pGroup )
 		}
 		HTREEITEM hItem=TreeView_InsertItem(m_Tree,&insert);
 		if (pSetting->type!=CSetting::TYPE_RADIO)
-			hParent=hItem;
+			hRadioParent=hItem;
+		if (pSetting==pSelect)
+			hSelect=hItem;
 	}
 	UpdateGroup(NULL);
 	m_Tree.SendMessage(WM_SETREDRAW,TRUE);
-	m_Tree.InvalidateRect(NULL);
+	if (hSelect)
+	{
+		TreeView_SelectItem(m_Tree,hSelect);
+		m_Tree.PostMessage(TVM_ENSUREVISIBLE,0,(LPARAM)hSelect); // post instead of send, because the tree may be resized afterwards
+	}
+	m_Tree.Invalidate();
 }
 
 void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 {
-	HTREEITEM hItem=NULL;
-	for (const CSetting *pSetting=GetNextSetting(m_pGroup);pSetting;pSetting=GetNextSetting(pSetting))
+	for (HTREEITEM hItem=TreeView_GetRoot(m_Tree);hItem;hItem=GetNextItem(hItem))
 	{
-		if (pSetting->type==CSetting::TYPE_RADIO) continue;
-		hItem=hItem?TreeView_GetNextSibling(m_Tree,hItem):TreeView_GetRoot(m_Tree);
-
 		wchar_t text[256];
-		TVITEM item={TVIF_STATE|TVIF_IMAGE,hItem,0,TVIS_BOLD|TVIS_CUT,text};
+		TVITEM item={TVIF_PARAM|TVIF_STATE|TVIF_IMAGE,hItem,0,TVIS_BOLD|TVIS_CUT,text};
 		TreeView_GetItem(m_Tree,&item);
+		const CSetting *pSetting=(CSetting*)item.lParam;
+		if (pSetting->type==CSetting::TYPE_RADIO) continue;
 
 		// check if the item is enabled
 		bool bEnabled=pSetting->IsEnabled();
 
 		// check if the item is default
-		bool bDefault=(pSetting->flags&CSetting::FLAG_DEFAULT)!=0;
+		bool bDefault=pSetting->IsDefault();
+		const CComVariant &valVar=pSetting->GetValue();
 
 		// calculate text
 		if (pSetting!=m_pEditSetting)
@@ -3180,8 +3382,8 @@ void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 			{
 				wchar_t val[100];
 				val[0]=0;
-				if (pSetting->value.vt==VT_I4)
-					GetKeyName(pSetting->value.intVal,val,_countof(val),false,false,false);
+				if (valVar.vt==VT_I4)
+					GetKeyName(valVar.intVal,val,_countof(val),false,false,false);
 				CString str=LoadStringEx(pSetting->nameID);
 				Sprintf(text,_countof(text),L"%s: %s",str,val);
 				item.mask|=TVIF_TEXT;
@@ -3190,8 +3392,8 @@ void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 			{
 				CString str=LoadStringEx(pSetting->nameID);
 				const wchar_t *val=L"";
-				if (pSetting->value.vt==VT_BSTR)
-					val=pSetting->value.bstrVal;
+				if (valVar.vt==VT_BSTR)
+					val=valVar.bstrVal;
 				Sprintf(text,_countof(text),L"%s: %s",str,val);
 				item.mask|=TVIF_TEXT;
 			}
@@ -3199,8 +3401,8 @@ void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 			{
 				CString str=LoadStringEx(pSetting->nameID);
 				int val=0;
-				if (pSetting->value.vt==VT_I4)
-					val=pSetting->value.intVal;
+				if (valVar.vt==VT_I4)
+					val=valVar.intVal;
 				Sprintf(text,_countof(text),L"%s: %d",str,val);
 				item.mask|=TVIF_TEXT;
 			}
@@ -3208,8 +3410,8 @@ void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 			{
 				CString str=LoadStringEx(pSetting->nameID);
 				int val=0;
-				if (pSetting->value.vt==VT_I4)
-					val=pSetting->value.intVal;
+				if (valVar.vt==VT_I4)
+					val=valVar.intVal;
 				Sprintf(text,_countof(text),L"%s: %06X",str,val);
 				item.mask|=TVIF_TEXT;
 			}
@@ -3218,7 +3420,7 @@ void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 		// calculate state
 		int image=SETTING_STATE_SETTING;
 		if (pSetting->type==CSetting::TYPE_BOOL)
-			image=SETTING_STATE_CHECKBOX|(IsVariantTrue(pSetting->value)?SETTING_STATE_CHECKED:0);
+			image=SETTING_STATE_CHECKBOX|(IsVariantTrue(valVar)?SETTING_STATE_CHECKED:0);
 		if (pSetting->type==CSetting::TYPE_COLOR)
 		{
 			image=SETTING_IMAGE_COLOR+(pSetting->flags>>24);
@@ -3238,9 +3440,9 @@ void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 			HBITMAP bmp=CreateDIBSection(hdc,&dib,DIB_RGB_COLORS,NULL,NULL,0);
 			HBITMAP bmpMask=CreateDIBSection(hdcMask,&dib,DIB_RGB_COLORS,NULL,NULL,0);
 
-			HBITMAP bmp0=(HBITMAP)SelectObject(hdc,bmp);
-			HBITMAP bmp1=(HBITMAP)SelectObject(hdcMask,bmpMask);
-			SetDCBrushColor(hdc,pSetting->value.intVal&0xFFFFFF);
+			HGDIOBJ bmp0=SelectObject(hdc,bmp);
+			HGDIOBJ bmp1=SelectObject(hdcMask,bmpMask);
+			SetDCBrushColor(hdc,valVar.intVal&0xFFFFFF);
 			SetDCPenColor(hdc,0);
 			SelectObject(hdc,GetStockObject(DC_BRUSH));
 			SelectObject(hdc,GetStockObject(DC_PEN));
@@ -3284,8 +3486,8 @@ void CTreeSettingsDlg::UpdateGroup( const CSetting *pModified )
 		if (pSetting->type==CSetting::TYPE_INT && pSetting[1].type==CSetting::TYPE_RADIO)
 		{
 			int val=0;
-			if (pSetting->value.vt==VT_I4)
-				val=pSetting->value.intVal;
+			if (valVar.vt==VT_I4)
+				val=valVar.intVal;
 			for (HTREEITEM hRadio=TreeView_GetChild(m_Tree,hItem);hRadio;hRadio=TreeView_GetNextSibling(m_Tree,hRadio))
 			{
 				TVITEM radio={TVIF_IMAGE|TVIF_PARAM|TVIF_STATE,hRadio,0,TVIS_CUT};
@@ -3322,16 +3524,24 @@ public:
 	virtual HWND Create( HWND parent );
 	virtual HWND Activate( CSetting *pGroup, const RECT &rect, bool bReset );
 	virtual bool Validate( HWND parent );
+	void SetFilter( const CString &filter ) { m_Filter=filter; }
+	void Select( const CSetting *pSelect ) { m_pSelect=pSelect; }
 
 private:
 	static CTreeSettingsDlg s_Dialog;
+	CString m_Filter;
+	const CSetting *m_pSelect;
 };
 
 CTreeSettingsDlg CDefaultSettingsPanel::s_Dialog;
 
-ISettingsPanel *GetDefaultSettings( void )
+ISettingsPanel *GetDefaultSettings( const CString *filter, const CSetting *pSelect )
 {
 	static CDefaultSettingsPanel panel;
+	if (filter)
+		panel.SetFilter(*filter);
+	if (pSelect)
+		panel.Select(pSelect);
 	return &panel;
 }
 
@@ -3344,7 +3554,8 @@ HWND CDefaultSettingsPanel::Create( HWND parent )
 
 HWND CDefaultSettingsPanel::Activate( CSetting *pGroup, const RECT &rect, bool bReset )
 {
-	s_Dialog.SetGroup(pGroup);
+	s_Dialog.SetGroup(pGroup,m_Filter,m_pSelect);
+	m_pSelect=NULL;
 	s_Dialog.SetWindowPos(HWND_TOP,&rect,SWP_SHOWWINDOW);
 	return s_Dialog.m_hWnd;
 }
@@ -3353,363 +3564,4 @@ bool CDefaultSettingsPanel::Validate( HWND parent )
 {
 	s_Dialog.Validate();
 	return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-class CLanguageSettingsDlg: public CResizeableDlg<CLanguageSettingsDlg>
-{
-public:
-	BEGIN_MSG_MAP( CLanguageSettingsDlg )
-		MESSAGE_HANDLER( WM_INITDIALOG, OnInitDialog )
-		MESSAGE_HANDLER( WM_DESTROY, OnDestroy )
-		MESSAGE_HANDLER( WM_SIZE, OnSize )
-		COMMAND_HANDLER( IDC_LISTLANGUAGE, LBN_SELCHANGE, OnSelChange )
-	END_MSG_MAP()
-
-	BEGIN_RESIZE_MAP
-		RESIZE_CONTROL(IDC_LISTLANGUAGE,MOVE_SIZE_X|MOVE_SIZE_Y)
-	END_RESIZE_MAP
-
-	void SetGroup( CSetting *pGroup );
-
-protected:
-	// Handler prototypes:
-	//  LRESULT MessageHandler(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
-	//  LRESULT CommandHandler(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
-	//  LRESULT NotifyHandler(int idCtrl, LPNMHDR pnmh, BOOL& bHandled);
-	LRESULT OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
-	LRESULT OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
-	LRESULT OnSize( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
-	LRESULT OnSelChange( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled );
-
-private:
-	CSetting *m_pSetting;
-	CWindow m_Tooltip;
-};
-
-const int g_LanguageIDs[]={
-	0x0401,
-	0x0402,
-	0x0405,
-	0x0406,
-	0x0407,
-	0x0408,
-	0x0409,
-	0x0C0A,
-	0x0425,
-	0x040B,
-	0x040C,
-	0x040D,
-	0x041A,
-	0x040E,
-	0x0410,
-	0x0411,
-	0x0412,
-	0x0427,
-	0x0426,
-	0x0414,
-	0x0413,
-	0x0415,
-	0x0416,
-	0x0816,
-	0x0418,
-	0x0419,
-	0x041B,
-	0x0424,
-	0x081A,
-	0x041D,
-	0x041E,
-	0x041F,
-	0x0422,
-	0x0804,
-	0x0C04,
-	0x0404,
-};
-
-LRESULT CLanguageSettingsDlg::OnInitDialog( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
-{
-	CResizeableDlg<CLanguageSettingsDlg>::InitResize();
-	EnableThemeDialogTexture(m_hWnd,ETDT_ENABLETAB);
-
-	CWindow list=GetDlgItem(IDC_LISTLANGUAGE);
-	list.SendMessage(LB_ADDSTRING,0,(LPARAM)(const wchar_t*)LoadStringEx(IDS_OS_LANGUAGE));
-
-	std::vector<CString> names;
-	for (int i=0;i<_countof(g_LanguageIDs);i++)
-	{
-		int id=g_LanguageIDs[i];
-		wchar_t name1[256];
-		wchar_t name2[256];
-		GetLocaleInfo(id,LOCALE_SNAME,name1,_countof(name1));
-		GetLocaleInfo(id,LOCALE_SLANGUAGE,name2,_countof(name2));
-		wchar_t name[256];
-		Sprintf(name,_countof(name),L"%s\xA0- %s",name1,name2);
-		names.push_back(name);
-	}
-	std::stable_sort(names.begin(),names.end());
-	for (std::vector<CString>::const_iterator it=names.begin();it!=names.end();++it)
-		list.SendMessage(LB_ADDSTRING,0,(LPARAM)(const wchar_t*)*it);
-
-	m_Tooltip.Create(TOOLTIPS_CLASS,m_hWnd,NULL,NULL,WS_POPUP|TTS_NOPREFIX);
-	TOOLINFO tool={sizeof(tool),TTF_SUBCLASS,m_hWnd,'CLSH'};
-	CString str=LoadStringEx(IDS_SETTING_LOCKED);
-	tool.lpszText=(LPWSTR)(LPCWSTR)str;
-	list.GetClientRect(&tool.rect);
-	list.ClientToScreen(&tool.rect);
-	ScreenToClient(&tool.rect);
-	m_Tooltip.SendMessage(TTM_ADDTOOL,0,(LPARAM)&tool);
-
-	return TRUE;
-}
-
-LRESULT CLanguageSettingsDlg::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
-{
-	m_Tooltip.Detach();
-	return 0;
-}
-
-LRESULT CLanguageSettingsDlg::OnSize( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
-{
-	CResizeableDlg<CLanguageSettingsDlg>::OnSize();
-	CWindow list=GetDlgItem(IDC_LISTLANGUAGE);
-	TOOLINFO tool={sizeof(tool),TTF_SUBCLASS,m_hWnd,'CLSH'};
-	list.GetClientRect(&tool.rect);
-	list.ClientToScreen(&tool.rect);
-	ScreenToClient(&tool.rect);
-	m_Tooltip.SendMessage(TTM_NEWTOOLRECT,0,(LPARAM)&tool);
-	return 0;
-}
-
-LRESULT CLanguageSettingsDlg::OnSelChange( WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled )
-{
-	// set setting
-	wchar_t name[256];
-	CWindow list=GetDlgItem(IDC_LISTLANGUAGE);
-	int idx=(int)list.SendMessage(LB_GETCURSEL);
-	if (idx<0) idx=0;
-	list.SendMessage(LB_GETTEXT,idx,(LPARAM)name);
-	wchar_t *end=wcschr(name,(unsigned char)'\xA0');
-	CSettingsLockWrite lock;
-	if (end)
-	{
-		*end=0;
-		m_pSetting->value=CComVariant(name);
-	}
-	else
-		m_pSetting->value=CComVariant(L"");
-
-	if (_wcsicmp(m_pSetting->value.bstrVal,m_pSetting->defValue.bstrVal)==0)
-		m_pSetting->flags|=CSetting::FLAG_DEFAULT;
-	else
-		m_pSetting->flags&=~CSetting::FLAG_DEFAULT;
-	return 0;
-}
-
-void CLanguageSettingsDlg::SetGroup( CSetting *pGroup )
-{
-	m_pSetting=pGroup+1;
-
-	const wchar_t *language=L"";
-	if (m_pSetting->value.vt==VT_BSTR && m_pSetting->value.bstrVal)
-		language=m_pSetting->value.bstrVal;
-	int len=Strlen(language);
-
-	CWindow list=GetDlgItem(IDC_LISTLANGUAGE);
-	int n=(int)list.SendMessage(LB_GETCOUNT);
-	for (int i=0;i<n;i++)
-	{
-		wchar_t name[256];
-		list.SendMessage(LB_GETTEXT,i,(LPARAM)name);
-		wchar_t *end=wcschr(name,(unsigned char)'\xA0');
-		if (end)
-			*end=0;
-		else
-			*name=0;
-		if (_wcsicmp(language,name)==0)
-		{
-			list.SendMessage(LB_SETCURSEL,i);
-			break;
-		}
-	}
-	list.EnableWindow(!(m_pSetting->flags&CSetting::FLAG_LOCKED_MASK));
-}
-
-class CLanguageSettingsPanel: public ISettingsPanel
-{
-public:
-	virtual HWND Create( HWND parent );
-	virtual HWND Activate( CSetting *pGroup, const RECT &rect, bool bReset );
-	virtual bool Validate( HWND parent ) { return true; }
-
-private:
-	static CLanguageSettingsDlg s_Dialog;
-};
-
-CLanguageSettingsDlg CLanguageSettingsPanel::s_Dialog;
-
-ISettingsPanel *GetLanguageSettings( void )
-{
-	static CLanguageSettingsPanel panel;
-	return &panel;
-}
-
-HWND CLanguageSettingsPanel::Create( HWND parent )
-{
-	if (!s_Dialog.m_hWnd)
-		s_Dialog.Create(parent,LoadDialogEx(IDD_LANGUAGE));
-	return s_Dialog.m_hWnd;
-}
-
-HWND CLanguageSettingsPanel::Activate( CSetting *pGroup, const RECT &rect, bool bReset )
-{
-	s_Dialog.SetGroup(pGroup);
-	s_Dialog.SetWindowPos(HWND_TOP,&rect,SWP_SHOWWINDOW);
-	return s_Dialog.m_hWnd;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-static tNewVersionCallback g_NewVersionCallback;
-static bool g_bCheckingVersion;
-
-static DWORD WINAPI ThreadVersionCheck( void *param )
-{
-	ULONGLONG curTimeL;
-	GetSystemTimeAsFileTime((FILETIME*)&curTimeL);
-	const DWORD curTime=(DWORD)(curTimeL/36000000000); // in hours
-
-	CRegKey regKey;
-	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell")!=ERROR_SUCCESS)
-	{
-		g_bCheckingVersion=false;
-		return 0;
-	}
-	DWORD newVersion;
-	CString downloadUrl, news;
-	TVersionCheck check=(TVersionCheck)(int)param;
-	CString url=LoadStringEx(IDS_VERSION_URL);
-	if (GetWinVersion()==WIN_VER_VISTA)
-		url+=".V";
-	{
-		CRegKey regKeyLng;
-		wchar_t language[100]=L".";
-		if (regKeyLng.Open(HKEY_LOCAL_MACHINE,L"Software\\IvoSoft\\ClassicShell",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
-		{
-			ULONG size=_countof(language)-1;
-			if (regKeyLng.QueryStringValue(L"DefaultLanguage",language+1,&size)==ERROR_SUCCESS && size>1)
-				url+=language;
-		}
-	}
-	bool res=false;
-	HINTERNET hInternet=InternetOpen(L"Classic Shell",INTERNET_OPEN_TYPE_PRECONFIG,NULL,NULL,0);
-	if (hInternet)
-	{
-		wchar_t header[]=L"Accept: */*\r\n\r\n";
-		HINTERNET hUrl=InternetOpenUrl(hInternet,url,header,Strlen(header),INTERNET_FLAG_RELOAD,0);
-		if (hUrl)
-		{
-			DWORD dwSize;
-			wchar_t buffer[4097];
-			if (InternetReadFile(hUrl,buffer,sizeof(buffer)-2,&dwSize))
-			{
-				buffer[dwSize/2]=0;
-				wchar_t token[256];
-				const wchar_t *str=buffer;
-				if (*str==0xFEFF) str++;
-				str=GetToken(str,token,_countof(token),L"\r\n");
-				int v1, v2, v3;
-				if (swscanf_s(token,L"%d.%d.%d",&v1,&v2,&v3)==3)
-				{
-					newVersion=(v1<<24)|(v2<<16)|v3;
-					str=GetToken(str,token,_countof(token),L"\r\n");
-					downloadUrl=token;
-					str=wcsstr(str,L"{NEWS}");
-					news=str?str+6:L"";
-					res=true;
-				}
-			}
-			InternetCloseHandle(hUrl);
-		}
-		InternetCloseHandle(hInternet);
-	}
-	if (!res)
-	{
-		g_bCheckingVersion=false;
-		// if the check failed pretend we checked 6 days ago (so we check again in 24 hours)
-		if (curTime>24*6)
-			regKey.SetDWORDValue(L"LastUpdateTime",curTime-24*6);
-		return 0;
-	}
-
-	regKey.SetDWORDValue(L"LastUpdateTime",curTime);
-	if (check==CHECK_UPDATE)
-	{
-		g_NewVersionCallback(newVersion,downloadUrl,news);
-		g_bCheckingVersion=false;
-		return 1;
-	}
-
-	DWORD remindedVersion;
-	if (regKey.QueryDWORDValue(L"RemindedVersion",remindedVersion)!=ERROR_SUCCESS)
-		remindedVersion=0;
-	if (newVersion>remindedVersion)
-		g_NewVersionCallback(newVersion,downloadUrl,news);
-	g_bCheckingVersion=false;
-	return 0;
-}
-
-bool CheckForNewVersion( TVersionCheck check, tNewVersionCallback callback )
-{
-	if (g_bCheckingVersion) return false;
-	if (check!=CHECK_UPDATE)
-	{
-		// check admin settings
-		CRegKey regKey;
-		if (regKey.Open(HKEY_LOCAL_MACHINE,L"Software\\IvoSoft\\ClassicShell",KEY_READ|KEY_WOW64_64KEY)==ERROR_SUCCESS)
-		{
-			DWORD update;
-			if (regKey.QueryDWORDValue(L"Update",update)==ERROR_SUCCESS && update==0)
-				return false;
-		}
-	}
-
-	wchar_t path[_MAX_PATH];
-	GetModuleFileName(_AtlBaseModule.GetModuleInstance(),path,_countof(path));
-	PathRemoveFileSpec(path);
-	PathAppend(path,L"ClassicShellUpdate.exe");
-	if (GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES)
-		return false;
-
-	CRegKey regKey;
-	if (regKey.Open(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell")!=ERROR_SUCCESS)
-		regKey.Create(HKEY_CURRENT_USER,L"Software\\IvoSoft\\ClassicShell");
-
-	ULONGLONG curTimeL;
-	GetSystemTimeAsFileTime((FILETIME*)&curTimeL);
-	DWORD curTime=(DWORD)(curTimeL/36000000000); // in hours
-
-	g_NewVersionCallback=callback;
-	if (check!=CHECK_UPDATE)
-	{
-		DWORD update;
-		if (regKey.QueryDWORDValue(L"Update",update)==ERROR_SUCCESS && update==0)
-			return false;
-
-		DWORD lastTime;
-		if (regKey.QueryDWORDValue(L"LastUpdateTime",lastTime)!=ERROR_SUCCESS)
-			lastTime=0;
-		if ((curTime-lastTime)<168)
-			return false; // check weekly
-
-		g_bCheckingVersion=true;
-		if (check==CHECK_AUTO_WAIT)
-			return ThreadVersionCheck((void*)check)!=0;
-		HANDLE hThread=CreateThread(NULL,0,ThreadVersionCheck,(void*)check,0,NULL);
-		CloseHandle(hThread);
-		return hThread!=NULL;
-	}
-
-	g_bCheckingVersion=true;
-	return ThreadVersionCheck((void*)check)!=0;
 }

@@ -33,14 +33,6 @@ HKLM
 		{
 			NoRemove 'Internet Explorer'
 			{
-				NoRemove Extensions
-				{
-					ForceRemove	{64964764-1101-4bbd-8891-B56B1A53B9B3} = s 'Classic Explorer'
-					{
-						val BandClsid = s '{553891B7-A0D5-4526-BE18-D3CE461D6310}'
-						val Clsid = s '{E0DD6CAB-2D10-11D2-8F1A-0000F87ABD16}'
-					}
-				}
 				NoRemove Toolbar
 				{
 					ForceRemove	val {553891B7-A0D5-4526-BE18-D3CE461D6310} = b ''

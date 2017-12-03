@@ -1,21 +1,17 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #pragma once
 
-#include <atlbase.h>
-#include <atlstr.h>
 #include <vector>
+#include "ItemManager.h"
 
-// Returns the App ID and the target exe for the given shortcut
-// appid must be _MAX_PATH characters
-bool GetAppInfoForLink( PIDLIST_ABSOLUTE pidl, wchar_t *appid );
-
-// Returns true if the given shortcut has a jumplist (it may be empty)
+// Returns true if the given app has a non-empty jumplist
 bool HasJumplist( const wchar_t *appid );
 
 struct CJumpItem
 {
+	CJumpItem( void ) { type=TYPE_UNKNOWN; hash=0; bHidden=bHasArguments=false; }
 	enum Type
 	{
 		TYPE_UNKNOWN,
@@ -33,6 +29,7 @@ struct CJumpItem
 
 struct CJumpGroup
 {
+	CJumpGroup( void ) { type=TYPE_RECENT; bHidden=false; }
 	enum Type
 	{
 		TYPE_RECENT,
@@ -44,30 +41,25 @@ struct CJumpGroup
 	
 	Type type;
 	bool bHidden;
-	CString name0;
 	CString name;
 	std::vector<CJumpItem> items;
 };
 
 struct CJumpList
 {
-	DWORD reserved;
 	std::vector<CJumpGroup> groups;
 
-	void Clear( void ) { reserved=0; groups.clear(); }
+	void Clear( void ) { groups.clear(); }
 };
 
 // Returns the jumplist for the given shortcut
-bool GetJumplist( const wchar_t *appid, CJumpList &list, int maxCount );
+bool GetJumplist( const wchar_t *appid, CJumpList &list, int maxCount, int maxHeight, int sepHeight, int itemHeight );
 
 // Executes the given item using the correct application
-bool ExecuteJumpItem( const wchar_t *appid, PIDLIST_ABSOLUTE appexe, const CJumpItem &item, HWND hwnd );
+bool ExecuteJumpItem( const CItemManager::ItemInfo *pAppInfo, const CJumpItem &item, HWND hwnd );
 
 // Removes the given item from the jumplist
-void RemoveJumpItem( const wchar_t *appid, CJumpList &list, int groupIdx, int itemIdx );
+void RemoveJumpItem( const CItemManager::ItemInfo *pAppInfo, CJumpList &list, int groupIdx, int itemIdx );
 
 // Pins or unpins the given item from the jumplist
-void PinJumpItem( const wchar_t *appid, const CJumpList &list, int groupIdx, int itemIdx, bool bPin );
-
-// Creates the app id resolver object
-void CreateAppResolver( void );
+void PinJumpItem( const CItemManager::ItemInfo *pAppInfo, const CJumpList &list, int groupIdx, int itemIdx, bool bPin, int pinIndex );

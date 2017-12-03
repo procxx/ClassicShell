@@ -5,6 +5,9 @@
 	Name="ClassicShellSetup"
 	ProjectGUID="{A4A4D3B1-24E7-401E-A37C-72141D7603DC}"
 	RootNamespace="ClassicShellSetup"
+	SccProjectName="Perforce Project"
+	SccLocalPath=".."
+	SccProvider="MSSCCI:Perforce SCM"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -204,7 +207,19 @@
 			Name="Setup Files"
 			>
 			<File
+				RelativePath=".\__MakeFinal.bat"
+				>
+			</File>
+			<File
 				RelativePath=".\banner.jpg"
+				>
+			</File>
+			<File
+				RelativePath=".\BuildArchives.bat"
+				>
+			</File>
+			<File
+				RelativePath=".\BuildBinaries.bat"
 				>
 			</File>
 			<File
@@ -216,20 +231,24 @@
 				>
 			</File>
 			<File
-				RelativePath=".\ClassicShellText-en-US.wxl"
+				RelativePath="..\Localization\English\ClassicShellText-en-US.wxl"
 				>
 			</File>
 			<File
 				RelativePath=".\dialog.jpg"
 				>
 			</File>
+			<File
+				RelativePath=".\SetEnvironment.bat"
+				>
+			</File>
 		</Filter>
 		<File
-			RelativePath=".\Temp\ClassicShellSetup32.msi"
+			RelativePath=".\Temp\ClassicShellSetup32.msi_"
 			>
 		</File>
 		<File
-			RelativePath=".\Temp\ClassicShellSetup64.msi"
+			RelativePath=".\Temp\ClassicShellSetup64.msi_"
 			>
 		</File>
 		<File

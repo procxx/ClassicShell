@@ -1,5 +1,5 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 // ExplorerBand.h : Declaration of the CExplorerBand
 
@@ -29,9 +29,6 @@ public:
 		ID_PROPERTIES,
 		ID_EMAIL,
 
-		ID_LAST_STD, // last standard command
-
-		// additional supported commands
 		ID_MOVETO,
 		ID_COPYTO,
 		ID_UNDO,
@@ -45,9 +42,14 @@ public:
 		ID_STOP,
 		ID_RENAME,
 		ID_NEWFOLDER,
+		ID_ZIPFOLDER,
+		ID_NAVPANE,
+		ID_DETAILSPANE,
+		ID_PREVIEWPANE,
 		ID_MAP_DRIVE,
 		ID_DISCONNECT,
 		ID_CUSTOMIZEFOLDER,
+		ID_FOLDEROPTIONS,
 		ID_VIEW_TILES,
 		ID_VIEW_DETAILS,
 		ID_VIEW_LIST,
@@ -56,13 +58,19 @@ public:
 		ID_VIEW_ICONS2,
 		ID_VIEW_ICONS3,
 		ID_VIEW_ICONS4,
+		ID_SHOW_EXTENSIONS,
+		ID_HIDDEN_FILES,
+		ID_SYSTEM_FILES,
 
 		ID_CUSTOM=100,
 	};
 
 	DECLARE_WND_CLASS(L"ClassicShell.CBandWindow")
 
-	enum { BWM_UPDATEBUTTONS=WM_USER };
+	enum {
+		BWM_UPDATEBUTTONS=WM_USER,
+		BWM_UPDATETOOLBAR,
+	};
 
 	BEGIN_MSG_MAP( CBandWindow )
 		MESSAGE_HANDLER( WM_CREATE, OnCreate )
@@ -70,18 +78,23 @@ public:
 		MESSAGE_HANDLER( WM_CLEAR, OnUpdateUI )
 		MESSAGE_HANDLER( WM_COMMAND, OnCommand )
 		MESSAGE_HANDLER( BWM_UPDATEBUTTONS, OnUpdateButtons )
+		MESSAGE_HANDLER( BWM_UPDATETOOLBAR, OnUpdateToolbar )
 		NOTIFY_CODE_HANDLER( NM_RCLICK, OnRClick )
 		NOTIFY_CODE_HANDLER( TBN_GETINFOTIP, OnGetInfoTip )
 		NOTIFY_CODE_HANDLER( TBN_DROPDOWN, OnDropDown )
 		NOTIFY_CODE_HANDLER( RBN_CHEVRONPUSHED, OnChevron )
 	END_MSG_MAP()
 
-	CBandWindow( void ) { m_ImgEnabled=m_ImgDisabled=NULL; }
+	CBandWindow( void ) { m_ImgEnabled=m_ImgDisabled=NULL; m_MenuIconSize=0; }
 
 	HWND GetToolbar( void ) { return m_Toolbar.m_hWnd; }
-	void SetBrowsers( IShellBrowser *pBrowser, IWebBrowser2 *pWebBrowser ) { m_pBrowser=pBrowser; m_pWebBrowser=pWebBrowser; }
+	void SetBrowsers( IShellBrowser *pBrowser, IWebBrowser2 *pWebBrowser );
+	void Clear( void );
 	void UpdateToolbar( void );
 	void EnableButton( int cmd, bool bEnable );
+	void CheckButton( int cmd, bool bCheck );
+	bool HasPanes( void ) const;
+	bool HasFolderSettings( void ) const;
 
 protected:
 	// Handler prototypes:
@@ -93,6 +106,7 @@ protected:
 	LRESULT OnUpdateUI( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnCommand( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnUpdateButtons( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnUpdateToolbar( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnRClick( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 	LRESULT OnGetInfoTip( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
 	LRESULT OnDropDown( int idCtrl, LPNMHDR pnmh, BOOL& bHandled );
@@ -100,8 +114,10 @@ protected:
 
 private:
 	CWindow m_Toolbar;
+	CWindow m_TreeParent;
 	CComPtr<IShellBrowser> m_pBrowser;
 	CComPtr<IWebBrowser2> m_pWebBrowser;
+	CComPtr<IPropertyBag> m_pBrowserBag;
 	HIMAGELIST m_ImgEnabled;
 	HIMAGELIST m_ImgDisabled;
 	int m_MenuIconSize;
@@ -136,12 +152,16 @@ private:
 	HMENU CreateDropMenu( const StdToolbarItem *pItem );
 	HMENU CreateDropMenuRec( const StdToolbarItem *pItem, std::vector<HMODULE> &modules, HMODULE hShell32 );
 	void SendEmail( void );
+	void SendToZip( void );
 	void NewFolder( void );
 	void ExecuteCommandFile( const wchar_t *pText );
 	void ExecuteCustomCommand( const wchar_t *pCommand );
 	void ViewByProperty( IFolderView2 *pView, const wchar_t *pProperty, bool bGroup );
+	void UpdateBag( void );
+	void UpdateFolderSettings( void );
 
 	static LRESULT CALLBACK ToolbarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+	static HRESULT __stdcall BagWriteHook( IPropertyBag *pThis, LPCOLESTR pszPropName, VARIANT *pVar );
 };
 
 
@@ -218,6 +238,8 @@ protected:
 
 	static LRESULT CALLBACK RebarSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
 	static LRESULT CALLBACK ParentSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
+
+	friend class CBandWindow;
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(ExplorerBand), CExplorerBand)

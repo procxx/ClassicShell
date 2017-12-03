@@ -1,17 +1,21 @@
-// Classic Shell (c) 2009-2013, Ivo Beltchev
-// The sources for Classic Shell are distributed under the MIT open source license
+// Classic Shell (c) 2009-2016, Ivo Beltchev
+// Confidential information of Ivo Beltchev. Not for disclosure or distribution without prior written consent from the author
 
 #pragma once
 
 #include <shobjidl.h>
 #include <vector>
 
-// Loads all strings from hLngInstance
-// pDialogs is a NULL-terminated list of dialog IDs. They are loaded from hLngInstance if possible, otherwise from hMainInstance
-void LoadTranslationResources( HINSTANCE hMainInstance, HINSTANCE hLngInstance, int *pDialogs );
+// Loads the best DLL for the given language
+HINSTANCE LoadTranslationDll( const wchar_t *langSetting );
+
+// Loads all strings and dialogs from hLngInstance
+// pDialogs is a NULL-terminated list of dialog IDs. They are loaded from hLngInstance if possible, otherwise from g_Instance
+void LoadTranslationResources( HINSTANCE hLngInstance, int *pDialogs );
 
 // Returns a localized string
 CString LoadStringEx( int stringID );
+CString LoadStringEnglish( int stringID );
 
 // Returns a localized dialog template
 DLGTEMPLATE *LoadDialogEx( int dlgID );
@@ -30,7 +34,10 @@ HICON ShExtractIcon( const char *path, int index, int iconSize );
 HBITMAP BitmapFromIcon( HICON hIcon, int iconSize, unsigned int **pBits, bool bDestroyIcon );
 
 // Loads an image file into a bitmap and optionally resizes it
-HBITMAP LoadImageFile( const wchar_t *path, const SIZE *pSize, bool bPremultiply );
+HBITMAP LoadImageFile( const wchar_t *path, const SIZE *pSize, bool bUseAlpha, bool bPremultiply, std::vector<unsigned int> *pButtonAnim );
+
+// Loads a bitmap from a IMAGE resource
+HBITMAP LoadImageResource( HMODULE hModule, const wchar_t *name, bool bTopDown, bool bPremultiply );
 
 // Premultiplies a DIB section by the alpha channel and a given color
 void PremultiplyBitmap( HBITMAP hBitmap, COLORREF rgb );
@@ -39,16 +46,25 @@ void PremultiplyBitmap( HBITMAP hBitmap, COLORREF rgb );
 HICON CreateDisabledIcon( HICON hIcon, int iconSize );
 
 // Returns the version of a given module
-DWORD GetVersionEx( HINSTANCE hInstance );
+DWORD GetVersionEx( HINSTANCE hInstance, DWORD *pBuild=NULL );
+
+const int WIN_VER_VISTA=0x600;
+const int WIN_VER_WIN7 =0x601;
+const int WIN_VER_WIN8 =0x602;
+const int WIN_VER_WIN81=0x603;
+const int WIN_VER_WIN10=0xA00;
 
 // Returns the Windows version - 0x600, 0x601, ...
 WORD GetWinVersion( void );
-const int WIN_VER_VISTA=0x600;
-const int WIN_VER_WIN7=0x601;
-const int WIN_VER_WIN8=0x602;
+
+// Returns true if the version is Win81 Update1
+bool IsWin81Update1( void );
+
+// Returns true if the version is Windows10 RS1 or later
+bool IsWin10RS1( void );
 
 // Wrapper for IShellFolder::ParseDisplayName
-HRESULT ShParseDisplayName( wchar_t *pszName, PIDLIST_ABSOLUTE *ppidl, SFGAOF sfgaoIn, SFGAOF *psfgaoOut );
+HRESULT ShParseDisplayName( const wchar_t *pszName, PIDLIST_ABSOLUTE *ppidl, SFGAOF sfgaoIn, SFGAOF *psfgaoOut );
 
 // Separates the arguments from the program
 // May return NULL if no arguments are found
@@ -56,3 +72,13 @@ const wchar_t *SeparateArguments( const wchar_t *command, wchar_t *program );
 
 // Replaces some common paths with environment variables
 void UnExpandEnvStrings( const wchar_t *src, wchar_t *dst, int size );
+
+void StringUpper( CString &str );
+
+// Create a font from the user settings
+HFONT CreateFontSetting( const wchar_t *fontStr, int dpi );
+
+extern HINSTANCE g_Instance;
+
+const int ANIM_BUTTON_TAG1='ANM';
+const int ANIM_BUTTON_TAG2='BTN';
